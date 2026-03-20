@@ -1,0 +1,134 @@
+/// Khata statistics providers for aggregated data
+/// Supports demo mode with local in-memory data
+library;
+
+import 'package:flutter/foundation.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:tulasihotels/core/services/demo_data_service.dart';
+import 'package:tulasihotels/core/services/offline_storage_service.dart';
+import 'package:tulasihotels/features/auth/providers/auth_provider.dart';
+import 'package:tulasihotels/features/khata/providers/khata_provider.dart';
+import 'package:tulasihotels/models/customer_model.dart';
+import 'package:tulasihotels/models/transaction_model.dart';
+
+/// Khata statistics model
+class KhataStats {
+  final double totalOutstanding;
+  final double collectedToday;
+  final int activeCustomers;
+  final int customersWithDue;
+
+  const KhataStats({
+    required this.totalOutstanding,
+    required this.collectedToday,
+    required this.activeCustomers,
+    required this.customersWithDue,
+  });
+
+  factory KhataStats.empty() => const KhataStats(
+    totalOutstanding: 0,
+    collectedToday: 0,
+    activeCustomers: 0,
+    customersWithDue: 0,
+  );
+}
+
+/// Provider for khata statistics â€” derives from customers stream
+final khataStatsProvider = FutureProvider<KhataStats>((ref) async {
+  final isDemoMode = ref.watch(isDemoModeProvider);
+  debugPrint('ðŸ“Š khataStatsProvider: isDemoMode=$isDemoMode');
+
+  // Watch the customers stream â€” this auto-updates when customers change
+  final customersAsync = ref.watch(customersProvider);
+  final customers = customersAsync.valueOrNull ?? [];
+
+  // Calculate total outstanding (sum of positive balances)
+  final totalOutstanding = customers.fold<double>(
+    0,
+    (sum, c) => sum + (c.balance > 0 ? c.balance : 0),
+  );
+
+  // Count customers with due
+  final customersWithDue = customers.where((c) => c.balance > 0).length;
+
+  // Calculate collected today â€” single query instead of N+1 per customer
+  double collectedToday = 0;
+  if (isDemoMode) {
+    // Demo mode: iterate in-memory (no Firestore cost)
+    final today = DateTime.now();
+    final startOfDay = DateTime(today.year, today.month, today.day);
+    for (final customer in customers) {
+      final transactions = DemoDataService.getCustomerTransactions(customer.id);
+      for (final tx in transactions) {
+        if (tx.type == TransactionType.payment &&
+            tx.createdAt.isAfter(startOfDay)) {
+          collectedToday += tx.amount;
+        }
+      }
+    }
+  } else {
+    // Production: single Firestore query (was N+1 before)
+    collectedToday = await OfflineStorageService.getTodayPaymentTotal();
+  }
+
+  debugPrint(
+    'ðŸ“Š KhataStats: ${customers.length} customers, outstanding: $totalOutstanding',
+  );
+
+  return KhataStats(
+    totalOutstanding: totalOutstanding,
+    collectedToday: collectedToday,
+    activeCustomers: customers.length,
+    customersWithDue: customersWithDue,
+  );
+});
+
+/// Selected customer provider for master-detail view
+final selectedCustomerIdProvider = StateProvider<String?>((ref) => null);
+
+/// Sort option for customer list
+enum CustomerSortOption { highestDebt, recentlyActive, alphabetical, oldestDue }
+
+final customerSortProvider = StateProvider<CustomerSortOption>(
+  (ref) => CustomerSortOption.highestDebt,
+);
+
+/// Sorted and filtered customers provider â€” derives from customers stream
+final sortedCustomersProvider = Provider<AsyncValue<List<CustomerModel>>>((
+  ref,
+) {
+  final customersAsync = ref.watch(customersProvider);
+  final sortOption = ref.watch(customerSortProvider);
+
+  return customersAsync.whenData((customers) {
+    debugPrint('ðŸ“‹ sortedCustomersProvider: ${customers.length} customers');
+    final sorted = List<CustomerModel>.from(customers);
+
+    switch (sortOption) {
+      case CustomerSortOption.highestDebt:
+        sorted.sort((a, b) => b.balance.compareTo(a.balance));
+        break;
+      case CustomerSortOption.recentlyActive:
+        sorted.sort((a, b) {
+          final aDate = a.lastTransactionAt ?? DateTime(1970);
+          final bDate = b.lastTransactionAt ?? DateTime(1970);
+          return bDate.compareTo(aDate);
+        });
+        break;
+      case CustomerSortOption.alphabetical:
+        sorted.sort(
+          (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
+        );
+        break;
+      case CustomerSortOption.oldestDue:
+        sorted.sort((a, b) {
+          final aDate = a.lastTransactionAt ?? DateTime.now();
+          final bDate = b.lastTransactionAt ?? DateTime.now();
+          return aDate.compareTo(bDate);
+        });
+        break;
+    }
+
+    return sorted;
+  });
+});

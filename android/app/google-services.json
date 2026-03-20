@@ -1,0 +1,206 @@
+{
+  "project_info": {
+    "project_number": "576503526807",
+    "project_id": "login-radha",
+    "storage_bucket": "login-radha.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:576503526807:android:e97b23f27db682422300d2",
+        "android_client_info": {
+          "package_name": "com.example.dataset"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "576503526807-gjpgq9da62trcc0t09gediob7uina6g0.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBqOxCE0Pzdkuwdb-cXOJ6qLBSzIAQVkqk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "576503526807-gjpgq9da62trcc0t09gediob7uina6g0.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "576503526807-7kammm2b146tiecimt9433pb6r46hm5m.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.jiomart"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:576503526807:android:4d2584d1051292ad2300d2",
+        "android_client_info": {
+          "package_name": "com.example.jiomart"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "576503526807-gjpgq9da62trcc0t09gediob7uina6g0.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBqOxCE0Pzdkuwdb-cXOJ6qLBSzIAQVkqk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "576503526807-gjpgq9da62trcc0t09gediob7uina6g0.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "576503526807-7kammm2b146tiecimt9433pb6r46hm5m.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.jiomart"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:576503526807:android:8b01290c6a28c6c32300d2",
+        "android_client_info": {
+          "package_name": "com.example.tulasihotels"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "576503526807-gjpgq9da62trcc0t09gediob7uina6g0.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBqOxCE0Pzdkuwdb-cXOJ6qLBSzIAQVkqk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "576503526807-gjpgq9da62trcc0t09gediob7uina6g0.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "576503526807-7kammm2b146tiecimt9433pb6r46hm5m.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.jiomart"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:576503526807:android:b3f9f9027d2309a62300d2",
+        "android_client_info": {
+          "package_name": "com.example.webbuilder"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "576503526807-gjpgq9da62trcc0t09gediob7uina6g0.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBqOxCE0Pzdkuwdb-cXOJ6qLBSzIAQVkqk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "576503526807-gjpgq9da62trcc0t09gediob7uina6g0.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "576503526807-7kammm2b146tiecimt9433pb6r46hm5m.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.jiomart"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:576503526807:android:82ea72b56f1d80262300d2",
+        "android_client_info": {
+          "package_name": "in.liteapp.tulasihotels"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "576503526807-v6sj9niq1ps2d454d85v38gv47nj994q.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "in.liteapp.tulasihotels",
+            "certificate_hash": "1d221b0b4fd9e53f1ca90d696fe25c42507468ee"
+          }
+        },
+        {
+          "client_id": "576503526807-vf7d8uuourj7nvkt9gj68c4kvo0udg50.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "in.liteapp.tulasihotels",
+            "certificate_hash": "a20d57824c27f93ddfbdea658d5af80b822d10f0"
+          }
+        },
+        {
+          "client_id": "576503526807-gjpgq9da62trcc0t09gediob7uina6g0.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBqOxCE0Pzdkuwdb-cXOJ6qLBSzIAQVkqk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "576503526807-gjpgq9da62trcc0t09gediob7uina6g0.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "576503526807-7kammm2b146tiecimt9433pb6r46hm5m.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.jiomart"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

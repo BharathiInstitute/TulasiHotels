@@ -1,0 +1,8 @@
+[
+  {
+    "origin": ["https://tulasihotels.web.app", "https://tulasihotels.firebaseapp.com", "https://liteapp.in"],
+    "method": ["GET", "HEAD", "PUT", "POST"],
+    "maxAgeSeconds": 3600,
+    "responseHeader": ["Content-Type", "Authorization", "Content-Length", "User-Agent", "x-goog-resumable"]
+  }
+]
