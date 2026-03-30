@@ -1,5 +1,5 @@
 /* ============================================
-   TULASI STORES Website — Main JavaScript
+   Tulasi Hotels Website — Main JavaScript
    ============================================ */
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -202,7 +202,7 @@ function initDevAppLinks() {
     .then(res => {
       if (res.ok || res.type === 'opaque') {
         // /app/ exists on this server (preview mode) — leave links as-is
-        console.log('[Tulasi Stores] /app/ found on same origin — production-like mode');
+        console.log('[Tulasi Hotels] /app/ found on same origin — production-like mode');
         return;
       }
       rewriteAppLinks();
@@ -224,13 +224,13 @@ function rewriteAppLinks() {
   // Layer 3: Check which port is actually alive before rewriting
   findAliveServer(candidates).then(aliveUrl => {
     if (aliveUrl) {
-      console.log('[Tulasi Stores] Flutter dev server found at', aliveUrl);
-      document.querySelectorAll('a[href="https://stores.tulasierp.com/app/"], a[href="/app/"], a[href="/app"]').forEach(link => {
+      console.log('[Tulasi Hotels] Flutter dev server found at', aliveUrl);
+      document.querySelectorAll('a[href="/app/"], a[href="/app"]').forEach(link => {
         link.href = aliveUrl;
       });
     } else {
-      console.warn('[Tulasi Stores] No Flutter dev server found. "Open App" will show a helpful message.');
-      document.querySelectorAll('a[href="https://stores.tulasierp.com/app/"], a[href="/app/"], a[href="/app"]').forEach(link => {
+      console.warn('[Tulasi Hotels] No Flutter dev server found. "Open App" will show a helpful message.');
+      document.querySelectorAll('a[href="/app/"], a[href="/app"]').forEach(link => {
         link.addEventListener('click', (e) => {
           e.preventDefault();
           alert(

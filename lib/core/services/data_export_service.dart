@@ -248,12 +248,12 @@ class DataExportService {
       csvContent.writeln();
       csvContent.writeln('Metric,Value');
       csvContent.writeln('Total Bills,$billCount');
-      csvContent.writeln('Total Sales,Ã¢â€šÂ¹${totalSales.toStringAsFixed(2)}');
-      csvContent.writeln('Cash Sales,Ã¢â€šÂ¹${cashAmount.toStringAsFixed(2)}');
-      csvContent.writeln('UPI Sales,Ã¢â€šÂ¹${upiAmount.toStringAsFixed(2)}');
-      csvContent.writeln('Credit Sales,Ã¢â€šÂ¹${udharAmount.toStringAsFixed(2)}');
+      csvContent.writeln('Total Sales,₹${totalSales.toStringAsFixed(2)}');
+      csvContent.writeln('Cash Sales,₹${cashAmount.toStringAsFixed(2)}');
+      csvContent.writeln('UPI Sales,₹${upiAmount.toStringAsFixed(2)}');
+      csvContent.writeln('Credit Sales,₹${udharAmount.toStringAsFixed(2)}');
       csvContent.writeln(
-        'Average Bill,Ã¢â€šÂ¹${billCount > 0 ? (totalSales / billCount).toStringAsFixed(2) : '0.00'}',
+        'Average Bill,₹${billCount > 0 ? (totalSales / billCount).toStringAsFixed(2) : '0.00'}',
       );
 
       final fileName = 'summary_${monthName.toLowerCase()}_$year';
@@ -329,10 +329,10 @@ class DataExportService {
         fileName: '$name.$ext',
         bytes: bytes,
       );
-      debugPrint('Ã°Å¸â€œÂ¥ Web export download triggered: $name.$ext');
+      debugPrint('📥 Web export download triggered: $name.$ext');
       return 'web_export://$name.$ext';
     } catch (e) {
-      debugPrint('Ã¢ÂÅ’ Web download error: $e');
+      debugPrint('❌ Web download error: $e');
       return 'web_export://$name.$ext';
     }
   }
@@ -343,7 +343,7 @@ class DataExportService {
   /// Web: share_plus handles web sharing/download
   static Future<void> shareExportedFile(String filePath) async {
     if (kIsWeb) {
-      debugPrint('Ã°Å¸â€œÂ¤ Web: Use share_plus shareXFiles for web sharing');
+      debugPrint('📤 Web: Use share_plus shareXFiles for web sharing');
       return;
     }
 
@@ -351,15 +351,15 @@ class DataExportService {
       // Use share_plus to show system share sheet
       try {
         await Share.shareXFiles([XFile(filePath)]);
-        debugPrint('Ã°Å¸â€œÂ¤ Share sheet opened for: $filePath');
+        debugPrint('📤 Share sheet opened for: $filePath');
       } catch (e) {
-        debugPrint('Ã¢ÂÅ’ Share failed: $e');
+        debugPrint('❌ Share failed: $e');
       }
     } else if (Platform.isWindows) {
       // Open containing folder in Explorer
       await openExportFolder(filePath);
     } else {
-      debugPrint('Ã¢â€žÂ¹Ã¯Â¸Â No platform-specific share action for this platform');
+      debugPrint('ℹ️ No platform-specific share action for this platform');
     }
   }
 
@@ -369,14 +369,14 @@ class DataExportService {
 
     try {
       await Process.run('explorer', ['/select,', filePath]);
-      debugPrint('Ã°Å¸â€œâ€š Opened folder for: $filePath');
+      debugPrint('📂 Opened folder for: $filePath');
     } catch (e) {
       // Fallback: open the folder itself
       try {
         final folder = File(filePath).parent.path;
         await Process.run('explorer', [folder]);
       } catch (e2) {
-        debugPrint('Ã¢ÂÅ’ Failed to open folder: $e2');
+        debugPrint('❌ Failed to open folder: $e2');
       }
     }
   }
@@ -392,17 +392,17 @@ class DataExportService {
     if (filePath == null) return 'Export completed';
 
     if (kIsWeb) {
-      return 'Ã¢Å“â€¦ ${result.recordCount} records exported Ã¢â‚¬â€ download started';
+      return '✅ ${result.recordCount} records exported — download started';
     }
 
     // Share on Android/iOS, open folder on Windows
     await shareExportedFile(filePath);
 
     if (!kIsWeb && Platform.isWindows) {
-      return 'Ã¢Å“â€¦ ${result.recordCount} records exported to:\n$filePath';
+      return '✅ ${result.recordCount} records exported to:\n$filePath';
     }
 
-    return 'Ã¢Å“â€¦ ${result.recordCount} records exported';
+    return '✅ ${result.recordCount} records exported';
   }
 
   String _prettyPrintJson(List<Map<String, dynamic>> data) {

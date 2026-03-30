@@ -85,7 +85,7 @@ class _BillingSettingsScreenState extends ConsumerState<BillingSettingsScreen> {
           _invoiceLogoBytes = bytes;
         });
       } catch (_) {
-        // Could not read bytes â€” ignore
+        // Could not read bytes — ignore
       }
     }
   }
@@ -99,7 +99,7 @@ class _BillingSettingsScreenState extends ConsumerState<BillingSettingsScreen> {
           _upiQrBytes = bytes;
         });
       } catch (_) {
-        // Could not read bytes â€” ignore
+        // Could not read bytes — ignore
       }
     }
   }
@@ -126,31 +126,31 @@ class _BillingSettingsScreenState extends ConsumerState<BillingSettingsScreen> {
               ),
               const SizedBox(height: 16),
               const Text(
-                'ðŸ¥‡ PhonePe Business (Recommended)',
+                '🥇 PhonePe Business (Recommended)',
                 style: TextStyle(fontWeight: FontWeight.bold),
               ),
-              const Text('â€¢ Download from Play Store / App Store'),
-              const Text('â€¢ Enter PAN + link bank account'),
-              const Text('â€¢ Setup time: ~5 minutes'),
-              const Text('â€¢ Cost: â‚¹0 forever'),
+              const Text('• Download from Play Store / App Store'),
+              const Text('• Enter PAN + link bank account'),
+              const Text('• Setup time: ~5 minutes'),
+              const Text('\u{2022} Cost: \u{20B9}0 forever'),
               const SizedBox(height: 12),
               const Text(
-                'ðŸ¥ˆ Google Pay for Business',
+                '\u{1F948} Google Pay for Business',
                 style: TextStyle(fontWeight: FontWeight.bold),
               ),
-              const Text('â€¢ Download from Play Store'),
-              const Text('â€¢ Links to existing Google account'),
-              const Text('â€¢ Setup time: ~10 minutes'),
-              const Text('â€¢ Cost: â‚¹0 forever'),
+              const Text('• Download from Play Store'),
+              const Text('• Links to existing Google account'),
+              const Text('• Setup time: ~10 minutes'),
+              const Text('\u{2022} Cost: \u{20B9}0 forever'),
               const SizedBox(height: 12),
               const Text(
-                'ðŸ¥‰ BharatPe',
+                '\u{1F949} BharatPe',
                 style: TextStyle(fontWeight: FontWeight.bold),
               ),
-              const Text('â€¢ Download from Play Store'),
-              const Text('â€¢ Free QR stand delivered to shop'),
-              const Text('â€¢ Setup time: ~15 minutes'),
-              const Text('â€¢ Cost: â‚¹0 forever'),
+              const Text('• Download from Play Store'),
+              const Text('• Free QR stand delivered to shop'),
+              const Text('• Setup time: ~15 minutes'),
+              const Text('\u{2022} Cost: \u{20B9}0 forever'),
               const SizedBox(height: 16),
               Text(
                 'After setup, copy your Business UPI ID and paste it above.',
@@ -368,9 +368,9 @@ class _BillingSettingsScreenState extends ConsumerState<BillingSettingsScreen> {
           ),
           const SizedBox(height: 24),
 
-          // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-          // UPI Payment Setup Section â€” all 4 improvements
-          // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+          // ═══════════════════════════════════════════════
+          // UPI Payment Setup Section — all 4 improvements
+          // ═══════════════════════════════════════════════
           _buildSectionHeader(theme, 'UPI Payment Setup'),
           Card(
             child: Padding(
@@ -378,7 +378,7 @@ class _BillingSettingsScreenState extends ConsumerState<BillingSettingsScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // â”€â”€ 1. UPI ID Input with validation â”€â”€
+                  // ── 1. UPI ID Input with validation ──
                   TextField(
                     controller: _upiIdController,
                     decoration: InputDecoration(
@@ -401,7 +401,7 @@ class _BillingSettingsScreenState extends ConsumerState<BillingSettingsScreen> {
                   ),
                   const SizedBox(height: 8),
 
-                  // â”€â”€ 3. Setup guide link â”€â”€
+                  // ── 3. Setup guide link ──
                   InkWell(
                     onTap: _showBusinessUpiGuide,
                     child: Padding(
@@ -428,7 +428,7 @@ class _BillingSettingsScreenState extends ConsumerState<BillingSettingsScreen> {
                   ),
                   const SizedBox(height: 16),
 
-                  // â”€â”€ 2. Auto-generated QR Code â”€â”€
+                  // ── 2. Auto-generated QR Code ──
                   if (isValidUpi) ...[
                     Text(
                       'Auto-Generated QR Code',
@@ -463,13 +463,13 @@ class _BillingSettingsScreenState extends ConsumerState<BillingSettingsScreen> {
                     ),
                     const SizedBox(height: 16),
 
-                    // â”€â”€ 4. Test Payment Button â”€â”€
+                    // ── 4. Test Payment Button ──
                     SizedBox(
                       width: double.infinity,
                       child: OutlinedButton.icon(
                         onPressed: _sendTestPayment,
                         icon: const Icon(Icons.send, size: 18),
-                        label: const Text('Send â‚¹1 Test Payment'),
+                        label: const Text('Send \u{20B9}1 Test Payment'),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: AppColors.primary,
                           padding: const EdgeInsets.symmetric(vertical: 12),
@@ -479,7 +479,7 @@ class _BillingSettingsScreenState extends ConsumerState<BillingSettingsScreen> {
                     const SizedBox(height: 4),
                     Center(
                       child: Text(
-                        'Verify your UPI ID by sending â‚¹1 to yourself',
+                        'Verify your UPI ID by sending \u{20B9}1 to yourself',
                         style: TextStyle(
                           fontSize: 11,
                           color: theme.colorScheme.outline,
@@ -633,7 +633,7 @@ class _BillingSettingsScreenState extends ConsumerState<BillingSettingsScreen> {
           );
         }
       } catch (e, st) {
-        debugPrint('âš ï¸ Billing settings Firestore sync failed: $e');
+        debugPrint('⚠️ Billing settings Firestore sync failed: $e');
         ErrorLoggingService.logError(
           error: e,
           stackTrace: st,

@@ -210,7 +210,7 @@ class _HardwareSettingsScreenState
     }
   }
 
-  // â”€â”€â”€ WiFi Printer Methods â”€â”€â”€
+  // ─── WiFi Printer Methods ───
 
   Future<void> _connectWifiPrinter() async {
     final ip = _wifiIpController.text.trim();
@@ -261,7 +261,7 @@ class _HardwareSettingsScreenState
     }
   }
 
-  // â”€â”€â”€ USB Printer Methods (Windows) â”€â”€â”€
+  // ─── USB Printer Methods (Windows) ───
 
   Future<void> _loadWindowsPrinters() async {
     setState(() => _isLoadingUsbPrinters = true);
@@ -417,7 +417,7 @@ class _HardwareSettingsScreenState
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            'High storage usage â€” data will never be auto-deleted',
+                            'High storage usage — data will never be auto-deleted',
                             style: TextStyle(
                               fontSize: 12,
                               color: Colors.orange.shade700,
@@ -499,7 +499,7 @@ class _HardwareSettingsScreenState
     );
   }
 
-  // â”€â”€â”€ Printer Type Card â”€â”€â”€
+  // ─── Printer Type Card ───
   Widget _buildPrinterTypeCard(ThemeData theme, PrinterState printerState) {
     final showBluetooth = !kIsWeb && (Platform.isAndroid || Platform.isIOS);
     const showWifi = !kIsWeb;
@@ -624,7 +624,7 @@ class _HardwareSettingsScreenState
     );
   }
 
-  // â”€â”€â”€ Bluetooth Section â”€â”€â”€
+  // ─── Bluetooth Section ───
   Widget _buildBluetoothSection(ThemeData theme, PrinterState printerState) {
     return Column(
       children: [
@@ -746,7 +746,7 @@ class _HardwareSettingsScreenState
     );
   }
 
-  // â”€â”€â”€ WiFi Printer Section â”€â”€â”€
+  // ─── WiFi Printer Section ───
   Widget _buildWifiSection(ThemeData theme) {
     final isConnected = WifiPrinterService.isConnected;
 
@@ -878,7 +878,7 @@ class _HardwareSettingsScreenState
     );
   }
 
-  // â”€â”€â”€ USB Printer Section (Windows) â”€â”€â”€
+  // ─── USB Printer Section (Windows) ───
   Widget _buildUsbSection(ThemeData theme) {
     final savedName = UsbPrinterService.getSavedPrinterName();
 
@@ -988,7 +988,7 @@ class _HardwareSettingsScreenState
     );
   }
 
-  // â”€â”€â”€ Paper Settings Card â”€â”€â”€
+  // ─── Paper Settings Card ───
   Widget _buildPaperSettingsCard(ThemeData theme, PrinterState printerState) {
     return Card(
       child: Padding(
@@ -1066,7 +1066,7 @@ class _HardwareSettingsScreenState
     );
   }
 
-  // â”€â”€â”€ Receipt Settings Card â”€â”€â”€
+  // ─── Receipt Settings Card ───
   Widget _buildReceiptSettingsCard(ThemeData theme, PrinterState printerState) {
     return Card(
       child: Padding(

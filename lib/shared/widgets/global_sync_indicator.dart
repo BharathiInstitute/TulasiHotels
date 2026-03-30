@@ -1,4 +1,4 @@
-/// Global sync indicator â€” shows â˜ï¸âœ… or âš ï¸ count in AppBar
+/// Global sync indicator — shows ☁️✅ or ⚠️ count in AppBar
 library;
 
 import 'package:flutter/material.dart';

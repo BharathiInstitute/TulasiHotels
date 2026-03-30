@@ -768,7 +768,7 @@ exports.onNewUserSignup = functions
         .doc(userId)
         .collection("notifications")
         .add({
-        title: "Welcome to RetailLite! 🎉",
+        title: "Welcome to Tulasi Hotels! 🎉",
         body: `Hi ${ownerName}, your shop "${shopName}" is all set up. Start adding products and making sales!`,
         type: "system",
         targetType: "user",
@@ -1222,7 +1222,7 @@ exports.checkChurnedUsers = functions
     const messages = {
         7: {
             title: "आपकी दुकान का इंतजार है! 🏪",
-            body: "7 दिनों से कोई bill नहीं बनाया। RetailLite पर वापस आएं और अपना कारोबार बढ़ाएं।",
+            body: "7 दिनों से कोई bill नहीं बनाया। Tulasi Hotels पर वापस आएं और अपना कारोबार बढ़ाएं।",
         },
         14: {
             title: "वापस आएं — 30 दिन Pro plan मुफ्त 🎁",
@@ -1230,7 +1230,7 @@ exports.checkChurnedUsers = functions
         },
         30: {
             title: "We miss you, shopkeeper! 🙏",
-            body: "आपकी दुकान 30 दिनों से बंद है RetailLite पर। क्या कोई दिक्कत है? हम मदद करने के लिए यहाँ हैं।",
+            body: "आपकी दुकान 30 दिनों से बंद है Tulasi Hotels पर। क्या कोई दिक्कत है? हम मदद करने के लिए यहाँ हैं।",
         },
     };
     console.log("👋 Checking for churned users...");
@@ -1947,7 +1947,6 @@ exports.seedAdmins = functions
         ? adminEmailsEnv.split(",").map(e => e.trim()).filter(e => e.length > 0)
         : [
             "kehsaram001@gmail.com",
-            "admin@retaillite.com",
             "bharathiinstitute1@gmail.com",
             "bharahiinstitute1@gmail.com",
             "shivamsingh8556@gmail.com",
@@ -2151,7 +2150,7 @@ exports.scheduledFirestoreBackup = functions
     .pubsub.schedule("30 20 * * *") // 2:00 AM IST = 20:30 UTC
     .timeZone("Asia/Kolkata")
     .onRun(async () => {
-    const projectId = process.env.GCP_PROJECT || process.env.GCLOUD_PROJECT || "retaillite";
+    const projectId = process.env.GCP_PROJECT || process.env.GCLOUD_PROJECT || "login1-aa21c";
     const bucket = `gs://${projectId}-firestore-backups`;
     const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
     try {
@@ -2246,7 +2245,6 @@ exports.seedUserUsage = functions
     const adminDoc = await db.collection("admins").doc(callerEmail).get();
     const hardcodedAdmins = [
         "kehsaram001@gmail.com",
-        "admin@retaillite.com",
     ];
     if (!adminDoc.exists && !hardcodedAdmins.includes(callerEmail)) {
         throw new functions.https.HttpsError("permission-denied", "Admin access required");

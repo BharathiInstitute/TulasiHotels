@@ -87,7 +87,7 @@ class SubscriptionsScreen extends ConsumerWidget {
 
             const SizedBox(height: 24),
 
-            // Manage Subscriptions â€” full user list
+            // Manage Subscriptions — full user list
             _buildManageSection(ref),
           ],
         ),
@@ -99,7 +99,7 @@ class SubscriptionsScreen extends ConsumerWidget {
     final cards = [
       _StatCard(
         title: 'MRR',
-        value: 'â‚¹${stats.mrr.toStringAsFixed(0)}',
+        value: '\u{20B9}${stats.mrr.toStringAsFixed(0)}',
         subtitle: 'Monthly Recurring',
         icon: Icons.currency_rupee,
         color: Colors.green,
@@ -209,7 +209,7 @@ class SubscriptionsScreen extends ConsumerWidget {
                           Text(
                             (plan['price'] as int) == 0
                                 ? 'Free forever'
-                                : 'â‚¹${plan['price']}/month',
+                                : '\u{20B9}${plan['price']}/month',
                             style: TextStyle(
                               color: Colors.grey.shade600,
                               fontSize: 12,
@@ -219,7 +219,7 @@ class SubscriptionsScreen extends ConsumerWidget {
                       ),
                     ),
                     Text(
-                      'â‚¹${((plan['count'] as int) * (plan['price'] as int))}/mo',
+                      '\u{20B9}${((plan['count'] as int) * (plan['price'] as int))}/mo',
                       style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
                   ],
@@ -235,7 +235,7 @@ class SubscriptionsScreen extends ConsumerWidget {
                   style: TextStyle(fontWeight: FontWeight.bold),
                 ),
                 Text(
-                  'â‚¹${stats.mrr.toStringAsFixed(0)}',
+                  '\u{20B9}${stats.mrr.toStringAsFixed(0)}',
                   style: const TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
@@ -344,7 +344,7 @@ class SubscriptionsScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              'â‚¹${stats.mrr.toStringAsFixed(0)}',
+              '\u{20B9}${stats.mrr.toStringAsFixed(0)}',
               style: const TextStyle(
                 color: Colors.white,
                 fontSize: 48,
@@ -355,7 +355,7 @@ class SubscriptionsScreen extends ConsumerWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                _buildRevenueInfo('Pro Users', '${stats.proUsers} Ã— â‚¹299'),
+                _buildRevenueInfo('Pro Users', '${stats.proUsers} \u{00D7} \u{20B9}299'),
                 Container(
                   width: 1,
                   height: 30,
@@ -364,7 +364,7 @@ class SubscriptionsScreen extends ConsumerWidget {
                 ),
                 _buildRevenueInfo(
                   'Business Users',
-                  '${stats.businessUsers} Ã— â‚¹999',
+                  '${stats.businessUsers} \u{00D7} \u{20B9}999',
                 ),
               ],
             ),
@@ -495,7 +495,7 @@ class SubscriptionsScreen extends ConsumerWidget {
         user.shopName,
         style: const TextStyle(fontWeight: FontWeight.w600),
       ),
-      subtitle: Text('${user.email} â€¢ ${user.ownerName}'),
+      subtitle: Text('${user.email} • ${user.ownerName}'),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [

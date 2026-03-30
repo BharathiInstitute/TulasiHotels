@@ -202,7 +202,7 @@ class _GiveUdhaarModalState extends ConsumerState<GiveUdhaarModal> {
                             style: Theme.of(context).textTheme.titleMedium,
                           ),
                           Text(
-                            'Current à¤¬à¤¾à¤•à¥€: ${balance.asCurrency}',
+                            'Current बाकी: ${balance.asCurrency}',
                             style: TextStyle(
                               color: balance > 0
                                   ? AppColors.error
@@ -227,7 +227,7 @@ class _GiveUdhaarModalState extends ConsumerState<GiveUdhaarModal> {
                 ],
                 decoration: const InputDecoration(
                   labelText: 'Credit Amount',
-                  prefixText: 'â‚¹ ',
+                  prefixText: '\u{20B9} ',
                   hintText: '0.00',
                 ),
                 onChanged: (_) => setState(() {}),
@@ -240,28 +240,28 @@ class _GiveUdhaarModalState extends ConsumerState<GiveUdhaarModal> {
                 runSpacing: 8,
                 children: [
                   _QuickAmountChip(
-                    label: 'â‚¹100',
+                    label: '\u{20B9}100',
                     onTap: () {
                       _amountController.text = '100';
                       setState(() {});
                     },
                   ),
                   _QuickAmountChip(
-                    label: 'â‚¹500',
+                    label: '\u{20B9}500',
                     onTap: () {
                       _amountController.text = '500';
                       setState(() {});
                     },
                   ),
                   _QuickAmountChip(
-                    label: 'â‚¹1000',
+                    label: '\u{20B9}1000',
                     onTap: () {
                       _amountController.text = '1000';
                       setState(() {});
                     },
                   ),
                   _QuickAmountChip(
-                    label: 'â‚¹2000',
+                    label: '\u{20B9}2000',
                     onTap: () {
                       _amountController.text = '2000';
                       setState(() {});
@@ -302,7 +302,7 @@ class _GiveUdhaarModalState extends ConsumerState<GiveUdhaarModal> {
                         color: AppColors.warning,
                       ),
                       const SizedBox(width: 8),
-                      const Text('New à¤¬à¤¾à¤•à¥€: '),
+                      const Text('New बाकी: '),
                       Text(
                         (balance + _amount).asCurrency,
                         style: Theme.of(context).textTheme.titleMedium
@@ -317,7 +317,7 @@ class _GiveUdhaarModalState extends ConsumerState<GiveUdhaarModal> {
 
               // Submit button
               AppButton(
-                label: 'âž– GIVE UDHAAR',
+                label: '➖ GIVE UDHAAR',
                 onPressed: _amount > 0 ? _giveUdhaar : null,
                 isLoading: _isLoading,
                 backgroundColor: AppColors.error,

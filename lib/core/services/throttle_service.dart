@@ -1,4 +1,4 @@
-/// Client-side write throttle service.
+﻿/// Client-side write throttle service.
 ///
 /// Prevents rapid-fire writes to Firestore by enforcing a minimum
 /// interval between operations. This is the primary rate-limiting
@@ -38,7 +38,7 @@ class ThrottleService {
     // Check cooldown
     final lastWrite = _lastWriteTime[operation];
     if (lastWrite != null && now.difference(lastWrite) < cd) {
-      debugPrint('⏳ Throttled: $operation (cooldown ${cd.inMilliseconds}ms)');
+      debugPrint('? Throttled: $operation (cooldown ${cd.inMilliseconds}ms)');
       return false;
     }
 
@@ -50,7 +50,7 @@ class ThrottleService {
     bursts.removeWhere((t) => now.difference(t) > const Duration(minutes: 1));
 
     if (bursts.length >= _maxWritesPerMinute) {
-      debugPrint('🚫 Rate limited: $operation ($_maxWritesPerMinute/min)');
+      debugPrint('?? Rate limited: $operation ($_maxWritesPerMinute/min)');
       return false;
     }
 

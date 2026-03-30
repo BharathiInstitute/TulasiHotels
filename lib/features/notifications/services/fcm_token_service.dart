@@ -1,4 +1,4 @@
-/// FCM Token Service — saves device FCM token to Firestore for push notifications
+﻿/// FCM Token Service — saves device FCM token to Firestore for push notifications
 library;
 
 import 'dart:async';
@@ -25,7 +25,7 @@ class FCMTokenService {
       final settings = await _messaging.requestPermission();
 
       if (settings.authorizationStatus == AuthorizationStatus.denied) {
-        debugPrint('🔕 FCM permission denied');
+        debugPrint('?? FCM permission denied');
         return;
       }
 
@@ -44,11 +44,11 @@ class FCMTokenService {
       }
 
       if (token == null) {
-        debugPrint('⚠️ FCM token is null');
+        debugPrint('?? FCM token is null');
         return;
       }
 
-      debugPrint('📱 FCM token: ${token.substring(0, 20)}...');
+      debugPrint('?? FCM token: ${token.substring(0, 20)}...');
 
       // Save token to Firestore under the user's document
       await _firestore.collection('users').doc(userId).set({
@@ -56,19 +56,19 @@ class FCMTokenService {
         'lastTokenUpdate': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
 
-      debugPrint('✅ FCM token saved for user $userId');
+      debugPrint('? FCM token saved for user $userId');
 
       // Listen for token refresh (cancel previous listener first)
       await _tokenRefreshSub?.cancel();
       _tokenRefreshSub = _messaging.onTokenRefresh.listen((newToken) async {
-        debugPrint('🔄 FCM token refreshed');
+        debugPrint('?? FCM token refreshed');
         await _firestore.collection('users').doc(userId).set({
           'fcmTokens': FieldValue.arrayUnion([newToken]),
           'lastTokenUpdate': FieldValue.serverTimestamp(),
         }, SetOptions(merge: true));
       });
     } catch (e) {
-      debugPrint('❌ FCM token error: $e');
+      debugPrint('? FCM token error: $e');
     }
   }
 
@@ -86,10 +86,10 @@ class FCMTokenService {
         await _firestore.collection('users').doc(userId).update({
           'fcmTokens': FieldValue.arrayRemove([token]),
         });
-        debugPrint('🗑️ FCM token removed for user $userId');
+        debugPrint('??? FCM token removed for user $userId');
       }
     } catch (e) {
-      debugPrint('❌ FCM token removal error: $e');
+      debugPrint('? FCM token removal error: $e');
     }
   }
 }

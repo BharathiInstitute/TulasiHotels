@@ -8,6 +8,7 @@ import 'package:tulasihotels/core/services/offline_storage_service.dart';
 import 'package:tulasihotels/core/utils/id_generator.dart';
 import 'package:tulasihotels/features/auth/providers/auth_provider.dart';
 import 'package:tulasihotels/models/bill_model.dart';
+import 'package:tulasihotels/models/order_model.dart';
 
 /// Today's bills provider - reads from demo data or Firestore
 final todayBillsProvider = FutureProvider<List<BillModel>>((ref) async {
@@ -27,7 +28,7 @@ final todayBillsProvider = FutureProvider<List<BillModel>>((ref) async {
   return bills;
 });
 
-/// Today's summary provider â€” derives from todayBillsProvider to avoid duplicate fetch
+/// Today's summary provider — derives from todayBillsProvider to avoid duplicate fetch
 final todaySummaryProvider = FutureProvider<Map<String, dynamic>>((ref) async {
   final todayBills = await ref.watch(todayBillsProvider.future);
 
@@ -106,5 +107,109 @@ class BillingService {
     }
 
     return bill;
+  }
+
+  /// Create a bill from a completed hotel order.
+  /// Converts OrderItems → CartItems, applies discount & service charge,
+  /// saves the bill, and returns it.
+  static Future<BillModel> createBillFromOrder({
+    required OrderModel order,
+    required PaymentMethod paymentMethod,
+    double discount = 0,
+    double serviceChargePercent = 0,
+    String? customerId,
+    String? customerName,
+    double? receivedAmount,
+  }) async {
+    final cartItems = order.items.map((e) => e.toCartItem()).toList();
+    final subtotal = order.total;
+    final serviceCharge = subtotal * serviceChargePercent / 100;
+    final total = subtotal - discount + serviceCharge;
+
+    final now = DateTime.now();
+    final dateStr =
+        '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+
+    final bill = BillModel(
+      id: generateSafeId('bill'),
+      billNumber: await OfflineStorageService.getNextBillNumber(),
+      items: cartItems,
+      total: total,
+      paymentMethod: paymentMethod,
+      customerId: customerId,
+      customerName: customerName,
+      receivedAmount: receivedAmount ?? total,
+      createdAt: now,
+      date: dateStr,
+      orderId: order.id,
+      tableId: order.tableId,
+      tableName: order.tableName,
+      waiterId: order.waiterId,
+      waiterName: order.waiterName,
+      orderType: order.orderType.name,
+      subtotal: subtotal,
+      discount: discount,
+      serviceCharge: serviceCharge,
+    );
+
+    if (paymentMethod == PaymentMethod.udhar && customerId != null) {
+      await OfflineStorageService.saveBillWithUdharAtomic(
+        bill: bill,
+        customerId: customerId,
+        amount: total,
+      );
+    } else {
+      await OfflineStorageService.saveBillLocally(bill);
+    }
+
+    return bill;
+  }
+
+  /// Create multiple split bills from an order
+  static Future<List<BillModel>> createSplitBills({
+    required OrderModel order,
+    required List<List<OrderItem>> splits,
+    required PaymentMethod paymentMethod,
+    double discountPercent = 0,
+  }) async {
+    final bills = <BillModel>[];
+    final parentId = generateSafeId('bill');
+    final now = DateTime.now();
+    final dateStr =
+        '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+
+    for (var i = 0; i < splits.length; i++) {
+      final splitItems = splits[i];
+      final cartItems = splitItems.map((e) => e.toCartItem()).toList();
+      final subtotal =
+          splitItems.fold<double>(0, (s, item) => s + item.price * item.quantity);
+      final discount = subtotal * discountPercent / 100;
+      final total = subtotal - discount;
+
+      final bill = BillModel(
+        id: i == 0 ? parentId : generateSafeId('bill'),
+        billNumber: await OfflineStorageService.getNextBillNumber(),
+        items: cartItems,
+        total: total,
+        paymentMethod: paymentMethod,
+        createdAt: now,
+        date: dateStr,
+        orderId: order.id,
+        tableId: order.tableId,
+        tableName: order.tableName,
+        waiterId: order.waiterId,
+        waiterName: order.waiterName,
+        orderType: order.orderType.name,
+        subtotal: subtotal,
+        discount: discount,
+        parentBillId: i == 0 ? null : parentId,
+        splitIndex: i + 1,
+      );
+
+      await OfflineStorageService.saveBillLocally(bill);
+      bills.add(bill);
+    }
+
+    return bills;
   }
 }

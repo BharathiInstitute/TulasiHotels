@@ -122,6 +122,15 @@ class CartNotifier extends StateNotifier<CartState> {
   void clearCart() {
     state = const CartState();
   }
+
+  /// Populate cart from an existing bill (reorder feature)
+  void populateFromBill(BillModel bill) {
+    state = CartState(
+      items: List.from(bill.items),
+      customerId: bill.customerId,
+      customerName: bill.customerName,
+    );
+  }
 }
 
 /// Cart provider

@@ -16,7 +16,7 @@ import 'package:tulasihotels/models/theme_settings_model.dart';
 final themeSettingsProvider =
     StateNotifierProvider<ThemeSettingsNotifier, ThemeSettingsModel>((ref) {
       // Theme reload is triggered by ref.invalidate() from auth provider
-      // after login/logout â€” NOT by watching authNotifierProvider
+      // after login/logout — NOT by watching authNotifierProvider
       // (watching auth causes a provider rebuild cycle that resets auth state).
       return ThemeSettingsNotifier();
     });
@@ -48,7 +48,7 @@ class ThemeSettingsNotifier extends StateNotifier<ThemeSettingsModel> {
     _loadFromCloud();
   }
 
-  /// Synchronous load from SharedPreferences â€” no flash of wrong theme
+  /// Synchronous load from SharedPreferences — no flash of wrong theme
   void _loadLocalSync() {
     try {
       // Load from JSON format (current standard)
@@ -58,7 +58,7 @@ class ThemeSettingsNotifier extends StateNotifier<ThemeSettingsModel> {
       if (json != null) {
         state = ThemeSettingsModel.fromJson(json);
         AppColors.updatePrimary(state.primaryColor);
-        debugPrint('âœ… Theme settings loaded instantly from local cache (JSON)');
+        debugPrint('✅ Theme settings loaded instantly from local cache (JSON)');
         return;
       }
     } catch (e) {
@@ -66,7 +66,7 @@ class ThemeSettingsNotifier extends StateNotifier<ThemeSettingsModel> {
     }
   }
 
-  /// Async cloud fetch â€” updates if cloud has newer data
+  /// Async cloud fetch — updates if cloud has newer data
   Future<void> _loadFromCloud() async {
     try {
       // On Windows desktop, delay theme cloud fetch to let initial Firestore
@@ -90,7 +90,7 @@ class ThemeSettingsNotifier extends StateNotifier<ThemeSettingsModel> {
           AppColors.updatePrimary(state.primaryColor);
           // Persist to local so next refresh is instant
           unawaited(_saveSettings());
-          debugPrint('âœ… Theme settings updated from cloud');
+          debugPrint('✅ Theme settings updated from cloud');
         }
       }
     } catch (e) {
@@ -224,7 +224,7 @@ ThemeData _buildTheme(ThemeSettingsModel settings, Brightness brightness) {
       return GoogleFonts.getTextTheme(settings.fontFamily, scaled);
     } catch (e) {
       debugPrint(
-        'âš ï¸ Font "${settings.fontFamily}" unavailable, falling back to default: $e',
+        '⚠️ Font "${settings.fontFamily}" unavailable, falling back to default: $e',
       );
       return scaled;
     }

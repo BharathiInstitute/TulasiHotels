@@ -38,50 +38,54 @@ class DefaultFirebaseOptions {
     }
   }
 
-  // Firebase project values â€” run 'flutterfire configure' to regenerate
+  // Firebase project values — run 'flutterfire configure' to regenerate
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyAA5Y-43RM2IItOsWpbygeHQhVbU2zFe48',
-    appId: '1:576503526807:web:23cf36d320396b512300d2',
-    messagingSenderId: '576503526807',
-    projectId: 'login-radha',
-    authDomain: 'login-radha.firebaseapp.com',
-    storageBucket: 'login-radha.firebasestorage.app',
-    measurementId: 'G-WXNLFN8HEB',
+    apiKey: 'AIzaSyBPk0ATdBY6g_cGEJerP1m2RSEICWe7Qpc',
+    appId: '1:883551466761:web:c79809059abc26268b8fd8',
+    messagingSenderId: '883551466761',
+    projectId: 'login1-aa21c',
+    authDomain: 'login1-aa21c.firebaseapp.com',
+    storageBucket: 'login1-aa21c.firebasestorage.app',
+    measurementId: 'G-H1LN6C5CQW',
   );
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyBqOxCE0Pzdkuwdb-cXOJ6qLBSzIAQVkqk',
-    appId: '1:576503526807:android:8b01290c6a28c6c32300d2',
-    messagingSenderId: '576503526807',
-    projectId: 'login-radha',
-    storageBucket: 'login-radha.firebasestorage.app',
+    apiKey: 'AIzaSyCdnhy8CJJr4zr53mZdZuf8lXUV2wHlD6g',
+    appId: '1:883551466761:android:6c72117e94ae43b38b8fd8',
+    messagingSenderId: '883551466761',
+    projectId: 'login1-aa21c',
+    storageBucket: 'login1-aa21c.firebasestorage.app',
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyBWXVr6Y2Q73x9y6SueItUfie5H7r2NCAU',
-    appId: '1:576503526807:ios:9ecf2c3027a9fe362300d2',
-    messagingSenderId: '576503526807',
-    projectId: 'login-radha',
-    storageBucket: 'login-radha.firebasestorage.app',
+    apiKey: 'AIzaSyBrLhjWtV5VeGtGhErvbFBXHiUxy58wYgg',
+    appId: '1:883551466761:ios:19f1b890b58a2e1b8b8fd8',
+    messagingSenderId: '883551466761',
+    projectId: 'login1-aa21c',
+    storageBucket: 'login1-aa21c.firebasestorage.app',
+    iosClientId: '883551466761-fn2nqoibtchckr3fokt70hag0lq3c5vk.apps.googleusercontent.com',
     iosBundleId: 'com.example.tulasihotels',
   );
 
   static const FirebaseOptions macos = FirebaseOptions(
-    apiKey: 'YOUR_MACOS_API_KEY',
-    appId: '1:000000000000:macos:0000000000000000000000',
-    messagingSenderId: '000000000000',
-    projectId: 'your-project-id',
-    storageBucket: 'your-project-id.appspot.com',
+    apiKey: 'AIzaSyBrLhjWtV5VeGtGhErvbFBXHiUxy58wYgg',
+    appId: '1:883551466761:ios:19f1b890b58a2e1b8b8fd8',
+    messagingSenderId: '883551466761',
+    projectId: 'login1-aa21c',
+    storageBucket: 'login1-aa21c.firebasestorage.app',
+    iosClientId: '883551466761-fn2nqoibtchckr3fokt70hag0lq3c5vk.apps.googleusercontent.com',
     iosBundleId: 'com.example.tulasihotels',
   );
 
   static const FirebaseOptions windows = FirebaseOptions(
-    apiKey: 'AIzaSyAA5Y-43RM2IItOsWpbygeHQhVbU2zFe48',
-    appId: '1:576503526807:web:23cf36d320396b512300d2',
-    messagingSenderId: '576503526807',
-    projectId: 'login-radha',
-    authDomain: 'login-radha.firebaseapp.com',
-    storageBucket: 'login-radha.firebasestorage.app',
+    apiKey: 'AIzaSyBPk0ATdBY6g_cGEJerP1m2RSEICWe7Qpc',
+    appId: '1:883551466761:web:c79809059abc26268b8fd8',
+    messagingSenderId: '883551466761',
+    projectId: 'login1-aa21c',
+    authDomain: 'login1-aa21c.firebaseapp.com',
+    storageBucket: 'login1-aa21c.firebasestorage.app',
+    measurementId: 'G-H1LN6C5CQW',
   );
+
 }

@@ -15,13 +15,13 @@ void main() {
     });
 
     test('should have correct emojis', () {
-      expect(ExpenseCategory.rent.emoji, 'ðŸ ');
-      expect(ExpenseCategory.salary.emoji, 'ðŸ’°');
-      expect(ExpenseCategory.utilities.emoji, 'ðŸ’¡');
-      expect(ExpenseCategory.supplies.emoji, 'ðŸ“¦');
-      expect(ExpenseCategory.transport.emoji, 'ðŸš—');
-      expect(ExpenseCategory.maintenance.emoji, 'ðŸ”§');
-      expect(ExpenseCategory.other.emoji, 'ðŸ“‹');
+      expect(ExpenseCategory.rent.emoji, '🏠');
+      expect(ExpenseCategory.salary.emoji, '💰');
+      expect(ExpenseCategory.utilities.emoji, '💡');
+      expect(ExpenseCategory.supplies.emoji, '📦');
+      expect(ExpenseCategory.transport.emoji, '🚗');
+      expect(ExpenseCategory.maintenance.emoji, '🔧');
+      expect(ExpenseCategory.other.emoji, '📋');
     });
 
     test('should parse from string correctly', () {

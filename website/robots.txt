@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://litestore.in/sitemap.xml
+Sitemap: https://tulasihotels.com/sitemap.xml

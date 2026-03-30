@@ -1,5 +1,5 @@
 /**
- * RetailLite — k6 Load Test for 10K Subscriber Scale
+ * Tulasi Hotels — k6 Load Test for 10K Subscriber Scale
  *
  * Simulates concurrent Firestore REST API traffic to validate
  * the system handles expected peak load without errors.
@@ -27,7 +27,7 @@ import { Rate, Trend } from "k6/metrics";
 
 // ─── Configuration ──────────────────────────────────────────────────────────
 
-const PROJECT_ID = "login-radha";
+const PROJECT_ID = "login1-aa21c";
 const FIRESTORE_BASE = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents`;
 const CF_BASE = `https://asia-south1-${PROJECT_ID}.cloudfunctions.net`;
 

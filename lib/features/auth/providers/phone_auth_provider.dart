@@ -90,7 +90,7 @@ class PhoneAuthNotifier extends StateNotifier<PhoneAuthState> {
         codeAutoRetrievalTimeout: _onAutoRetrievalTimeout,
       );
     } catch (e) {
-      debugPrint('ðŸ“± Phone auth error: $e');
+      debugPrint('📱 Phone auth error: $e');
       state = state.copyWith(
         status: PhoneAuthStatus.error,
         error: 'Failed to send OTP. Please try again.',
@@ -115,7 +115,7 @@ class PhoneAuthNotifier extends StateNotifier<PhoneAuthState> {
         codeAutoRetrievalTimeout: _onAutoRetrievalTimeout,
       );
     } catch (e) {
-      debugPrint('ðŸ“± Phone auth resend error: $e');
+      debugPrint('📱 Phone auth resend error: $e');
       state = state.copyWith(
         status: PhoneAuthStatus.codeSent,
         error: 'Failed to resend OTP. Please try again.',
@@ -153,7 +153,7 @@ class PhoneAuthNotifier extends StateNotifier<PhoneAuthState> {
       _lastVerifiedCredential = credential;
       state = state.copyWith(status: PhoneAuthStatus.verified);
       _cancelResendTimer();
-      debugPrint('âœ… Phone verification successful');
+      debugPrint('✅ Phone verification successful');
       return true;
     } on FirebaseAuthException catch (e) {
       String message;
@@ -210,7 +210,7 @@ class PhoneAuthNotifier extends StateNotifier<PhoneAuthState> {
 
       state = state.copyWith(status: PhoneAuthStatus.verified);
       _cancelResendTimer();
-      debugPrint('âœ… Phone linked/verified successfully');
+      debugPrint('✅ Phone linked/verified successfully');
       return true;
     } on FirebaseAuthException catch (e) {
       String message;
@@ -222,10 +222,10 @@ class PhoneAuthNotifier extends StateNotifier<PhoneAuthState> {
           message = 'This phone number is already linked to another account.';
           break;
         case 'provider-already-linked':
-          // Phone already linked to this account â€” treat as success
+          // Phone already linked to this account — treat as success
           state = state.copyWith(status: PhoneAuthStatus.verified);
           _cancelResendTimer();
-          debugPrint('âœ… Phone already linked (provider-already-linked)');
+          debugPrint('✅ Phone already linked (provider-already-linked)');
           return true;
         default:
           message = 'Verification failed. Please try again or resend OTP.';
@@ -241,18 +241,18 @@ class PhoneAuthNotifier extends StateNotifier<PhoneAuthState> {
     }
   }
 
-  // â”€â”€ Firebase callbacks â”€â”€
+  // ── Firebase callbacks ──
 
   void _onVerificationCompleted(PhoneAuthCredential credential) async {
     // Auto-verification (Android only - auto-reads SMS)
-    debugPrint('ðŸ“± Auto-verification completed');
+    debugPrint('📱 Auto-verification completed');
     try {
       final currentUser = _auth.currentUser;
       if (currentUser != null) {
-        // User is logged in â€” link phone rather than sign in
+        // User is logged in — link phone rather than sign in
         // This prevents disrupting the existing auth session
         await currentUser.linkWithCredential(credential);
-        debugPrint('ðŸ“± Auto-linked phone to existing account');
+        debugPrint('📱 Auto-linked phone to existing account');
       } else {
         await _auth.signInWithCredential(credential);
       }
@@ -260,8 +260,8 @@ class PhoneAuthNotifier extends StateNotifier<PhoneAuthState> {
       state = state.copyWith(status: PhoneAuthStatus.verified);
       _cancelResendTimer();
     } catch (e) {
-      debugPrint('ðŸ“± Auto-verification failed: $e');
-      // Don't reset to error â€” keep codeSent so user can enter code manually
+      debugPrint('📱 Auto-verification failed: $e');
+      // Don't reset to error — keep codeSent so user can enter code manually
       if (state.status != PhoneAuthStatus.verified) {
         state = state.copyWith(
           status: PhoneAuthStatus.codeSent,
@@ -272,7 +272,7 @@ class PhoneAuthNotifier extends StateNotifier<PhoneAuthState> {
   }
 
   void _onVerificationFailed(FirebaseAuthException e) {
-    debugPrint('ðŸ“± Verification failed: ${e.code} - ${e.message}');
+    debugPrint('📱 Verification failed: ${e.code} - ${e.message}');
     String message;
     switch (e.code) {
       case 'invalid-phone-number':
@@ -306,7 +306,7 @@ class PhoneAuthNotifier extends StateNotifier<PhoneAuthState> {
   }
 
   void _onCodeSent(String verificationId, int? resendToken) {
-    debugPrint('ðŸ“± OTP code sent. Verification ID: $verificationId');
+    debugPrint('📱 OTP code sent. Verification ID: $verificationId');
     state = state.copyWith(
       status: PhoneAuthStatus.codeSent,
       verificationId: verificationId,
@@ -318,13 +318,13 @@ class PhoneAuthNotifier extends StateNotifier<PhoneAuthState> {
   }
 
   void _onAutoRetrievalTimeout(String verificationId) {
-    debugPrint('ðŸ“± Auto-retrieval timeout');
+    debugPrint('📱 Auto-retrieval timeout');
     if (state.status != PhoneAuthStatus.verified) {
       state = state.copyWith(verificationId: verificationId);
     }
   }
 
-  // â”€â”€ Resend timer â”€â”€
+  // ── Resend timer ──
 
   void _startResendTimer() {
     _cancelResendTimer();

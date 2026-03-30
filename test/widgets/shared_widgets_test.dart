@@ -190,7 +190,7 @@ void main() {
       await tester.pumpWidget(
         testApp(const CurrencyTextField(label: 'Amount')),
       );
-      expect(find.text('â‚¹ '), findsOneWidget);
+      expect(find.text('₹ '), findsOneWidget);
     });
   });
 }

@@ -1,4 +1,4 @@
-/// Pre-built product catalog service
+﻿/// Pre-built product catalog service
 /// Provides ready-made product lists for quick setup
 library;
 
@@ -6,12 +6,12 @@ import 'package:tulasihotels/models/product_model.dart';
 
 /// Category of products
 enum ProductCategory {
-  kirana('Kirana Store', 'à¤•à¤¿à¤°à¤¾à¤¨à¤¾ à¤¸à¥à¤Ÿà¥‹à¤°'),
-  grocery('Grocery', 'à¤•à¤¿à¤°à¤¾à¤¨à¤¾'),
-  dairy('Dairy', 'à¤¡à¥‡à¤¯à¤°à¥€'),
-  snacks('Snacks & Beverages', 'à¤¸à¥à¤¨à¥ˆà¤•à¥à¤¸'),
-  personal('Personal Care', 'à¤ªà¤°à¥à¤¸à¤¨à¤² à¤•à¥‡à¤¯à¤°'),
-  cleaning('Cleaning', 'à¤¸à¤«à¤¾à¤ˆ');
+  kirana('Starters', 'स्टार्टर्स'),
+  grocery('Main Course', 'मेन कोर्स'),
+  dairy('Beverages', 'पेय पदार्थ'),
+  snacks('Desserts', 'मिठाई'),
+  personal('Thali & Combos', 'थाली और कॉम्बो'),
+  cleaning('Add-ons', 'एड-ऑन्स');
 
   final String name;
   final String hindiName;

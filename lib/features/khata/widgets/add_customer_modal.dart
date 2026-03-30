@@ -1,4 +1,4 @@
-/// Add customer modal
+﻿/// Add customer modal
 library;
 
 import 'package:flutter/material.dart';
@@ -73,7 +73,7 @@ class _AddCustomerModalState extends ConsumerState<AddCustomerModal> {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
                 content: Text(
-                  'A customer with this phone number already exists',
+                  'A guest with this phone number already exists',
                 ),
                 backgroundColor: AppColors.warning,
               ),

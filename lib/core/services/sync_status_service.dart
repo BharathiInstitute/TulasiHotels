@@ -1,15 +1,15 @@
-/// Sync status service â€” tracks which data is synced to cloud vs local-only
+/// Sync status service — tracks which data is synced to cloud vs local-only
 ///
 /// Uses Firestore snapshot metadata (hasPendingWrites) for 2-state sync:
-///   âœ… Synced â€” confirmed on server
-///   âš ï¸ Not Synced â€” local write not yet confirmed
+///   ✅ Synced — confirmed on server
+///   ⚠️ Not Synced — local write not yet confirmed
 library;
 
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tulasihotels/core/services/connectivity_service.dart';
 
-// â”€â”€ Sync State â”€â”€
+// ── Sync State ──
 
 /// Simple 2-state sync
 enum SyncState { synced, notSynced }
@@ -51,7 +51,7 @@ class SyncedList<T> {
       SyncedList<T>(items: [], snapshotHasPendingWrites: false);
 }
 
-// â”€â”€ Per-Collection Status â”€â”€
+// ── Per-Collection Status ──
 
 class CollectionSyncStatus {
   final String name;
@@ -72,7 +72,7 @@ class CollectionSyncStatus {
   bool get isSynced => !hasPendingWrites;
 }
 
-// â”€â”€ Global Status â”€â”€
+// ── Global Status ──
 
 class GlobalSyncStatus {
   final Map<String, CollectionSyncStatus> collections;
@@ -91,7 +91,7 @@ class GlobalSyncStatus {
   static const empty = GlobalSyncStatus(collections: {}, isOnline: true);
 }
 
-// â”€â”€ Service â”€â”€
+// ── Service ──
 
 class SyncStatusService {
   SyncStatusService._();
@@ -137,7 +137,7 @@ class SyncStatusService {
   }
 }
 
-// â”€â”€ Riverpod Providers â”€â”€
+// ── Riverpod Providers ──
 
 /// Global sync status provider
 final globalSyncStatusProvider = StreamProvider<GlobalSyncStatus>((ref) {

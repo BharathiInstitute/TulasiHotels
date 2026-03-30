@@ -4,8 +4,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:tulasihotels/core/design/design_system.dart';
 
-/// A reusable widget that displays the store logo from a path (HTTP URL or local file),
-/// falling back to a storefront icon if no logo is set.
+/// A reusable widget that displays the hotel logo from a path (HTTP URL or local file),
+/// falling back to a hotel icon if no logo is set.
 class ShopLogoWidget extends StatelessWidget {
   final String? logoPath;
   final double size;
@@ -71,7 +71,7 @@ class ShopLogoWidget extends StatelessWidget {
         borderRadius: BorderRadius.circular(borderRadius),
       ),
       child: Center(
-        child: Icon(Icons.storefront, color: Colors.white, size: iconSize),
+        child: Icon(Icons.hotel, color: Colors.white, size: iconSize),
       ),
     );
   }

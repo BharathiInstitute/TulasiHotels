@@ -67,7 +67,7 @@ class BarcodeLookupService {
   /// Lookup product by barcode using Open Food Facts API
   static Future<BarcodeProduct?> lookupBarcode(String barcode) async {
     try {
-      debugPrint('Ã°Å¸â€Â Looking up barcode: $barcode');
+      debugPrint('🔍 Looking up barcode: $barcode');
 
       // Clean barcode
       final cleanBarcode = barcode.trim().replaceAll(RegExp(r'[^0-9]'), '');
@@ -76,14 +76,14 @@ class BarcodeLookupService {
       // Try Open Food Facts
       final result = await _lookupOpenFoodFacts(cleanBarcode);
       if (result != null) {
-        debugPrint('Ã¢Å“â€¦ Found product: ${result.displayName}');
+        debugPrint('✅ Found product: ${result.displayName}');
         return result;
       }
 
-      debugPrint('Ã¢ÂÅ’ Product not found in database');
+      debugPrint('❌ Product not found in database');
       return null;
     } catch (e) {
-      debugPrint('Ã¢ÂÅ’ Barcode lookup error: $e');
+      debugPrint('❌ Barcode lookup error: $e');
       return null;
     }
   }

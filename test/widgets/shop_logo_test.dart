@@ -5,18 +5,14 @@ import '../helpers/test_app.dart';
 
 void main() {
   group('ShopLogoWidget', () {
-    testWidgets('shows storefront icon when logoPath is null', (tester) async {
-      await tester.pumpWidget(
-        testApp(const ShopLogoWidget(logoPath: null)),
-      );
-      expect(find.byIcon(Icons.storefront), findsOneWidget);
+    testWidgets('shows hotel icon when logoPath is null', (tester) async {
+      await tester.pumpWidget(testApp(const ShopLogoWidget(logoPath: null)));
+      expect(find.byIcon(Icons.hotel), findsOneWidget);
     });
 
-    testWidgets('shows storefront icon when logoPath is empty', (tester) async {
-      await tester.pumpWidget(
-        testApp(const ShopLogoWidget(logoPath: '')),
-      );
-      expect(find.byIcon(Icons.storefront), findsOneWidget);
+    testWidgets('shows hotel icon when logoPath is empty', (tester) async {
+      await tester.pumpWidget(testApp(const ShopLogoWidget(logoPath: '')));
+      expect(find.byIcon(Icons.hotel), findsOneWidget);
     });
 
     testWidgets('respects custom size', (tester) async {
@@ -48,9 +44,7 @@ void main() {
     });
 
     testWidgets('default size is 36', (tester) async {
-      await tester.pumpWidget(
-        testApp(const ShopLogoWidget(logoPath: null)),
-      );
+      await tester.pumpWidget(testApp(const ShopLogoWidget(logoPath: null)));
       final container = tester.widget<Container>(find.byType(Container).first);
       final constraints = container.constraints;
       expect(constraints?.maxWidth, 36);

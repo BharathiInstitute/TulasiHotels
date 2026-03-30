@@ -1,11 +1,11 @@
-/// Write Retry Queue â€” queues failed Firestore writes for automatic retry.
+/// Write Retry Queue — queues failed Firestore writes for automatic retry.
 ///
 /// When a Firestore write fails (e.g., due to offline/network error), the
 /// operation is serialized to SharedPreferences. When connectivity is
 /// restored, the queue is flushed with exponential backoff.
 ///
 /// Queue items: {collection, docId, data, operation, attempts, lastAttempt}
-/// Max retries: 5 (with exponential backoff: 1sâ†’2sâ†’4sâ†’8sâ†’16s)
+/// Max retries: 5 (with exponential backoff: 1s→2s→4s→8s→16s)
 /// Dead-letter: after 5 failures, logged to ErrorLoggingService and discarded.
 library;
 
@@ -105,7 +105,7 @@ class WriteRetryQueue {
     );
     await _saveQueue(queue);
     debugPrint(
-      'ðŸ“ WriteRetryQueue: Enqueued ${operation.name} for $collection/$docId '
+      '📝 WriteRetryQueue: Enqueued ${operation.name} for $collection/$docId '
       '(${queue.length} pending)',
     );
   }
@@ -120,7 +120,7 @@ class WriteRetryQueue {
       if (queue.isEmpty) return;
 
       debugPrint(
-        'ðŸ“ WriteRetryQueue: Flushing ${queue.length} pending write(s)...',
+        '📝 WriteRetryQueue: Flushing ${queue.length} pending write(s)...',
       );
 
       final remaining = <QueuedWrite>[];
@@ -146,7 +146,7 @@ class WriteRetryQueue {
               await docRef.delete();
           }
           debugPrint(
-            'âœ… WriteRetryQueue: ${item.operation.name} ${item.collection}/${item.docId} succeeded',
+            '✅ WriteRetryQueue: ${item.operation.name} ${item.collection}/${item.docId} succeeded',
           );
         } catch (e) {
           item.attempts++;
@@ -155,7 +155,7 @@ class WriteRetryQueue {
           if (item.attempts >= _maxRetries) {
             // Dead-letter: log and discard
             debugPrint(
-              'ðŸ’€ WriteRetryQueue: Dead-letter after $_maxRetries retries: '
+              '💀 WriteRetryQueue: Dead-letter after $_maxRetries retries: '
               '${item.operation.name} ${item.collection}/${item.docId}',
             );
             ErrorLoggingService.logError(
@@ -179,7 +179,7 @@ class WriteRetryQueue {
       await _saveQueue(remaining);
       if (remaining.isNotEmpty) {
         debugPrint(
-          'ðŸ“ WriteRetryQueue: ${remaining.length} item(s) still pending',
+          '📝 WriteRetryQueue: ${remaining.length} item(s) still pending',
         );
       }
     } finally {
@@ -193,7 +193,7 @@ class WriteRetryQueue {
     _connectivitySub = null;
   }
 
-  // â”€â”€ Internal â”€â”€
+  // ── Internal ──
 
   static List<QueuedWrite> _loadQueue() {
     final json = _prefs?.getString(_storageKey);
@@ -204,7 +204,7 @@ class WriteRetryQueue {
           .map((e) => QueuedWrite.fromJson(e as Map<String, dynamic>))
           .toList();
     } catch (e) {
-      debugPrint('âš ï¸ WriteRetryQueue: Failed to parse queue: $e');
+      debugPrint('⚠️ WriteRetryQueue: Failed to parse queue: $e');
       return [];
     }
   }

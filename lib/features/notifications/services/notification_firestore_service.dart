@@ -1,4 +1,4 @@
-/// Notification Firestore Service â€” CRUD for notifications
+/// Notification Firestore Service — CRUD for notifications
 library;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -48,7 +48,7 @@ class NotificationFirestoreService {
           .doc(notificationId)
           .update({'read': true, 'readAt': FieldValue.serverTimestamp()});
     } catch (e) {
-      debugPrint('âŒ Failed to mark notification as read: $e');
+      debugPrint('❌ Failed to mark notification as read: $e');
     }
   }
 
@@ -71,7 +71,7 @@ class NotificationFirestoreService {
       }
       await batch.commit();
     } catch (e) {
-      debugPrint('âŒ Failed to mark all as read: $e');
+      debugPrint('❌ Failed to mark all as read: $e');
     }
   }
 
@@ -88,7 +88,7 @@ class NotificationFirestoreService {
           .doc(notificationId)
           .delete();
     } catch (e) {
-      debugPrint('âŒ Failed to delete notification: $e');
+      debugPrint('❌ Failed to delete notification: $e');
     }
   }
 
@@ -104,12 +104,12 @@ class NotificationFirestoreService {
           .collection('notifications')
           .add(notification.toUserNotification());
     } catch (e) {
-      debugPrint('âŒ Failed to send notification to user: $e');
+      debugPrint('❌ Failed to send notification to user: $e');
     }
   }
 
   /// Send notification to ALL users via Cloud Function (D1-2).
-  /// No longer scans all users on the client â€” server paginates.
+  /// No longer scans all users on the client — server paginates.
   static Future<int> sendToAllUsers({
     required NotificationModel notification,
   }) async {
@@ -127,10 +127,10 @@ class NotificationFirestoreService {
       });
 
       final count = (result.data['recipientCount'] as num?)?.toInt() ?? 0;
-      debugPrint('âœ… Notification sent to $count users via CF');
+      debugPrint('✅ Notification sent to $count users via CF');
       return count;
     } catch (e, st) {
-      debugPrint('âŒ Failed to send to all users: $e\n$st');
+      debugPrint('❌ Failed to send to all users: $e\n$st');
       rethrow;
     }
   }
@@ -155,10 +155,10 @@ class NotificationFirestoreService {
       });
 
       final count = (result.data['recipientCount'] as num?)?.toInt() ?? 0;
-      debugPrint('âœ… Notification sent to $count $plan users via CF');
+      debugPrint('✅ Notification sent to $count $plan users via CF');
       return count;
     } catch (e, st) {
-      debugPrint('âŒ Failed to send to plan users: $e\n$st');
+      debugPrint('❌ Failed to send to plan users: $e\n$st');
       rethrow;
     }
   }
@@ -206,10 +206,10 @@ class NotificationFirestoreService {
         'sentAt': FieldValue.serverTimestamp(),
       });
 
-      debugPrint('âœ… Notification sent to $count selected users');
+      debugPrint('✅ Notification sent to $count selected users');
       return count;
     } catch (e, st) {
-      debugPrint('âŒ Failed to send to selected users: $e\n$st');
+      debugPrint('❌ Failed to send to selected users: $e\n$st');
       if (globalRef != null) {
         try {
           await globalRef.update({
@@ -218,7 +218,7 @@ class NotificationFirestoreService {
             'error': e.toString(),
           });
         } catch (e) {
-          debugPrint('âš ï¸ Notification: error-path globalRef update failed: $e');
+          debugPrint('⚠️ Notification: error-path globalRef update failed: $e');
         }
       }
       rethrow;
@@ -247,12 +247,12 @@ class NotificationFirestoreService {
           })
           .toList();
     } catch (e) {
-      debugPrint('âŒ Failed to search users: $e');
+      debugPrint('❌ Failed to search users: $e');
       return [];
     }
   }
 
-  /// Get all users (for user picker â€” admin only)
+  /// Get all users (for user picker — admin only)
   /// D10: Capped at 100 docs to limit reads. At 10K+ users, paginate or use CF.
   static Future<List<Map<String, dynamic>>> getAllUsers() async {
     try {
@@ -263,7 +263,7 @@ class NotificationFirestoreService {
         return data;
       }).toList();
     } catch (e) {
-      debugPrint('âŒ Failed to get all users: $e');
+      debugPrint('❌ Failed to get all users: $e');
       return [];
     }
   }
@@ -286,7 +286,7 @@ class NotificationFirestoreService {
         return data;
       }).toList();
     } catch (e) {
-      debugPrint('âŒ Failed to get notification history from server: $e');
+      debugPrint('❌ Failed to get notification history from server: $e');
       // Fallback to default (cache + server) if server-only fails
       try {
         final snap = await _firestore

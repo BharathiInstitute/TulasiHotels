@@ -967,7 +967,7 @@ The shop name "Tulasi Hotels" is hardcoded in **6+ locations**. Every 10K subscr
 - [x] Run load test simulating 10K concurrent Firestore listeners ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ k6 500-VU load test: 78,042 requests, 366 rps, 0% errors, CF p95 541ms, overall p95 1.09s (4 Mar 2026)
 - [x] Set up uptime monitoring ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ documented in OPS_RUNBOOK.md
 - [x] Test full subscription lifecycle: sign up ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ bill ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ upgrade ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ payment ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ webhook ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ renewal ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â ÃƒÂ¢Ã‚ÂÃ‚Â­ÃƒÂ¯Ã‚Â¸Ã‚Â DEFERRED: Requires Razorpay live keys (skipped) + manual staging walkthrough
-- [x] Verify backup restoration works ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ export ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ import ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ verified 4 Mar 2026 (bucket: gs://login-radha-firestore-backups)
+- [x] Verify backup restoration works ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ export ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ import ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ verified 4 Mar 2026 (bucket: gs://login1-aa21c-firestore-backups)
 - [x] Set up on-call rotation / incident response ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â ÃƒÂ¢Ã‚ÂÃ‚Â­ÃƒÂ¯Ã‚Â¸Ã‚Â DEFERRED: Organizational process, documented in OPS_RUNBOOK.md
 
 ---

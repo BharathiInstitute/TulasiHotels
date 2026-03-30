@@ -211,7 +211,7 @@ class DataRetentionService {
       }
 
       debugPrint(
-        'ðŸ§¹ Cleanup: $billsDeleted bills, $expensesDeleted expenses '
+        '🧹 Cleanup: $billsDeleted bills, $expensesDeleted expenses '
         '(dryRun=$dryRun, period=${_period.label})',
       );
 
@@ -222,7 +222,7 @@ class DataRetentionService {
         dryRun: dryRun,
       );
     } catch (e) {
-      debugPrint('ðŸ§¹ Cleanup error: $e');
+      debugPrint('🧹 Cleanup error: $e');
       return CleanupResult(
         billsDeleted: billsDeleted,
         expensesDeleted: expensesDeleted,
@@ -277,7 +277,7 @@ class CleanupResult {
   }
 }
 
-/// Provider for data retention service â€” reads retention period from user settings
+/// Provider for data retention service — reads retention period from user settings
 final dataRetentionServiceProvider = Provider<DataRetentionService>((ref) {
   final settings = ref.watch(settingsProvider);
   return DataRetentionService(settings.retentionPeriod);

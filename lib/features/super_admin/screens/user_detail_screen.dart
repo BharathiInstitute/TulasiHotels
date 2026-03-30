@@ -207,7 +207,7 @@ class UserDetailScreen extends ConsumerWidget {
                 const Text('Price'),
                 Text(
                   user.subscription.planPrice > 0
-                      ? 'â‚¹${user.subscription.planPrice}/month'
+                      ? '\u{20B9}${user.subscription.planPrice}/month'
                       : 'Free',
                   style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
@@ -254,9 +254,9 @@ class UserDetailScreen extends ConsumerWidget {
               children: [
                 Expanded(
                   child: _buildStatBox(
-                    'Products',
+                    'Menu Items',
                     user.limits.productsCount.toString(),
-                    Icons.inventory,
+                    Icons.restaurant_menu,
                     Colors.blue,
                   ),
                 ),
@@ -307,7 +307,7 @@ class UserDetailScreen extends ConsumerWidget {
           Padding(
             padding: const EdgeInsets.only(top: 4),
             child: Text(
-              'âš ï¸ Approaching limit',
+              '⚠️ Approaching limit',
               style: TextStyle(color: Colors.orange.shade700, fontSize: 12),
             ),
           ),
@@ -451,7 +451,7 @@ class UserDetailScreen extends ConsumerWidget {
                 subtitle: Text(
                   plan == SubscriptionPlan.free
                       ? 'Free'
-                      : 'â‚¹${UserSubscription(plan: plan).planPrice}/month',
+                      : '\u{20B9}${UserSubscription(plan: plan).planPrice}/month',
                 ),
                 trailing: user.subscription.plan == plan
                     ? const Icon(Icons.check, color: Colors.green)
@@ -520,9 +520,9 @@ class UserDetailScreen extends ConsumerWidget {
               'This will reset the monthly bill count to 0. This action is typically used when:',
             ),
             const SizedBox(height: 8),
-            const Text('â€¢ User had billing issues'),
-            const Text('â€¢ Manual adjustment required'),
-            const Text('â€¢ Testing purposes'),
+            const Text('• User had billing issues'),
+            const Text('• Manual adjustment required'),
+            const Text('• Testing purposes'),
             const SizedBox(height: 16),
             Container(
               padding: const EdgeInsets.all(12),

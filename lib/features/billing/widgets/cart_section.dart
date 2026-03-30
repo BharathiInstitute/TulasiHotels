@@ -41,9 +41,9 @@ class CartSection extends ConsumerWidget {
               decoration: const BoxDecoration(),
               child: Row(
                 children: [
-                  Icon(Icons.shopping_cart, color: AppColors.primary),
+                  Icon(Icons.receipt_long, color: AppColors.primary),
                   const SizedBox(width: 8),
-                  Text('Cart', style: Theme.of(context).textTheme.titleMedium),
+                  Text('Order', style: Theme.of(context).textTheme.titleMedium),
                   const Spacer(),
                   if (cart.isNotEmpty)
                     TextButton(
@@ -63,10 +63,10 @@ class CartSection extends ConsumerWidget {
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               child: Row(
                 children: [
-                  Icon(Icons.shopping_cart, color: AppColors.primary, size: 20),
+                  Icon(Icons.receipt_long, color: AppColors.primary, size: 20),
                   const SizedBox(width: 8),
                   Text(
-                    'CART (${cart.itemCount} items)',
+                    'ORDER (${cart.itemCount} items)',
                     style: Theme.of(context).textTheme.labelLarge,
                   ),
                   const Spacer(),
@@ -96,20 +96,20 @@ class CartSection extends ConsumerWidget {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Icon(
-                      Icons.shopping_cart_outlined,
+                      Icons.receipt_long_outlined,
                       size: 48,
                       color: Theme.of(context).colorScheme.outline,
                     ),
                     const SizedBox(height: 12),
                     Text(
-                      'Cart is empty',
+                      'Order is empty',
                       style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                         color: Theme.of(context).colorScheme.onSurfaceVariant,
                       ),
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'Tap products to add',
+                      'Tap menu items to add',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: Theme.of(context).colorScheme.outline,
                       ),
@@ -179,7 +179,7 @@ class CartSection extends ConsumerWidget {
                   ),
                   const SizedBox(height: 12),
                   AppButton(
-                    label: 'ðŸ’µ PAY ${Formatters.currency(cart.total)}',
+                    label: '💵 PAY ${Formatters.currency(cart.total)}',
 
                     onPressed: onPay,
                     backgroundColor: AppColors.secondary,
@@ -244,7 +244,7 @@ class _CartItemTile extends ConsumerWidget {
                   overflow: TextOverflow.ellipsis,
                 ),
                 Text(
-                  '${Formatters.currency(item.price)} Ã— ${item.quantity}',
+                  '${Formatters.currency(item.price)} × ${item.quantity}',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),

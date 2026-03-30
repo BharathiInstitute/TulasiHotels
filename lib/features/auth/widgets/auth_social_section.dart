@@ -41,7 +41,7 @@ class AuthSocialSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // â”€â”€ Google Sign-In (Primary) â”€â”€
+        // ── Google Sign-In (Primary) ──
         SizedBox(
           height: AppSizes.buttonHeight(context),
           child: OutlinedButton.icon(
@@ -73,7 +73,7 @@ class AuthSocialSection extends StatelessWidget {
         ),
         const SizedBox(height: AppSizes.lg),
 
-        // â”€â”€ OR Divider â”€â”€
+        // ── OR Divider ──
         const Row(
           children: [
             Expanded(child: Divider(color: AppColors.border)),
@@ -93,7 +93,7 @@ class AuthSocialSection extends StatelessWidget {
         ),
         const SizedBox(height: AppSizes.lg),
 
-        // â”€â”€ Email Toggle Button â”€â”€
+        // ── Email Toggle Button ──
         if (!showEmailForm)
           SizedBox(
             height: AppSizes.buttonHeight(context),

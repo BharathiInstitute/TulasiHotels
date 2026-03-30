@@ -1,4 +1,4 @@
-/// Catalog browser modal for adding products from pre-built catalog
+﻿/// Catalog browser modal for adding products from pre-built catalog
 library;
 
 import 'dart:async';
@@ -52,7 +52,7 @@ class _CatalogBrowserModalState extends ConsumerState<CatalogBrowserModal> {
             ),
             child: Row(
               children: [
-                Icon(Icons.store, color: AppColors.primary),
+                Icon(Icons.hotel, color: AppColors.primary),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
@@ -236,17 +236,17 @@ class _CatalogBrowserModalState extends ConsumerState<CatalogBrowserModal> {
   IconData _getCategoryIcon(ProductCategory category) {
     switch (category) {
       case ProductCategory.kirana:
-        return Icons.store;
+        return Icons.restaurant;
       case ProductCategory.grocery:
-        return Icons.rice_bowl;
+        return Icons.dinner_dining;
       case ProductCategory.dairy:
-        return Icons.egg;
+        return Icons.local_cafe;
       case ProductCategory.snacks:
-        return Icons.fastfood;
+        return Icons.icecream;
       case ProductCategory.personal:
-        return Icons.face;
+        return Icons.lunch_dining;
       case ProductCategory.cleaning:
-        return Icons.cleaning_services;
+        return Icons.add_circle_outline;
     }
   }
 

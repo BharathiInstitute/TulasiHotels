@@ -1,4 +1,4 @@
-/// Windows Notification Service â€” polls Firestore for new notifications
+/// Windows Notification Service — polls Firestore for new notifications
 /// and shows native Windows toast notifications.
 /// This is needed because FCM (Firebase Cloud Messaging) does not support Windows.
 library;
@@ -32,12 +32,12 @@ class WindowsNotificationService {
     await _plugin.initialize(
       initSettings,
       onDidReceiveNotificationResponse: (details) {
-        debugPrint('ðŸ”” Windows notification tapped: ${details.payload}');
+        debugPrint('🔔 Windows notification tapped: ${details.payload}');
       },
     );
 
     _initialized = true;
-    debugPrint('âœ… Windows local notifications initialized');
+    debugPrint('✅ Windows local notifications initialized');
   }
 
   /// Start listening for new notifications for this user.
@@ -45,7 +45,7 @@ class WindowsNotificationService {
   static void startListening(String userId) {
     if (kIsWeb || !Platform.isWindows) return;
     if (!_initialized) {
-      debugPrint('âš ï¸ WindowsNotificationService not initialized');
+      debugPrint('⚠️ WindowsNotificationService not initialized');
       return;
     }
 
@@ -77,17 +77,17 @@ class WindowsNotificationService {
             }
           },
           onError: (e) =>
-              debugPrint('âŒ Windows notification listener error: $e'),
+              debugPrint('❌ Windows notification listener error: $e'),
         );
 
-    debugPrint('ðŸ”” Windows notification listener started for $userId');
+    debugPrint('🔔 Windows notification listener started for $userId');
   }
 
   /// Stop listening for notifications (call on logout).
   static void stopListening() {
     _subscription?.cancel();
     _subscription = null;
-    debugPrint('ðŸ”• Windows notification listener stopped');
+    debugPrint('🔕 Windows notification listener stopped');
   }
 
   /// Show a native Windows toast notification.
@@ -101,9 +101,9 @@ class WindowsNotificationService {
       const details = NotificationDetails(windows: windowsDetails);
 
       await _plugin.show(id, title, body, details);
-      debugPrint('ðŸ”” Windows toast shown: $title');
+      debugPrint('🔔 Windows toast shown: $title');
     } catch (e) {
-      debugPrint('âŒ Failed to show Windows notification: $e');
+      debugPrint('❌ Failed to show Windows notification: $e');
     }
   }
 }

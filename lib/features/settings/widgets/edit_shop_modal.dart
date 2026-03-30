@@ -106,7 +106,7 @@ class _EditShopModalState extends ConsumerState<EditShopModal> {
             decoration: const BoxDecoration(),
             child: Row(
               children: [
-                Icon(Icons.store, color: AppColors.primary),
+                Icon(Icons.hotel, color: AppColors.primary),
                 const SizedBox(width: 8),
                 Text(
                   l10n.editShopDetails,
@@ -186,9 +186,9 @@ class _EditShopModalState extends ConsumerState<EditShopModal> {
 
                     AppTextField(
                       label: '${l10n.shopName} *',
-                      hint: 'e.g., Sharma General Store',
+                      hint: 'e.g., Tulasi Grand Hotel',
                       controller: _shopNameController,
-                      prefixIcon: const Icon(Icons.store),
+                      prefixIcon: const Icon(Icons.hotel),
                       validator: (v) => Validators.name(v, l10n.shopName),
                     ),
                     const SizedBox(height: 16),
@@ -214,7 +214,7 @@ class _EditShopModalState extends ConsumerState<EditShopModal> {
 
                     AppTextField(
                       label: l10n.address,
-                      hint: 'Shop address (optional)',
+                      hint: 'Hotel address (optional)',
                       controller: _addressController,
                       prefixIcon: const Icon(Icons.location_on),
                       maxLines: 2,
@@ -230,7 +230,7 @@ class _EditShopModalState extends ConsumerState<EditShopModal> {
                     const SizedBox(height: 32),
 
                     AppButton(
-                      label: 'âœ… ${l10n.save.toUpperCase()}',
+                      label: '✅ ${l10n.save.toUpperCase()}',
                       onPressed: _save,
                       isLoading: _isLoading,
                     ),

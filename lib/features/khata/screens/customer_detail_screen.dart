@@ -288,7 +288,7 @@ class CustomerDetailScreen extends ConsumerWidget {
                                   ),
                                   const SizedBox(height: 4),
                                   Text(
-                                    'ðŸ“ž ${Formatters.phone(customer.phone)}',
+                                    '📞 ${Formatters.phone(customer.phone)}',
                                     style: Theme.of(context)
                                         .textTheme
                                         .bodyMedium
@@ -301,7 +301,7 @@ class CustomerDetailScreen extends ConsumerWidget {
                                   if (customer.address != null) ...[
                                     const SizedBox(height: 4),
                                     Text(
-                                      'ðŸ“ ${customer.address}',
+                                      '📍 ${customer.address}',
                                       style: Theme.of(context)
                                           .textTheme
                                           .bodySmall
@@ -337,7 +337,7 @@ class CustomerDetailScreen extends ConsumerWidget {
                             child: Column(
                               children: [
                                 Text(
-                                  'à¤•à¥à¤² à¤¬à¤¾à¤•à¥€ (Total Due)',
+                                  'कुल बाकी (Total Due)',
                                   style: Theme.of(context).textTheme.bodySmall
                                       ?.copyWith(color: Colors.white70),
                                 ),
@@ -354,7 +354,7 @@ class CustomerDetailScreen extends ConsumerWidget {
                                 ),
                                 if (!customer.hasDue)
                                   const Text(
-                                    'âœ… Fully Paid',
+                                    '✅ Fully Paid',
                                     style: TextStyle(color: Colors.white),
                                   ),
                               ],
@@ -530,7 +530,7 @@ class CustomerDetailScreen extends ConsumerWidget {
                 const BottomNavigationBarItem(
                   icon: Icon(Icons.point_of_sale_outlined),
                   activeIcon: Icon(Icons.point_of_sale),
-                  label: 'POS',
+                  label: 'Walk-in',
                 ),
                 BottomNavigationBarItem(
                   icon: const Icon(Icons.people_outline),
@@ -538,8 +538,8 @@ class CustomerDetailScreen extends ConsumerWidget {
                   label: l10n.khata,
                 ),
                 BottomNavigationBarItem(
-                  icon: const Icon(Icons.inventory_2_outlined),
-                  activeIcon: const Icon(Icons.inventory_2),
+                  icon: const Icon(Icons.restaurant_menu_outlined),
+                  activeIcon: const Icon(Icons.restaurant_menu),
                   label: l10n.products,
                 ),
                 BottomNavigationBarItem(
@@ -610,14 +610,14 @@ class CustomerDetailScreen extends ConsumerWidget {
           'Hi ${customer.name},\n\n'
           'You have a pending balance of *Rs $amt*.\n\n'
           'Pay via UPI:\n'
-          'â”â”â”â”â”â”â”â”â”â”â”â”â”â”\n'
+          '━━━━━━━━━━━━━━\n'
           'UPI ID: *$maskedUpi*\n'
           'Amount: *Rs $amt*\n'
-          'â”â”â”â”â”â”â”â”â”â”â”â”â”â”\n\n'
+          '━━━━━━━━━━━━━━\n\n'
           'Click here to pay:\n'
           '$payUrl\n\n'
           'Thank you\n'
-          'â€” $shopName';
+          '— $shopName';
     } else {
       messageText =
           'Hi ${customer.name},\n\n'
@@ -833,7 +833,7 @@ class _TransactionTile extends StatelessWidget {
             ? AppColors.error.withValues(alpha: 0.1)
             : AppColors.success.withValues(alpha: 0.1),
         child: Icon(
-          isPurchase ? Icons.shopping_cart : Icons.payments,
+          isPurchase ? Icons.receipt_long : Icons.payments,
           color: isPurchase ? AppColors.error : AppColors.success,
           size: isMobile ? 16 : 20,
         ),

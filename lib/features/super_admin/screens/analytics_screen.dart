@@ -259,7 +259,7 @@ class AnalyticsScreen extends ConsumerWidget {
     // Map feature keys to display names and colors
     final featureConfig = {
       'billing': {'name': 'Billing', 'color': Colors.green},
-      'products': {'name': 'Products', 'color': Colors.blue},
+      'products': {'name': 'Menu Items', 'color': Colors.blue},
       'khata': {'name': 'Customers (Khata)', 'color': Colors.orange},
       'reports': {'name': '~Reports (est.)', 'color': Colors.purple},
       'settings': {'name': '~Settings (est.)', 'color': Colors.grey},
@@ -300,7 +300,7 @@ class AnalyticsScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              'Billing, Products, Khata from data Â· Reports & Settings estimated',
+              'Billing, Menu, Khata from data · Reports & Settings estimated',
               style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
             ),
             const SizedBox(height: 20),

@@ -156,7 +156,7 @@ class ErrorHandler extends WidgetsBindingObserver {
 
     _initialized = true;
     debugPrint(
-      'âœ… ErrorHandler initialized (${kIsWeb
+      '✅ ErrorHandler initialized (${kIsWeb
           ? "Web"
           : Platform.isWindows
           ? "Windows"
@@ -221,7 +221,7 @@ class ErrorHandler extends WidgetsBindingObserver {
         metadata['screenHeight'] = size.height;
       }
     } catch (e) {
-      debugPrint('âš ï¸ Metadata: screen size read failed: $e');
+      debugPrint('⚠️ Metadata: screen size read failed: $e');
     }
 
     // Connectivity
@@ -307,7 +307,7 @@ class ErrorHandler extends WidgetsBindingObserver {
     StackTrace? stack,
   ]) {
     if (kDebugMode) {
-      debugPrint('âš ï¸ $message: $error');
+      debugPrint('⚠️ $message: $error');
     }
 
     final metadata = _buildContextMetadata();
@@ -342,7 +342,7 @@ class ErrorHandler extends WidgetsBindingObserver {
       FirebaseCrashlytics.instance.log(message);
     }
     if (kDebugMode) {
-      debugPrint('ðŸ“ $message');
+      debugPrint('📝 $message');
     }
   }
 
@@ -438,7 +438,7 @@ class ErrorHandler extends WidgetsBindingObserver {
   }
 }
 
-/// Error boundary widget â€” intercepts Flutter framework errors in the
+/// Error boundary widget — intercepts Flutter framework errors in the
 /// subtree and shows a fallback UI instead of a red error screen.
 ///
 /// Usage:

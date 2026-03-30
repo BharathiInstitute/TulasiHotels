@@ -9,6 +9,8 @@ import 'package:tulasihotels/core/design/design_system.dart';
 import 'package:tulasihotels/core/utils/website_url.dart';
 import 'package:tulasihotels/features/auth/providers/auth_provider.dart';
 import 'package:tulasihotels/features/auth/widgets/demo_mode_banner.dart';
+import 'package:tulasihotels/features/staff/providers/staff_provider.dart';
+import 'package:tulasihotels/features/staff/services/staff_permissions.dart';
 import 'package:tulasihotels/router/app_router.dart';
 import 'package:tulasihotels/shared/widgets/shop_logo_widget.dart';
 import 'package:tulasihotels/shared/widgets/offline_banner.dart';
@@ -20,12 +22,14 @@ final sidebarCollapsedProvider = StateProvider<bool?>((ref) => null);
 class WebShell extends ConsumerWidget {
   final Widget child;
   final int selectedIndex;
+  final List<int> visibleIndices;
   final Function(int) onItemTapped;
 
   const WebShell({
     super.key,
     required this.child,
     required this.selectedIndex,
+    required this.visibleIndices,
     required this.onItemTapped,
   });
 
@@ -49,6 +53,7 @@ class WebShell extends ConsumerWidget {
                 // Sidebar
                 _WebSidebar(
                   selectedIndex: selectedIndex,
+                  visibleIndices: visibleIndices,
                   onItemTapped: onItemTapped,
                   currentPath: location,
                 ),
@@ -81,14 +86,29 @@ class WebShell extends ConsumerWidget {
 
 class _WebSidebar extends ConsumerWidget {
   final int selectedIndex;
+  final List<int> visibleIndices;
   final Function(int) onItemTapped;
   final String currentPath;
 
   const _WebSidebar({
     required this.selectedIndex,
+    required this.visibleIndices,
     required this.onItemTapped,
     required this.currentPath,
   });
+
+  static const Map<int, (IconData, String)> _navItems = {
+    0: (Icons.point_of_sale_outlined, 'Walk-in'),
+    1: (Icons.account_balance_wallet_outlined, 'Khata Ledger'),
+    2: (Icons.restaurant_menu_outlined, 'Menu'),
+    3: (Icons.dashboard_outlined, 'Dashboard'),
+    4: (Icons.receipt_outlined, 'Bills'),
+    5: (Icons.table_restaurant_outlined, 'Tables'),
+    6: (Icons.restaurant_menu_outlined, 'Orders'),
+    7: (Icons.kitchen_outlined, 'Kitchen'),
+    8: (Icons.badge_outlined, 'Staff'),
+    9: (Icons.access_time_outlined, 'Attendance'),
+  };
 
   /// Build profile avatar that handles both URL and local file
   Widget _buildProfileAvatar(String? logoPath, double radius, bool isSelected) {
@@ -108,7 +128,7 @@ class _WebSidebar extends ConsumerWidget {
         backgroundImage: NetworkImage(logoPath),
         backgroundColor: isSelected ? AppColors.primary : Colors.grey,
         onBackgroundImageError: (e, _) {
-          debugPrint('âš ï¸ Shell avatar image error: $e');
+          debugPrint('⚠️ Shell avatar image error: $e');
         },
       );
     }
@@ -205,45 +225,138 @@ class _WebSidebar extends ConsumerWidget {
             child: ListView(
               padding: EdgeInsets.symmetric(horizontal: isCollapsed ? 8 : 16),
               children: [
-                _SidebarItem(
-                  icon: Icons.point_of_sale_outlined,
-                  label: 'POS',
-                  isSelected: selectedIndex == 0,
-                  isCollapsed: isCollapsed,
-                  onTap: () => onItemTapped(0),
-                ),
-                _SidebarItem(
-                  icon: Icons.account_balance_wallet_outlined,
-                  label: 'Khata Ledger',
-                  isSelected: selectedIndex == 1,
-                  isCollapsed: isCollapsed,
-                  onTap: () => onItemTapped(1),
-                ),
-                _SidebarItem(
-                  icon: Icons.inventory_2_outlined,
-                  label: 'Inventory',
-                  isSelected: selectedIndex == 2,
-                  isCollapsed: isCollapsed,
-                  onTap: () => onItemTapped(2),
-                ),
-                _SidebarItem(
-                  icon: Icons.dashboard_outlined,
-                  label: 'Dashboard',
-                  isSelected: selectedIndex == 3,
-                  isCollapsed: isCollapsed,
-                  onTap: () => onItemTapped(3),
-                ),
-                _SidebarItem(
-                  icon: Icons.receipt_outlined,
-                  label: 'Bills',
-                  isSelected: selectedIndex == 4,
-                  isCollapsed: isCollapsed,
-                  onTap: () => onItemTapped(4),
-                ),
+                for (final idx in visibleIndices)
+                  _SidebarItem(
+                    icon: _navItems[idx]!.$1,
+                    label: _navItems[idx]!.$2,
+                    isSelected: selectedIndex == idx,
+                    isCollapsed: isCollapsed,
+                    onTap: () => onItemTapped(idx),
+                  ),
+
+                // More features — direct route links (permission-filtered)
+                if (!isCollapsed) ...[
+                  const Divider(height: 16),
+                  Builder(
+                    builder: (context) {
+                      final staff = ref.watch(loggedInStaffProvider);
+                      Widget? routeItem(
+                        IconData icon,
+                        String label,
+                        String route,
+                      ) {
+                        if (!StaffPermissions.canViewRoute(staff, route)) {
+                          return null;
+                        }
+                        return _SidebarRouteItem(
+                          icon: icon,
+                          label: label,
+                          route: route,
+                          currentPath: currentPath,
+                          isCollapsed: isCollapsed,
+                        );
+                      }
+
+                      // Build sections, omit empty ones
+                      final inventoryItems = [
+                        routeItem(
+                          Icons.egg,
+                          'Ingredients',
+                          AppRoutes.ingredients,
+                        ),
+                        routeItem(
+                          Icons.local_shipping,
+                          'Vendors',
+                          AppRoutes.vendors,
+                        ),
+                        routeItem(
+                          Icons.delete_sweep,
+                          'Wastage',
+                          AppRoutes.wastage,
+                        ),
+                      ].whereType<Widget>().toList();
+                      final hospitalityItems = [
+                        routeItem(
+                          Icons.event_seat,
+                          'Reservations',
+                          AppRoutes.reservations,
+                        ),
+                        routeItem(
+                          Icons.local_offer,
+                          'Coupons',
+                          AppRoutes.coupons,
+                        ),
+                        routeItem(
+                          Icons.celebration,
+                          'Events',
+                          AppRoutes.events,
+                        ),
+                        routeItem(
+                          Icons.feedback,
+                          'Feedback',
+                          AppRoutes.feedbackDashboard,
+                        ),
+                      ].whereType<Widget>().toList();
+                      final reportsItems = [
+                        routeItem(
+                          Icons.bar_chart,
+                          'Advanced Reports',
+                          AppRoutes.advancedReports,
+                        ),
+                        routeItem(
+                          Icons.description,
+                          'GST Export',
+                          AppRoutes.gstExport,
+                        ),
+                      ].whereType<Widget>().toList();
+                      final complianceItems = [
+                        routeItem(
+                          Icons.build,
+                          'Equipment',
+                          AppRoutes.equipment,
+                        ),
+                        routeItem(Icons.badge, 'Licenses', AppRoutes.licenses),
+                        routeItem(
+                          Icons.report_problem,
+                          'Complaints',
+                          AppRoutes.complaints,
+                        ),
+                      ].whereType<Widget>().toList();
+                      return Column(
+                        children: [
+                          if (inventoryItems.isNotEmpty)
+                            _SidebarSection(
+                              title: 'Inventory',
+                              isCollapsed: isCollapsed,
+                              children: inventoryItems,
+                            ),
+                          if (hospitalityItems.isNotEmpty)
+                            _SidebarSection(
+                              title: 'Hospitality',
+                              isCollapsed: isCollapsed,
+                              children: hospitalityItems,
+                            ),
+                          if (reportsItems.isNotEmpty)
+                            _SidebarSection(
+                              title: 'Reports',
+                              isCollapsed: isCollapsed,
+                              children: reportsItems,
+                            ),
+                          if (complianceItems.isNotEmpty)
+                            _SidebarSection(
+                              title: 'Compliance',
+                              isCollapsed: isCollapsed,
+                              children: complianceItems,
+                            ),
+                        ],
+                      );
+                    },
+                  ),
+                ],
 
                 const Divider(height: 32),
 
-                // Notification bell â€” real-time unread badge
+                // Notification bell — real-time unread badge
                 if (isCollapsed)
                   const Padding(
                     padding: EdgeInsets.symmetric(vertical: 4),
@@ -326,7 +439,7 @@ class _WebSidebar extends ConsumerWidget {
                     },
                   ),
 
-                // "Visit Website" â€” web only, hidden on Android/Windows
+                // "Visit Website" — web only, hidden on Android/Windows
                 if (showWebsiteLink)
                   _SidebarItem(
                     icon: Icons.language_rounded,
@@ -344,10 +457,105 @@ class _WebSidebar extends ConsumerWidget {
             ),
           ),
 
-          // Sync indicator â€” always visible in sidebar
+          // Sync indicator — always visible in sidebar
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 8),
             child: GlobalSyncIndicator(),
+          ),
+
+          // Staff mode banner (when a staff member is logged in)
+          Consumer(
+            builder: (context, ref, _) {
+              final staff = ref.watch(loggedInStaffProvider);
+              if (staff == null) return const SizedBox.shrink();
+              return Container(
+                margin: EdgeInsets.symmetric(
+                  horizontal: isCollapsed ? 8 : 16,
+                  vertical: 4,
+                ),
+                padding: EdgeInsets.all(isCollapsed ? 8 : 12),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: AppColors.primary.withValues(alpha: 0.2),
+                  ),
+                ),
+                child: isCollapsed
+                    ? Tooltip(
+                        message:
+                            '${staff.name} (${staff.role.displayName}) — Tap to logout',
+                        child: InkWell(
+                          onTap: () {
+                            ref.read(loggedInStaffProvider.notifier).state =
+                                null;
+                            GoRouter.of(context).go(AppRoutes.billing);
+                          },
+                          child: Icon(
+                            Icons.badge,
+                            size: 22,
+                            color: AppColors.primary,
+                          ),
+                        ),
+                      )
+                    : Row(
+                        children: [
+                          Text(
+                            staff.role.emoji,
+                            style: const TextStyle(fontSize: 18),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  staff.name,
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.onSurface,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                Text(
+                                  staff.role.displayName,
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.onSurfaceVariant,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          InkWell(
+                            onTap: () {
+                              ref.read(loggedInStaffProvider.notifier).state =
+                                  null;
+                              GoRouter.of(context).go(AppRoutes.billing);
+                            },
+                            borderRadius: BorderRadius.circular(6),
+                            child: Tooltip(
+                              message: 'Staff Logout',
+                              child: Padding(
+                                padding: const EdgeInsets.all(4),
+                                child: Icon(
+                                  Icons.logout,
+                                  size: 18,
+                                  color: Theme.of(context).colorScheme.error,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+              );
+            },
           ),
 
           // User Profile Card (Bottom of Sidebar) - Navigates to Settings
@@ -561,6 +769,71 @@ class _SidebarItem extends StatelessWidget {
   }
 }
 
+class _SidebarSection extends StatelessWidget {
+  final String title;
+  final bool isCollapsed;
+  final List<Widget> children;
+
+  const _SidebarSection({
+    required this.title,
+    required this.isCollapsed,
+    required this.children,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (isCollapsed) return const SizedBox.shrink();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(left: 12, top: 8, bottom: 4),
+          child: Text(
+            title.toUpperCase(),
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 1.2,
+              color: Theme.of(
+                context,
+              ).colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
+            ),
+          ),
+        ),
+        ...children,
+      ],
+    );
+  }
+}
+
+class _SidebarRouteItem extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String route;
+  final String currentPath;
+  final bool isCollapsed;
+
+  const _SidebarRouteItem({
+    required this.icon,
+    required this.label,
+    required this.route,
+    required this.currentPath,
+    required this.isCollapsed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isSelected = currentPath == route;
+    return _SidebarItem(
+      icon: icon,
+      label: label,
+      isSelected: isSelected,
+      isCollapsed: isCollapsed,
+      onTap: () => GoRouter.of(context).push(route),
+    );
+  }
+}
+
 class _WebHeader extends StatelessWidget {
   final String currentPath;
 
@@ -572,16 +845,16 @@ class _WebHeader extends StatelessWidget {
     String breadcrumb = 'Home';
 
     if (currentPath.startsWith(AppRoutes.billing)) {
-      title = 'POS / Billing';
+      title = 'Walk-in Billing';
       breadcrumb = 'Billing';
     } else if (currentPath.startsWith(AppRoutes.products)) {
-      title = 'Inventory Management';
-      breadcrumb = 'Inventory';
+      title = 'Menu Management';
+      breadcrumb = 'Menu';
     } else if (currentPath.startsWith(AppRoutes.dashboard)) {
       title = 'Dashboard';
       breadcrumb = 'Dashboard';
     } else if (currentPath.startsWith(AppRoutes.khata)) {
-      title = 'Customer Ledger';
+      title = 'Guest Ledger';
       breadcrumb = 'Khata';
     } else if (currentPath.startsWith(AppRoutes.bills)) {
       title = 'Billing History';
@@ -639,7 +912,7 @@ class _WebHeader extends StatelessWidget {
             ),
           ),
 
-          // Header Actions â€” sync indicator and notification bell
+          // Header Actions — sync indicator and notification bell
           const GlobalSyncIndicator(),
           const SizedBox(width: 8),
           const NotificationBell(),

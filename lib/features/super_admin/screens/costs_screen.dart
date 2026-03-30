@@ -1,4 +1,4 @@
-/// Costs Screen for Super Admin â€” Revenue analytics from real Firestore data
+/// Costs Screen for Super Admin — Revenue analytics from real Firestore data
 library;
 
 import 'package:flutter/material.dart';
@@ -53,7 +53,7 @@ class CostsScreen extends ConsumerWidget {
     );
   }
 
-  // â”€â”€â”€ Revenue Card (real MRR data) â”€â”€â”€
+  // ─── Revenue Card (real MRR data) ───
 
   Widget _buildRevenueCard(dynamic stats) {
     final revenuePerUser = (stats.totalUsers as int) > 0
@@ -81,7 +81,7 @@ class CostsScreen extends ConsumerWidget {
             const Icon(Icons.trending_up, size: 40, color: Colors.white70),
             const SizedBox(height: 12),
             Text(
-              'â‚¹${stats.mrr.toStringAsFixed(0)}',
+              '\u{20B9}${stats.mrr.toStringAsFixed(0)}',
               style: const TextStyle(
                 color: Colors.white,
                 fontSize: 36,
@@ -96,7 +96,7 @@ class CostsScreen extends ConsumerWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
-                _miniStat('Per User', 'â‚¹${revenuePerUser.toStringAsFixed(1)}'),
+                _miniStat('Per User', '\u{20B9}${revenuePerUser.toStringAsFixed(1)}'),
                 _miniStat('Paid Users', '$paidUsers'),
                 _miniStat('Paid %', '${paidUsersRatio.toStringAsFixed(1)}%'),
               ],
@@ -127,7 +127,7 @@ class CostsScreen extends ConsumerWidget {
     );
   }
 
-  // â”€â”€â”€ Subscription Breakdown Cards â”€â”€â”€
+  // ─── Subscription Breakdown Cards ───
 
   Widget _buildBreakdownCards(dynamic stats) {
     return Column(
@@ -146,7 +146,7 @@ class CostsScreen extends ConsumerWidget {
               child: _planCard(
                 'Free',
                 stats.freeUsers as int,
-                'â‚¹0',
+                '\u{20B9}0',
                 Colors.grey,
               ),
             ),
@@ -155,7 +155,7 @@ class CostsScreen extends ConsumerWidget {
               child: _planCard(
                 'Pro',
                 stats.proUsers as int,
-                'â‚¹299/mo',
+                '\u{20B9}299/mo',
                 Colors.blue,
               ),
             ),
@@ -164,7 +164,7 @@ class CostsScreen extends ConsumerWidget {
               child: _planCard(
                 'Business',
                 stats.businessUsers as int,
-                'â‚¹999/mo',
+                '\u{20B9}999/mo',
                 Colors.purple,
               ),
             ),
@@ -210,7 +210,7 @@ class CostsScreen extends ConsumerWidget {
     );
   }
 
-  // â”€â”€â”€ Cost Note â”€â”€â”€
+  // ─── Cost Note ───
 
   Widget _buildCostNote() {
     return Container(
@@ -225,7 +225,7 @@ class CostsScreen extends ConsumerWidget {
           const SizedBox(width: 12),
           Expanded(
             child: Text(
-              'For actual Firebase infrastructure costs, visit the Firebase Console â†’ Usage and billing.',
+              'For actual Firebase infrastructure costs, visit the Firebase Console → Usage and billing.',
               style: TextStyle(color: Colors.blue.shade800, fontSize: 12),
             ),
           ),

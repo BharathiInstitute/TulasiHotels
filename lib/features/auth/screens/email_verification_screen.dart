@@ -1,4 +1,4 @@
-/// Email verification screen â€” shown before shop setup
+/// Email verification screen — shown before shop setup
 /// Users must verify their email via OTP before proceeding
 library;
 
@@ -123,7 +123,7 @@ class _EmailVerificationScreenState
 
     return AuthLayout(
       title: 'Verify Your Email',
-      subtitle: 'Please verify your email before setting up your shop',
+      subtitle: 'Please verify your email before setting up your hotel',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [

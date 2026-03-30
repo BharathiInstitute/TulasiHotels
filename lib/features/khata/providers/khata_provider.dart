@@ -13,26 +13,26 @@ import 'package:tulasihotels/features/auth/providers/auth_provider.dart';
 import 'package:tulasihotels/models/customer_model.dart';
 import 'package:tulasihotels/models/transaction_model.dart';
 
-/// Customers list provider â€” real-time stream from Firestore
+/// Customers list provider — real-time stream from Firestore
 /// Uses autoDispose to release Firestore listener when no longer watched.
 final customersProvider = StreamProvider.autoDispose<List<CustomerModel>>((
   ref,
 ) {
   final isDemoMode = ref.watch(isDemoModeProvider);
   debugPrint(
-    'ðŸ§¾ customersProvider: isDemoMode=$isDemoMode, DemoDataService.isLoaded=${DemoDataService.isLoaded}',
+    '🧾 customersProvider: isDemoMode=$isDemoMode, DemoDataService.isLoaded=${DemoDataService.isLoaded}',
   );
 
   if (isDemoMode) {
     final customers = DemoDataService.getCustomers().toList();
-    debugPrint('ðŸ§¾ Returning ${customers.length} demo customers');
+    debugPrint('🧾 Returning ${customers.length} demo customers');
     return Stream.value(customers);
   }
 
   return OfflineStorageService.customersStream();
 });
 
-/// Single customer provider â€” real-time stream from Firestore
+/// Single customer provider — real-time stream from Firestore
 /// Uses autoDispose to release per-customer listener when screen is popped.
 final customerProvider = StreamProvider.autoDispose
     .family<CustomerModel?, String>((ref, customerId) {
@@ -45,7 +45,7 @@ final customerProvider = StreamProvider.autoDispose
       return OfflineStorageService.customerStream(customerId);
     });
 
-/// Customer transactions provider â€” real-time stream from Firestore
+/// Customer transactions provider — real-time stream from Firestore
 /// Uses autoDispose to release per-customer transaction listener.
 final customerTransactionsProvider = StreamProvider.autoDispose
     .family<List<TransactionModel>, String>((ref, customerId) {
@@ -176,7 +176,7 @@ final khataServiceProvider = Provider<KhataService>((ref) {
   return KhataService(isDemoMode: isDemoMode);
 });
 
-/// Per-customer sync status â€” maps customer ID â†’ hasPendingWrites
+/// Per-customer sync status — maps customer ID → hasPendingWrites
 final customersSyncStatusProvider =
     StreamProvider.autoDispose<Map<String, bool>>((ref) {
       final isDemoMode = ref.watch(isDemoModeProvider);

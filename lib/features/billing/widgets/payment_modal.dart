@@ -75,7 +75,7 @@ class _PaymentModalState extends ConsumerState<PaymentModal> {
         }
       }
     } catch (_) {
-      // Review request is best-effort â€” never block billing flow
+      // Review request is best-effort — never block billing flow
     }
   }
 
@@ -85,7 +85,7 @@ class _PaymentModalState extends ConsumerState<PaymentModal> {
     if (cart.isEmpty) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('Cart is empty')));
+      ).showSnackBar(const SnackBar(content: Text('Order is empty')));
       return;
     }
 
@@ -120,7 +120,7 @@ class _PaymentModalState extends ConsumerState<PaymentModal> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: const Text(
-                'ðŸš« Monthly bill limit reached. Upgrade to Pro for 500 bills/month.',
+                '🚫 Monthly bill limit reached. Upgrade to Pro for 500 bills/month.',
               ),
               duration: const Duration(seconds: 5),
               action: SnackBarAction(
@@ -195,12 +195,12 @@ class _PaymentModalState extends ConsumerState<PaymentModal> {
 
         ref.read(cartProvider.notifier).clearCart();
 
-        // Auto-print BEFORE popping â€” after pop, widget is unmounted
+        // Auto-print BEFORE popping — after pop, widget is unmounted
         // and mounted check in addPostFrameCallback would fail silently
         final printerState = ref.read(printerProvider);
         if (printerState.autoPrint) {
           final messenger = ScaffoldMessenger.of(context);
-          // Fire-and-forget â€” don't block navigation for printing
+          // Fire-and-forget — don't block navigation for printing
           unawaited(_printReceipt(bill, messenger));
         }
 
@@ -220,7 +220,7 @@ class _PaymentModalState extends ConsumerState<PaymentModal> {
           SnackBar(
             content: Text(
               isLimitError
-                  ? 'ðŸš« Subscription limit reached. Upgrade your plan to continue.'
+                  ? '🚫 Subscription limit reached. Upgrade your plan to continue.'
                   : 'Failed to create bill: $e',
             ),
             backgroundColor: AppColors.error,
@@ -323,7 +323,7 @@ class _PaymentModalState extends ConsumerState<PaymentModal> {
           ),
         );
       } else if (directSuccess == null) {
-        // Printer type selected but not available â€” fallback to system
+        // Printer type selected but not available — fallback to system
         await ReceiptService.printReceipt(
           bill: bill,
           shopName: user?.shopName,
@@ -406,7 +406,7 @@ class _PaymentModalState extends ConsumerState<PaymentModal> {
                           if (context.mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
-                                content: Text('No customer phone available'),
+                                content: Text('No guest phone available'),
                                 backgroundColor: AppColors.warning,
                               ),
                             );
@@ -438,7 +438,7 @@ class _PaymentModalState extends ConsumerState<PaymentModal> {
                             if (context.mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(
-                                  content: Text('No customer phone available'),
+                                  content: Text('No guest phone available'),
                                   backgroundColor: AppColors.warning,
                                 ),
                               );
@@ -548,7 +548,7 @@ class _PaymentModalState extends ConsumerState<PaymentModal> {
                   ),
                   const SizedBox(width: 8),
                   Text(
-                    'Select customer',
+                    'Select guest',
                     style: TextStyle(
                       color: Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
@@ -568,7 +568,7 @@ class _PaymentModalState extends ConsumerState<PaymentModal> {
                       ),
                       const SizedBox(width: 8),
                       Text(
-                        'No customer',
+                        'No guest',
                         style: TextStyle(
                           color: Theme.of(context).colorScheme.onSurfaceVariant,
                         ),
@@ -600,7 +600,7 @@ class _PaymentModalState extends ConsumerState<PaymentModal> {
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            '${customer.name} â€¢ ${customer.phone}',
+                            '${customer.name} • ${customer.phone}',
                             style: const TextStyle(
                               fontWeight: FontWeight.w500,
                               fontSize: 13,
@@ -715,13 +715,13 @@ class _PaymentModalState extends ConsumerState<PaymentModal> {
               Row(
                 children: [
                   Text(
-                    'Customer (Optional)',
+                    'Guest (Optional)',
                     style: Theme.of(context).textTheme.labelLarge,
                   ),
                   const Spacer(),
                   IconButton(
                     icon: const Icon(Icons.person_add, size: 20),
-                    tooltip: 'Add Customer',
+                    tooltip: 'Add Guest',
                     onPressed: () {
                       showModalBottomSheet(
                         context: context,
@@ -778,7 +778,7 @@ class _PaymentModalState extends ConsumerState<PaymentModal> {
                       if (_selectedCustomer == null) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
-                            content: Text('Please select a customer first'),
+                            content: Text('Please select a guest first'),
                           ),
                         );
                         return;
@@ -847,7 +847,7 @@ class _PaymentModalState extends ConsumerState<PaymentModal> {
                       fontWeight: FontWeight.bold,
                     ),
                     decoration: InputDecoration(
-                      prefixText: 'â‚¹ ',
+                      prefixText: '\u{20B9} ',
                       prefixStyle: const TextStyle(
                         fontWeight: FontWeight.bold,
                         color: AppColors.warning,
@@ -932,7 +932,7 @@ class _PaymentModalState extends ConsumerState<PaymentModal> {
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            'Please select a customer for Udhar payment',
+                            'Please select a guest for Udhar payment',
                             style: Theme.of(context).textTheme.bodySmall
                                 ?.copyWith(color: AppColors.error),
                           ),

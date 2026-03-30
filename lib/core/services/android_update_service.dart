@@ -1,4 +1,4 @@
-/// Android in-app update service using Google Play In-App Updates API
+﻿/// Android in-app update service using Google Play In-App Updates API
 ///
 /// Uses flexible update for normal updates (non-blocking banner)
 /// and immediate update for critical/force updates (blocking).
@@ -23,24 +23,24 @@ class AndroidUpdateService {
       final info = await InAppUpdate.checkForUpdate();
 
       if (info.updateAvailability != UpdateAvailability.updateAvailable) {
-        debugPrint('✅ Android: App is up to date');
+        debugPrint('? Android: App is up to date');
         return;
       }
 
       debugPrint(
-        '🔄 Android: Update available (availability: ${info.updateAvailability})',
+        '?? Android: Update available (availability: ${info.updateAvailability})',
       );
 
       // Use immediate update for force updates or high-priority updates
       if (forceImmediate && info.immediateUpdateAllowed) {
-        debugPrint('🔄 Android: Starting immediate (blocking) update');
+        debugPrint('?? Android: Starting immediate (blocking) update');
         await InAppUpdate.performImmediateUpdate();
         return;
       }
 
       // Use flexible update for normal updates (non-blocking)
       if (info.flexibleUpdateAllowed) {
-        debugPrint('🔄 Android: Starting flexible (non-blocking) update');
+        debugPrint('?? Android: Starting flexible (non-blocking) update');
         await InAppUpdate.startFlexibleUpdate();
         // Complete the update when downloaded
         await InAppUpdate.completeFlexibleUpdate();
@@ -49,11 +49,11 @@ class AndroidUpdateService {
 
       // Fallback to immediate if flexible not allowed
       if (info.immediateUpdateAllowed) {
-        debugPrint('🔄 Android: Flexible not allowed, using immediate update');
+        debugPrint('?? Android: Flexible not allowed, using immediate update');
         await InAppUpdate.performImmediateUpdate();
       }
     } catch (e) {
-      debugPrint('⚠️ Android Update check failed: $e');
+      debugPrint('?? Android Update check failed: $e');
       // Non-fatal: don't crash the app if update check fails
     }
   }

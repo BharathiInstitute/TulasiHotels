@@ -1,4 +1,4 @@
-/// Sync details bottom sheet â€” shows per-collection sync breakdown
+/// Sync details bottom sheet — shows per-collection sync breakdown
 library;
 
 import 'package:flutter/material.dart';
@@ -184,11 +184,11 @@ class SyncDetailsSheet extends ConsumerWidget {
   String _collectionDisplayName(String collection) {
     switch (collection) {
       case 'products':
-        return 'Products';
+        return 'Menu Items';
       case 'bills':
         return 'Bills';
       case 'customers':
-        return 'Customers';
+        return 'Guests';
       case 'expenses':
         return 'Expenses';
       case 'transactions':
@@ -203,11 +203,11 @@ class SyncDetailsSheet extends ConsumerWidget {
   IconData _collectionIcon(String collection) {
     switch (collection) {
       case 'products':
-        return Icons.inventory_2_outlined;
+        return Icons.restaurant_menu_outlined;
       case 'bills':
         return Icons.receipt_long_outlined;
       case 'customers':
-        return Icons.people_outline;
+        return Icons.hotel_outlined;
       case 'expenses':
         return Icons.account_balance_wallet_outlined;
       case 'transactions':

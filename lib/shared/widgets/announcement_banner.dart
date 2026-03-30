@@ -1,8 +1,8 @@
-/// Announcement Banner â€” shows Remote Config messages to all users
+/// Announcement Banner — shows Remote Config messages to all users
 ///
 /// Two triggers:
-/// 1. `announcement` key is non-empty â†’ shows banner with message
-/// 2. `latest_version` > current appVersion â†’ shows "Update available" nudge
+/// 1. `announcement` key is non-empty → shows banner with message
+/// 2. `latest_version` > current appVersion → shows "Update available" nudge
 ///
 /// Dismissible per-session. Does NOT block the app.
 library;
@@ -80,7 +80,7 @@ class _AnnouncementBannerState extends State<AnnouncementBanner> {
 
     return Column(
       children: [
-        // â”€â”€â”€ Announcement Banner â”€â”€â”€
+        // ─── Announcement Banner ───
         if (showAnnouncement)
           MaterialBanner(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -98,7 +98,7 @@ class _AnnouncementBannerState extends State<AnnouncementBanner> {
             ],
           ),
 
-        // â”€â”€â”€ Update Available Banner â”€â”€â”€
+        // ─── Update Available Banner ───
         if (showUpdate)
           MaterialBanner(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -119,7 +119,7 @@ class _AnnouncementBannerState extends State<AnnouncementBanner> {
             ],
           ),
 
-        // â”€â”€â”€ Main Content â”€â”€â”€
+        // ─── Main Content ───
         Expanded(child: widget.child),
       ],
     );

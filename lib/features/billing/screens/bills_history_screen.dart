@@ -1,4 +1,4 @@
-/// Bills History Screen - Display all past bills with search, filters, and actions
+﻿/// Bills History Screen - Display all past bills with search, filters, and actions
 library;
 
 import 'package:flutter/material.dart';
@@ -277,7 +277,7 @@ class BillsHistoryScreen extends ConsumerWidget {
 
                 // Payment filter chip
                 ActionChip(
-                  avatar: Text(filter.paymentMethod?.emoji ?? '💳'),
+                  avatar: Text(filter.paymentMethod?.emoji ?? '??'),
                   label: Text(filter.paymentMethod?.displayName ?? 'Payment'),
                   onPressed: () =>
                       _showPaymentFilterSheet(context, ref, filter),
@@ -463,11 +463,11 @@ class BillsHistoryScreen extends ConsumerWidget {
         child: DropdownButton<RecordType>(
           value: filter.recordType,
           items: const [
-            DropdownMenuItem(value: RecordType.all, child: Text('📋 All')),
-            DropdownMenuItem(value: RecordType.bills, child: Text('🧾 Bills')),
+            DropdownMenuItem(value: RecordType.all, child: Text('?? All')),
+            DropdownMenuItem(value: RecordType.bills, child: Text('?? Bills')),
             DropdownMenuItem(
               value: RecordType.expenses,
-              child: Text('💸 Expenses'),
+              child: Text('?? Expenses'),
             ),
           ],
           onChanged: (value) {
@@ -575,7 +575,7 @@ class BillsHistoryScreen extends ConsumerWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
-              leading: const Text('📋', style: TextStyle(fontSize: 20)),
+              leading: const Text('??', style: TextStyle(fontSize: 20)),
               title: const Text('All Records'),
               selected: filter.recordType == RecordType.all,
               onTap: () {
@@ -587,7 +587,7 @@ class BillsHistoryScreen extends ConsumerWidget {
               },
             ),
             ListTile(
-              leading: const Text('🧾', style: TextStyle(fontSize: 20)),
+              leading: const Text('??', style: TextStyle(fontSize: 20)),
               title: const Text('Bills Only'),
               selected: filter.recordType == RecordType.bills,
               onTap: () {
@@ -599,7 +599,7 @@ class BillsHistoryScreen extends ConsumerWidget {
               },
             ),
             ListTile(
-              leading: const Text('💸', style: TextStyle(fontSize: 20)),
+              leading: const Text('??', style: TextStyle(fontSize: 20)),
               title: const Text('Expenses Only'),
               selected: filter.recordType == RecordType.expenses,
               onTap: () {
@@ -1127,14 +1127,14 @@ class BillsHistoryScreen extends ConsumerWidget {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             content: Text(
-                              'âœ… Exported ${result.recordCount} bills to ${result.filePath}',
+                              '✅ Exported ${result.recordCount} bills to ${result.filePath}',
                             ),
                           ),
                         );
                       } else {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
-                            content: Text('âŒ ${result.error}'),
+                            content: Text('❌ ${result.error}'),
                             backgroundColor: Colors.red,
                           ),
                         );

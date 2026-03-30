@@ -7,22 +7,22 @@ class AppConstants {
   // App Info
   static const String appName = 'Tulasi Hotels';
   static const String defaultShopName = 'My Shop';
-  static const String appTagline = 'à¤­à¤¾à¤°à¤¤ à¤•à¤¾ à¤¸à¤¬à¤¸à¥‡ à¤†à¤¸à¤¾à¤¨ à¤¬à¤¿à¤²à¤¿à¤‚à¤— à¤à¤ª';
+  static const String appTagline = 'भारत का सबसे आसान बिलिंग ऐप';
   static const String version = '1.0.0';
 
-  // â”€â”€ FREE Tier Limits (enforced via UserSubscription.billsLimit / productsLimit) â”€â”€
+  // ── FREE Tier Limits (enforced via UserSubscription.billsLimit / productsLimit) ──
   static const int freeMaxBillsPerMonth = 50; // 50 bills / month
   static const int freeMaxProducts = 100; // 100 products
   static const int freeMaxCustomers = 10; // 10 customers
 
-  // â”€â”€ PRO Tier Limits â”€â”€
+  // ── PRO Tier Limits ──
   static const int proMaxBillsPerMonth = 500;
   static const int proMaxProducts = 999999; // unlimited
   static const int proMaxCustomers = 999999; // unlimited
   static const int proPriceInrMonthly = 299;
   static const int proPriceInrAnnual = 2390; // ~20% off
 
-  // â”€â”€ BUSINESS Tier Limits â”€â”€
+  // ── BUSINESS Tier Limits ──
   static const int businessMaxBillsPerMonth = 999999; // unlimited
   static const int businessMaxProducts = 999999; // unlimited
   static const int businessMaxCustomers = 999999; // unlimited
@@ -35,7 +35,7 @@ class AppConstants {
   static const int otpTimeoutSeconds = 60;
 
   // Bill Settings
-  static const String currencySymbol = 'â‚¹';
+  static const String currencySymbol = '\u{20B9}';
   static const String countryCode = '+91';
 
   // Date Formats

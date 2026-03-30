@@ -98,7 +98,7 @@ void main() {
   group('TransactionType', () {
     test('unknown has correct properties', () {
       expect(TransactionType.unknown.displayName, 'Unknown');
-      expect(TransactionType.unknown.emoji, 'â“');
+      expect(TransactionType.unknown.emoji, '❓');
       expect(TransactionType.unknown.isDebit, false);
     });
 

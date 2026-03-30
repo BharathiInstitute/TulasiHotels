@@ -65,7 +65,7 @@ void main() {
         amount: 100,
         payeeName: 'Tulasi Hotels',
       );
-      expect(link, contains('pn=Tulasi%20Stores'));
+      expect(link, contains('pn=Tulasi%20Hotels'));
     });
 
     test('should include transaction note when provided', () {

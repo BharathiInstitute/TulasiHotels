@@ -6,29 +6,29 @@ void main() {
 
   group('Formatters.currency', () {
     test('formats zero', () {
-      expect(Formatters.currency(0), 'â‚¹0');
+      expect(Formatters.currency(0), '₹0');
     });
 
     test('formats small amount', () {
-      expect(Formatters.currency(5), 'â‚¹5');
+      expect(Formatters.currency(5), '₹5');
     });
 
     test('formats with Indian commas', () {
-      expect(Formatters.currency(1234), 'â‚¹1,234');
+      expect(Formatters.currency(1234), '₹1,234');
     });
 
     test('formats large amount with Indian commas', () {
-      expect(Formatters.currency(123456), 'â‚¹1,23,456');
+      expect(Formatters.currency(123456), '₹1,23,456');
     });
 
     test('formats very large amount', () {
-      expect(Formatters.currency(1000000), 'â‚¹10,00,000');
+      expect(Formatters.currency(1000000), '₹10,00,000');
     });
 
     test('truncates decimals', () {
-      // No decimals format â€” should round/truncate
+      // No decimals format — should round/truncate
       final result = Formatters.currency(1234.56);
-      expect(result, contains('â‚¹'));
+      expect(result, contains('₹'));
       expect(result, contains('1,235')); // rounded
     });
 
@@ -40,15 +40,15 @@ void main() {
 
   group('Formatters.currencyWithDecimals', () {
     test('formats with 2 decimals', () {
-      expect(Formatters.currencyWithDecimals(1234.56), 'â‚¹1,234.56');
+      expect(Formatters.currencyWithDecimals(1234.56), '₹1,234.56');
     });
 
     test('adds trailing zeros', () {
-      expect(Formatters.currencyWithDecimals(100), 'â‚¹100.00');
+      expect(Formatters.currencyWithDecimals(100), '₹100.00');
     });
 
     test('formats zero', () {
-      expect(Formatters.currencyWithDecimals(0), 'â‚¹0.00');
+      expect(Formatters.currencyWithDecimals(0), '₹0.00');
     });
   });
 
@@ -245,7 +245,7 @@ void main() {
 
   group('FormatterExtensions on num', () {
     test('asCurrency works', () {
-      expect(1234.asCurrency, 'â‚¹1,234');
+      expect(1234.asCurrency, '₹1,234');
     });
 
     test('asNumber works', () {

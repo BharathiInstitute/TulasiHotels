@@ -1,4 +1,4 @@
-/// Desktop Login Bridge â€” Web page that handles auth for Windows desktop app.
+/// Desktop Login Bridge — Web page that handles auth for Windows desktop app.
 ///
 /// Flow:
 /// 1. Windows app opens browser to /desktop-login?code=XXXXXX
@@ -128,7 +128,7 @@ class _DesktopLoginBridgeScreenState
 
   @override
   Widget build(BuildContext context) {
-    // Success state â€” token generated, desktop can pick it up
+    // Success state — token generated, desktop can pick it up
     if (_tokenGenerated) {
       return Scaffold(
         backgroundColor: AppColors.background,

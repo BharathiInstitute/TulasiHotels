@@ -1,4 +1,4 @@
-/// Register screen â€” Google Sign-In (primary) or Email/Password (secondary)
+/// Register screen — Google Sign-In (primary) or Email/Password (secondary)
 /// Phone verification happens at Shop Setup (for both Google & email users)
 library;
 
@@ -122,7 +122,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     ref.read(authNotifierProvider.notifier).clearError();
 
     try {
-      // Don't enumerate auth methods â€” let Firebase handle duplicate
+      // Don't enumerate auth methods — let Firebase handle duplicate
       // email errors during registration to prevent email enumeration
       // attacks.
 
@@ -211,7 +211,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('New code sent! âœ‰ï¸'),
+              content: Text('New code sent! ✉️'),
               backgroundColor: Colors.green,
               duration: Duration(seconds: 2),
             ),
@@ -248,7 +248,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       if (success && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Account created & verified! âœ…'),
+            content: Text('Account created & verified! ✅'),
             backgroundColor: Colors.green,
           ),
         );
@@ -279,7 +279,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
             const SizedBox(height: AppSizes.md),
           ],
 
-          // â”€â”€ Google + OR + Email Toggle â”€â”€
+          // ── Google + OR + Email Toggle ──
           AuthSocialSection(
             isGoogleLoading: _isGoogleLoading,
             isOtherLoading: _isLoading,
@@ -289,7 +289,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
             onEmailToggle: () => setState(() => _showEmailForm = true),
           ),
 
-          // â”€â”€ Email Registration Form â”€â”€
+          // ── Email Registration Form ──
           if (_showEmailForm)
             Form(
               key: _formKey,
@@ -347,7 +347,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   ),
                   const SizedBox(height: AppSizes.sm),
 
-                  // â”€â”€ Verify Email Button (before OTP sent) â”€â”€
+                  // ── Verify Email Button (before OTP sent) ──
                   if (!_otpSent && !_emailVerified)
                     SizedBox(
                       height: 44,
@@ -377,7 +377,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                       ),
                     ),
 
-                  // â”€â”€ OTP Input Section (after OTP sent, before verified) â”€â”€
+                  // ── OTP Input Section (after OTP sent, before verified) ──
                   if (_otpSent && !_emailVerified) ...[
                     const SizedBox(height: AppSizes.sm),
                     Container(
@@ -485,7 +485,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                     ),
                   ],
 
-                  // â”€â”€ Email Verified Banner â”€â”€
+                  // ── Email Verified Banner ──
                   if (_emailVerified) ...[
                     const SizedBox(height: AppSizes.sm),
                     Container(
@@ -521,7 +521,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                     ),
                   ],
 
-                  // â”€â”€ OTP Error â”€â”€
+                  // ── OTP Error ──
                   if (_otpError != null) ...[
                     const SizedBox(height: 8),
                     Text(
@@ -603,7 +603,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   ),
                   const SizedBox(height: AppSizes.xl),
 
-                  // Register button â€” only enabled after email is verified
+                  // Register button — only enabled after email is verified
                   SizedBox(
                     height: AppSizes.buttonHeight(context),
                     child: ElevatedButton.icon(

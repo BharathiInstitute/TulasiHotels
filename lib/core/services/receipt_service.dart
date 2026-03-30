@@ -149,7 +149,7 @@ class ReceiptService {
         return pw.MemoryImage(bytes);
       }
     } catch (e) {
-      debugPrint('âš ï¸ Failed to load logo for receipt: $e');
+      debugPrint('⚠️ Failed to load logo for receipt: $e');
     }
     return null;
   }
@@ -312,7 +312,7 @@ class ReceiptService {
                         style: const pw.TextStyle(fontSize: 9),
                       ),
                       pw.Text(
-                        '@ â‚¹${item.price.toStringAsFixed(0)}',
+                        '@ \u{20B9}${item.price.toStringAsFixed(0)}',
                         style: const pw.TextStyle(
                           fontSize: 7,
                           color: PdfColors.grey700,
@@ -331,7 +331,7 @@ class ReceiptService {
                 pw.Expanded(
                   flex: 2,
                   child: pw.Text(
-                    'â‚¹${item.total.toStringAsFixed(0)}',
+                    '\u{20B9}${item.total.toStringAsFixed(0)}',
                     style: const pw.TextStyle(fontSize: 9),
                     textAlign: pw.TextAlign.right,
                   ),
@@ -365,7 +365,7 @@ class ReceiptService {
               style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold),
             ),
             pw.Text(
-              'â‚¹${bill.total.toStringAsFixed(0)}',
+              '\u{20B9}${bill.total.toStringAsFixed(0)}',
               style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold),
             ),
           ],
@@ -380,7 +380,7 @@ class ReceiptService {
             children: [
               pw.Text('Received:', style: const pw.TextStyle(fontSize: 9)),
               pw.Text(
-                'â‚¹${bill.receivedAmount!.toStringAsFixed(0)}',
+                '\u{20B9}${bill.receivedAmount!.toStringAsFixed(0)}',
                 style: const pw.TextStyle(fontSize: 9),
               ),
             ],
@@ -391,7 +391,7 @@ class ReceiptService {
               children: [
                 pw.Text('Change:', style: const pw.TextStyle(fontSize: 9)),
                 pw.Text(
-                  'â‚¹${bill.changeAmount!.toStringAsFixed(0)}',
+                  '\u{20B9}${bill.changeAmount!.toStringAsFixed(0)}',
                   style: const pw.TextStyle(fontSize: 9),
                 ),
               ],
@@ -422,7 +422,7 @@ class ReceiptService {
           textAlign: pw.TextAlign.center,
         ),
         pw.Text(
-          'à¤§à¤¨à¥à¤¯à¤µà¤¾à¤¦! à¤«à¤¿à¤° à¤†à¤‡à¤à¥¤',
+          'धन्यवाद! फिर आइए।',
           style: const pw.TextStyle(fontSize: 8),
           textAlign: pw.TextAlign.center,
         ),

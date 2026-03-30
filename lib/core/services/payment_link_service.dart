@@ -1,4 +1,4 @@
-/// Payment Link Service for creating shareable payment links
+﻿/// Payment Link Service for creating shareable payment links
 ///
 /// Uses Firebase Cloud Functions to create Razorpay payment links
 library;
@@ -117,7 +117,7 @@ class PaymentLinkService {
     );
   }
 
-  /// Launch a ₹1 test payment to verify UPI ID is working
+  /// Launch a ?1 test payment to verify UPI ID is working
   static Future<bool> launchTestPayment({
     required String upiId,
     String? shopName,
@@ -167,9 +167,9 @@ class PaymentLinkService {
         upiId: _upiId,
         amount: amount,
         payeeName: shopName,
-        transactionNote: description ?? 'Payment to ${shopName ?? "store"}',
+        transactionNote: description ?? 'Payment to ${shopName ?? "hotel"}',
       );
-      if (kDebugMode) debugPrint('>>> ✅ UPI deep link generated: $deepLink');
+      if (kDebugMode) debugPrint('>>> ? UPI deep link generated: $deepLink');
       return PaymentLinkResult.success(paymentLink: deepLink);
     }
 
@@ -198,7 +198,7 @@ class PaymentLinkService {
       final data = result.data;
       if (data['success'] == true && data['paymentLink'] != null) {
         if (kDebugMode) {
-          debugPrint('>>> ✅ Razorpay link: ${data['paymentLink']}');
+          debugPrint('>>> ? Razorpay link: ${data['paymentLink']}');
         }
         return PaymentLinkResult.success(
           paymentLink: data['paymentLink'] as String,
@@ -210,19 +210,19 @@ class PaymentLinkService {
         );
       }
     } on FirebaseFunctionsException catch (e) {
-      debugPrint('>>> ❌ Firebase error: ${e.code} - ${e.message}');
+      debugPrint('>>> ? Firebase error: ${e.code} - ${e.message}');
       if (e.code == 'unauthenticated') {
         return PaymentLinkResult.failure(
           'Please login to create payment links',
         );
       }
       return PaymentLinkResult.failure(
-        'UPI ID not configured. Go to Settings → Billing to set up.',
+        'UPI ID not configured. Go to Settings ? Billing to set up.',
       );
     } catch (e) {
-      debugPrint('>>> ❌ Error: $e');
+      debugPrint('>>> ? Error: $e');
       return PaymentLinkResult.failure(
-        'UPI ID not configured. Go to Settings → Billing to set up.',
+        'UPI ID not configured. Go to Settings ? Billing to set up.',
       );
     }
   }
@@ -318,8 +318,8 @@ class PaymentLinkService {
     String? customerName,
     bool isShort = false,
   }) {
-    final amountStr = '₹${amount.toStringAsFixed(0)}';
-    final shop = (shopName != null && shopName.isNotEmpty) ? shopName : 'Store';
+    final amountStr = '?${amount.toStringAsFixed(0)}';
+    final shop = (shopName != null && shopName.isNotEmpty) ? shopName : 'Hotel';
 
     // Check if this is a Razorpay link
     final isRazorpayLink =
@@ -336,14 +336,14 @@ class PaymentLinkService {
     final greeting = customerName != null ? 'Dear $customerName,\n\n' : '';
 
     if (isRazorpayLink) {
-      return '''${greeting}Please pay $amountStr for your purchase at $shop.
+      return '''${greeting}Please pay $amountStr for your visit to $shop.
 
-🔗 *Click to pay securely:*
+?? *Click to pay securely:*
 $paymentLink
 
 Supports: UPI, Cards, Net Banking
 
-Thank you! 🙏''';
+Thank you! ??''';
     }
 
     // UPI payment message with clickable payment page link
@@ -352,17 +352,17 @@ Thank you! 🙏''';
       amount: amount,
       payeeName: shopName,
     );
-    return '''${greeting}Please pay $amountStr for your purchase at $shop.
+    return '''${greeting}Please pay $amountStr for your visit to $shop.
 
-💳 *UPI Payment Details:*
-━━━━━━━━━━━━━━━━━
-📱 UPI ID: *$_upiId*
-💰 Amount: *$amountStr*
-━━━━━━━━━━━━━━━━━
+?? *UPI Payment Details:*
+?????????????????
+?? UPI ID: *$_upiId*
+?? Amount: *$amountStr*
+?????????????????
 
-👉 *Click to pay:*
+?? *Click to pay:*
 $payUrl
 
-Thank you! 🙏''';
+Thank you! ??''';
   }
 }

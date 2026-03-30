@@ -39,7 +39,7 @@ class NpsSurveyDialog {
         }
       }
     } catch (e, st) {
-      debugPrint('Ã¢Å¡Â Ã¯Â¸Â NPS: eligibility check failed: $e');
+      debugPrint('⚠️ NPS: eligibility check failed: $e');
       ErrorLoggingService.logError(
         error: e,
         stackTrace: st,
@@ -111,7 +111,7 @@ class NpsSurveyDialog {
             'lastCompletedAt': FieldValue.serverTimestamp(),
           }, SetOptions(merge: true));
     } catch (e, st) {
-      debugPrint('Ã¢Å¡Â Ã¯Â¸Â NPS: survey submission failed: $e');
+      debugPrint('⚠️ NPS: survey submission failed: $e');
       ErrorLoggingService.logError(
         error: e,
         stackTrace: st,

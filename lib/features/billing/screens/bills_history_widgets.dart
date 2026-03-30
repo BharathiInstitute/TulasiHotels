@@ -1,4 +1,4 @@
-part of 'bills_history_screen.dart';
+﻿part of 'bills_history_screen.dart';
 
 /// Bill table row widget
 class _BillRow extends ConsumerWidget {
@@ -101,7 +101,7 @@ class _BillRow extends ConsumerWidget {
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      bill.customerName ?? 'Walk-in Customer',
+                      bill.customerName ?? 'Walk-in Guest',
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
@@ -227,7 +227,7 @@ class _ExpenseRow extends StatelessWidget {
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: const Text(
-                    '💰 Expense',
+                    '?? Expense',
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w500,
@@ -595,7 +595,7 @@ class _AddExpensePopupState extends ConsumerState<AddExpensePopup> {
                 keyboardType: TextInputType.number,
                 decoration: InputDecoration(
                   labelText: 'Amount *',
-                  prefixText: '₹ ',
+                  prefixText: '? ',
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
                   ),
@@ -877,7 +877,7 @@ class _MobileBillCard extends StatelessWidget {
                 children: [
                   Expanded(
                     child: Text(
-                      bill.customerName ?? 'Walk-in Customer',
+                      bill.customerName ?? 'Walk-in Guest',
                       style: TextStyle(
                         color: Theme.of(context).colorScheme.onSurfaceVariant,
                       ),
@@ -1063,8 +1063,8 @@ class BillDetailsPopup extends StatelessWidget {
             // Customer Info
             _buildInfoRow(
               context,
-              'Customer',
-              bill.customerName ?? 'Walk-in Customer',
+              'Guest',
+              bill.customerName ?? 'Walk-in Guest',
             ),
             _buildInfoRow(
               context,

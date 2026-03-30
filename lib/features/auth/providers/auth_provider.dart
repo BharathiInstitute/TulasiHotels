@@ -144,7 +144,7 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
             state = const AuthState(isLoading: false);
           }
         } catch (e) {
-          debugPrint('ðŸ” Auth timeout handler error: $e');
+          debugPrint('🔐 Auth timeout handler error: $e');
           state = const AuthState(isLoading: false);
         }
       }
@@ -167,13 +167,13 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
           .then((result) async {
             if (result.user != null) {
               debugPrint(
-                'ðŸ” Google redirect sign-in complete: ${result.user!.email}',
+                '🔐 Google redirect sign-in complete: ${result.user!.email}',
               );
               await _ensureFirestoreDoc(result.user!);
             }
           })
           .catchError((e) {
-            debugPrint('ðŸ” Redirect result check: $e');
+            debugPrint('🔐 Redirect result check: $e');
           });
     }
     _authSub = _auth.authStateChanges().listen(
@@ -199,7 +199,7 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
         }
       },
       onError: (Object error) {
-        debugPrint('ðŸ” authStateChanges stream error: $error');
+        debugPrint('🔐 authStateChanges stream error: $error');
         if (state.isLoading) {
           _authResolved = true;
           state = const AuthState(isLoading: false);
@@ -236,7 +236,7 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
             'customersLimit': 10,
           },
         });
-        debugPrint('âœ… Created Firestore doc for redirect user: ${user.email}');
+        debugPrint('✅ Created Firestore doc for redirect user: ${user.email}');
       } else {
         // Update Google profile data
         final data = doc.data()!;
@@ -252,7 +252,7 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
         }
       }
     } catch (e) {
-      debugPrint('ðŸ” Error ensuring Firestore doc: $e');
+      debugPrint('🔐 Error ensuring Firestore doc: $e');
     }
   }
 
@@ -261,13 +261,13 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
     if (_profileLoadInProgress) return; // Prevent concurrent loads
     _profileLoadInProgress = true;
     try {
-      debugPrint('ðŸ” _loadUserProfile: START for ${firebaseUser.uid}');
+      debugPrint('🔐 _loadUserProfile: START for ${firebaseUser.uid}');
       final doc = await _firestore
           .collection('users')
           .doc(firebaseUser.uid)
           .get()
           .timeout(const Duration(seconds: 10));
-      debugPrint('ðŸ” _loadUserProfile: Firestore doc exists=${doc.exists}');
+      debugPrint('🔐 _loadUserProfile: Firestore doc exists=${doc.exists}');
 
       // Google sign-in users are always email-verified
       final isGoogleUser = firebaseUser.providerData.any(
@@ -276,7 +276,7 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
 
       if (doc.exists) {
         final data = doc.data()!;
-        // Fall back to shopName presence â€” covers legacy users whose
+        // Fall back to shopName presence — covers legacy users whose
         // Firestore doc never got the boolean set.
         final isShopSetupComplete =
             (data['isShopSetupComplete'] as bool? ?? false) ||
@@ -300,9 +300,9 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
         }
 
         // Load this user's cloud settings into local SharedPreferences
-        debugPrint('ðŸ” _loadUserProfile: Loading cloud settings...');
+        debugPrint('🔐 _loadUserProfile: Loading cloud settings...');
         await OfflineStorageService.loadAllSettingsFromCloud();
-        debugPrint('ðŸ” _loadUserProfile: Cloud settings loaded');
+        debugPrint('🔐 _loadUserProfile: Cloud settings loaded');
 
         final emailVerified =
             isGoogleUser ||
@@ -342,7 +342,7 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
         RazorpayConfig.setShopName(data['shopName'] as String? ?? '');
         _refreshSettingsProviders();
         debugPrint(
-          'ðŸ” _loadUserProfile: State set isLoggedIn=true, isShopSetup=$isShopSetupComplete',
+          '🔐 _loadUserProfile: State set isLoggedIn=true, isShopSetup=$isShopSetupComplete',
         );
 
         // Save FCM token for push notifications (non-blocking)
@@ -358,17 +358,42 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
           PaymentLinkService.setUpiId(userUpiId);
         }
       } else {
-        debugPrint('ðŸ” _loadUserProfile: No Firestore doc â€” new user');
-        // User exists in Auth but not in Firestore - new user needs shop setup
+        debugPrint('🔐 _loadUserProfile: No Firestore doc — new user');
+        // Auto-create Firestore doc for new user (shop setup skipped for now)
+        // TODO: Re-enable shop setup screen when OTP/phone auth is configured
+        final defaultShopName = firebaseUser.displayName ?? 'My Hotel';
+        final newUserData = {
+          'shopName': defaultShopName,
+          'ownerName': firebaseUser.displayName ?? '',
+          'email': firebaseUser.email,
+          'phone': '',
+          'isShopSetupComplete': true,
+          'createdAt': FieldValue.serverTimestamp(),
+          'limits': {
+            'productsCount': 0,
+            'productsLimit': 100,
+            'billsThisMonth': 0,
+            'billsLimit': 50,
+            'customersCount': 0,
+            'customersLimit': 10,
+          },
+        };
+        unawaited(
+          _firestore
+              .collection('users')
+              .doc(firebaseUser.uid)
+              .set(newUserData, SetOptions(merge: true)),
+        );
         state = AuthState(
           status: AuthStatus.authenticated,
           firebaseUser: firebaseUser,
           isLoggedIn: true,
+          isShopSetupComplete: true,
           isEmailVerified: isGoogleUser || firebaseUser.emailVerified,
           isLoading: false,
           user: UserModel(
             id: firebaseUser.uid,
-            shopName: '',
+            shopName: defaultShopName,
             ownerName: firebaseUser.displayName ?? '',
             email: firebaseUser.email,
             phone: '',
@@ -379,7 +404,7 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
         _refreshSettingsProviders();
       }
     } catch (e) {
-      debugPrint('ðŸ” Error loading user profile: $e');
+      debugPrint('🔐 Error loading user profile: $e');
       state = AuthState(
         status: AuthStatus.authenticated,
         firebaseUser: firebaseUser,
@@ -393,8 +418,8 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
     }
   }
 
-  /// Sign in with Google â€” multi-layer approach for maximum reliability
-  /// Web: signInWithPopup â†’ GoogleSignIn package â†’ signInWithRedirect
+  /// Sign in with Google — multi-layer approach for maximum reliability
+  /// Web: signInWithPopup → GoogleSignIn package → signInWithRedirect
   /// Mobile: GoogleSignIn package directly
   /// Desktop: Try GoogleSignIn package, fall back to helpful message
   Future<bool> signInWithGoogle() async {
@@ -411,7 +436,7 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
         return await _googleSignInMobile();
       }
     } catch (e) {
-      debugPrint('ðŸ” Google sign-in error (all layers failed): $e');
+      debugPrint('🔐 Google sign-in error (all layers failed): $e');
       state = state.copyWith(
         isLoading: false,
         error: 'Google sign-in failed. Please try again.',
@@ -424,7 +449,7 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
   Future<bool> _googleSignInWeb() async {
     // --- Layer 1: signInWithPopup ---
     try {
-      debugPrint('ðŸ” Google Sign-In: Trying Layer 1 (signInWithPopup)...');
+      debugPrint('🔐 Google Sign-In: Trying Layer 1 (signInWithPopup)...');
       final googleProvider = GoogleAuthProvider();
       googleProvider.addScope('email');
       googleProvider.addScope('profile');
@@ -432,11 +457,11 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
       final user = userCredential.user;
       if (user != null) {
         await _ensureFirestoreDoc(user);
-        debugPrint('âœ… Google Sign-In Layer 1 success: ${user.email}');
+        debugPrint('✅ Google Sign-In Layer 1 success: ${user.email}');
         return true;
       }
     } on FirebaseAuthException catch (e) {
-      debugPrint('ðŸ” Layer 1 failed: ${e.code} - ${e.message}');
+      debugPrint('🔐 Layer 1 failed: ${e.code} - ${e.message}');
 
       // If user deliberately cancelled, don't try other layers
       if (e.code == 'popup-closed-by-user' ||
@@ -456,17 +481,17 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
 
       // For popup-blocked or other errors, try Layer 2
     } catch (e) {
-      debugPrint('ðŸ” Layer 1 failed: $e');
+      debugPrint('🔐 Layer 1 failed: $e');
       // Continue to Layer 2
     }
 
     // --- Layer 2: GoogleSignIn package (GIS flow) ---
     try {
-      debugPrint('ðŸ” Google Sign-In: Trying Layer 2 (GoogleSignIn package)...');
+      debugPrint('🔐 Google Sign-In: Trying Layer 2 (GoogleSignIn package)...');
       final googleSignIn = GoogleSignIn(
         scopes: ['email', 'profile'],
         clientId:
-            '576503526807-gjpgq9da62trcc0t09gediob7uina6g0.apps.googleusercontent.com',
+            '883551466761-9s896hmfvmilcj85v70a90jhea1j8g90.apps.googleusercontent.com',
       );
 
       final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
@@ -486,25 +511,25 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
       final user = userCredential.user;
       if (user != null) {
         await _ensureFirestoreDoc(user);
-        debugPrint('âœ… Google Sign-In Layer 2 success: ${user.email}');
+        debugPrint('✅ Google Sign-In Layer 2 success: ${user.email}');
         return true;
       }
     } catch (e) {
-      debugPrint('ðŸ” Layer 2 failed: $e');
+      debugPrint('🔐 Layer 2 failed: $e');
       // Continue to Layer 3
     }
 
     // --- Layer 3: signInWithRedirect (last resort) ---
     try {
-      debugPrint('ðŸ” Google Sign-In: Trying Layer 3 (signInWithRedirect)...');
+      debugPrint('🔐 Google Sign-In: Trying Layer 3 (signInWithRedirect)...');
       final googleProvider = GoogleAuthProvider();
       googleProvider.addScope('email');
       googleProvider.addScope('profile');
       await _auth.signInWithRedirect(googleProvider);
-      // Page will redirect â€” on return, authStateChanges handles login
+      // Page will redirect — on return, authStateChanges handles login
       return true;
     } catch (e) {
-      debugPrint('ðŸ” Layer 3 failed: $e');
+      debugPrint('🔐 Layer 3 failed: $e');
       state = state.copyWith(
         isLoading: false,
         error:
@@ -520,7 +545,7 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
   Future<bool> signInDesktop() async {
     try {
       state = state.copyWith(isLoading: true);
-      debugPrint('ðŸ–¥ï¸ Desktop: Starting web-based auth flow...');
+      debugPrint('🖥️ Desktop: Starting web-based auth flow...');
 
       // 1. Generate a random 8-character link code (2.7: increased from 6)
       final random = math.Random.secure();
@@ -530,7 +555,7 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
         (_) => chars[random.nextInt(chars.length)],
       ).join();
 
-      debugPrint('ðŸ–¥ï¸ Desktop: Link code: $linkCode');
+      debugPrint('🖥️ Desktop: Link code: $linkCode');
 
       // Derive a simple device identifier for session binding (2.7)
       final deviceId =
@@ -564,7 +589,7 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
         return false;
       }
 
-      debugPrint('ðŸ–¥ï¸ Desktop: Opened browser, waiting for auth token...');
+      debugPrint('🖥️ Desktop: Opened browser, waiting for auth token...');
 
       // 4. Listen for auth token via real-time snapshot (not polling)
       // This uses a single Firestore listener instead of ~200 reads over 10 min.
@@ -574,7 +599,7 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
       // Safety timeout after 10 minutes
       final timer = Timer(const Duration(minutes: 10), () {
         if (!completer.isCompleted) {
-          debugPrint('ðŸ–¥ï¸ Desktop: Auth timed out');
+          debugPrint('🖥️ Desktop: Auth timed out');
           sessionSub?.cancel();
           _firestore.collection('desktop_auth_sessions').doc(linkCode).delete();
           state = state.copyWith(
@@ -594,7 +619,7 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
               if (completer.isCompleted) return;
 
               if (!snapshot.exists) {
-                debugPrint('ðŸ–¥ï¸ Desktop: Session deleted (expired)');
+                debugPrint('🖥️ Desktop: Session deleted (expired)');
                 timer.cancel();
                 unawaited(sessionSub?.cancel());
                 state = state.copyWith(
@@ -608,7 +633,7 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
               final data = snapshot.data();
               if (data?['status'] == 'ready' && data?['customToken'] != null) {
                 final customToken = data!['customToken'] as String;
-                debugPrint('ðŸ–¥ï¸ Desktop: Got custom token, signing in...');
+                debugPrint('🖥️ Desktop: Got custom token, signing in...');
 
                 try {
                   // Sign in with the custom token
@@ -620,12 +645,12 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
                       .doc(linkCode)
                       .delete();
 
-                  debugPrint('âœ… Desktop: Signed in successfully!');
+                  debugPrint('✅ Desktop: Signed in successfully!');
                   timer.cancel();
                   unawaited(sessionSub?.cancel());
                   if (!completer.isCompleted) completer.complete(true);
                 } catch (e) {
-                  debugPrint('ðŸ–¥ï¸ Desktop: signInWithCustomToken failed: $e');
+                  debugPrint('🖥️ Desktop: signInWithCustomToken failed: $e');
                   timer.cancel();
                   unawaited(sessionSub?.cancel());
                   state = state.copyWith(
@@ -637,7 +662,7 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
               }
             },
             onError: (e) {
-              debugPrint('ðŸ–¥ï¸ Desktop: Snapshot listener error: $e');
+              debugPrint('🖥️ Desktop: Snapshot listener error: $e');
               timer.cancel();
               if (!completer.isCompleted) {
                 state = state.copyWith(
@@ -651,7 +676,7 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
 
       return await completer.future;
     } catch (e) {
-      debugPrint('ðŸ–¥ï¸ Desktop auth error: $e');
+      debugPrint('🖥️ Desktop auth error: $e');
       state = state.copyWith(
         isLoading: false,
         error: 'Sign-in failed. Please try again.',
@@ -680,7 +705,7 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
     final user = userCredential.user;
     if (user != null) {
       await _ensureFirestoreDoc(user);
-      debugPrint('âœ… Google Sign-In: ${user.email}');
+      debugPrint('✅ Google Sign-In: ${user.email}');
       return true;
     }
     return false;
@@ -716,8 +741,8 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
       );
 
       if (credential.user != null) {
-        debugPrint('âœ… User signed in: ${credential.user!.email}');
-        // Load profile directly â€” authStateChanges may not fire reliably
+        debugPrint('✅ User signed in: ${credential.user!.email}');
+        // Load profile directly — authStateChanges may not fire reliably
         // for re-sign-in with the same user (especially on web).
         // _profileLoadInProgress guard prevents double-loading if the
         // stream listener already started _loadUserProfile.
@@ -731,7 +756,7 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
       return false;
     } on FirebaseAuthException catch (e) {
       debugPrint(
-        'ðŸ” FirebaseAuthException: code=${e.code}, message=${e.message}',
+        '🔐 FirebaseAuthException: code=${e.code}, message=${e.message}',
       );
       String message;
       switch (e.code) {
@@ -766,7 +791,7 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
       state = state.copyWith(isLoading: false, error: message);
       return false;
     } catch (e) {
-      debugPrint('ðŸ” Login error (generic): $e');
+      debugPrint('🔐 Login error (generic): $e');
       state = state.copyWith(isLoading: false, error: 'Login failed: $e');
       return false;
     }
@@ -782,7 +807,7 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
         'https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=$apiKey',
       );
 
-      debugPrint('ðŸ–¥ï¸ Windows: Using REST API for email sign-in...');
+      debugPrint('🖥️ Windows: Using REST API for email sign-in...');
 
       final response = await http.post(
         url,
@@ -800,7 +825,7 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
         // Parse Firebase REST API error
         final error = data['error'] as Map<String, dynamic>?;
         final errorMessage = error?['message'] as String? ?? 'Unknown error';
-        debugPrint('ðŸ–¥ï¸ Windows REST API error: $errorMessage');
+        debugPrint('🖥️ Windows REST API error: $errorMessage');
 
         String message;
         switch (errorMessage) {
@@ -824,16 +849,16 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
         return false;
       }
 
-      // Success â€” sign in with the custom token
+      // Success — sign in with the custom token
       final idToken = data['idToken'] as String;
       debugPrint(
-        'ðŸ–¥ï¸ Windows: REST API sign-in successful, exchanging token...',
+        '🖥️ Windows: REST API sign-in successful, exchanging token...',
       );
 
       // Use signInWithCredential with the returned tokens
       // Create a custom credential using the email link approach won't work,
       // so we use signInWithCustomToken via Cloud Function
-      // Instead, let's try signInWithEmailAndPassword one more time â€” the REST
+      // Instead, let's try signInWithEmailAndPassword one more time — the REST
       // API already authenticated, so we just need to establish the local session.
       // Actually, we can use the idToken directly with a Cloud Function.
 
@@ -850,11 +875,11 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
         });
         final customToken = result.data['customToken'] as String;
         await _auth.signInWithCustomToken(customToken);
-        debugPrint('âœ… Windows: Signed in with custom token');
+        debugPrint('✅ Windows: Signed in with custom token');
         return true;
       } catch (cfError) {
         debugPrint(
-          'ðŸ–¥ï¸ Windows: Cloud Function not available, trying direct auth: $cfError',
+          '🖥️ Windows: Cloud Function not available, trying direct auth: $cfError',
         );
         // Fallback: try direct signInWithEmailAndPassword one more time
         try {
@@ -862,10 +887,10 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
             email: email,
             password: password,
           );
-          debugPrint('âœ… Windows: Direct auth succeeded on retry');
+          debugPrint('✅ Windows: Direct auth succeeded on retry');
           return true;
         } catch (retryError) {
-          debugPrint('ðŸ–¥ï¸ Windows: Direct auth retry also failed: $retryError');
+          debugPrint('🖥️ Windows: Direct auth retry also failed: $retryError');
           // The REST API confirmed the credentials are correct
           // but we can't establish a local session
           state = state.copyWith(
@@ -877,7 +902,7 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
         }
       }
     } catch (e) {
-      debugPrint('ðŸ–¥ï¸ Windows REST API error: $e');
+      debugPrint('🖥️ Windows REST API error: $e');
       state = state.copyWith(
         isLoading: false,
         error: 'Login failed. Please check your internet connection.',
@@ -921,9 +946,9 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
         if (!emailVerified) {
           try {
             await user.sendEmailVerification();
-            debugPrint('ðŸ“§ Verification email sent to: ${user.email}');
+            debugPrint('📧 Verification email sent to: ${user.email}');
           } catch (e) {
-            debugPrint('ðŸ“§ Failed to send verification email: $e');
+            debugPrint('📧 Failed to send verification email: $e');
           }
         }
 
@@ -941,7 +966,7 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
         _profileLoaded = true;
         await _loadUserProfile(user);
 
-        debugPrint('âœ… User registered: ${user.email}');
+        debugPrint('✅ User registered: ${user.email}');
         return true;
       }
       return false;
@@ -963,7 +988,7 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
       state = state.copyWith(isLoading: false, error: message);
       return false;
     } catch (e) {
-      debugPrint('ðŸ” Registration error: $e');
+      debugPrint('🔐 Registration error: $e');
       state = state.copyWith(
         isLoading: false,
         error: 'Registration failed. Please try again.',
@@ -1009,7 +1034,7 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
         'https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=$apiKey',
       );
 
-      debugPrint('ðŸ–¥ï¸ Windows: Using REST API for registration...');
+      debugPrint('🖥️ Windows: Using REST API for registration...');
 
       final response = await http.post(
         url,
@@ -1027,7 +1052,7 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
       if (response.statusCode != 200) {
         final error = data['error'] as Map<String, dynamic>?;
         final errorMessage = error?['message'] as String? ?? 'Unknown error';
-        debugPrint('ðŸ–¥ï¸ Windows REST API register error: $errorMessage');
+        debugPrint('🖥️ Windows REST API register error: $errorMessage');
 
         String message;
         switch (errorMessage) {
@@ -1048,10 +1073,10 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
         return false;
       }
 
-      // Success â€” exchange idToken for customToken
+      // Success — exchange idToken for customToken
       final idToken = data['idToken'] as String;
       debugPrint(
-        'ðŸ–¥ï¸ Windows: REST API registration successful, exchanging token...',
+        '🖥️ Windows: REST API registration successful, exchanging token...',
       );
 
       try {
@@ -1076,10 +1101,10 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
           await _loadUserProfile(user);
         }
 
-        debugPrint('âœ… Windows: Registered and signed in with custom token');
+        debugPrint('✅ Windows: Registered and signed in with custom token');
         return true;
       } catch (cfError) {
-        debugPrint('ðŸ–¥ï¸ Windows: Cloud Function error: $cfError');
+        debugPrint('🖥️ Windows: Cloud Function error: $cfError');
         state = state.copyWith(
           isLoading: false,
           error: 'Account created but sign-in failed. Please try logging in.',
@@ -1087,7 +1112,7 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
         return false;
       }
     } catch (e) {
-      debugPrint('ðŸ–¥ï¸ Windows REST API register error: $e');
+      debugPrint('🖥️ Windows REST API register error: $e');
       state = state.copyWith(
         isLoading: false,
         error: 'Registration failed. Please check your internet connection.',
@@ -1109,7 +1134,7 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
 
       await _auth.sendPasswordResetEmail(email: email.trim());
       state = state.copyWith(isLoading: false);
-      debugPrint('âœ… Password reset email sent to: $email');
+      debugPrint('✅ Password reset email sent to: $email');
       return true;
     } on FirebaseAuthException catch (e) {
       String message;
@@ -1129,7 +1154,7 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
       state = state.copyWith(isLoading: false, error: message);
       return false;
     } catch (e) {
-      debugPrint('ðŸ” Password reset error: $e');
+      debugPrint('🔐 Password reset error: $e');
       state = state.copyWith(
         isLoading: false,
         error: 'Failed to send reset email. Please try again.',
@@ -1146,7 +1171,7 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
         'https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode?key=$apiKey',
       );
 
-      debugPrint('ðŸ–¥ï¸ Windows: Using REST API for password reset...');
+      debugPrint('🖥️ Windows: Using REST API for password reset...');
 
       final response = await http.post(
         url,
@@ -1156,14 +1181,14 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
 
       if (response.statusCode == 200) {
         state = state.copyWith(isLoading: false);
-        debugPrint('âœ… Windows: Password reset email sent to: $email');
+        debugPrint('✅ Windows: Password reset email sent to: $email');
         return true;
       }
 
       final data = json.decode(response.body) as Map<String, dynamic>;
       final error = data['error'] as Map<String, dynamic>?;
       final errorMessage = error?['message'] as String? ?? 'Unknown error';
-      debugPrint('ðŸ–¥ï¸ Windows REST API reset error: $errorMessage');
+      debugPrint('🖥️ Windows REST API reset error: $errorMessage');
 
       String message;
       switch (errorMessage) {
@@ -1179,7 +1204,7 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
       state = state.copyWith(isLoading: false, error: message);
       return false;
     } catch (e) {
-      debugPrint('ðŸ–¥ï¸ Windows REST API reset error: $e');
+      debugPrint('🖥️ Windows REST API reset error: $e');
       state = state.copyWith(
         isLoading: false,
         error: 'Failed to send reset email. Please check your internet.',
@@ -1205,32 +1230,32 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
       try {
         await GoogleSignIn().signOut();
       } catch (e) {
-        debugPrint('âš ï¸ Google sign-out failed (non-fatal): $e');
+        debugPrint('⚠️ Google sign-out failed (non-fatal): $e');
       }
       await _auth.signOut();
 
-      // 3. Cleanup (fire-and-forget â€” none of these should block logout)
+      // 3. Cleanup (fire-and-forget — none of these should block logout)
       if (userId != null) {
         try {
           await FCMTokenService.removeToken(
             userId,
           ).timeout(const Duration(seconds: 5));
         } catch (e) {
-          debugPrint('ðŸ” FCM cleanup skipped: $e');
+          debugPrint('🔐 FCM cleanup skipped: $e');
         }
       }
       WindowsNotificationService.stopListening();
       try {
         await OfflineStorageService.clearUserLocalSettings();
       } catch (e) {
-        debugPrint('âš ï¸ Sign-out: clearUserLocalSettings failed: $e');
+        debugPrint('⚠️ Sign-out: clearUserLocalSettings failed: $e');
       }
       _refreshSettingsProviders();
-      // Skip clearPersistence â€” it fails with active listeners and
+      // Skip clearPersistence — it fails with active listeners and
       // calling terminate() breaks Firestore for the auth state listener.
       // Firestore cache will be replaced on next login anyway.
     } catch (e) {
-      debugPrint('ðŸ” Error signing out: $e');
+      debugPrint('🔐 Error signing out: $e');
       // Force reset state even if something failed
       state = const AuthState(isLoading: false);
       _refreshSettingsProviders();
@@ -1264,7 +1289,7 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
       try {
         await OfflineStorageService.clearUserLocalSettings();
       } catch (e) {
-        debugPrint('âš ï¸ Delete account: clearUserLocalSettings failed: $e');
+        debugPrint('⚠️ Delete account: clearUserLocalSettings failed: $e');
       }
 
       _ref.read(themeSettingsProvider.notifier).resetToDefault();
@@ -1273,10 +1298,10 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
       // Clear auth state
       state = const AuthState(isLoading: false);
 
-      debugPrint('âœ… Account deleted successfully');
+      debugPrint('✅ Account deleted successfully');
       return true;
     } catch (e) {
-      debugPrint('âŒ Account deletion failed: $e');
+      debugPrint('❌ Account deletion failed: $e');
       state = state.copyWith(
         isLoading: false,
         error: 'Failed to delete account: ${e.toString().split('\n').first}',
@@ -1318,7 +1343,7 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
           .doc(user.uid)
           .set(data, SetOptions(merge: true));
 
-      // Generate referral code for this new user (idempotent â€” skips if exists)
+      // Generate referral code for this new user (idempotent — skips if exists)
       unawaited(ReferralService.getOrCreateCode());
 
       state = state.copyWith(
@@ -1335,10 +1360,10 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
 
       return true;
     } catch (e) {
-      debugPrint('ðŸ” Shop setup error: $e');
+      debugPrint('🔐 Hotel setup error: $e');
       state = state.copyWith(
         error:
-            'Failed to save shop details. Please check your internet and try again.',
+            'Failed to save hotel details. Please check your internet and try again.',
       );
       return false;
     }
@@ -1422,7 +1447,7 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
 
       return true;
     } catch (e) {
-      debugPrint('ðŸ” Error updating shop info: $e');
+      debugPrint('🔐 Error updating hotel info: $e');
       return false;
     }
   }
@@ -1460,7 +1485,7 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
       }
       return true;
     } catch (e) {
-      debugPrint('ðŸ” Error toggling notification pref $key: $e');
+      debugPrint('🔐 Error toggling notification pref $key: $e');
       return false;
     }
   }
@@ -1485,7 +1510,7 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
 
       return true;
     } catch (e) {
-      debugPrint('ðŸ” Error updating shop logo: $e');
+      debugPrint('🔐 Error updating hotel logo: $e');
       return false;
     }
   }
@@ -1510,7 +1535,7 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
 
       return true;
     } catch (e) {
-      debugPrint('ðŸ” Error updating profile image: $e');
+      debugPrint('🔐 Error updating profile image: $e');
       return false;
     }
   }
@@ -1523,20 +1548,20 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
 
     try {
       await user.linkWithCredential(credential);
-      debugPrint('ðŸ“± Phone credential linked to account: ${user.email}');
+      debugPrint('📱 Phone credential linked to account: ${user.email}');
       return true;
     } on FirebaseAuthException catch (e) {
       if (e.code == 'credential-already-in-use') {
-        debugPrint('ðŸ“± Phone already linked to another account');
+        debugPrint('📱 Phone already linked to another account');
       } else if (e.code == 'provider-already-linked') {
-        debugPrint('ðŸ“± Phone provider already linked to this account');
+        debugPrint('📱 Phone provider already linked to this account');
       } else {
-        debugPrint('ðŸ“± Failed to link phone: ${e.code} - ${e.message}');
+        debugPrint('📱 Failed to link phone: ${e.code} - ${e.message}');
       }
       // Non-fatal: phone is still saved in Firestore even if linking fails
       return false;
     } catch (e) {
-      debugPrint('ðŸ“± Failed to link phone credential: $e');
+      debugPrint('📱 Failed to link phone credential: $e');
       return false;
     }
   }
@@ -1551,16 +1576,16 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
       final data = result.data as Map<String, dynamic>;
 
       if (data['success'] == true) {
-        debugPrint('ðŸ“§ Registration OTP sent to $email');
+        debugPrint('📧 Registration OTP sent to $email');
         return true;
       } else {
         final error = data['error'] as String? ?? 'Failed to send code';
-        debugPrint('ðŸ“§ OTP send failed: $error');
+        debugPrint('📧 OTP send failed: $error');
         state = state.copyWith(error: error);
         return false;
       }
     } catch (e) {
-      debugPrint('ðŸ“§ Failed to send registration OTP: $e');
+      debugPrint('📧 Failed to send registration OTP: $e');
       state = state.copyWith(
         error: 'Failed to send verification code. Please try again.',
       );
@@ -1581,7 +1606,7 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
       final data = result.data as Map<String, dynamic>;
 
       if (data['success'] == true) {
-        debugPrint('âœ… Registration OTP verified for $email');
+        debugPrint('✅ Registration OTP verified for $email');
         return true;
       } else {
         final error = data['error'] as String? ?? 'Invalid code';
@@ -1589,7 +1614,7 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
         return false;
       }
     } catch (e) {
-      debugPrint('ðŸ“§ OTP verification error: $e');
+      debugPrint('📧 OTP verification error: $e');
       state = state.copyWith(error: 'Verification failed. Please try again.');
       return false;
     }
@@ -1609,9 +1634,9 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
         isEmailVerified: true,
         user: state.user?.copyWith(emailVerified: true),
       );
-      debugPrint('âœ… Email marked as verified for ${user.email}');
+      debugPrint('✅ Email marked as verified for ${user.email}');
     } catch (e) {
-      debugPrint('ðŸ” Error marking email verified: $e');
+      debugPrint('🔐 Error marking email verified: $e');
     }
   }
 
@@ -1641,7 +1666,7 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
       }
       return null;
     } catch (e) {
-      debugPrint('ðŸ” Error looking up phone for email: $e');
+      debugPrint('🔐 Error looking up phone for email: $e');
       return null;
     }
   }
@@ -1668,7 +1693,7 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
         );
       }
     } catch (e) {
-      debugPrint('ðŸ” Error updating phone verified status: $e');
+      debugPrint('🔐 Error updating phone verified status: $e');
     }
   }
 
@@ -1688,22 +1713,22 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
           .collection('users')
           .where('phone', isEqualTo: normalizedPhone)
           .where('phoneVerified', isEqualTo: true)
-          .limit(2) // D10: Only need to know if â‰¥1 other user has this phone
+          .limit(2) // D10: Only need to know if ≥1 other user has this phone
           .get();
 
       // Check if any result belongs to a different user
       for (final doc in query.docs) {
         if (doc.id != currentUid) {
           debugPrint(
-            'ðŸ“± Phone $normalizedPhone already used by user: ${doc.id}',
+            '📱 Phone $normalizedPhone already used by user: ${doc.id}',
           );
           return true;
         }
       }
       return false;
     } catch (e) {
-      debugPrint('ðŸ” Error checking phone uniqueness: $e');
-      // Fail open â€” allow user to proceed on error; linkWithCredential
+      debugPrint('🔐 Error checking phone uniqueness: $e');
+      // Fail open — allow user to proceed on error; linkWithCredential
       // will catch actual duplicates server-side (credential-already-in-use)
       return false;
     }
@@ -1732,7 +1757,7 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
       if (e.code == 'wrong-password') {
         throw Exception('Current password is incorrect');
       }
-      debugPrint('ðŸ” Change password error: ${e.code} - ${e.message}');
+      debugPrint('🔐 Change password error: ${e.code} - ${e.message}');
       throw Exception('Failed to change password. Please try again.');
     }
   }
@@ -1751,7 +1776,7 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
       isLoading: false,
       user: UserModel(
         id: 'demo_user',
-        shopName: 'Demo Shop',
+        shopName: 'Demo Hotel',
         ownerName: 'Demo Owner',
         email: 'demo@tulasihotels.com',
         phone: '9876543210',

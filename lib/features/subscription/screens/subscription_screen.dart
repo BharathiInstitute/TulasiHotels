@@ -1,7 +1,9 @@
-import 'package:flutter/foundation.dart';
+﻿import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:tulasihotels/features/auth/providers/auth_provider.dart';
+import 'package:tulasihotels/features/subscription/services/subscription_service.dart';
 
 /// Screen for viewing and managing subscription plans.
 ///
@@ -26,8 +28,13 @@ class SubscriptionScreen extends ConsumerStatefulWidget {
 }
 
 class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
+  final _service = SubscriptionService();
+  bool _upgrading = false;
+
   @override
   Widget build(BuildContext context) {
+    final user = ref.watch(currentUserProvider);
+
     return Scaffold(
       appBar: AppBar(
         leading: BackButton(
@@ -41,67 +48,102 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
         ),
         title: const Text('Subscription Plans'),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const Text(
-              'Choose the right plan for your business',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 24),
-            _buildPlanCard(
-              context,
-              name: 'Free',
-              price: '₹0',
-              period: 'forever',
-              features: [
-                '50 bills/month',
-                '100 products',
-                '10 customers',
-                'Basic reports',
+      body: FutureBuilder(
+        future: _service.getCurrentSubscription(),
+        builder: (context, snapshot) {
+          final currentPlan = snapshot.data?.plan.name ?? 'free';
+          final isActive = snapshot.data?.isActive ?? true;
+          final expiresAt = snapshot.data?.expiresAt;
+
+          return SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Text(
+                  'Choose the right plan for your business',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  textAlign: TextAlign.center,
+                ),
+                if (!isActive && expiresAt != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Card(
+                      color: Colors.red.shade50,
+                      child: Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Text(
+                          'Your plan expired. Upgrade to continue using premium features.',
+                          style: TextStyle(color: Colors.red.shade800),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ),
+                  ),
+                const SizedBox(height: 24),
+                _buildPlanCard(
+                  context,
+                  name: 'Free',
+                  planKey: 'free',
+                  price: '₹0',
+                  period: 'forever',
+                  features: [
+                    '50 bills/month',
+                    '100 menu items',
+                    '10 customers',
+                    'Basic reports',
+                  ],
+                  color: Colors.grey,
+                  isCurrent: currentPlan == 'free',
+                  userName: user?.ownerName ?? '',
+                  userEmail: user?.email,
+                  userPhone: user?.phone,
+                ),
+                const SizedBox(height: 16),
+                _buildPlanCard(
+                  context,
+                  name: 'Pro',
+                  planKey: 'pro',
+                  price: '₹299',
+                  period: '/month',
+                  features: [
+                    '500 bills/month',
+                    '1,000 menu items',
+                    '100 customers',
+                    'Advanced reports',
+                    'Priority support',
+                  ],
+                  color: Colors.blue,
+                  isCurrent: currentPlan == 'pro',
+                  userName: user?.ownerName ?? '',
+                  userEmail: user?.email,
+                  userPhone: user?.phone,
+                ),
+                const SizedBox(height: 16),
+                _buildPlanCard(
+                  context,
+                  name: 'Business',
+                  planKey: 'business',
+                  price: '₹999',
+                  period: '/month',
+                  features: [
+                    'Unlimited bills',
+                    'Unlimited menu items',
+                    'Unlimited customers',
+                    'All reports',
+                    'Dedicated support',
+                    'Multi-device sync',
+                  ],
+                  color: Colors.purple,
+                  isCurrent: currentPlan == 'business',
+                  userName: user?.ownerName ?? '',
+                  userEmail: user?.email,
+                  userPhone: user?.phone,
+                ),
               ],
-              color: Colors.grey,
-              isCurrent:
-                  true, // Current plan determination handled by _isPlanCurrent below
             ),
-            const SizedBox(height: 16),
-            _buildPlanCard(
-              context,
-              name: 'Pro',
-              price: '₹299',
-              period: '/month',
-              features: [
-                '500 bills/month',
-                '1,000 products',
-                '100 customers',
-                'Advanced reports',
-                'Priority support',
-              ],
-              color: Colors.blue,
-              isCurrent: false,
-            ),
-            const SizedBox(height: 16),
-            _buildPlanCard(
-              context,
-              name: 'Business',
-              price: '₹999',
-              period: '/month',
-              features: [
-                'Unlimited bills',
-                'Unlimited products',
-                'Unlimited customers',
-                'All reports',
-                'Dedicated support',
-                'Multi-device sync',
-              ],
-              color: Colors.purple,
-              isCurrent: false,
-            ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
@@ -109,11 +151,15 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
   Widget _buildPlanCard(
     BuildContext context, {
     required String name,
+    required String planKey,
     required String price,
     required String period,
     required List<String> features,
     required Color color,
     required bool isCurrent,
+    required String userName,
+    String? userEmail,
+    String? userPhone,
   }) {
     return Card(
       elevation: isCurrent ? 0 : 4,
@@ -177,15 +223,27 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
               ),
             ),
             const SizedBox(height: 16),
-            if (!isCurrent)
+            if (!isCurrent && planKey != 'free')
               SizedBox(
                 width: double.infinity,
                 child: FilledButton(
-                  onPressed: () {
-                    _handleUpgrade(context, name);
-                  },
+                  onPressed: _upgrading
+                      ? null
+                      : () => _handleUpgrade(
+                          context,
+                          planKey,
+                          userName,
+                          userEmail,
+                          userPhone,
+                        ),
                   style: FilledButton.styleFrom(backgroundColor: color),
-                  child: Text('Upgrade to $name'),
+                  child: _upgrading
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : Text('Upgrade to $name'),
                 ),
               ),
           ],
@@ -199,32 +257,69 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
   /// - **Android**: Must use Google Play Billing (IAP) per Play Store policy.
   /// - **Web / Windows**: Can use Razorpay, Stripe, or direct payment links.
   /// - **iOS**: Must use StoreKit (Apple IAP) per App Store policy.
-  void _handleUpgrade(BuildContext context, String planName) {
+  Future<void> _handleUpgrade(
+    BuildContext context,
+    String planKey,
+    String userName,
+    String? userEmail,
+    String? userPhone,
+  ) async {
     final isAndroid =
         !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
     final isIOS = !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
 
     if (isAndroid || isIOS) {
-      // Google Play / App Store in-app purchase flow
-      // Uses `in_app_purchase` package:
-      //   1. Query available products from Play Store / App Store
-      //   2. Launch purchase flow
-      //   3. Verify receipt server-side via Cloud Function
-      //   4. Update user subscription in Firestore
-      // NOTE: Requires in_app_purchase setup in pubspec.yaml + Play Console products
+      // Google Play / App Store IAP — requires in_app_purchase package setup
+      // When Play Console products are configured, replace this with IAP flow
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            '$planName upgrade via ${isAndroid ? "Google Play" : "App Store"} coming soon!',
+            'Upgrade via ${isAndroid ? "Google Play" : "App Store"} coming soon!',
           ),
         ),
       );
-    } else {
-      // Web / Desktop: Use Razorpay checkout or Stripe payment links
-      // NOTE: Razorpay integration available via RazorpayService; wire when live keys are configured
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('$planName upgrade coming soon!')));
+      return;
+    }
+
+    // Web / Desktop: Use Razorpay checkout → activateSubscription Cloud Function
+    setState(() => _upgrading = true);
+
+    try {
+      final result = await _service.upgradePlan(
+        plan: planKey,
+        cycle: 'monthly',
+        customerName: userName,
+        customerEmail: userEmail,
+        customerPhone: userPhone,
+      );
+
+      if (!mounted) return;
+
+      if (result.success) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                '${planKey[0].toUpperCase()}${planKey.substring(1)} plan activated!',
+              ),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+        // Refresh the screen to show updated plan
+        setState(() {});
+      } else {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(result.error ?? 'Upgrade failed'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    } finally {
+      if (mounted) setState(() => _upgrading = false);
     }
   }
 }

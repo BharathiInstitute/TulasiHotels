@@ -54,10 +54,10 @@ class SyncSettingsService {
           persistenceEnabled: true,
           cacheSizeBytes: 100 * 1024 * 1024, // 100 MB
         );
-        debugPrint('âœ… Firebase offline mode enabled with 100 MB cache');
+        debugPrint('✅ Firebase offline mode enabled with 100 MB cache');
       }
     } catch (e) {
-      debugPrint('âš ï¸ Firestore persistence setup: $e');
+      debugPrint('⚠️ Firestore persistence setup: $e');
     }
   }
 
@@ -70,7 +70,7 @@ class SyncSettingsService {
       // Check if auto-sync is needed (run in background, don't block)
       unawaited(checkAndAutoSync());
     } catch (e) {
-      debugPrint('âŒ SyncSettingsService init error: $e');
+      debugPrint('❌ SyncSettingsService init error: $e');
     }
   }
 
@@ -146,14 +146,14 @@ class SyncSettingsService {
     }
 
     _status = SyncStatus.syncing;
-    debugPrint('ðŸ”„ Starting sync...');
+    debugPrint('🔄 Starting sync...');
 
     try {
       // Wait for pending writes to complete (with timeout to prevent blocking)
       await FirebaseFirestore.instance.waitForPendingWrites().timeout(
         const Duration(seconds: 10),
         onTimeout: () {
-          debugPrint('âš ï¸ Sync timeout - proceeding anyway');
+          debugPrint('⚠️ Sync timeout - proceeding anyway');
         },
       );
 
@@ -166,11 +166,11 @@ class SyncSettingsService {
       await _prefs?.setInt(_lastSyncKey, _lastSyncTime!.millisecondsSinceEpoch);
 
       _status = SyncStatus.success;
-      debugPrint('âœ… Sync completed successfully');
+      debugPrint('✅ Sync completed successfully');
       return true;
     } catch (e) {
       _status = SyncStatus.error;
-      debugPrint('âŒ Sync failed: $e');
+      debugPrint('❌ Sync failed: $e');
       return false;
     }
   }

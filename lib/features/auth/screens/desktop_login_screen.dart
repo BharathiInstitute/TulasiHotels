@@ -1,4 +1,4 @@
-/// Desktop Login Screen â€” Windows-specific login that opens web browser
+/// Desktop Login Screen — Windows-specific login that opens web browser
 /// for full auth flow (Google, email, phone OTP, shop setup)
 library;
 
@@ -43,7 +43,7 @@ class _DesktopLoginScreenState extends ConsumerState<DesktopLoginScreen> {
         final remaining = value.toInt();
         if (remaining <= 0) {
           return const Text(
-            'Code expired â€” tap Sign In to get a new one.',
+            'Code expired — tap Sign In to get a new one.',
             style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
           );
         }
@@ -173,7 +173,7 @@ class _DesktopLoginScreenState extends ConsumerState<DesktopLoginScreen> {
                       const SizedBox(height: 4),
                       const Text(
                         'A browser window will open for you to sign in.\n'
-                        'Complete verification and shop setup there,\n'
+                        'Complete verification and hotel setup there,\n'
                         'then this app will sync automatically.',
                         textAlign: TextAlign.center,
                         style: TextStyle(

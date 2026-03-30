@@ -253,7 +253,7 @@ class _EmailVerificationBannerState
       return const SizedBox.shrink();
     }
 
-    // Check authProvider â€” Google users are auto-verified
+    // Check authProvider — Google users are auto-verified
     final authState = ref.watch(authNotifierProvider);
     if (authState.firebaseUser?.providerData.any(
           (p) => p.providerId == 'google.com',

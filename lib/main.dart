@@ -34,7 +34,7 @@ import 'package:tulasihotels/features/notifications/services/windows_notificatio
 import 'package:tulasihotels/firebase_options.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
-/// App version â€” read from pubspec.yaml at runtime (single source of truth)
+/// App version — read from pubspec.yaml at runtime (single source of truth)
 /// Initialized in _initializeApp() before any version checks.
 String appVersion = '1.0.0'; // overwritten at startup
 int appBuildNumber = 0; // overwritten at startup
@@ -60,12 +60,12 @@ void main() {
       _initializeApp();
     },
     (error, stack) {
-      debugPrint('ðŸ”´ runZonedGuarded caught: $error');
+      debugPrint('🔴 runZonedGuarded caught: $error');
       if (_firebaseReady) {
-        // Firebase is up â€” use normal error pipeline
+        // Firebase is up — use normal error pipeline
         ErrorHandler.report(error, stack);
       } else {
-        // Firebase NOT ready â€” save locally for next startup
+        // Firebase NOT ready — save locally for next startup
         ErrorLoggingService.savePreFirebaseCrash(error, stack);
       }
     },
@@ -90,7 +90,7 @@ Future<void> _initializeApp() async {
       FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
     }
 
-    // â”€â”€ Parallel Firebase init batch â”€â”€
+    // ── Parallel Firebase init batch ──
     // These are all independent after Firebase.initializeApp() completes.
     // Running in parallel shaves ~500-800ms off cold start.
     await Future.wait([
@@ -139,7 +139,7 @@ Future<void> _initializeApp() async {
         appVersion = packageInfo.version;
         appBuildNumber = int.tryParse(packageInfo.buildNumber) ?? 0;
         RemoteConfigState.appVersion = appVersion;
-        debugPrint('ðŸ“± App version: v$appVersion+$appBuildNumber');
+        debugPrint('📱 App version: v$appVersion+$appBuildNumber');
       }),
     ]);
 
@@ -195,7 +195,7 @@ Future<void> _initializeApp() async {
       );
       RemoteConfigState.announcement = remoteConfig.getString('announcement');
     } catch (e, st) {
-      debugPrint('âš ï¸ Remote Config initialization failed: $e');
+      debugPrint('⚠️ Remote Config initialization failed: $e');
       unawaited(
         ErrorLoggingService.logError(
           error: e,
@@ -210,7 +210,7 @@ Future<void> _initializeApp() async {
       PaymentLinkService.setUpiId(merchantUpiId);
     }
 
-    // â”€â”€â”€ Check maintenance mode â”€â”€â”€
+    // ─── Check maintenance mode ───
     if (maintenanceMode) {
       runApp(
         MaintenanceScreen(
@@ -223,7 +223,7 @@ Future<void> _initializeApp() async {
       return;
     }
 
-    // â”€â”€â”€ Check force update â”€â”€â”€
+    // ─── Check force update ───
     if (_isVersionLower(appVersion, minVersion)) {
       runApp(
         ForceUpdateScreen(
@@ -254,24 +254,24 @@ Future<void> _initializeApp() async {
     // Launch the main app
     runApp(const ProviderScope(child: LiteApp()));
 
-    // â”€â”€â”€ Update System â”€â”€â”€
-    // Windows: 5-layer silent â†’ dialog â†’ force
+    // ─── Update System ───
+    // Windows: 5-layer silent → dialog → force
     unawaited(WindowsUpdateService.runBackgroundUpdateCheck());
     // Android: Google Play in-app updates (flexible)
     unawaited(AndroidUpdateService.checkForUpdate());
     // Layer 4 dialog: triggered from app.dart (needs BuildContext)
     // Layer 5 force update: handled above via Remote Config
 
-    // â”€â”€â”€ Data Retention â”€â”€â”€
+    // ─── Data Retention ───
     // Auto-cleanup expired data if due (every 7 days)
     unawaited(_runAutoCleanupIfDue());
 
-    // â”€â”€â”€ User Metrics â”€â”€â”€
+    // ─── User Metrics ───
     // Track user activity for admin dashboard
     unawaited(UserMetricsService.trackActivity());
   } catch (error, stack) {
     // Show error screen with retry option
-    debugPrint('âŒ App initialization failed: $error');
+    debugPrint('❌ App initialization failed: $error');
     debugPrint('Stack: $stack');
 
     if (!kIsWeb && !isWindows) {
@@ -296,12 +296,12 @@ Future<void> _initializeApp() async {
   }
 }
 
-/// Safely initialize a service â€” logs error but doesn't crash the app
+/// Safely initialize a service — logs error but doesn't crash the app
 Future<void> _safeInit(String name, Future<void> Function() init) async {
   try {
     await init();
   } catch (e, st) {
-    debugPrint('âš ï¸ $name init failed (non-fatal): $e');
+    debugPrint('⚠️ $name init failed (non-fatal): $e');
     unawaited(
       ErrorLoggingService.logError(
         error: e,
@@ -331,12 +331,12 @@ Future<void> _runAutoCleanupIfDue() async {
     final result = await service.cleanupExpiredData();
     if (result.totalDeleted > 0) {
       debugPrint(
-        'ðŸ§¹ Auto-cleanup: ${result.billsDeleted} bills, '
+        '🧹 Auto-cleanup: ${result.billsDeleted} bills, '
         '${result.expensesDeleted} expenses deleted',
       );
     }
   } catch (e, st) {
-    debugPrint('âš ï¸ Auto-cleanup failed (non-fatal): $e');
+    debugPrint('⚠️ Auto-cleanup failed (non-fatal): $e');
     unawaited(
       ErrorLoggingService.logError(
         error: e,
@@ -362,6 +362,6 @@ bool _isVersionLower(String current, String minimum) {
     }
     return false; // equal
   } catch (_) {
-    return false; // malformed version string â€” don't block
+    return false; // malformed version string — don't block
   }
 }

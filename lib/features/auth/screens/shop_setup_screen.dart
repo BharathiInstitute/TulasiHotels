@@ -96,7 +96,7 @@ class _ShopSetupScreenState extends ConsumerState<ShopSetupScreen> {
       ref
           .read(phoneAuthProvider.notifier)
           .setError(
-            'This phone number is already registered with another store. Please use a different number.',
+            'This phone number is already registered with another hotel. Please use a different number.',
           );
       return;
     }
@@ -140,7 +140,7 @@ class _ShopSetupScreenState extends ConsumerState<ShopSetupScreen> {
   Future<void> _handleSetup() async {
     if (!_formKey.currentState!.validate()) return;
 
-    // Phone is required â€” must be verified (except on desktop)
+    // Phone is required — must be verified (except on desktop)
     final phone = _phoneController.text.trim();
     if (phone.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -186,7 +186,7 @@ class _ShopSetupScreenState extends ConsumerState<ShopSetupScreen> {
       } else if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Failed to save shop details. Please try again.'),
+            content: Text('Failed to save hotel details. Please try again.'),
             backgroundColor: Colors.red,
           ),
         );
@@ -229,8 +229,8 @@ class _ShopSetupScreenState extends ConsumerState<ShopSetupScreen> {
     }
 
     return AuthLayout(
-      title: 'Set Up Your Shop',
-      subtitle: 'Enter your shop details to get started',
+      title: 'Set Up Your Hotel',
+      subtitle: 'Enter your hotel details to get started',
       onBack: () {
         ref.read(authNotifierProvider.notifier).signOut();
       },
@@ -282,9 +282,9 @@ class _ShopSetupScreenState extends ConsumerState<ShopSetupScreen> {
               controller: _shopNameController,
               decoration: InputDecoration(
                 labelText: l10n.shopName,
-                hintText: 'Enter your shop name',
+                hintText: 'Enter your hotel name',
                 prefixIcon: const Icon(
-                  Icons.store_outlined,
+                  Icons.hotel_outlined,
                   color: AppColors.textSecondary,
                 ),
                 border: OutlineInputBorder(
@@ -305,7 +305,7 @@ class _ShopSetupScreenState extends ConsumerState<ShopSetupScreen> {
               textCapitalization: TextCapitalization.words,
               validator: (value) {
                 if (value == null || value.trim().isEmpty) {
-                  return 'Please enter your shop name';
+                  return 'Please enter your hotel name';
                 }
                 return null;
               },
@@ -567,7 +567,7 @@ class _ShopSetupScreenState extends ConsumerState<ShopSetupScreen> {
                     const SizedBox(width: 8),
                     Text(
                       _isDesktop
-                          ? 'Phone OTP not available on desktop â€” number will be saved'
+                          ? 'Phone OTP not available on desktop — number will be saved'
                           : 'Phone number verified & linked to your account',
                       style: TextStyle(
                         color: _isDesktop ? Colors.blue : Colors.green,
@@ -586,7 +586,7 @@ class _ShopSetupScreenState extends ConsumerState<ShopSetupScreen> {
               controller: _addressController,
               decoration: InputDecoration(
                 labelText: '${l10n.address} (Optional)',
-                hintText: 'Enter your shop address',
+                hintText: 'Enter your hotel address',
                 prefixIcon: const Icon(
                   Icons.location_on_outlined,
                   color: AppColors.textSecondary,

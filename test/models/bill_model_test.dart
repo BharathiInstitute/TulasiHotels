@@ -179,9 +179,9 @@ void main() {
     });
 
     test('should have correct emojis', () {
-      expect(PaymentMethod.cash.emoji, 'ðŸ’µ');
-      expect(PaymentMethod.upi.emoji, 'ðŸ“±');
-      expect(PaymentMethod.udhar.emoji, 'ðŸ’³');
+      expect(PaymentMethod.cash.emoji, '💵');
+      expect(PaymentMethod.upi.emoji, '📱');
+      expect(PaymentMethod.udhar.emoji, '📒');
     });
 
     test('should parse from string correctly', () {

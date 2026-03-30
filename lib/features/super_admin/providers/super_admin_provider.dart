@@ -54,7 +54,7 @@ final isPrimaryOwnerProvider = Provider<bool>((ref) {
       AdminFirestoreService.primaryOwnerEmail;
 });
 
-/// Seed gate â€” all admin providers depend on this
+/// Seed gate — all admin providers depend on this
 final _adminSeedProvider = FutureProvider<void>((ref) async {
   await AdminFirestoreService.ensureAdminSeeded();
 });

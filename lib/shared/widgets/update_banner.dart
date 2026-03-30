@@ -135,7 +135,7 @@ class _UpdateBannerState extends State<UpdateBanner> {
                               ],
                             )
                           : Text(
-                              'Update v${_versionInfo?.version} available â€” tap to install',
+                              'Update v${_versionInfo?.version} available — tap to install',
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 13,

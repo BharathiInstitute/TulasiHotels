@@ -2,12 +2,12 @@
 # This file is .gitignored — NEVER commit to source control.
 #
 # Steps to create your release keystore:
-#   keytool -genkey -v -keystore retaillite-release.jks \
-#     -keyalg RSA -keysize 2048 -validity 10000 -alias retaillite
+#   keytool -genkey -v -keystore tulasihotels-release.jks \
+#     -keyalg RSA -keysize 2048 -validity 10000 -alias tulasihotels
 #
 # Then fill in the values below:
 
 storePassword=YOUR_STORE_PASSWORD
 keyPassword=YOUR_KEY_PASSWORD
-keyAlias=retaillite
-storeFile=../retaillite-release.jks
+keyAlias=tulasihotels
+storeFile=../tulasihotels-release.jks

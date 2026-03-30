@@ -12,7 +12,7 @@ void main() {
     testWidgets('renders Hindi tagline', (tester) async {
       await tester.pumpWidget(const SplashScreen());
       expect(
-        find.text('Ã Â¤Â­Ã Â¤Â¾Ã Â¤Â°Ã Â¤Â¤ Ã Â¤â€¢Ã Â¤Â¾ Ã Â¤Â¸Ã Â¤Â¬Ã Â¤Â¸Ã Â¥â€¡ Ã Â¤â€ Ã Â¤Â¸Ã Â¤Â¾Ã Â¤Â¨ Ã Â¤Â¬Ã Â¤Â¿Ã Â¤Â²Ã Â¤Â¿Ã Â¤â€šÃ Â¤â€” Ã Â¤ÂÃ Â¤Âª'),
+        find.text('भारत का सबसे आसान बिलिंग ऐप'),
         findsOneWidget,
       );
     });

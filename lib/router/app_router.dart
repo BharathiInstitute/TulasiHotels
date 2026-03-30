@@ -38,6 +38,53 @@ import 'package:tulasihotels/features/super_admin/screens/notifications_admin_sc
 import 'package:tulasihotels/features/super_admin/providers/super_admin_provider.dart';
 import 'package:tulasihotels/features/notifications/screens/notifications_screen.dart';
 import 'package:tulasihotels/features/subscription/screens/subscription_screen.dart';
+import 'package:tulasihotels/features/tables/screens/tables_screen.dart';
+import 'package:tulasihotels/features/orders/screens/orders_screen.dart';
+import 'package:tulasihotels/features/orders/screens/new_order_screen.dart';
+import 'package:tulasihotels/features/orders/screens/order_detail_screen.dart';
+import 'package:tulasihotels/features/orders/screens/order_billing_screen.dart';
+import 'package:tulasihotels/features/kitchen/screens/kitchen_display_screen.dart';
+import 'package:tulasihotels/features/staff/screens/staff_screen.dart';
+import 'package:tulasihotels/features/staff/screens/staff_login_screen.dart';
+import 'package:tulasihotels/features/staff/screens/attendance_screen.dart';
+import 'package:tulasihotels/features/staff/screens/my_attendance_screen.dart';
+import 'package:tulasihotels/features/staff/providers/staff_provider.dart';
+import 'package:tulasihotels/features/staff/services/staff_permissions.dart';
+import 'package:tulasihotels/features/menu/screens/combo_builder_screen.dart';
+import 'package:tulasihotels/features/menu/screens/daily_specials_screen.dart';
+import 'package:tulasihotels/features/tables/screens/table_layout_editor.dart';
+import 'package:tulasihotels/features/reservations/screens/reservations_screen.dart';
+import 'package:tulasihotels/features/coupons/screens/coupons_screen.dart';
+import 'package:tulasihotels/features/staff/screens/shift_schedule_screen.dart';
+import 'package:tulasihotels/features/staff/screens/task_board_screen.dart';
+import 'package:tulasihotels/features/staff/screens/messages_screen.dart';
+import 'package:tulasihotels/features/staff/screens/cash_register_screen.dart';
+import 'package:tulasihotels/features/feedback/screens/feedback_screen.dart';
+import 'package:tulasihotels/features/inventory/screens/ingredients_screen.dart';
+import 'package:tulasihotels/features/inventory/screens/vendors_screen.dart';
+import 'package:tulasihotels/features/inventory/screens/wastage_screen.dart';
+import 'package:tulasihotels/features/billing/screens/gst_export_screen.dart';
+import 'package:tulasihotels/features/reports/screens/advanced_reports_screen.dart';
+import 'package:tulasihotels/features/compliance/screens/licenses_screen.dart';
+import 'package:tulasihotels/features/compliance/screens/equipment_screen.dart';
+import 'package:tulasihotels/features/compliance/screens/complaints_screen.dart';
+import 'package:tulasihotels/features/compliance/screens/events_screen.dart';
+import 'package:tulasihotels/features/orders/screens/split_bill_screen.dart';
+import 'package:tulasihotels/models/order_model.dart';
+import 'package:tulasihotels/features/customer/screens/customer_menu_screen.dart';
+import 'package:tulasihotels/features/customer/screens/customer_order_screen.dart';
+import 'package:tulasihotels/features/customer/screens/customer_feedback_screen.dart';
+import 'package:tulasihotels/features/customer/screens/customer_reservation_screen.dart';
+import 'package:tulasihotels/features/customer/screens/order_status_screen.dart';
+import 'package:tulasihotels/features/feedback/screens/feedback_dashboard_screen.dart';
+import 'package:tulasihotels/features/staff/screens/salary_screen.dart';
+import 'package:tulasihotels/features/reports/screens/menu_performance_screen.dart';
+import 'package:tulasihotels/features/reports/screens/weekly_report_screen.dart';
+import 'package:tulasihotels/features/reports/screens/pnl_report_screen.dart';
+import 'package:tulasihotels/features/reports/screens/peak_hours_screen.dart';
+import 'package:tulasihotels/features/reports/screens/item_sales_screen.dart';
+import 'package:tulasihotels/features/reports/screens/comparative_screen.dart';
+import 'package:tulasihotels/features/reports/screens/feedback_report_screen.dart';
 import 'package:tulasihotels/core/services/offline_storage_service.dart';
 import 'package:tulasihotels/core/services/error_logging_service.dart';
 import 'package:tulasihotels/core/widgets/splash_screen.dart';
@@ -62,6 +109,59 @@ class AppRoutes {
   static const String settingsTab = '/settings/:tab';
   static const String themeSettings = '/settings/theme';
   static const String subscription = '/subscription';
+
+  // Hotel feature routes
+  static const String tables = '/tables';
+  static const String orders = '/orders';
+  static const String orderDetail = '/orders/:id';
+  static const String newOrder = '/orders/new';
+  static const String orderBilling = '/orders/:id/bill';
+  static const String kitchen = '/kitchen';
+
+  // Staff management routes
+  static const String staff = '/staff';
+  static const String staffLogin = '/staff-login';
+  static const String attendance = '/attendance';
+  static const String myAttendance = '/my-attendance';
+
+  // New feature routes
+  static const String combos = '/combos';
+  static const String dailySpecials = '/daily-specials';
+  static const String tableLayout = '/table-layout';
+  static const String reservations = '/reservations';
+  static const String coupons = '/coupons';
+  static const String shifts = '/shifts';
+  static const String tasks = '/tasks';
+  static const String messages = '/messages';
+  static const String cashRegister = '/cash-register';
+  static const String feedback = '/feedback';
+  static const String ingredients = '/ingredients';
+  static const String vendors = '/vendors';
+  static const String wastage = '/wastage';
+  static const String gstExport = '/gst-export';
+  static const String advancedReports = '/reports';
+  static const String licenses = '/licenses';
+  static const String equipment = '/equipment';
+  static const String complaints = '/complaints';
+  static const String events = '/events';
+  static const String splitBill = '/orders/:id/split';
+  static const String salary = '/salary';
+  static const String feedbackDashboard = '/feedback-dashboard';
+  static const String menuPerformance = '/reports/menu-performance';
+  static const String weeklyReport = '/reports/weekly';
+  static const String pnlReport = '/reports/pnl';
+  static const String peakHours = '/reports/peak-hours';
+  static const String itemSales = '/reports/item-sales';
+  static const String comparative = '/reports/comparative';
+  static const String feedbackReport = '/reports/feedback';
+  static const String customerOrderStatus =
+      '/menu/:hotelId/order/:orderId/status';
+
+  // Customer-facing public routes
+  static const String customerMenu = '/menu/:hotelId';
+  static const String customerOrder = '/order/:hotelId';
+  static const String customerFeedback = '/rate/:hotelId';
+  static const String customerReservation = '/reserve/:hotelId';
 
   // Super Admin routes
   static const String superAdminLogin = '/super-admin/login';
@@ -97,7 +197,7 @@ const String _lastRouteKey = 'last_route';
 /// Debounce timer for route persistence (avoids excessive SharedPrefs writes)
 Timer? _routePersistTimer;
 
-/// Debounced route persistence â€” writes to SharedPrefs after 1s idle
+/// Debounced route persistence — writes to SharedPrefs after 1s idle
 void _persistRoute(String fullUri) {
   _routePersistTimer?.cancel();
   _routePersistTimer = Timer(const Duration(seconds: 1), () {
@@ -109,7 +209,7 @@ void _persistRoute(String fullUri) {
 String _getRestoredInitialLocation() {
   final saved = OfflineStorageService.prefs?.getString(_lastRouteKey);
   if (saved != null && saved.isNotEmpty && saved.startsWith('/')) {
-    debugPrint('ðŸ”„ Restoring initial location from SharedPreferences: $saved');
+    debugPrint('🔄 Restoring initial location from SharedPreferences: $saved');
     return saved;
   }
   return AppRoutes.billing;
@@ -137,7 +237,7 @@ final routerProvider = Provider<GoRouter>((ref) {
     observers: [_ErrorRouteObserver()],
 
     redirect: (context, state) {
-      // Read auth state inside redirect (not watch â€” GoRouter is not recreated)
+      // Read auth state inside redirect (not watch — GoRouter is not recreated)
       final authState = ref.read(authNotifierProvider);
       final isLoggedIn = authState.isLoggedIn;
       final isShopSetupComplete = authState.isShopSetupComplete;
@@ -158,12 +258,11 @@ final routerProvider = Provider<GoRouter>((ref) {
         return isLoadingRoute ? null : AppRoutes.loading;
       }
 
-      // Auth is resolved â€” leave the loading screen
+      // Auth is resolved — leave the loading screen
       if (isLoadingRoute) {
+        // TODO: Re-enable shop setup redirect when ready
         final destination = !isLoggedIn
             ? AppRoutes.login
-            : (!isShopSetupComplete && !isSuperAdminUser)
-            ? AppRoutes.shopSetup
             : (pendingRedirect ?? restoredLocation);
         if (!isLoggedIn || (isShopSetupComplete || isSuperAdminUser)) {
           pendingRedirect = null;
@@ -184,6 +283,15 @@ final routerProvider = Provider<GoRouter>((ref) {
       final isShopSetupRoute = currentPath == AppRoutes.shopSetup;
       final isSuperAdminRoute = currentPath.startsWith('/super-admin');
       final isGoingToSuperAdmin = fullUri.startsWith('/super-admin');
+      // Customer-facing public routes bypass auth
+      final isPublicRoute =
+          currentPath.startsWith('/menu/') ||
+          currentPath.startsWith('/order/') ||
+          currentPath.startsWith('/rate/') ||
+          currentPath.startsWith('/reserve/');
+
+      // Public routes — no auth needed
+      if (isPublicRoute) return null;
 
       // Not logged in
       if (!isLoggedIn) {
@@ -196,25 +304,24 @@ final routerProvider = Provider<GoRouter>((ref) {
       // Allow super admin routes only for authorized admin emails
       if (isSuperAdminRoute || isGoingToSuperAdmin) {
         if (isSuperAdminUser) {
-          // Already logged in admin on login page â†’ go to dashboard
+          // Already logged in admin on login page → go to dashboard
           if (currentPath == AppRoutes.superAdminLogin) {
             return '/super-admin';
           }
           // Persist super-admin route for refresh restoration
           _persistRoute(fullUri);
-          return null; // Authorized â€” allow
+          return null; // Authorized — allow
         }
-        return AppRoutes.billing; // Not authorized â€” send to store
+        return AppRoutes.billing; // Not authorized — send to store
       }
 
+      // TODO: Re-enable shop setup after OTP/phone auth is configured
       // Regular user: Logged in but shop setup not complete
       // Super admins bypass shop setup entirely
-      if (!isShopSetupComplete && !isSuperAdminUser) {
-        // Allow shop setup route
-        if (isShopSetupRoute) return null;
-        // Redirect to shop setup
-        return AppRoutes.shopSetup;
-      }
+      // if (!isShopSetupComplete && !isSuperAdminUser) {
+      //   if (isShopSetupRoute) return null;
+      //   return AppRoutes.shopSetup;
+      // }
 
       // Logged in and setup complete (or super admin)
       if (isAuthRoute || isShopSetupRoute) {
@@ -222,7 +329,22 @@ final routerProvider = Provider<GoRouter>((ref) {
         return AppRoutes.billing;
       }
 
-      // â”€â”€ Persist current route for restoration after web refresh â”€â”€
+      // ── Staff role-based permission check ──
+      // If a staff member is logged in, restrict screen access by role
+      final loggedInStaff = ref.read(loggedInStaffProvider);
+      if (loggedInStaff != null) {
+        final isStaffLoginRoute = currentPath == AppRoutes.staffLogin;
+        final isAttendanceRoute =
+            currentPath == AppRoutes.attendance ||
+            currentPath == AppRoutes.myAttendance;
+        if (!isStaffLoginRoute && !isAttendanceRoute) {
+          if (!StaffPermissions.canAccess(loggedInStaff, currentPath)) {
+            return StaffPermissions.homeRoute(loggedInStaff);
+          }
+        }
+      }
+
+      // ── Persist current route for restoration after web refresh ──
       // Save all app routes (but not auth/login pages)
       if (isLoggedIn && !isAuthRoute) {
         _persistRoute(fullUri);
@@ -232,7 +354,7 @@ final routerProvider = Provider<GoRouter>((ref) {
     },
 
     routes: [
-      // Loading route â€” shown while Firebase Auth initializes
+      // Loading route — shown while Firebase Auth initializes
       // Uses _LoadingGuard to actively watch auth state and force GoRouter
       // to re-evaluate redirect when auth resolves (workaround for
       // refreshListenable not always firing on web).
@@ -254,7 +376,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: AppRoutes.forgotPassword,
         builder: (context, state) => const ForgotPasswordScreen(),
       ),
-      // Desktop login bridge â€” used by Windows app for Google Sign-In
+      // Desktop login bridge — used by Windows app for Google Sign-In
       GoRoute(
         path: '/desktop-login',
         builder: (context, state) {
@@ -296,10 +418,259 @@ final routerProvider = Provider<GoRouter>((ref) {
             pageBuilder: (context, state) =>
                 const NoTransitionPage(child: BillsHistoryScreen()),
           ),
+          GoRoute(
+            path: AppRoutes.tables,
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: TablesScreen()),
+          ),
+          GoRoute(
+            path: AppRoutes.orders,
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: OrdersScreen()),
+          ),
+          GoRoute(
+            path: AppRoutes.kitchen,
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: KitchenDisplayScreen()),
+          ),
+          GoRoute(
+            path: AppRoutes.staff,
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: StaffScreen()),
+          ),
+          GoRoute(
+            path: AppRoutes.attendance,
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: AttendanceScreen()),
+          ),
+          GoRoute(
+            path: AppRoutes.myAttendance,
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: MyAttendanceScreen()),
+          ),
+
+          // ── Inventory ──
+          GoRoute(
+            path: AppRoutes.ingredients,
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: IngredientsScreen()),
+          ),
+          GoRoute(
+            path: AppRoutes.vendors,
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: VendorsScreen()),
+          ),
+          GoRoute(
+            path: AppRoutes.wastage,
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: WastageScreen()),
+          ),
+
+          // ── Hospitality ──
+          GoRoute(
+            path: AppRoutes.reservations,
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: ReservationsScreen()),
+          ),
+          GoRoute(
+            path: AppRoutes.coupons,
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: CouponsScreen()),
+          ),
+          GoRoute(
+            path: AppRoutes.events,
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: EventsScreen()),
+          ),
+          GoRoute(
+            path: AppRoutes.feedback,
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: FeedbackScreen()),
+          ),
+          GoRoute(
+            path: AppRoutes.feedbackDashboard,
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: FeedbackDashboardScreen()),
+          ),
+
+          // ── Reports ──
+          GoRoute(
+            path: AppRoutes.advancedReports,
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: AdvancedReportsScreen()),
+          ),
+          GoRoute(
+            path: AppRoutes.gstExport,
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: GstExportScreen()),
+          ),
+          GoRoute(
+            path: AppRoutes.menuPerformance,
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: MenuPerformanceScreen()),
+          ),
+          GoRoute(
+            path: AppRoutes.weeklyReport,
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: WeeklyReportScreen()),
+          ),
+          GoRoute(
+            path: AppRoutes.pnlReport,
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: PnlReportScreen()),
+          ),
+          GoRoute(
+            path: AppRoutes.peakHours,
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: PeakHoursScreen()),
+          ),
+          GoRoute(
+            path: AppRoutes.itemSales,
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: ItemSalesScreen()),
+          ),
+          GoRoute(
+            path: AppRoutes.comparative,
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: ComparativeScreen()),
+          ),
+          GoRoute(
+            path: AppRoutes.feedbackReport,
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: FeedbackReportScreen()),
+          ),
+
+          // ── Compliance ──
+          GoRoute(
+            path: AppRoutes.licenses,
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: LicensesScreen()),
+          ),
+          GoRoute(
+            path: AppRoutes.equipment,
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: EquipmentScreen()),
+          ),
+          GoRoute(
+            path: AppRoutes.complaints,
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: ComplaintsScreen()),
+          ),
         ],
       ),
 
-      // Settings â€” full-width (outside shell, has its own side nav)
+      // Staff PIN login (outside shell)
+      GoRoute(
+        path: AppRoutes.staffLogin,
+        builder: (context, state) => const StaffLoginScreen(),
+      ),
+
+      // Hotel feature routes (outside shell)
+      GoRoute(
+        path: AppRoutes.newOrder,
+        builder: (context, state) {
+          final tableId = state.uri.queryParameters['tableId'];
+          final tableName = state.uri.queryParameters['tableName'];
+          return NewOrderScreen(tableId: tableId, tableName: tableName);
+        },
+      ),
+      GoRoute(
+        path: AppRoutes.orderDetail,
+        builder: (context, state) {
+          final orderId = state.pathParameters['id']!;
+          return OrderDetailScreen(orderId: orderId);
+        },
+      ),
+      GoRoute(
+        path: AppRoutes.orderBilling,
+        builder: (context, state) {
+          final orderId = state.pathParameters['id']!;
+          return OrderBillingScreen(orderId: orderId);
+        },
+      ),
+      GoRoute(
+        path: AppRoutes.splitBill,
+        builder: (context, state) {
+          final order = state.extra! as OrderModel;
+          return SplitBillScreen(order: order);
+        },
+      ),
+
+      // New feature routes (outside shell)
+      GoRoute(
+        path: AppRoutes.combos,
+        builder: (context, state) => const ComboBuilderScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.dailySpecials,
+        builder: (context, state) => const DailySpecialsScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.tableLayout,
+        builder: (context, state) => const TableLayoutEditor(),
+      ),
+
+      GoRoute(
+        path: AppRoutes.shifts,
+        builder: (context, state) => const ShiftScheduleScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.tasks,
+        builder: (context, state) => const TaskBoardScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.messages,
+        builder: (context, state) => const MessagesScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.cashRegister,
+        builder: (context, state) => const CashRegisterScreen(),
+      ),
+
+      GoRoute(
+        path: AppRoutes.salary,
+        builder: (context, state) => const SalaryScreen(),
+      ),
+
+      // Customer-facing public routes (no auth required)
+      GoRoute(
+        path: AppRoutes.customerMenu,
+        builder: (context, state) {
+          final hotelId = state.pathParameters['hotelId']!;
+          return CustomerMenuScreen(hotelId: hotelId);
+        },
+      ),
+      GoRoute(
+        path: AppRoutes.customerOrder,
+        builder: (context, state) {
+          final hotelId = state.pathParameters['hotelId']!;
+          return CustomerOrderScreen(hotelId: hotelId);
+        },
+      ),
+      GoRoute(
+        path: AppRoutes.customerFeedback,
+        builder: (context, state) {
+          final hotelId = state.pathParameters['hotelId']!;
+          return CustomerFeedbackScreen(hotelId: hotelId);
+        },
+      ),
+      GoRoute(
+        path: AppRoutes.customerReservation,
+        builder: (context, state) {
+          final hotelId = state.pathParameters['hotelId']!;
+          return CustomerReservationScreen(hotelId: hotelId);
+        },
+      ),
+      GoRoute(
+        path: AppRoutes.customerOrderStatus,
+        builder: (context, state) {
+          final hotelId = state.pathParameters['hotelId']!;
+          final orderId = state.pathParameters['orderId']!;
+          return OrderStatusScreen(hotelId: hotelId, orderId: orderId);
+        },
+      ),
+
+      // Settings — full-width (outside shell, has its own side nav)
       GoRoute(
         path: AppRoutes.settingsTab,
         pageBuilder: (context, state) {

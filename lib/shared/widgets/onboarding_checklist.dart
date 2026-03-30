@@ -24,7 +24,7 @@ Future<void> markOnboardingBillDone() async {
       },
     }, SetOptions(merge: true));
   } catch (e, st) {
-    debugPrint('âš ï¸ Onboarding: markFirstBillCreated failed: $e');
+    debugPrint('⚠️ Onboarding: markFirstBillCreated failed: $e');
     ErrorLoggingService.logError(
       error: e,
       stackTrace: st,
@@ -44,7 +44,7 @@ Future<void> dismissOnboarding() async {
       'onboarding': {'dismissed': true},
     }, SetOptions(merge: true));
   } catch (e) {
-    debugPrint('âš ï¸ Onboarding: dismiss failed: $e');
+    debugPrint('⚠️ Onboarding: dismiss failed: $e');
   }
 }
 
@@ -58,7 +58,7 @@ Future<void> reopenOnboarding() async {
       'onboarding': {'dismissed': false},
     }, SetOptions(merge: true));
   } catch (e) {
-    debugPrint('âš ï¸ Onboarding: reopen failed: $e');
+    debugPrint('⚠️ Onboarding: reopen failed: $e');
   }
 }
 
@@ -139,7 +139,7 @@ class OnboardingChecklist extends StatelessWidget {
                 ),
                 const SizedBox(height: 12),
                 _ChecklistItem(
-                  title: 'Add your first product',
+                  title: 'Add your first menu item',
                   isCompleted: hasProducts,
                   onTap: hasProducts ? null : () => context.push('/products'),
                 ),
@@ -149,7 +149,7 @@ class OnboardingChecklist extends StatelessWidget {
                   onTap: hasBill ? null : () => context.push('/billing'),
                 ),
                 _ChecklistItem(
-                  title: 'Add your first customer',
+                  title: 'Add your first guest',
                   isCompleted: hasCustomer,
                   onTap: hasCustomer ? null : () => context.push('/khata'),
                 ),

@@ -15,10 +15,10 @@ class AdaptiveLayout extends StatelessWidget {
   /// Optional: tablet layout builder (falls back to mobile)
   final Widget Function(BuildContext context)? tablet;
 
-  /// Optional: desktop layout builder (falls back to tablet â†’ mobile)
+  /// Optional: desktop layout builder (falls back to tablet → mobile)
   final Widget Function(BuildContext context)? desktop;
 
-  /// Optional: large desktop layout builder (falls back to desktop â†’ tablet â†’ mobile)
+  /// Optional: large desktop layout builder (falls back to desktop → tablet → mobile)
   final Widget Function(BuildContext context)? desktopLarge;
 
   const AdaptiveLayout({

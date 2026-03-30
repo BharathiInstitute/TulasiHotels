@@ -33,12 +33,12 @@ class KhataStats {
   );
 }
 
-/// Provider for khata statistics â€” derives from customers stream
-final khataStatsProvider = FutureProvider<KhataStats>((ref) async {
+/// Provider for khata statistics — derives from customers stream
+final khataStatsProvider = FutureProvider.autoDispose<KhataStats>((ref) async {
   final isDemoMode = ref.watch(isDemoModeProvider);
-  debugPrint('ðŸ“Š khataStatsProvider: isDemoMode=$isDemoMode');
+  debugPrint('📊 khataStatsProvider: isDemoMode=$isDemoMode');
 
-  // Watch the customers stream â€” this auto-updates when customers change
+  // Watch the customers stream — this auto-updates when customers change
   final customersAsync = ref.watch(customersProvider);
   final customers = customersAsync.valueOrNull ?? [];
 
@@ -51,7 +51,7 @@ final khataStatsProvider = FutureProvider<KhataStats>((ref) async {
   // Count customers with due
   final customersWithDue = customers.where((c) => c.balance > 0).length;
 
-  // Calculate collected today â€” single query instead of N+1 per customer
+  // Calculate collected today — single query instead of N+1 per customer
   double collectedToday = 0;
   if (isDemoMode) {
     // Demo mode: iterate in-memory (no Firestore cost)
@@ -72,7 +72,7 @@ final khataStatsProvider = FutureProvider<KhataStats>((ref) async {
   }
 
   debugPrint(
-    'ðŸ“Š KhataStats: ${customers.length} customers, outstanding: $totalOutstanding',
+    '📊 KhataStats: ${customers.length} customers, outstanding: $totalOutstanding',
   );
 
   return KhataStats(
@@ -93,7 +93,7 @@ final customerSortProvider = StateProvider<CustomerSortOption>(
   (ref) => CustomerSortOption.highestDebt,
 );
 
-/// Sorted and filtered customers provider â€” derives from customers stream
+/// Sorted and filtered customers provider — derives from customers stream
 final sortedCustomersProvider = Provider<AsyncValue<List<CustomerModel>>>((
   ref,
 ) {
@@ -101,7 +101,7 @@ final sortedCustomersProvider = Provider<AsyncValue<List<CustomerModel>>>((
   final sortOption = ref.watch(customerSortProvider);
 
   return customersAsync.whenData((customers) {
-    debugPrint('ðŸ“‹ sortedCustomersProvider: ${customers.length} customers');
+    debugPrint('📋 sortedCustomersProvider: ${customers.length} customers');
     final sorted = List<CustomerModel>.from(customers);
 
     switch (sortOption) {

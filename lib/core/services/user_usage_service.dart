@@ -307,7 +307,7 @@ class UserUsageService {
 
       final docRef = _firestore.collection('user_usage').doc(userId);
 
-      // Use set+merge with FieldValue.increment â€” simpler and more
+      // Use set+merge with FieldValue.increment — simpler and more
       // compatible across platforms (avoids runTransaction which can
       // crash the Windows C++ Firestore SDK during early startup).
       final data = <String, dynamic>{
@@ -340,7 +340,7 @@ class UserUsageService {
 
       await docRef.set(data, SetOptions(merge: true));
     } catch (e) {
-      if (kDebugMode) debugPrint('âŒ Failed to flush usage: $e');
+      if (kDebugMode) debugPrint('❌ Failed to flush usage: $e');
     }
   }
 
@@ -349,9 +349,9 @@ class UserUsageService {
     await _flushUsage();
   }
 
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // ═══════════════════════════════════════════════════════════════════════════
   // ADMIN DASHBOARD METHODS
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // ═══════════════════════════════════════════════════════════════════════════
 
   /// Get all user usage data (for admin dashboard)
   /// D10: Paginated with limit to avoid full-collection read at scale
@@ -365,7 +365,7 @@ class UserUsageService {
 
       return snapshot.docs.map((d) => UserUsage.fromFirestore(d)).toList();
     } catch (e) {
-      debugPrint('âŒ Failed to get user usage: $e');
+      debugPrint('❌ Failed to get user usage: $e');
       return [];
     }
   }
@@ -436,7 +436,7 @@ class UserUsageService {
         'users': allUsage,
       };
     } catch (e) {
-      debugPrint('âŒ Failed to get usage summary: $e');
+      debugPrint('❌ Failed to get usage summary: $e');
       return {};
     }
   }
@@ -452,7 +452,7 @@ class UserUsageService {
 
       return snapshot.docs.map((d) => UserUsage.fromFirestore(d)).toList();
     } catch (e) {
-      debugPrint('âŒ Failed to get top users: $e');
+      debugPrint('❌ Failed to get top users: $e');
       return [];
     }
   }
@@ -489,7 +489,7 @@ class UserUsageService {
         lastDoc = snapshot.docs.last;
       } while (snapshot.docs.length == 400);
     } catch (e) {
-      debugPrint('âŒ Failed to reset usage: $e');
+      debugPrint('❌ Failed to reset usage: $e');
     }
   }
 }

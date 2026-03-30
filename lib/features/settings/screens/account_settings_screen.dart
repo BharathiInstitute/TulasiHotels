@@ -77,11 +77,11 @@ class _AccountSettingsScreenState extends ConsumerState<AccountSettingsScreen> {
   }
 
   Future<void> _pickProfileImage() async {
-    debugPrint('Ã°Å¸â€“Â¼Ã¯Â¸Â _pickProfileImage called');
+    debugPrint('🖼️ _pickProfileImage called');
     setState(() => _isUploadingImage = true);
     try {
       final downloadUrl = await ImageService.pickAndUploadProfileImage();
-      debugPrint('Ã°Å¸â€“Â¼Ã¯Â¸Â downloadUrl: $downloadUrl');
+      debugPrint('🖼️ downloadUrl: $downloadUrl');
       if (downloadUrl != null && mounted) {
         final success = await ref
             .read(authNotifierProvider.notifier)
@@ -99,7 +99,7 @@ class _AccountSettingsScreenState extends ConsumerState<AccountSettingsScreen> {
         );
       }
     } catch (e) {
-      debugPrint('Ã°Å¸â€“Â¼Ã¯Â¸Â Error: $e');
+      debugPrint('🖼️ Error: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -241,7 +241,7 @@ class _AccountSettingsScreenState extends ConsumerState<AccountSettingsScreen> {
           ),
           const SizedBox(height: 24),
 
-          // Ã¢â€â‚¬Ã¢â€â‚¬ Subscription Section Ã¢â€â‚¬Ã¢â€â‚¬
+          // ── Subscription Section ──
           _buildSectionHeader(theme, 'Subscription'),
           Card(
             child: Column(
@@ -260,8 +260,8 @@ class _AccountSettingsScreenState extends ConsumerState<AccountSettingsScreen> {
                   ),
                   subtitle: Text(
                     _limits.billsThisMonth < _limits.billsLimit
-                        ? '${_limits.billsThisMonth} / ${_limits.billsLimit == 999999 ? "Ã¢Ë†Å¾" : _limits.billsLimit} bills used this month'
-                        : 'Ã¢Å¡Â Ã¯Â¸Â Bill limit reached Ã¢â‚¬â€ upgrade to continue',
+                        ? '${_limits.billsThisMonth} / ${_limits.billsLimit == 999999 ? "∞" : _limits.billsLimit} bills used this month'
+                        : '⚠️ Bill limit reached — upgrade to continue',
                     style: TextStyle(
                       color: _limits.billsThisMonth >= _limits.billsLimit
                           ? AppColors.error
@@ -283,7 +283,7 @@ class _AccountSettingsScreenState extends ConsumerState<AccountSettingsScreen> {
           ),
           const SizedBox(height: 24),
 
-          // Ã¢â€â‚¬Ã¢â€â‚¬ Referral Section Ã¢â€â‚¬Ã¢â€â‚¬
+          // ── Referral Section ──
           _buildSectionHeader(theme, 'Invite Friends'),
           Card(
             child: Padding(
@@ -342,7 +342,7 @@ class _AccountSettingsScreenState extends ConsumerState<AccountSettingsScreen> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          _referralCode.isEmpty ? 'LoadingÃ¢â‚¬Â¦' : _referralCode,
+                          _referralCode.isEmpty ? 'Loading…' : _referralCode,
                           style: const TextStyle(
                             fontSize: 22,
                             fontWeight: FontWeight.bold,
@@ -396,7 +396,7 @@ class _AccountSettingsScreenState extends ConsumerState<AccountSettingsScreen> {
                   Center(
                     child: TextButton(
                       onPressed: _showRedeemDialog,
-                      child: const Text('Have a friendÃ¢â‚¬â„¢s code? Enter it here'),
+                      child: const Text('Have a friend’s code? Enter it here'),
                     ),
                   ),
                 ],
@@ -405,7 +405,7 @@ class _AccountSettingsScreenState extends ConsumerState<AccountSettingsScreen> {
           ),
           const SizedBox(height: 24),
 
-          // Ã¢â€â‚¬Ã¢â€â‚¬ Privacy & Data Ã¢â€â‚¬Ã¢â€â‚¬
+          // ── Privacy & Data ──
           _buildSectionHeader(theme, 'Privacy & Data'),
           Card(
             shape: RoundedRectangleBorder(
@@ -439,7 +439,7 @@ class _AccountSettingsScreenState extends ConsumerState<AccountSettingsScreen> {
           ),
           const SizedBox(height: 24),
 
-          // Ã¢â€â‚¬Ã¢â€â‚¬ Danger Zone: Delete Account Ã¢â€â‚¬Ã¢â€â‚¬
+          // ── Danger Zone: Delete Account ──
           _buildSectionHeader(theme, 'Danger Zone'),
           Card(
             color: AppColors.error.withAlpha(15),
@@ -502,7 +502,7 @@ class _AccountSettingsScreenState extends ConsumerState<AccountSettingsScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Referral code applied! Ã°Å¸Å½â€°'),
+          content: Text('Referral code applied! 🎉'),
           backgroundColor: Colors.green,
         ),
       );
@@ -542,11 +542,11 @@ class _AccountSettingsScreenState extends ConsumerState<AccountSettingsScreen> {
         ),
         content: const Text(
           'This will permanently delete:\n\n'
-          'Ã¢â‚¬Â¢ Your shop profile\n'
-          'Ã¢â‚¬Â¢ All products, bills & invoices\n'
-          'Ã¢â‚¬Â¢ All customer records & transactions\n'
-          'Ã¢â‚¬Â¢ All reports & expenses\n'
-          'Ã¢â‚¬Â¢ All settings & preferences\n\n'
+          '• Your shop profile\n'
+          '• All products, bills & invoices\n'
+          '• All guest records & transactions\n'
+          '• All reports & expenses\n'
+          '• All settings & preferences\n\n'
           'This action is IRREVERSIBLE and cannot be undone.',
         ),
         actions: [
@@ -632,7 +632,7 @@ class _AccountSettingsScreenState extends ConsumerState<AccountSettingsScreen> {
     Navigator.of(context).pop(); // dismiss loading dialog
 
     if (success) {
-      // Navigate to login Ã¢â‚¬â€ account is gone
+      // Navigate to login — account is gone
       context.go('/login');
     } else {
       ScaffoldMessenger.of(context).showSnackBar(

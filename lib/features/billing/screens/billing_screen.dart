@@ -112,7 +112,7 @@ class _BillingScreenState extends ConsumerState<BillingScreen> {
           padding: const EdgeInsets.all(16),
           child: Row(
             children: [
-              const Icon(Icons.shopping_cart, size: 20),
+              const Icon(Icons.receipt_long, size: 20),
               const SizedBox(width: 8),
               Text(
                 'Cart (${cart.itemCount} items)',
@@ -488,7 +488,7 @@ class _BillingScreenState extends ConsumerState<BillingScreen> {
                 decoration: const BoxDecoration(),
                 child: Row(
                   children: [
-                    const Icon(Icons.shopping_cart_outlined),
+                    const Icon(Icons.receipt_long_outlined),
                     const SizedBox(width: 8),
                     Text(
                       'Cart (${cart.itemCount})',
@@ -514,7 +514,7 @@ class _BillingScreenState extends ConsumerState<BillingScreen> {
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Icon(
-                              Icons.shopping_cart_outlined,
+                              Icons.receipt_long_outlined,
                               size: 64,
                               color: Theme.of(context).colorScheme.outline,
                             ),
@@ -673,52 +673,96 @@ class _BillingScreenState extends ConsumerState<BillingScreen> {
           '${product.isLowStock ? ', low stock' : ''}',
       button: true,
       hint: 'Double tap to add to cart',
-      child: Card(
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: () => ref.read(cartProvider.notifier).addProduct(product),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Expanded(
-                child: Container(
-                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                  child: product.imageUrl != null
-                      ? CachedNetworkImage(
-                          imageUrl: product.imageUrl!,
-                          fit: BoxFit.cover,
-                          errorWidget: (_, url, error) => const Center(
-                            child: Icon(Icons.broken_image_outlined, size: 40),
-                          ),
-                        )
-                      : const Center(
-                          child: Icon(Icons.inventory_2_outlined, size: 40),
-                        ),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.all(8),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      product.name,
-                      style: const TextStyle(fontWeight: FontWeight.w500),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      Formatters.currency(product.price),
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.primary,
-                        fontWeight: FontWeight.bold,
+      child: Opacity(
+        opacity: product.isAvailable ? 1.0 : 0.45,
+        child: Card(
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: () => ref.read(cartProvider.notifier).addProduct(product),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(
+                  child: Stack(
+                    children: [
+                      Container(
+                        width: double.infinity,
+                        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                        child: product.imageUrl != null
+                            ? CachedNetworkImage(
+                                imageUrl: product.imageUrl!,
+                                fit: BoxFit.cover,
+                                errorWidget: (_, url, error) => const Center(
+                                  child: Icon(Icons.broken_image_outlined, size: 40),
+                                ),
+                              )
+                            : const Center(
+                                child: Icon(Icons.inventory_2_outlined, size: 40),
+                              ),
                       ),
-                    ),
-                  ],
+                      // Dietary badge
+                      if (product.dietaryTag != DietaryTag.none)
+                        Positioned(
+                          top: 6,
+                          left: 6,
+                          child: Container(
+                            width: 16,
+                            height: 16,
+                            decoration: BoxDecoration(
+                              border: Border.all(
+                                color: product.dietaryTag == DietaryTag.veg || product.dietaryTag == DietaryTag.jain
+                                    ? Colors.green
+                                    : (product.dietaryTag == DietaryTag.egg ? Colors.orange : Colors.red),
+                                width: 1.5,
+                              ),
+                              borderRadius: BorderRadius.circular(3),
+                              color: Colors.white,
+                            ),
+                            child: Center(
+                              child: Icon(
+                                Icons.circle,
+                                size: 8,
+                                color: product.dietaryTag == DietaryTag.veg || product.dietaryTag == DietaryTag.jain
+                                    ? Colors.green
+                                    : (product.dietaryTag == DietaryTag.egg ? Colors.orange : Colors.red),
+                              ),
+                            ),
+                          ),
+                        ),
+                      // Special badge
+                      if (product.isSpecial)
+                        const Positioned(
+                          top: 6,
+                          right: 6,
+                          child: Text('\u2b50', style: TextStyle(fontSize: 14)),
+                        ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
+                Padding(
+                  padding: const EdgeInsets.all(8),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        product.name,
+                        style: const TextStyle(fontWeight: FontWeight.w500),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        Formatters.currency(product.price),
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.primary,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -780,87 +824,131 @@ class _BillingScreenState extends ConsumerState<BillingScreen> {
           '${product.isLowStock ? ', low stock' : ''}',
       button: true,
       hint: 'Double tap to add to cart',
-      child: Card(
-        clipBehavior: Clip.antiAlias,
-        elevation: 1,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        child: InkWell(
-          onTap: () => ref.read(cartProvider.notifier).addProduct(product),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Product image - compact
-              Expanded(
-                flex: 3,
-                child: Container(
-                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                  child: product.imageUrl != null
-                      ? CachedNetworkImage(
-                          imageUrl: product.imageUrl!,
-                          fit: BoxFit.cover,
-                          errorWidget: (_, url, error) => const Center(
-                            child: Icon(Icons.broken_image_outlined, size: 32),
-                          ),
-                        )
-                      : const Center(
-                          child: Icon(Icons.inventory_2_outlined, size: 32),
-                        ),
-                ),
-              ),
-              // Content - compact with text truncation
-              Expanded(
-                flex: 2,
-                child: Padding(
-                  padding: const EdgeInsets.all(8),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      child: Opacity(
+        opacity: product.isAvailable ? 1.0 : 0.45,
+        child: Card(
+          clipBehavior: Clip.antiAlias,
+          elevation: 1,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          child: InkWell(
+            onTap: () => ref.read(cartProvider.notifier).addProduct(product),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Product image with badges
+                Expanded(
+                  flex: 3,
+                  child: Stack(
                     children: [
-                      Text(
-                        product.name,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 12,
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Flexible(
-                            child: Text(
-                              Formatters.currency(product.price),
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
-                                color: Theme.of(context).colorScheme.primary,
+                      Container(
+                        width: double.infinity,
+                        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                        child: product.imageUrl != null
+                            ? CachedNetworkImage(
+                                imageUrl: product.imageUrl!,
+                                fit: BoxFit.cover,
+                                errorWidget: (_, url, error) => const Center(
+                                  child: Icon(Icons.broken_image_outlined, size: 32),
+                                ),
+                              )
+                            : const Center(
+                                child: Icon(Icons.inventory_2_outlined, size: 32),
                               ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          Container(
-                            width: 24,
-                            height: 24,
-                            decoration: BoxDecoration(
-                              color: Theme.of(
-                                context,
-                              ).colorScheme.primary.withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Icon(
-                              Icons.add,
-                              color: Theme.of(context).colorScheme.primary,
-                              size: 16,
-                            ),
-                          ),
-                        ],
                       ),
+                      // Dietary badge (top-left)
+                      if (product.dietaryTag != DietaryTag.none)
+                        Positioned(
+                          top: 4,
+                          left: 4,
+                          child: Container(
+                            width: 14,
+                            height: 14,
+                            decoration: BoxDecoration(
+                              border: Border.all(
+                                color: product.dietaryTag == DietaryTag.veg || product.dietaryTag == DietaryTag.jain
+                                    ? Colors.green
+                                    : (product.dietaryTag == DietaryTag.egg ? Colors.orange : Colors.red),
+                                width: 1.5,
+                              ),
+                              borderRadius: BorderRadius.circular(2),
+                              color: Colors.white,
+                            ),
+                            child: Center(
+                              child: Icon(
+                                Icons.circle,
+                                size: 7,
+                                color: product.dietaryTag == DietaryTag.veg || product.dietaryTag == DietaryTag.jain
+                                    ? Colors.green
+                                    : (product.dietaryTag == DietaryTag.egg ? Colors.orange : Colors.red),
+                              ),
+                            ),
+                          ),
+                        ),
+                      // Special badge (top-right)
+                      if (product.isSpecial)
+                        const Positioned(
+                          top: 4,
+                          right: 4,
+                          child: Text('\u2b50', style: TextStyle(fontSize: 14)),
+                        ),
                     ],
                   ),
                 ),
-              ),
-            ],
+                // Content - compact with text truncation
+                Expanded(
+                  flex: 2,
+                  child: Padding(
+                    padding: const EdgeInsets.all(8),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          product.name,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 12,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Flexible(
+                              child: Text(
+                                Formatters.currency(product.price),
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                  color: Theme.of(context).colorScheme.primary,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            Container(
+                              width: 24,
+                              height: 24,
+                              decoration: BoxDecoration(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.primary.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Icon(
+                                Icons.add,
+                                color: Theme.of(context).colorScheme.primary,
+                                size: 16,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -906,11 +994,12 @@ class _BillingScreenState extends ConsumerState<BillingScreen> {
   }
 
   List<ProductModel> _filterProducts(List<ProductModel> products) {
-    if (_searchQuery.isEmpty) return products;
-    return products.where((p) {
-      final product = p;
-      return product.name.toLowerCase().contains(_searchQuery) ||
-          (product.barcode?.toLowerCase().contains(_searchQuery) ?? false);
+    // Filter out unavailable products first
+    final filtered = products.where((p) => p.isAvailable).toList();
+    if (_searchQuery.isEmpty) return filtered;
+    return filtered.where((p) {
+      return p.name.toLowerCase().contains(_searchQuery) ||
+          (p.barcode?.toLowerCase().contains(_searchQuery) ?? false);
     }).toList();
   }
 }
@@ -973,7 +1062,7 @@ class _MobileCartBar extends StatelessWidget {
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Icon(
-                          Icons.shopping_cart,
+                          Icons.receipt_long,
                           size: 18,
                           color: Theme.of(context).colorScheme.primary,
                         ),

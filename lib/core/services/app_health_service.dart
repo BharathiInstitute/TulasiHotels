@@ -81,7 +81,7 @@ class AppHealthService {
         : const Duration();
 
     if (kDebugMode) {
-      debugPrint('â±ï¸ App startup time: ${startupTime.inMilliseconds}ms');
+      debugPrint('⏱️ App startup time: ${startupTime.inMilliseconds}ms');
     }
 
     // Don't block the main thread, log in background
@@ -94,7 +94,7 @@ class AppHealthService {
       // Skip logging if user is not authenticated (Firestore rules require auth)
       if (_auth.currentUser == null) {
         if (kDebugMode) {
-          debugPrint('â­ï¸ Skipping health metrics - user not authenticated');
+          debugPrint('⏭️ Skipping health metrics - user not authenticated');
         }
         return;
       }
@@ -111,11 +111,11 @@ class AppHealthService {
       await _firestore.collection('app_health').add(metrics.toFirestore());
 
       if (kDebugMode) {
-        debugPrint('âœ… App health metrics logged');
+        debugPrint('✅ App health metrics logged');
       }
     } catch (e) {
       if (kDebugMode) {
-        debugPrint('âŒ Failed to log health metrics: $e');
+        debugPrint('❌ Failed to log health metrics: $e');
       }
     }
   }
@@ -136,7 +136,7 @@ class AppHealthService {
       });
     } catch (e) {
       if (kDebugMode) {
-        debugPrint('âŒ Failed to log screen performance: $e');
+        debugPrint('❌ Failed to log screen performance: $e');
       }
     }
   }
@@ -171,7 +171,7 @@ class AppHealthService {
 
       return averages;
     } catch (e) {
-      debugPrint('âŒ Failed to get startup times: $e');
+      debugPrint('❌ Failed to get startup times: $e');
       return {};
     }
   }
@@ -239,7 +239,7 @@ class AppHealthService {
         'errorRate': errorRate,
       };
     } catch (e) {
-      debugPrint('âŒ Failed to get health summary: $e');
+      debugPrint('❌ Failed to get health summary: $e');
       return {};
     }
   }
@@ -263,7 +263,7 @@ class AppHealthService {
 
       return snapshot.docs.length;
     } catch (e) {
-      debugPrint('âŒ Failed to cleanup old data: $e');
+      debugPrint('❌ Failed to cleanup old data: $e');
       return 0;
     }
   }

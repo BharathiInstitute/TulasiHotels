@@ -154,7 +154,7 @@ class PrinterStorage {
     await _prefs?.setString(_printerTypeKey, type);
   }
 
-  // â”€â”€ WiFi printer settings â”€â”€
+  // ── WiFi printer settings ──
 
   /// Get saved WiFi printer IP
   static String getWifiPrinterIp() {
@@ -178,7 +178,7 @@ class PrinterStorage {
     await _prefs?.setInt(_wifiPortKey, port);
   }
 
-  // â”€â”€ USB printer settings â”€â”€
+  // ── USB printer settings ──
 
   /// Get saved USB printer name (Windows)
   static String getUsbPrinterName() {
@@ -227,7 +227,7 @@ class OfflineStorageService {
     if (_initialized) return;
     _prefs = await SharedPreferences.getInstance();
     _initialized = true;
-    debugPrint('âœ… OfflineStorageService initialized (Firestore-based)');
+    debugPrint('✅ OfflineStorageService initialized (Firestore-based)');
   }
 
   // ==================== Products ====================
@@ -366,7 +366,7 @@ class OfflineStorageService {
     try {
       final counterRef = _firestore.doc('$_basePath/counters/billing');
 
-      // On Windows, avoid runTransaction â€” the C++ Firestore SDK sends
+      // On Windows, avoid runTransaction — the C++ Firestore SDK sends
       // callbacks on non-platform threads, crashing Flutter.
       if (!kIsWeb && Platform.isWindows) {
         final snapshot = await counterRef.get();
@@ -393,7 +393,7 @@ class OfflineStorageService {
       UserUsageService.trackWrite();
       return newBillNumber;
     } catch (e) {
-      debugPrint('âš ï¸ Bill counter fallback: $e');
+      debugPrint('⚠️ Bill counter fallback: $e');
       return generateBillNumber();
     }
   }
@@ -440,7 +440,7 @@ class OfflineStorageService {
       transaction.toFirestore(),
     );
 
-    // Atomic commit â€” all three succeed or all fail
+    // Atomic commit — all three succeed or all fail
     await batch.commit();
   }
 
@@ -495,7 +495,7 @@ class OfflineStorageService {
     });
   }
 
-  /// Paginated bills fetch â€” returns (bills, lastDocument) for cursor pagination.
+  /// Paginated bills fetch — returns (bills, lastDocument) for cursor pagination.
   /// Pass [startAfter] from a previous call to load the next page.
   static Future<(List<BillModel>, DocumentSnapshot?)> fetchBillsPage({
     int pageSize = 50,
@@ -533,7 +533,7 @@ class OfflineStorageService {
         );
   }
 
-  /// Delete old bills (data retention) â€” processes in batches of 400
+  /// Delete old bills (data retention) — processes in batches of 400
   /// to stay under Firestore's 500-operation batch limit.
   static Future<int> deleteOldBills(DateTime before) async {
     if (_basePath.isEmpty) return 0;
@@ -646,7 +646,7 @@ class OfflineStorageService {
     });
   }
 
-  /// Paginated expenses fetch â€” returns (expenses, lastDocument) for cursor pagination.
+  /// Paginated expenses fetch — returns (expenses, lastDocument) for cursor pagination.
   static Future<(List<ExpenseModel>, DocumentSnapshot?)> fetchExpensesPage({
     int pageSize = 50,
     DocumentSnapshot? startAfter,
@@ -782,7 +782,7 @@ class OfflineStorageService {
       transaction.toFirestore(),
     );
 
-    // Atomic commit â€” both succeed or both fail
+    // Atomic commit — both succeed or both fail
     await batch.commit();
     UserUsageService.trackWrite(count: 2);
   }
@@ -849,7 +849,7 @@ class OfflineStorageService {
         });
   }
 
-  /// Paginated customers fetch â€” returns (customers, lastDocument) for cursor pagination.
+  /// Paginated customers fetch — returns (customers, lastDocument) for cursor pagination.
   static Future<(List<CustomerModel>, DocumentSnapshot?)> fetchCustomersPage({
     int pageSize = 50,
     DocumentSnapshot? startAfter,
@@ -952,6 +952,7 @@ class OfflineStorageService {
             'createdAt',
             isGreaterThanOrEqualTo: Timestamp.fromDate(startOfDay),
           )
+          .orderBy('createdAt', descending: true)
           .get();
       UserUsageService.trackRead(count: snapshot.docs.length);
       return snapshot.docs.fold<double>(0, (total, doc) {
@@ -959,6 +960,7 @@ class OfflineStorageService {
         return total + amount;
       });
     } catch (e) {
+      debugPrint('❌ getTodayPaymentTotal error: $e');
       return 0;
     }
   }
@@ -1195,7 +1197,7 @@ class OfflineStorageService {
   /// Clear all local cache
   static Future<void> clearAll() async {
     await _prefs?.clear();
-    debugPrint('âœ… clearAll: SharedPreferences cleared');
+    debugPrint('✅ clearAll: SharedPreferences cleared');
   }
 
   /// Clear user-specific local settings on sign-out
@@ -1236,7 +1238,7 @@ class OfflineStorageService {
         await _prefs?.remove(key);
       }
     }
-    debugPrint('âœ… User-specific local settings cleared');
+    debugPrint('✅ User-specific local settings cleared');
   }
 
   /// Clear demo data (used when exiting demo mode)

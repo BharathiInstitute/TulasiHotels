@@ -69,14 +69,14 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
         padding: const EdgeInsets.all(16),
         children: [
           // Shop Profile Section
-          _buildSectionHeader(theme, 'Shop Profile'),
+          _buildSectionHeader(theme, 'Hotel Profile'),
           Card(
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
                 children: [
                   _buildTextField(
-                    'Shop Name',
+                    'Hotel Name',
                     _shopNameController,
                     required: true,
                   ),
@@ -363,7 +363,7 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
                       content: Text(
-                        'Setup guide reopened â€” go to Billing to see it.',
+                        'Setup guide reopened — go to Billing to see it.',
                       ),
                     ),
                   );

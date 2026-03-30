@@ -156,7 +156,7 @@ class CurrencyTextField extends StatelessWidget {
       hint: '0',
       controller: controller,
       keyboardType: const TextInputType.numberWithOptions(decimal: true),
-      prefixText: 'â‚¹ ',
+      prefixText: '\u{20B9} ',
       errorText: errorText,
       readOnly: readOnly,
       inputFormatters: [

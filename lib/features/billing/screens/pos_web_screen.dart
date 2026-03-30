@@ -130,7 +130,7 @@ class _PosWebScreenState extends ConsumerState<PosWebScreen> {
                   if (filtered.isEmpty) {
                     return Center(
                       child: Text(
-                        'No products found',
+                        'No menu items found',
                         style: TextStyle(
                           color: Theme.of(context).colorScheme.onSurfaceVariant,
                         ),
@@ -160,7 +160,7 @@ class _PosWebScreenState extends ConsumerState<PosWebScreen> {
                 },
                 loading: () => const Center(child: LoadingIndicator()),
                 error: (e, _) =>
-                    const Center(child: Text('Error loading products')),
+                    const Center(child: Text('Error loading menu')),
               ),
             ),
           ],
@@ -177,7 +177,7 @@ class _PosWebScreenState extends ConsumerState<PosWebScreen> {
       );
     }
 
-    // Tablet Layout â€” full-width grid with slide-in cart overlay
+    // Tablet Layout — full-width grid with slide-in cart overlay
     if (isTablet) {
       return Scaffold(
         key: _tabletScaffoldKey,
@@ -196,12 +196,12 @@ class _PosWebScreenState extends ConsumerState<PosWebScreen> {
         body: Builder(
           builder: (scaffoldContext) => Column(
             children: [
-              // Search Bar & Filter â€” reuse desktop search bar with tablet padding
+              // Search Bar & Filter — reuse desktop search bar with tablet padding
               Padding(
                 padding: const EdgeInsets.all(16.0),
                 child: _buildSearchAndFilter(),
               ),
-              // Product Grid â€” 3 columns, full width
+              // Product Grid — 3 columns, full width
               Expanded(
                 child: productsAsync.when(
                   data: (products) {
@@ -209,7 +209,7 @@ class _PosWebScreenState extends ConsumerState<PosWebScreen> {
                     if (filtered.isEmpty) {
                       return Center(
                         child: Text(
-                          'No products found',
+                          'No menu items found',
                           style: TextStyle(
                             color: Theme.of(
                               context,
@@ -244,7 +244,7 @@ class _PosWebScreenState extends ConsumerState<PosWebScreen> {
                   },
                   loading: () => const Center(child: LoadingIndicator()),
                   error: (e, _) =>
-                      const Center(child: Text('Error loading products')),
+                      const Center(child: Text('Error loading menu')),
                 ),
               ),
             ],
@@ -257,10 +257,10 @@ class _PosWebScreenState extends ConsumerState<PosWebScreen> {
           icon: Badge(
             label: Text('${cart.itemCount}'),
             isLabelVisible: cart.itemCount > 0,
-            child: const Icon(Icons.shopping_cart, color: Colors.white),
+            child: const Icon(Icons.receipt_long, color: Colors.white),
           ),
           label: Text(
-            cart.isEmpty ? 'Cart' : cart.total.asCurrency,
+            cart.isEmpty ? 'Order' : cart.total.asCurrency,
             style: const TextStyle(
               color: Colors.white,
               fontWeight: FontWeight.bold,
@@ -295,7 +295,7 @@ class _PosWebScreenState extends ConsumerState<PosWebScreen> {
                         if (filtered.isEmpty) {
                           return Center(
                             child: Text(
-                              'No products found',
+                              'No menu items found',
                               style: TextStyle(
                                 color: Theme.of(
                                   context,
@@ -332,7 +332,7 @@ class _PosWebScreenState extends ConsumerState<PosWebScreen> {
                       },
                       loading: () => const Center(child: LoadingIndicator()),
                       error: (e, _) =>
-                          const Center(child: Text('Error loading products')),
+                          const Center(child: Text('Error loading menu')),
                     ),
                   ),
                 ],
@@ -401,7 +401,7 @@ class _PosWebScreenState extends ConsumerState<PosWebScreen> {
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          _selectedCustomer?.name ?? 'Add Customer',
+                          _selectedCustomer?.name ?? 'Add Guest',
                           style: TextStyle(
                             fontSize: 13,
                             fontWeight: _selectedCustomer != null
@@ -501,8 +501,9 @@ class _PosWebScreenState extends ConsumerState<PosWebScreen> {
   }
 
   List<ProductModel> _filterProducts(List<ProductModel> products) {
-    if (_searchQuery.isEmpty) return products;
-    return products.where((p) {
+    final filtered = products.where((p) => p.isAvailable).toList();
+    if (_searchQuery.isEmpty) return filtered;
+    return filtered.where((p) {
       return p.name.toLowerCase().contains(_searchQuery) ||
           (p.barcode?.toLowerCase().contains(_searchQuery) ?? false);
     }).toList();

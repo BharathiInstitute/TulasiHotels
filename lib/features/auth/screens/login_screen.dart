@@ -1,4 +1,4 @@
-/// Login screen â€” Google Sign-In (primary) + Email/Password (secondary)
+/// Login screen — Google Sign-In (primary) + Email/Password (secondary)
 /// with smart sign-in method detection (Option C)
 library;
 
@@ -77,7 +77,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
       if (mounted) setState(() => _isCheckingEmail = false);
 
-      // Attempt sign-in directly â€” don't enumerate auth methods
+      // Attempt sign-in directly — don't enumerate auth methods
       // to avoid revealing whether an email is registered.
       final success = await ref
           .read(authNotifierProvider.notifier)
@@ -100,8 +100,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
     return AuthLayout(
       title: 'Welcome',
-      subtitle: 'Sign in to manage your shop',
-      icon: Icons.storefront,
+      subtitle: 'Sign in to manage your hotel',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -111,7 +110,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             const SizedBox(height: AppSizes.md),
           ],
 
-          // â”€â”€ Google + OR + Email Toggle (shared widget) â”€â”€
+          // ── Google + OR + Email Toggle (shared widget) ──
           AuthSocialSection(
             isGoogleLoading: _isGoogleLoading,
             isOtherLoading: _isLoading,
@@ -121,7 +120,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             onEmailToggle: () => setState(() => _showEmailForm = true),
           ),
 
-          // â”€â”€ Email/Password Form â”€â”€
+          // ── Email/Password Form ──
           if (_showEmailForm)
             Form(
               key: _formKey,
@@ -262,7 +261,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               color: AppColors.textSecondary,
             ),
             label: const Text(
-              'Try Demo Store',
+              'Try Demo Hotel',
               style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
             ),
           ),

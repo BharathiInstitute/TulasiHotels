@@ -34,7 +34,7 @@ void main() {
         (tester) async {
       await tester.pumpWidget(buildBanner(isOnline: false));
       expect(
-        find.text('You are offline â€” changes will sync when connected'),
+        find.text('You are offline — changes will sync when connected'),
         findsOneWidget,
       );
     });
@@ -44,7 +44,7 @@ void main() {
       await tester.pumpWidget(buildBanner(isOnline: false, unsyncedCount: 1));
       expect(
         find.text(
-            'You are offline â€” 1 change will sync when connected'),
+            'You are offline — 1 change will sync when connected'),
         findsOneWidget,
       );
     });
@@ -54,7 +54,7 @@ void main() {
       await tester.pumpWidget(buildBanner(isOnline: false, unsyncedCount: 5));
       expect(
         find.text(
-            'You are offline â€” 5 changes will sync when connected'),
+            'You are offline — 5 changes will sync when connected'),
         findsOneWidget,
       );
     });

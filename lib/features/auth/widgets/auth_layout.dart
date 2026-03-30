@@ -1,4 +1,4 @@
-/// Shared auth layout for consistent login/register screens
+﻿/// Shared auth layout for consistent login/register screens
 library;
 
 import 'package:flutter/foundation.dart' show kIsWeb;
@@ -24,7 +24,7 @@ class AuthLayout extends StatelessWidget {
     required this.child,
     required this.title,
     this.subtitle,
-    this.icon = Icons.store,
+    this.icon = Icons.hotel,
     this.isAdminMode = false,
     this.onBack,
   });
@@ -58,7 +58,7 @@ class AuthLayout extends StatelessWidget {
   );
 
   /// Build a fully light ThemeData overlay for auth form areas.
-  /// Covers inputs, buttons, text, icons â€” everything inside the form.
+  /// Covers inputs, buttons, text, icons — everything inside the form.
   static ThemeData _lightAuthTheme(BuildContext context) {
     final base = Theme.of(context);
     return base.copyWith(
@@ -181,7 +181,7 @@ class AuthLayout extends StatelessWidget {
                 ],
               ),
             ),
-            // Form content â€” forced light theme for all widgets
+            // Form content — forced light theme for all widgets
             Expanded(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.all(AppSizes.xl),
@@ -255,7 +255,7 @@ class AuthLayout extends StatelessWidget {
                                 Text(
                                   isAdminMode
                                       ? 'Manage users, subscriptions, and analytics'
-                                      : 'à¤­à¤¾à¤°à¤¤ à¤•à¤¾ à¤¸à¤¬à¤¸à¥‡ à¤†à¤¸à¤¾à¤¨ à¤¬à¤¿à¤²à¤¿à¤‚à¤— à¤à¤ª\nSimplest billing app for Indian businesses',
+                                      : 'भारत का सबसे आसान बिलिंग ऐप\nSimplest billing app for Indian businesses',
                                   style: TextStyle(
                                     fontSize: 15,
                                     color: Colors.white.withValues(alpha: 0.9),
@@ -304,7 +304,7 @@ class AuthLayout extends StatelessWidget {
                                   color: Colors.white70,
                                 ),
                                 label: const Text(
-                                  'â† Visit Website',
+                                  '← Visit Website',
                                   style: TextStyle(
                                     color: Colors.white70,
                                     fontWeight: FontWeight.w500,
@@ -372,7 +372,7 @@ class AuthLayout extends StatelessWidget {
                             ),
                           ],
                           const SizedBox(height: AppSizes.xl + AppSizes.md),
-                          // Form content â€” forced light theme for all widgets
+                          // Form content — forced light theme for all widgets
                           Theme(data: _lightAuthTheme(context), child: child),
                         ],
                       ),

@@ -1,4 +1,4 @@
-/// Product detail screen
+﻿/// Product detail screen
 library;
 
 import 'package:flutter/material.dart';
@@ -158,12 +158,12 @@ class _ProductDetailViewState extends ConsumerState<_ProductDetailView> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Delete Product?'),
+        title: const Text('Delete Menu Item?'),
         content: Text(
           'Are you sure you want to delete "${widget.product.name}"?\n\n'
-          'This product may appear in existing bills. '
+          'This menu item may appear in existing bills. '
           'Deleting it won\'t remove it from past bills, but it will '
-          'no longer be available for new sales.\n\n'
+          'no longer be available for new orders.\n\n'
           'This action cannot be undone.',
         ),
         actions: [
@@ -223,7 +223,7 @@ class _ProductDetailViewState extends ConsumerState<_ProductDetailView> {
               const PopupMenuItem(
                 value: 'adjust',
                 child: ListTile(
-                  leading: Icon(Icons.inventory),
+                  leading: Icon(Icons.restaurant_menu),
                   title: Text('Adjust Stock'),
                 ),
               ),
@@ -277,7 +277,7 @@ class _ProductDetailViewState extends ConsumerState<_ProductDetailView> {
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: Icon(
-                              Icons.inventory_2,
+                              Icons.restaurant_menu,
                               color: AppColors.primary,
                               size: 32,
                             ),
@@ -321,7 +321,7 @@ class _ProductDetailViewState extends ConsumerState<_ProductDetailView> {
                             _InfoTile(
                               label: 'Cost Price',
                               value: product.purchasePrice!.asCurrency,
-                              icon: Icons.shopping_cart,
+                              icon: Icons.receipt_long,
                               color: AppColors.warning,
                             ),
                         ],
@@ -350,7 +350,7 @@ class _ProductDetailViewState extends ConsumerState<_ProductDetailView> {
                             label: 'Current Stock',
                             value:
                                 '${product.stock} ${product.unit.displayName}',
-                            icon: Icons.inventory,
+                            icon: Icons.restaurant_menu,
                             color: product.isLowStock
                                 ? AppColors.error
                                 : AppColors.success,

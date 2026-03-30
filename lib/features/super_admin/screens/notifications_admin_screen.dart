@@ -1,4 +1,4 @@
-/// Admin Notifications Screen â€” compose and send notifications to users
+/// Admin Notifications Screen — compose and send notifications to users
 /// Features: Templates, send to all/selected/by plan, user search & picker, history
 library;
 
@@ -14,7 +14,7 @@ import 'package:tulasihotels/features/notifications/models/notification_model.da
 import 'package:tulasihotels/features/notifications/services/notification_firestore_service.dart';
 import 'package:tulasihotels/features/super_admin/screens/admin_shell_screen.dart';
 
-// â”€â”€â”€ Notification Templates â”€â”€â”€
+// ─── Notification Templates ───
 class _NotifTemplate {
   final String name;
   final String title;
@@ -34,15 +34,15 @@ class _NotifTemplate {
 const _templates = [
   _NotifTemplate(
     name: 'Welcome',
-    title: 'Welcome to ${AppConstants.appName}! ðŸŽ‰',
+    title: 'Welcome to ${AppConstants.appName}! 🎉',
     body:
-        'Thank you for joining! Start by adding your products and making your first sale.',
+        'Thank you for joining! Start by adding your menu items and serving your first guest.',
     type: NotificationType.announcement,
     icon: Icons.celebration,
   ),
   _NotifTemplate(
     name: 'New Feature',
-    title: 'New Feature Available âœ¨',
+    title: 'New Feature Available ✨',
     body:
         'We\'ve added exciting new features. Update your app to get the latest improvements!',
     type: NotificationType.announcement,
@@ -50,7 +50,7 @@ const _templates = [
   ),
   _NotifTemplate(
     name: 'Maintenance',
-    title: 'Scheduled Maintenance ðŸ”§',
+    title: 'Scheduled Maintenance 🔧',
     body:
         'We\'ll be performing maintenance on [DATE] from [TIME] to [TIME]. The app might be briefly unavailable.',
     type: NotificationType.alert,
@@ -58,7 +58,7 @@ const _templates = [
   ),
   _NotifTemplate(
     name: 'Payment Reminder',
-    title: 'Subscription Renewal Reminder ðŸ’³',
+    title: 'Subscription Renewal Reminder 💳',
     body:
         'Your subscription expires soon. Renew now to continue enjoying premium features.',
     type: NotificationType.reminder,
@@ -66,7 +66,7 @@ const _templates = [
   ),
   _NotifTemplate(
     name: 'Holiday',
-    title: 'Happy Holidays! ðŸŽŠ',
+    title: 'Happy Holidays! 🎊',
     body:
         'Wishing you and your business a wonderful holiday season. Special offers coming soon!',
     type: NotificationType.announcement,
@@ -74,17 +74,17 @@ const _templates = [
   ),
   _NotifTemplate(
     name: 'Security',
-    title: 'Security Update âš ï¸',
+    title: 'Security Update ⚠️',
     body:
-        'Please update your password for enhanced security. Go to Settings â†’ Account to change it.',
+        'Please update your password for enhanced security. Go to Settings → Account to change it.',
     type: NotificationType.alert,
     icon: Icons.security,
   ),
   _NotifTemplate(
     name: 'Tip',
-    title: 'Pro Tip ðŸ’¡',
+    title: 'Pro Tip 💡',
     body:
-        'Did you know you can scan barcodes to quickly add products? Try it from the Products screen!',
+        'Did you know you can scan barcodes to quickly add menu items? Try it from the Menu screen!',
     type: NotificationType.system,
     icon: Icons.lightbulb_outline,
   ),
@@ -228,7 +228,7 @@ class _NotificationsAdminScreenState
   }
 }
 
-// â”€â”€â”€ Compose Tab â”€â”€â”€
+// ─── Compose Tab ───
 
 class _ComposeTab extends StatefulWidget {
   final WidgetRef ref;
@@ -325,7 +325,7 @@ class _ComposeTabState extends State<_ComposeTab> {
       setState(() => _isSending = false);
       messenger.showSnackBar(
         SnackBar(
-          content: Text('âŒ Failed to send: $e'),
+          content: Text('❌ Failed to send: $e'),
           backgroundColor: Colors.red,
           duration: const Duration(seconds: 5),
         ),
@@ -339,8 +339,8 @@ class _ComposeTabState extends State<_ComposeTab> {
       SnackBar(
         content: Text(
           count > 0
-              ? 'âœ… Notification sent to $count users'
-              : 'âš ï¸ No users found to send to',
+              ? '✅ Notification sent to $count users'
+              : '⚠️ No users found to send to',
         ),
         backgroundColor: count > 0 ? Colors.green : Colors.orange,
       ),
@@ -374,7 +374,7 @@ class _ComposeTabState extends State<_ComposeTab> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // â”€â”€â”€ Templates Section â”€â”€â”€
+          // ─── Templates Section ───
           _SectionCard(
             cardColor: cardColor,
             icon: Icons.dashboard_customize,
@@ -396,7 +396,7 @@ class _ComposeTabState extends State<_ComposeTab> {
           ),
           const SizedBox(height: 16),
 
-          // â”€â”€â”€ Configuration Section â”€â”€â”€
+          // ─── Configuration Section ───
           _SectionCard(
             cardColor: cardColor,
             icon: Icons.tune,
@@ -495,7 +495,7 @@ class _ComposeTabState extends State<_ComposeTab> {
                 ),
                 const SizedBox(height: 12),
 
-                // â”€â”€â”€ Plan picker â”€â”€â”€
+                // ─── Plan picker ───
                 if (_targetMode == 'plan') ...[
                   const SizedBox(height: 4),
                   DropdownButtonFormField<String>(
@@ -523,7 +523,7 @@ class _ComposeTabState extends State<_ComposeTab> {
                   ),
                 ],
 
-                // â”€â”€â”€ User picker â”€â”€â”€
+                // ─── User picker ───
                 if (_targetMode == 'selected') ...[
                   const SizedBox(height: 4),
                   Container(
@@ -609,7 +609,7 @@ class _ComposeTabState extends State<_ComposeTab> {
           ),
           const SizedBox(height: 16),
 
-          // â”€â”€â”€ Message Section â”€â”€â”€
+          // ─── Message Section ───
           _SectionCard(
             cardColor: cardColor,
             icon: Icons.edit_note,
@@ -654,7 +654,7 @@ class _ComposeTabState extends State<_ComposeTab> {
           ),
           const SizedBox(height: 24),
 
-          // â”€â”€â”€ Send Button â”€â”€â”€
+          // ─── Send Button ───
           SizedBox(
             width: double.infinity,
             height: 52,
@@ -727,7 +727,7 @@ class _ComposeTabState extends State<_ComposeTab> {
   }
 }
 
-// â”€â”€â”€ User Picker Dialog â”€â”€â”€
+// ─── User Picker Dialog ───
 
 class _UserPickerDialog extends StatefulWidget {
   final Set<String> alreadySelected;
@@ -821,7 +821,7 @@ class _UserPickerDialogState extends State<_UserPickerDialog> {
             TextField(
               controller: _searchCtrl,
               decoration: const InputDecoration(
-                hintText: 'Search by name, email, or shop...',
+                hintText: 'Search by name, email, or hotel...',
                 prefixIcon: Icon(Icons.search),
                 border: OutlineInputBorder(),
                 isDense: true,
@@ -940,7 +940,7 @@ class _UserPickerDialogState extends State<_UserPickerDialog> {
   }
 }
 
-// â”€â”€â”€ Section Card â”€â”€â”€
+// ─── Section Card ───
 
 class _SectionCard extends StatelessWidget {
   final Color cardColor;
@@ -1014,7 +1014,7 @@ class _SectionCard extends StatelessWidget {
   }
 }
 
-// â”€â”€â”€ Template Chip (Radio-style) â”€â”€â”€
+// ─── Template Chip (Radio-style) ───
 
 class _TemplateChip extends StatelessWidget {
   final _NotifTemplate template;
@@ -1074,7 +1074,7 @@ class _TemplateChip extends StatelessWidget {
   }
 }
 
-// â”€â”€â”€ History Card â”€â”€â”€
+// ─── History Card ───
 
 class _HistoryCard extends StatelessWidget {
   final Map<String, dynamic> data;
@@ -1149,7 +1149,7 @@ class _HistoryCard extends StatelessWidget {
                 Text(
                   recipientCount != null
                       ? 'Sent to $recipientCount user${recipientCount == 1 ? '' : 's'}'
-                      : 'Processingâ€¦',
+                      : 'Processing…',
                   style: TextStyle(
                     fontSize: 12,
                     color: recipientCount != null && recipientCount > 0
@@ -1231,10 +1231,10 @@ class _TargetBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final label = switch (target) {
-      'all' => 'ðŸ‘¥ All Users',
-      'user' => 'ðŸ‘¤ Selected',
-      'plan' => 'ðŸ“‹ By Plan',
-      _ => 'ðŸ“‹ $target',
+      'all' => '👥 All Users',
+      'user' => '👤 Selected',
+      'plan' => '📋 By Plan',
+      _ => '📋 $target',
     };
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),

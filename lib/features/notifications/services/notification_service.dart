@@ -1,4 +1,4 @@
-/// Push Notification Service — handles FCM foreground/background messages
+﻿/// Push Notification Service — handles FCM foreground/background messages
 library;
 
 import 'dart:async';
@@ -10,7 +10,7 @@ import 'package:flutter/foundation.dart';
 /// Top-level handler for background messages (must be top-level function)
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  debugPrint('📩 Background message: ${message.notification?.title}');
+  debugPrint('?? Background message: ${message.notification?.title}');
   // Background messages auto-show a system notification on Android/Web.
   // No special handling needed unless you want to customize behavior.
 }
@@ -33,22 +33,22 @@ class NotificationService {
 
     // Foreground messages
     _onMessageSub = FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-      debugPrint('📬 Foreground message: ${message.notification?.title}');
+      debugPrint('?? Foreground message: ${message.notification?.title}');
       onMessage?.call(message);
     });
 
-    // When app is opened from a notification tap (background → foreground)
+    // When app is opened from a notification tap (background ? foreground)
     _onMessageOpenedSub = FirebaseMessaging.onMessageOpenedApp.listen((
       RemoteMessage message,
     ) {
-      debugPrint('📬 Message opened app: ${message.notification?.title}');
+      debugPrint('?? Message opened app: ${message.notification?.title}');
       onMessageOpenedApp?.call(message);
     });
 
     // Check if app was opened from a terminated state via notification
     _messaging.getInitialMessage().then((message) {
       if (message != null) {
-        debugPrint('📬 Initial message: ${message.notification?.title}');
+        debugPrint('?? Initial message: ${message.notification?.title}');
         onMessageOpenedApp?.call(message);
       }
     });

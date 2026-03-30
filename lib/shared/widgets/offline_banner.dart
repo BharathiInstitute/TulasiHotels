@@ -1,4 +1,4 @@
-/// Offline connectivity banner â€” shows when device is offline
+/// Offline connectivity banner — shows when device is offline
 library;
 
 import 'package:flutter/material.dart';
@@ -31,8 +31,8 @@ class OfflineBanner extends ConsumerWidget {
           const SizedBox(width: 8),
           Text(
             unsyncedCount > 0
-                ? 'You are offline â€” $unsyncedCount change${unsyncedCount == 1 ? '' : 's'} will sync when connected'
-                : 'You are offline â€” changes will sync when connected',
+                ? 'You are offline — $unsyncedCount change${unsyncedCount == 1 ? '' : 's'} will sync when connected'
+                : 'You are offline — changes will sync when connected',
             style: const TextStyle(
               color: Colors.white,
               fontSize: 12,

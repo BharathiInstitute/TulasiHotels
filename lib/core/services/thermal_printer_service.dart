@@ -1,9 +1,9 @@
 /// Thermal printer services for direct ESC/POS printing
 ///
 /// Three backends:
-/// - **Bluetooth** â€” via `print_bluetooth_thermal` (Android/iOS)
-/// - **WiFi/Network** â€” via TCP Socket to port 9100 (all non-web)
-/// - **USB** â€” via Windows RAW printing / Process command (Windows)
+/// - **Bluetooth** — via `print_bluetooth_thermal` (Android/iOS)
+/// - **WiFi/Network** — via TCP Socket to port 9100 (all non-web)
+/// - **USB** — via Windows RAW printing / Process command (Windows)
 ///
 /// System printers (inkjet/laser) use `printing` package via ReceiptService.
 library;
@@ -20,9 +20,9 @@ import 'package:tulasihotels/core/services/offline_storage_service.dart';
 import 'package:tulasihotels/models/bill_model.dart';
 import 'package:intl/intl.dart';
 
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ════════════════════════════════════════════════════════════════════
 //  Shared Enums & Models
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ════════════════════════════════════════════════════════════════════
 
 /// Paper size for thermal printers
 enum PrinterPaperSize {
@@ -73,24 +73,24 @@ class PrinterDevice {
   }
 }
 
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ════════════════════════════════════════════════════════════════════
 //  Shared ESC/POS Receipt Builder
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ════════════════════════════════════════════════════════════════════
 
-/// Generates ESC/POS byte sequences for receipts â€” shared by all backends
+/// Generates ESC/POS byte sequences for receipts — shared by all backends
 class EscPosBuilder {
   EscPosBuilder._();
 
   static final _dateFormat = DateFormat('dd/MM/yyyy hh:mm a');
 
-  // â”€â”€ ESC/POS command helpers â”€â”€
+  // ── ESC/POS command helpers ──
 
   /// Initialize printer and select UTF-8 character code table (codepage 0x6F).
-  /// This ensures non-ASCII characters (â‚¹, Hindi etc.) are printed correctly
+  /// This ensures non-ASCII characters (₹, Hindi etc.) are printed correctly
   /// on printers that support multi-byte encodings.
   static List<int> init() => [
-    0x1B, 0x40, // ESC @ â€” Initialize printer
-    0x1B, 0x74, 0x6F, // ESC t 111 â€” Select UTF-8 codepage
+    0x1B, 0x40, // ESC @ — Initialize printer
+    0x1B, 0x74, 0x6F, // ESC t 111 — Select UTF-8 codepage
   ];
   static List<int> center() => [0x1B, 0x61, 0x01];
   static List<int> left() => [0x1B, 0x61, 0x00];
@@ -100,7 +100,7 @@ class EscPosBuilder {
   static List<int> cut() => [0x1D, 0x56, 0x00];
 
   /// Convert text to bytes safe for ESC/POS printers.
-  /// Uses UTF-8 encoding to support Hindi, â‚¹ symbol, and other non-ASCII chars.
+  /// Uses UTF-8 encoding to support Hindi, ₹ symbol, and other non-ASCII chars.
   /// Printers that do not support UTF-8 will ignore the codepage command in
   /// [init] and fall back to their default codepage; non-latin characters may
   /// render as '?' in that case.
@@ -126,7 +126,7 @@ class EscPosBuilder {
     return '$l${' ' * ls}$c${' ' * (sp - ls)}$r\n';
   }
 
-  // â”€â”€ Shared settings helpers â”€â”€
+  // ── Shared settings helpers ──
   static int getEffectiveWidth() {
     final custom = PrinterStorage.getSavedCustomWidth();
     if (custom > 0) return custom;
@@ -143,7 +143,7 @@ class EscPosBuilder {
     return PrinterPaperSize.fromIndex(PrinterStorage.getSavedPaperSize());
   }
 
-  // â”€â”€ Build test page bytes â”€â”€
+  // ── Build test page bytes ──
   static List<int> buildTestPage() {
     final paperSize = getSavedPaperSize();
     final chars = getEffectiveWidth();
@@ -171,7 +171,7 @@ class EscPosBuilder {
     ];
   }
 
-  // â”€â”€ Build receipt bytes â”€â”€
+  // ── Build receipt bytes ──
   static List<int> buildReceipt({
     required BillModel bill,
     String? shopName,
@@ -306,9 +306,9 @@ class EscPosBuilder {
   }
 }
 
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ════════════════════════════════════════════════════════════════════
 //  1. Bluetooth Thermal Printer Service
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ════════════════════════════════════════════════════════════════════
 
 /// Bluetooth thermal printing via `print_bluetooth_thermal` (Android/iOS)
 class ThermalPrinterService {
@@ -397,19 +397,19 @@ class ThermalPrinterService {
     final saved = getSavedPrinter();
     if (saved == null) return false;
 
-    debugPrint('ðŸ”„ BT: Auto-reconnecting to ${saved.name}...');
+    debugPrint('🔄 BT: Auto-reconnecting to ${saved.name}...');
     try {
       final ok = await connect(
         saved,
       ).timeout(const Duration(seconds: 3), onTimeout: () => false);
       if (ok) {
-        debugPrint('âœ… BT: Auto-reconnected');
+        debugPrint('✅ BT: Auto-reconnected');
       } else {
-        debugPrint('âŒ BT: Auto-reconnect failed');
+        debugPrint('❌ BT: Auto-reconnect failed');
       }
       return ok;
     } catch (e) {
-      debugPrint('âŒ BT: Auto-reconnect error: $e');
+      debugPrint('❌ BT: Auto-reconnect error: $e');
       return false;
     }
   }
@@ -441,9 +441,9 @@ class ThermalPrinterService {
   }
 }
 
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ════════════════════════════════════════════════════════════════════
 //  2. WiFi / Network Thermal Printer Service
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ════════════════════════════════════════════════════════════════════
 
 /// WiFi/Network thermal printing via TCP Socket to port 9100
 class WifiPrinterService {
@@ -512,7 +512,7 @@ class WifiPrinterService {
     try {
       await _socket?.close();
     } catch (e) {
-      debugPrint('âš ï¸ WiFi printer: socket close failed: $e');
+      debugPrint('⚠️ WiFi printer: socket close failed: $e');
     }
     _cleanup();
   }
@@ -578,9 +578,9 @@ class WifiPrinterService {
   static int getSavedPort() => PrinterStorage.getWifiPrinterPort();
 }
 
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ════════════════════════════════════════════════════════════════════
 //  3. USB Thermal Printer Service (Windows)
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ════════════════════════════════════════════════════════════════════
 
 /// USB thermal printing on Windows via RAW print command
 class UsbPrinterService {
@@ -622,7 +622,7 @@ class UsbPrinterService {
     if (!isAvailable || printerName.isEmpty) return false;
 
     try {
-      debugPrint('ðŸ–¨ï¸ USB: Sending ${bytes.length} bytes to "$printerName"...');
+      debugPrint('🖨️ USB: Sending ${bytes.length} bytes to "$printerName"...');
 
       // Write bytes to temp file
       final tempDir = await getTemporaryDirectory();
@@ -727,23 +727,23 @@ if (\$ok) { exit 0 } else { exit 1 }
       try {
         await tempFile.delete();
       } catch (e) {
-        debugPrint('âš ï¸ USB print: temp file cleanup failed: $e');
+        debugPrint('⚠️ USB print: temp file cleanup failed: $e');
       }
 
       final stdout = (result.stdout as String).trim();
       final stderr = (result.stderr as String).trim();
 
       if (result.exitCode == 0 && stdout.startsWith('OK:')) {
-        debugPrint('ðŸ–¨ï¸ USB: Print success â€” $stdout');
+        debugPrint('🖨️ USB: Print success — $stdout');
         return true;
       }
 
-      debugPrint('ðŸ–¨ï¸ USB: Print failed (exit ${result.exitCode})');
-      if (stdout.isNotEmpty) debugPrint('ðŸ–¨ï¸ USB stdout: $stdout');
-      if (stderr.isNotEmpty) debugPrint('ðŸ–¨ï¸ USB stderr: $stderr');
+      debugPrint('🖨️ USB: Print failed (exit ${result.exitCode})');
+      if (stdout.isNotEmpty) debugPrint('🖨️ USB stdout: $stdout');
+      if (stderr.isNotEmpty) debugPrint('🖨️ USB stderr: $stderr');
       return false;
     } catch (e) {
-      debugPrint('ðŸ–¨ï¸ USB print error: $e');
+      debugPrint('🖨️ USB print error: $e');
       return false;
     }
   }

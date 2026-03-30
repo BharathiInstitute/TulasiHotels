@@ -1,4 +1,4 @@
-/// Error Logging Service for Web and cross-platform error tracking
+﻿/// Error Logging Service for Web and cross-platform error tracking
 library;
 
 import 'dart:convert';
@@ -25,7 +25,7 @@ class ErrorLogEntry {
   final String? screenName;
   final Map<String, dynamic>? metadata;
 
-  // â”€â”€ New context fields â”€â”€
+  // ── New context fields ──
   final String? route;
   final String? widgetContext;
   final String? library;
@@ -137,13 +137,13 @@ class ErrorLogEntry {
   String toCopyText() {
     final buf = StringBuffer();
     final severityIcon = severity == ErrorSeverity.critical
-        ? 'ðŸ”´'
+        ? '🔴'
         : severity == ErrorSeverity.error
-        ? 'ðŸŸ '
-        : 'ðŸŸ¡';
+        ? '🟠'
+        : '🟡';
 
     buf.writeln('$severityIcon ERROR REPORT');
-    buf.writeln('â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”');
+    buf.writeln('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     buf.writeln('Severity:      ${severity.name}');
     buf.writeln('Platform:      $platform');
     buf.writeln('App Version:   $appVersion');
@@ -161,49 +161,49 @@ class ErrorLogEntry {
     buf.writeln('Resolved:      ${resolved ? 'Yes' : 'No'}');
     buf.writeln();
 
-    buf.writeln('ðŸ“ LOCATION');
+    buf.writeln('📍 LOCATION');
     if (route != null) buf.writeln('Route:         $route');
     if (screenName != null) buf.writeln('Screen:        $screenName');
     if (widgetContext != null) buf.writeln('Widget:        $widgetContext');
     if (library != null) buf.writeln('Library:       $library');
     if (screenWidth != null && screenHeight != null) {
       buf.writeln(
-        'Screen Size:   ${screenWidth!.toInt()}Ã—${screenHeight!.toInt()}',
+        'Screen Size:   ${screenWidth!.toInt()}×${screenHeight!.toInt()}',
       );
     }
     buf.writeln();
 
-    buf.writeln('ðŸ’¬ ERROR');
+    buf.writeln('💬 ERROR');
     if (errorType != null) buf.writeln('Type:          $errorType');
     buf.writeln('Message:       $message');
     buf.writeln();
 
     if (widgetInfo != null && widgetInfo!.isNotEmpty) {
-      buf.writeln('ðŸ”§ WIDGET INFO');
+      buf.writeln('🔧 WIDGET INFO');
       buf.writeln(widgetInfo);
       buf.writeln();
     }
 
     if (stackTrace != null && stackTrace!.isNotEmpty) {
-      buf.writeln('ðŸ“œ STACK TRACE');
+      buf.writeln('📜 STACK TRACE');
       buf.writeln(stackTrace);
       buf.writeln();
     }
 
     // Custom metadata (extra context passed at log time)
     if (metadata != null && metadata!.isNotEmpty) {
-      buf.writeln('ðŸ—‚ï¸ METADATA');
+      buf.writeln('🗂️ METADATA');
       for (final entry in metadata!.entries) {
         buf.writeln('${entry.key}: ${entry.value}');
       }
       buf.writeln();
     }
 
-    buf.writeln('ðŸ‘¤ USER');
+    buf.writeln('👤 USER');
     if (userEmail != null) buf.writeln('Email:         $userEmail');
-    if (shopName != null) buf.writeln('Shop:          $shopName');
+    if (shopName != null) buf.writeln('Hotel:         $shopName');
     if (userId != null) buf.writeln('User ID:       $userId');
-    buf.writeln('â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”');
+    buf.writeln('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
     return buf.toString();
   }
@@ -238,7 +238,7 @@ class ErrorLoggingService {
   static String? _currentScreen;
   static String? _sessionId;
 
-  // â”€â”€ Pre-Firebase Crash Capture â”€â”€
+  // ── Pre-Firebase Crash Capture ──
 
   /// Save a crash that occurred before Firebase was initialized.
   /// Uses SharedPreferences (already initialized before Firebase).
@@ -249,8 +249,8 @@ class ErrorLoggingService {
     try {
       final prefs = OfflineStorageService.prefs;
       if (prefs == null) {
-        // SharedPreferences not ready yet â€” last resort: write to debugPrint
-        debugPrint('ðŸ”´ PRE-FIREBASE CRASH (no prefs): $error');
+        // SharedPreferences not ready yet — last resort: write to debugPrint
+        debugPrint('🔴 PRE-FIREBASE CRASH (no prefs): $error');
         return;
       }
       final entry = {
@@ -263,9 +263,9 @@ class ErrorLoggingService {
       final existing = prefs.getStringList(_preFirebaseCrashKey) ?? [];
       existing.add(jsonEncode(entry));
       await prefs.setStringList(_preFirebaseCrashKey, existing);
-      debugPrint('ðŸ“¦ Pre-Firebase crash saved locally (${existing.length})');
+      debugPrint('📦 Pre-Firebase crash saved locally (${existing.length})');
     } catch (e) {
-      debugPrint('ðŸ”´ Failed to save pre-Firebase crash: $e');
+      debugPrint('🔴 Failed to save pre-Firebase crash: $e');
     }
   }
 
@@ -277,7 +277,7 @@ class ErrorLoggingService {
       final queue = prefs.getStringList(_preFirebaseCrashKey);
       if (queue == null || queue.isEmpty) return;
 
-      debugPrint('ðŸ“¤ Flushing ${queue.length} pre-Firebase crashes...');
+      debugPrint('📤 Flushing ${queue.length} pre-Firebase crashes...');
       for (final jsonStr in queue) {
         final data = jsonDecode(jsonStr) as Map<String, dynamic>;
         await logError(
@@ -292,13 +292,13 @@ class ErrorLoggingService {
         );
       }
       await prefs.setStringList(_preFirebaseCrashKey, []);
-      debugPrint('âœ… Flushed ${queue.length} pre-Firebase crashes');
+      debugPrint('✅ Flushed ${queue.length} pre-Firebase crashes');
     } catch (e) {
-      debugPrint('âŒ Failed to flush pre-Firebase crashes: $e');
+      debugPrint('❌ Failed to flush pre-Firebase crashes: $e');
     }
   }
 
-  // â”€â”€ Crash Detection (Heartbeat) â”€â”€
+  // ── Crash Detection (Heartbeat) ──
 
   /// Mark that the app started (clear clean-exit flag).
   /// Call at the very start of main().
@@ -311,7 +311,7 @@ class ErrorLoggingService {
       final wasClean = prefs.getBool(_cleanExitKey) ?? true;
       if (!wasClean) {
         // Previous session crashed or was killed
-        debugPrint('âš ï¸ Previous session did not exit cleanly â€” crash detected');
+        debugPrint('⚠️ Previous session did not exit cleanly — crash detected');
         final lastTimestamp = prefs.getString('${_cleanExitKey}_ts');
         await logError(
           error: 'Ungraceful shutdown detected (app was killed or crashed)',
@@ -331,7 +331,7 @@ class ErrorLoggingService {
         DateTime.now().toIso8601String(),
       );
     } catch (e) {
-      debugPrint('âš ï¸ markAppStarted failed: $e');
+      debugPrint('⚠️ markAppStarted failed: $e');
     }
   }
 
@@ -401,7 +401,7 @@ class ErrorLoggingService {
       final message = error.toString();
       final shopName = OfflineStorageService.prefs?.getString('shop_name');
 
-      // Safe access to currentUser â€” on web, Firebase JS interop can return
+      // Safe access to currentUser — on web, Firebase JS interop can return
       // a LegacyJavaScriptObject that fails type casting
       String? userId;
       String? userEmail;
@@ -460,13 +460,13 @@ class ErrorLoggingService {
 
       if (kDebugMode) {
         debugPrint(
-          'ðŸ“ Error logged: ${message.substring(0, 100.clamp(0, message.length))}',
+          '📝 Error logged: ${message.substring(0, 100.clamp(0, message.length))}',
         );
       }
     } catch (e) {
-      // Silently fail â€” don't cause more errors while logging errors
+      // Silently fail — don't cause more errors while logging errors
       if (kDebugMode) {
-        debugPrint('âŒ Failed to log error: $e');
+        debugPrint('❌ Failed to log error: $e');
       }
     }
   }
@@ -493,11 +493,11 @@ class ErrorLoggingService {
       prefs.setStringList(_offlineQueueKey, existing);
 
       if (kDebugMode) {
-        debugPrint('ðŸ“¦ Error queued offline (${existing.length} pending)');
+        debugPrint('📦 Error queued offline (${existing.length} pending)');
       }
     } catch (e) {
       if (kDebugMode) {
-        debugPrint('âŒ Failed to queue offline error: $e');
+        debugPrint('❌ Failed to queue offline error: $e');
       }
     }
   }
@@ -512,7 +512,7 @@ class ErrorLoggingService {
       if (queue == null || queue.isEmpty) return;
 
       if (kDebugMode) {
-        debugPrint('ðŸ“¤ Flushing ${queue.length} queued errors to Firestore...');
+        debugPrint('📤 Flushing ${queue.length} queued errors to Firestore...');
       }
 
       final batch = _firestore.batch();
@@ -532,11 +532,11 @@ class ErrorLoggingService {
       await prefs.setStringList(_offlineQueueKey, []);
 
       if (kDebugMode) {
-        debugPrint('âœ… Flushed ${queue.length} queued errors');
+        debugPrint('✅ Flushed ${queue.length} queued errors');
       }
     } catch (e) {
       if (kDebugMode) {
-        debugPrint('âŒ Failed to flush offline queue: $e');
+        debugPrint('❌ Failed to flush offline queue: $e');
       }
     }
   }
@@ -620,12 +620,12 @@ class ErrorLoggingService {
         );
       }).toList()..sort((a, b) => b.lastSeen.compareTo(a.lastSeen));
     } catch (e) {
-      debugPrint('âŒ Failed to get grouped errors: $e');
+      debugPrint('❌ Failed to get grouped errors: $e');
       return [];
     }
   }
 
-  /// Get recent error logs (legacy â€” still used by some providers)
+  /// Get recent error logs (legacy — still used by some providers)
   static Future<List<ErrorLogEntry>> getRecentErrors({
     int limit = 50,
     ErrorSeverity? severityFilter,
@@ -647,7 +647,7 @@ class ErrorLoggingService {
       final snapshot = await query.get();
       return snapshot.docs.map((d) => ErrorLogEntry.fromFirestore(d)).toList();
     } catch (e) {
-      debugPrint('âŒ Failed to get error logs: $e');
+      debugPrint('❌ Failed to get error logs: $e');
       return [];
     }
   }
@@ -659,7 +659,7 @@ class ErrorLoggingService {
         'resolved': true,
       });
     } catch (e) {
-      debugPrint('âŒ Failed to mark resolved: $e');
+      debugPrint('❌ Failed to mark resolved: $e');
     }
   }
 
@@ -684,12 +684,12 @@ class ErrorLoggingService {
       await batch.commit();
       return snapshot.docs.length;
     } catch (e) {
-      debugPrint('âŒ Failed to mark all resolved: $e');
+      debugPrint('❌ Failed to mark all resolved: $e');
       return 0;
     }
   }
 
-  /// Get error count by platform (from pre-aggregated counter doc â€” D1-4)
+  /// Get error count by platform (from pre-aggregated counter doc — D1-4)
   static Future<Map<String, int>> getErrorCountByPlatform() async {
     try {
       final doc = await _firestore
@@ -706,7 +706,7 @@ class ErrorLoggingService {
     }
   }
 
-  /// Get error count by severity (from pre-aggregated counter doc â€” D1-4)
+  /// Get error count by severity (from pre-aggregated counter doc — D1-4)
   static Future<Map<String, int>> getErrorCountBySeverity() async {
     try {
       final doc = await _firestore
@@ -751,12 +751,12 @@ class ErrorLoggingService {
       }
       return counts;
     } catch (e) {
-      debugPrint('âŒ Failed to get daily error counts: $e');
+      debugPrint('❌ Failed to get daily error counts: $e');
       return {};
     }
   }
 
-  /// Delete old error logs (cleanup) â€” paginated in batches of 450
+  /// Delete old error logs (cleanup) — paginated in batches of 450
   static Future<int> deleteOldLogs({int daysOld = 30}) async {
     int totalDeleted = 0;
     try {
@@ -784,7 +784,7 @@ class ErrorLoggingService {
 
       return totalDeleted;
     } catch (e) {
-      debugPrint('âŒ Failed to delete old logs: $e');
+      debugPrint('❌ Failed to delete old logs: $e');
       return totalDeleted;
     }
   }

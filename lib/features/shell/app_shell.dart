@@ -8,6 +8,9 @@ import 'package:tulasihotels/core/constants/app_constants.dart';
 import 'package:tulasihotels/core/design/design_system.dart';
 import 'package:tulasihotels/core/utils/color_utils.dart';
 import 'package:tulasihotels/features/auth/providers/auth_provider.dart';
+import 'package:tulasihotels/features/staff/providers/staff_provider.dart';
+import 'package:tulasihotels/features/staff/services/staff_permissions.dart';
+import 'package:tulasihotels/features/staff/widgets/staff_clock_widget.dart';
 import 'package:tulasihotels/shared/widgets/logout_dialog.dart';
 import 'package:tulasihotels/shared/widgets/offline_banner.dart';
 import 'package:tulasihotels/features/auth/widgets/demo_mode_banner.dart';
@@ -31,41 +34,61 @@ class AppShell extends ConsumerWidget {
     if (location.startsWith('/products')) return 2;
     if (location.startsWith('/dashboard')) return 3;
     if (location.startsWith('/bills')) return 4;
-    if (location.startsWith('/settings')) return 5;
+    if (location.startsWith('/tables')) return 5;
+    if (location.startsWith('/orders')) return 6;
+    if (location.startsWith('/kitchen')) return 7;
+    if (location.startsWith('/staff')) return 8;
+    if (location.startsWith('/attendance') ||
+        location.startsWith('/my-attendance')) {
+      return 9;
+    }
+    if (location.startsWith('/settings')) return 10;
     return 0;
   }
 
-  void _onItemTapped(BuildContext context, int index) {
-    switch (index) {
-      case 0:
-        context.go(AppRoutes.billing);
-        break;
-      case 1:
-        context.go(AppRoutes.khata);
-        break;
-      case 2:
-        context.go(AppRoutes.products);
-        break;
-      case 3:
-        context.go(AppRoutes.dashboard);
-        break;
-      case 4:
-        context.go(AppRoutes.bills);
-        break;
+  void _onItemTapped(BuildContext context, int index, List<String> routes) {
+    if (index >= 0 && index < routes.length) {
+      context.go(routes[index]);
     }
+  }
+
+  /// Get routes list — staff sees /my-attendance at index 9, owner sees /attendance
+  static List<String> _getRoutes(bool isStaff) {
+    return [
+      AppRoutes.billing,   // 0
+      AppRoutes.khata,     // 1
+      AppRoutes.products,  // 2
+      AppRoutes.dashboard, // 3
+      AppRoutes.bills,     // 4
+      AppRoutes.tables,    // 5
+      AppRoutes.orders,    // 6
+      AppRoutes.kitchen,   // 7
+      AppRoutes.staff,     // 8
+      isStaff ? AppRoutes.myAttendance : AppRoutes.attendance, // 9
+    ];
+  }
+
+  /// Get visible nav indices based on logged-in staff role
+  List<int> _getVisibleIndices(WidgetRef ref) {
+    final staff = ref.watch(loggedInStaffProvider);
+    return StaffPermissions.visibleNavIndices(staff);
   }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final selectedIndex = _getSelectedIndex(context);
     final deviceType = ResponsiveHelper.getDeviceType(context);
+    final visibleIndices = _getVisibleIndices(ref);
+    final loggedInStaff = ref.watch(loggedInStaffProvider);
+    final routes = _getRoutes(loggedInStaff != null);
 
     // Use WebShell for Desktop/Web view (desktop + desktopLarge)
     if (deviceType == DeviceType.desktop ||
         deviceType == DeviceType.desktopLarge) {
       return WebShell(
         selectedIndex: selectedIndex,
-        onItemTapped: (index) => _onItemTapped(context, index),
+        visibleIndices: visibleIndices,
+        onItemTapped: (index) => _onItemTapped(context, index, routes),
         child: child,
       );
     }
@@ -87,19 +110,51 @@ class AppShell extends ConsumerWidget {
                   ),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: Text(
-                      user?.shopName ?? AppConstants.defaultShopName,
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: Theme.of(context).colorScheme.onSurface,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
+                    child: loggedInStaff != null
+                        ? Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                loggedInStaff.name,
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  color: Theme.of(context).colorScheme.onSurface,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              Text(
+                                '${loggedInStaff.role.emoji} ${loggedInStaff.role.displayName}',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                            ],
+                          )
+                        : Text(
+                            user?.shopName ?? AppConstants.defaultShopName,
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: Theme.of(context).colorScheme.onSurface,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
                   ),
                 ],
               ),
               actions: [
+                if (loggedInStaff != null)
+                  IconButton(
+                    icon: const Icon(Icons.logout, size: 20),
+                    tooltip: 'Staff Logout',
+                    onPressed: () {
+                      ref.read(loggedInStaffProvider.notifier).state = null;
+                      context.go(AppRoutes.billing);
+                    },
+                  ),
                 const GlobalSyncIndicator(),
                 const NotificationBell(),
                 IconButton(
@@ -117,6 +172,8 @@ class AppShell extends ConsumerWidget {
           // Demo mode banner
           const DemoModeBanner(),
           const OfflineBanner(),
+          // Staff self-service clock-in/out widget
+          if (loggedInStaff != null) const StaffClockWidget(),
           Expanded(
             child: Row(
               children: [
@@ -127,6 +184,8 @@ class AppShell extends ConsumerWidget {
                     selectedIndex,
                     deviceType,
                     user,
+                    visibleIndices,
+                    routes,
                   ),
 
                 // Main content
@@ -138,7 +197,7 @@ class AppShell extends ConsumerWidget {
       ),
       // Bottom navigation for mobile
       bottomNavigationBar: deviceType == DeviceType.mobile
-          ? _buildBottomNavigation(context, selectedIndex)
+          ? _buildBottomNavigation(context, selectedIndex, visibleIndices, routes)
           : null,
     );
   }
@@ -161,7 +220,7 @@ class AppShell extends ConsumerWidget {
         backgroundImage: NetworkImage(logoPath),
         backgroundColor: AppColors.primary.withValues(alpha: 0.1),
         onBackgroundImageError: (e, _) {
-          debugPrint('âš ï¸ Shell avatar image error: $e');
+          debugPrint('⚠️ Shell avatar image error: $e');
         },
       );
     }
@@ -359,8 +418,75 @@ class AppShell extends ConsumerWidget {
     );
   }
 
-  Widget _buildBottomNavigation(BuildContext context, int selectedIndex) {
+  Widget _buildBottomNavigation(
+    BuildContext context,
+    int selectedIndex,
+    List<int> visibleIndices,
+    List<String> routes,
+  ) {
     final l10n = context.l10n;
+
+    // All bottom nav items (indexed 0-9)
+    final allItems = <int, BottomNavigationBarItem>{
+      0: const BottomNavigationBarItem(
+        icon: Icon(Icons.point_of_sale_outlined),
+        activeIcon: Icon(Icons.point_of_sale),
+        label: 'Walk-in',
+      ),
+      1: BottomNavigationBarItem(
+        icon: const Icon(Icons.people_outline),
+        activeIcon: const Icon(Icons.people),
+        label: l10n.khata,
+      ),
+      2: BottomNavigationBarItem(
+        icon: const Icon(Icons.restaurant_menu_outlined),
+        activeIcon: const Icon(Icons.restaurant_menu),
+        label: l10n.products,
+      ),
+      3: BottomNavigationBarItem(
+        icon: const Icon(Icons.dashboard_outlined),
+        activeIcon: const Icon(Icons.dashboard),
+        label: l10n.dashboard,
+      ),
+      4: const BottomNavigationBarItem(
+        icon: Icon(Icons.receipt_outlined),
+        activeIcon: Icon(Icons.receipt),
+        label: 'Bills',
+      ),
+      5: const BottomNavigationBarItem(
+        icon: Icon(Icons.table_restaurant_outlined),
+        activeIcon: Icon(Icons.table_restaurant),
+        label: 'Tables',
+      ),
+      6: const BottomNavigationBarItem(
+        icon: Icon(Icons.restaurant_menu_outlined),
+        activeIcon: Icon(Icons.restaurant_menu),
+        label: 'Orders',
+      ),
+      7: const BottomNavigationBarItem(
+        icon: Icon(Icons.kitchen_outlined),
+        activeIcon: Icon(Icons.kitchen),
+        label: 'Kitchen',
+      ),
+      8: const BottomNavigationBarItem(
+        icon: Icon(Icons.badge_outlined),
+        activeIcon: Icon(Icons.badge),
+        label: 'Staff',
+      ),
+      9: const BottomNavigationBarItem(
+        icon: Icon(Icons.access_time_outlined),
+        activeIcon: Icon(Icons.access_time_filled),
+        label: 'Attendance',
+      ),
+    };
+
+    // Filter to visible items only
+    final filteredIndices = visibleIndices.where((i) => allItems.containsKey(i)).toList();
+    final items = filteredIndices.map((i) => allItems[i]!).toList();
+
+    // Map the logical selectedIndex to the filtered position
+    final filteredSelectedIndex = filteredIndices.indexOf(selectedIndex);
+    final clampedIndex = filteredSelectedIndex >= 0 ? filteredSelectedIndex : 0;
 
     return Container(
       decoration: BoxDecoration(
@@ -375,36 +501,14 @@ class AppShell extends ConsumerWidget {
       ),
       child: SafeArea(
         child: BottomNavigationBar(
-          currentIndex: selectedIndex,
-          onTap: (index) => _onItemTapped(context, index),
+          currentIndex: clampedIndex,
+          onTap: (tappedFilteredIndex) {
+            if (tappedFilteredIndex < filteredIndices.length) {
+              _onItemTapped(context, filteredIndices[tappedFilteredIndex], routes);
+            }
+          },
           type: BottomNavigationBarType.fixed,
-          items: [
-            const BottomNavigationBarItem(
-              icon: Icon(Icons.point_of_sale_outlined),
-              activeIcon: Icon(Icons.point_of_sale),
-              label: 'POS',
-            ),
-            BottomNavigationBarItem(
-              icon: const Icon(Icons.people_outline),
-              activeIcon: const Icon(Icons.people),
-              label: l10n.khata,
-            ),
-            BottomNavigationBarItem(
-              icon: const Icon(Icons.inventory_2_outlined),
-              activeIcon: const Icon(Icons.inventory_2),
-              label: l10n.products,
-            ),
-            BottomNavigationBarItem(
-              icon: const Icon(Icons.dashboard_outlined),
-              activeIcon: const Icon(Icons.dashboard),
-              label: l10n.dashboard,
-            ),
-            const BottomNavigationBarItem(
-              icon: Icon(Icons.receipt_outlined),
-              activeIcon: Icon(Icons.receipt),
-              label: 'Bills',
-            ),
-          ],
+          items: items,
         ),
       ),
     );
@@ -415,9 +519,25 @@ class AppShell extends ConsumerWidget {
     int selectedIndex,
     DeviceType deviceType,
     UserModel? user,
+    List<int> visibleIndices,
+    List<String> routes,
   ) {
     final isExpanded = deviceType == DeviceType.desktop;
     final l10n = context.l10n;
+
+    // All side nav items (indexed 0-9)
+    final allNavItems = <int, ({IconData icon, String label})>{
+      0: (icon: Icons.point_of_sale, label: 'Walk-in'),
+      1: (icon: Icons.people, label: l10n.khata),
+      2: (icon: Icons.restaurant_menu, label: l10n.products),
+      3: (icon: Icons.dashboard, label: l10n.dashboard),
+      4: (icon: Icons.receipt, label: 'Bills'),
+      5: (icon: Icons.table_restaurant, label: 'Tables'),
+      6: (icon: Icons.restaurant_menu, label: 'Orders'),
+      7: (icon: Icons.kitchen, label: 'Kitchen'),
+      8: (icon: Icons.badge, label: 'Staff'),
+      9: (icon: Icons.access_time_filled, label: 'Attendance'),
+    };
 
     return Container(
       width: AppSizes.sidebarWidth(context),
@@ -464,46 +584,20 @@ class AppShell extends ConsumerWidget {
           ),
           const Divider(height: 1),
 
-          // Navigation items
+          // Navigation items (filtered by role)
           Expanded(
             child: ListView(
               padding: const EdgeInsets.symmetric(vertical: 8),
               children: [
-                _NavItem(
-                  icon: Icons.point_of_sale,
-                  label: 'POS',
-                  isSelected: selectedIndex == 0,
-                  isExpanded: isExpanded,
-                  onTap: () => _onItemTapped(context, 0),
-                ),
-                _NavItem(
-                  icon: Icons.people,
-                  label: l10n.khata,
-                  isSelected: selectedIndex == 1,
-                  isExpanded: isExpanded,
-                  onTap: () => _onItemTapped(context, 1),
-                ),
-                _NavItem(
-                  icon: Icons.inventory_2,
-                  label: l10n.products,
-                  isSelected: selectedIndex == 2,
-                  isExpanded: isExpanded,
-                  onTap: () => _onItemTapped(context, 2),
-                ),
-                _NavItem(
-                  icon: Icons.dashboard,
-                  label: l10n.dashboard,
-                  isSelected: selectedIndex == 3,
-                  isExpanded: isExpanded,
-                  onTap: () => _onItemTapped(context, 3),
-                ),
-                _NavItem(
-                  icon: Icons.receipt,
-                  label: 'Bills',
-                  isSelected: selectedIndex == 4,
-                  isExpanded: isExpanded,
-                  onTap: () => _onItemTapped(context, 4),
-                ),
+                for (final idx in visibleIndices)
+                  if (allNavItems.containsKey(idx))
+                    _NavItem(
+                      icon: allNavItems[idx]!.icon,
+                      label: allNavItems[idx]!.label,
+                      isSelected: selectedIndex == idx,
+                      isExpanded: isExpanded,
+                      onTap: () => _onItemTapped(context, idx, routes),
+                    ),
               ],
             ),
           ),

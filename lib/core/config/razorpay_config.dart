@@ -8,7 +8,7 @@ library;
 import 'package:tulasihotels/core/constants/app_constants.dart';
 
 class RazorpayConfig {
-  // Razorpay Key ID â€” injected via --dart-define, never hardcoded
+  // Razorpay Key ID — injected via --dart-define, never hardcoded
   static const String keyId = String.fromEnvironment('RAZORPAY_KEY_ID');
 
   // Dynamically set from the logged-in user's shop name.

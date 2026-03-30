@@ -179,14 +179,14 @@ class UserMetricsService {
       final info = await PackageInfo.fromPlatform();
       _appVersion = '${info.version}+${info.buildNumber}';
     } catch (e) {
-      debugPrint('âš ï¸ PackageInfo unavailable: $e');
+      debugPrint('⚠️ PackageInfo unavailable: $e');
     }
     // Enforce subscription expiry on every app launch (fire and forget)
     _checkAndEnforceSubscription().ignore();
   }
 
   /// Checks if current subscription has expired and downgrades to free if so.
-  /// Safe to call on every launch â€” reads one document from Firestore.
+  /// Safe to call on every launch — reads one document from Firestore.
   static Future<void> _checkAndEnforceSubscription() async {
     final userId = _getUserId();
     if (userId == null) return;
@@ -201,7 +201,7 @@ class UserMetricsService {
       if (sub.expiresAt == null) return;
       if (!DateTime.now().isAfter(sub.expiresAt!)) return;
 
-      // Subscription expired â€” downgrade to free limits
+      // Subscription expired — downgrade to free limits
       await _firestore.collection('users').doc(userId).update({
         'subscription.status': SubscriptionStatus.expired.name,
         'subscription.plan': SubscriptionPlan.free.name,
@@ -209,9 +209,9 @@ class UserMetricsService {
         'limits.productsLimit': UserSubscription().productsLimit, // 100
         'limits.customersLimit': 10, // Free tier: 10 customers
       });
-      debugPrint('âš ï¸ UserMetrics: Subscription expired â€” downgraded to free');
+      debugPrint('⚠️ UserMetrics: Subscription expired — downgraded to free');
     } catch (e, st) {
-      debugPrint('âŒ UserMetrics: Subscription expiry check failed: $e');
+      debugPrint('❌ UserMetrics: Subscription expiry check failed: $e');
       ErrorLoggingService.logError(
         error: e,
         stackTrace: st,
@@ -261,9 +261,9 @@ class UserMetricsService {
         },
       }, SetOptions(merge: true));
 
-      debugPrint('ðŸ“Š UserMetrics: Activity tracked');
+      debugPrint('📊 UserMetrics: Activity tracked');
     } catch (e, st) {
-      debugPrint('âŒ UserMetrics: Failed to track activity: $e');
+      debugPrint('❌ UserMetrics: Failed to track activity: $e');
       ErrorLoggingService.logError(
         error: e,
         stackTrace: st,
@@ -273,7 +273,7 @@ class UserMetricsService {
     }
   }
 
-  /// Track bill creation â€” uses a Firestore transaction as the single source
+  /// Track bill creation — uses a Firestore transaction as the single source
   /// of truth (prevents limit bypass via app reinstall / cache clear).
   static Future<bool> trackBillCreated() async {
     final userId = _getUserId();
@@ -285,7 +285,7 @@ class UserMetricsService {
       int newCount = 0;
       int limit = 50;
 
-      // On Windows, avoid runTransaction â€” the C++ Firestore SDK sends
+      // On Windows, avoid runTransaction — the C++ Firestore SDK sends
       // callbacks on non-platform threads, crashing Flutter.
       final useSimpleWrite = !kIsWeb && Platform.isWindows;
 
@@ -340,13 +340,13 @@ class UserMetricsService {
       if (allowed) {
         // Mirror to SharedPreferences only as a non-authoritative UI cache
         await _prefs?.setInt(_billsThisMonthKey, newCount);
-        debugPrint('ðŸ“Š UserMetrics: Bill tracked ($newCount/$limit)');
+        debugPrint('📊 UserMetrics: Bill tracked ($newCount/$limit)');
       } else {
-        debugPrint('âš ï¸ UserMetrics: Bill limit reached ($limit/$limit)');
+        debugPrint('⚠️ UserMetrics: Bill limit reached ($limit/$limit)');
       }
       return allowed;
     } catch (e, st) {
-      debugPrint('âŒ UserMetrics: Failed to track bill: $e');
+      debugPrint('❌ UserMetrics: Failed to track bill: $e');
       ErrorLoggingService.logError(
         error: e,
         stackTrace: st,
@@ -366,9 +366,9 @@ class UserMetricsService {
       await _firestore.collection('users').doc(userId).set({
         'limits': {'productsCount': FieldValue.increment(1)},
       }, SetOptions(merge: true));
-      debugPrint('ðŸ“Š UserMetrics: Product tracked');
+      debugPrint('📊 UserMetrics: Product tracked');
     } catch (e, st) {
-      debugPrint('âŒ UserMetrics: Failed to track product: $e');
+      debugPrint('❌ UserMetrics: Failed to track product: $e');
       ErrorLoggingService.logError(
         error: e,
         stackTrace: st,
@@ -388,7 +388,7 @@ class UserMetricsService {
         'limits': {'productsCount': FieldValue.increment(-1)},
       }, SetOptions(merge: true));
     } catch (e, st) {
-      debugPrint('âŒ UserMetrics: Failed to track product deletion: $e');
+      debugPrint('❌ UserMetrics: Failed to track product deletion: $e');
       ErrorLoggingService.logError(
         error: e,
         stackTrace: st,
@@ -408,7 +408,7 @@ class UserMetricsService {
         'limits': {'customersCount': FieldValue.increment(1)},
       }, SetOptions(merge: true));
     } catch (e, st) {
-      debugPrint('âŒ UserMetrics: Failed to track customer: $e');
+      debugPrint('❌ UserMetrics: Failed to track customer: $e');
       ErrorLoggingService.logError(
         error: e,
         stackTrace: st,
@@ -430,7 +430,7 @@ class UserMetricsService {
       final data = doc.data();
       return UserLimits.fromMap(data?['limits'] as Map<String, dynamic>?);
     } catch (e, st) {
-      debugPrint('âŒ UserMetrics: Failed to get limits: $e');
+      debugPrint('❌ UserMetrics: Failed to get limits: $e');
       ErrorLoggingService.logError(
         error: e,
         stackTrace: st,
@@ -455,7 +455,7 @@ class UserMetricsService {
         data?['subscription'] as Map<String, dynamic>?,
       );
     } catch (e, st) {
-      debugPrint('âŒ UserMetrics: Failed to get subscription: $e');
+      debugPrint('❌ UserMetrics: Failed to get subscription: $e');
       ErrorLoggingService.logError(
         error: e,
         stackTrace: st,
@@ -500,9 +500,9 @@ class UserMetricsService {
       _prefs ??= await SharedPreferences.getInstance();
       await _prefs?.setString(_userIdKey, userId);
 
-      debugPrint('ðŸ“Š UserMetrics: User initialized in Firestore');
+      debugPrint('📊 UserMetrics: User initialized in Firestore');
     } catch (e, st) {
-      debugPrint('âŒ UserMetrics: Failed to initialize user: $e');
+      debugPrint('❌ UserMetrics: Failed to initialize user: $e');
       ErrorLoggingService.logError(
         error: e,
         stackTrace: st,

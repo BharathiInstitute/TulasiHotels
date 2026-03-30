@@ -37,7 +37,19 @@ class _AddProductModalState extends ConsumerState<AddProductModal> {
   late final TextEditingController _lowStockController;
   late final TextEditingController _barcodeController;
   late final TextEditingController _categoryController;
+  late final TextEditingController _descEnController;
+  late final TextEditingController _descHiController;
+  late final TextEditingController _descTeController;
+  late final TextEditingController _priceTakeawayController;
+  late final TextEditingController _priceDeliveryController;
+  late final TextEditingController _kitchenStationController;
+  late final TextEditingController _hsnCodeController;
+  late final TextEditingController _gstRateController;
   late ProductUnit _selectedUnit;
+  DietaryTag? _dietaryTag;
+  SpiceLevel? _spiceLevel;
+  List<String> _allergens = [];
+  bool _isAvailable = true;
   bool _isLoading = false;
   bool _isLookingUp = false;
   bool _isUploadingImage = false;
@@ -61,7 +73,27 @@ class _AddProductModalState extends ConsumerState<AddProductModal> {
     );
     _barcodeController = TextEditingController(text: p?.barcode ?? '');
     _categoryController = TextEditingController(text: p?.category ?? '');
+    _descEnController = TextEditingController(text: p?.descriptionEn ?? '');
+    _descHiController = TextEditingController(text: p?.descriptionHi ?? '');
+    _descTeController = TextEditingController(text: p?.descriptionTe ?? '');
+    _priceTakeawayController = TextEditingController(
+      text: p?.priceTakeaway?.toString() ?? '',
+    );
+    _priceDeliveryController = TextEditingController(
+      text: p?.priceDelivery?.toString() ?? '',
+    );
+    _kitchenStationController = TextEditingController(
+      text: p?.kitchenStation ?? '',
+    );
+    _hsnCodeController = TextEditingController(text: p?.hsnCode ?? '');
+    _gstRateController = TextEditingController(
+      text: p?.gstRate?.toString() ?? '',
+    );
     _selectedUnit = p?.unit ?? ProductUnit.piece;
+    _dietaryTag = p?.dietaryTag;
+    _spiceLevel = p?.spiceLevel;
+    _allergens = List<String>.from(p?.allergens ?? []);
+    _isAvailable = p?.isAvailable ?? true;
     _imageUrl = p?.imageUrl;
   }
 
@@ -74,6 +106,14 @@ class _AddProductModalState extends ConsumerState<AddProductModal> {
     _lowStockController.dispose();
     _barcodeController.dispose();
     _categoryController.dispose();
+    _descEnController.dispose();
+    _descHiController.dispose();
+    _descTeController.dispose();
+    _priceTakeawayController.dispose();
+    _priceDeliveryController.dispose();
+    _kitchenStationController.dispose();
+    _hsnCodeController.dispose();
+    _gstRateController.dispose();
     super.dispose();
   }
 
@@ -142,6 +182,34 @@ class _AddProductModalState extends ConsumerState<AddProductModal> {
             ? null
             : _categoryController.text.trim(),
         imageUrl: _imageUrl,
+        isAvailable: _isAvailable,
+        dietaryTag: _dietaryTag ?? DietaryTag.none,
+        spiceLevel: _spiceLevel ?? SpiceLevel.na,
+        allergens: _allergens,
+        descriptionEn: _descEnController.text.trim().isEmpty
+            ? null
+            : _descEnController.text.trim(),
+        descriptionHi: _descHiController.text.trim().isEmpty
+            ? null
+            : _descHiController.text.trim(),
+        descriptionTe: _descTeController.text.trim().isEmpty
+            ? null
+            : _descTeController.text.trim(),
+        priceTakeaway: _priceTakeawayController.text.isEmpty
+            ? null
+            : double.tryParse(_priceTakeawayController.text),
+        priceDelivery: _priceDeliveryController.text.isEmpty
+            ? null
+            : double.tryParse(_priceDeliveryController.text),
+        kitchenStation: _kitchenStationController.text.trim().isEmpty
+            ? null
+            : _kitchenStationController.text.trim(),
+        hsnCode: _hsnCodeController.text.trim().isEmpty
+            ? null
+            : _hsnCodeController.text.trim(),
+        gstRate: _gstRateController.text.isEmpty
+            ? null
+            : double.tryParse(_gstRateController.text),
         createdAt: widget.product?.createdAt ?? DateTime.now(),
       );
 
@@ -210,11 +278,11 @@ class _AddProductModalState extends ConsumerState<AddProductModal> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Delete Product?'),
+        title: const Text('Delete Menu Item?'),
         content: const Text(
-          'This product may appear in existing bills. '
+          'This menu item may appear in existing bills. '
           'Deleting it won\'t remove it from past bills, but it will '
-          'no longer be available for new sales.\n\n'
+          'no longer be available for new orders.\n\n'
           'This action cannot be undone.',
         ),
         actions: [
@@ -265,13 +333,13 @@ class _AddProductModalState extends ConsumerState<AddProductModal> {
             child: Row(
               children: [
                 Icon(
-                  _isEditing ? Icons.edit : Icons.add_shopping_cart,
+                  _isEditing ? Icons.edit : Icons.restaurant_menu,
                   color: AppColors.primary,
                   size: isMobile ? 20 : 24,
                 ),
                 SizedBox(width: isMobile ? 6 : 8),
                 Text(
-                  _isEditing ? 'Edit Product' : 'Add Product',
+                  _isEditing ? 'Edit Menu Item' : 'Add Menu Item',
                   style: Theme.of(context).textTheme.titleLarge?.copyWith(
                     fontSize: isMobile ? 16 : 20,
                   ),
@@ -314,24 +382,142 @@ class _AddProductModalState extends ConsumerState<AddProductModal> {
                   children: [
                     // Name
                     AppTextField(
-                      label: 'Product Name *',
-                      hint: 'e.g., Tata Salt 1kg',
+                      label: 'Item Name *',
+                      hint: 'e.g., Chicken Biryani, Masala Dosa',
                       controller: _nameController,
                       textInputAction: TextInputAction.next,
-                      prefixIcon: const Icon(Icons.inventory_2_outlined),
-                      validator: (v) => Validators.name(v, 'Product name'),
+                      prefixIcon: const Icon(Icons.restaurant_menu_outlined),
+                      validator: (v) => Validators.name(v, 'Item name'),
                     ),
                     SizedBox(height: fieldSpacing),
 
                     // Category
                     AppTextField(
                       label: 'Category',
-                      hint: 'e.g., Groceries, Snacks, Beverages',
+                      hint: 'e.g., Starters, Main Course, Beverages',
                       controller: _categoryController,
                       textInputAction: TextInputAction.next,
                       prefixIcon: const Icon(Icons.category_outlined),
                     ),
                     SizedBox(height: fieldSpacing),
+
+                    // Availability toggle
+                    SwitchListTile(
+                      title: const Text('Available'),
+                      subtitle: const Text('Show this item on the menu'),
+                      value: _isAvailable,
+                      onChanged: (v) => setState(() => _isAvailable = v),
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                    SizedBox(height: fieldSpacing),
+
+                    // Dietary tag & Spice level
+                    Row(
+                      children: [
+                        Expanded(
+                          child: DropdownButtonFormField<DietaryTag?>(
+                            initialValue: _dietaryTag,
+                            decoration: const InputDecoration(
+                              labelText: 'Diet Type',
+                              border: OutlineInputBorder(),
+                              contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            ),
+                            items: [
+                              const DropdownMenuItem(child: Text('None')),
+                              ...DietaryTag.values.map((t) => DropdownMenuItem(
+                                    value: t,
+                                    child: Text('${t.emoji} ${t.displayName}'),
+                                  )),
+                            ],
+                            onChanged: (v) => setState(() => _dietaryTag = v),
+                          ),
+                        ),
+                        SizedBox(width: isMobile ? 8 : 12),
+                        Expanded(
+                          child: DropdownButtonFormField<SpiceLevel?>(
+                            initialValue: _spiceLevel,
+                            decoration: const InputDecoration(
+                              labelText: 'Spice Level',
+                              border: OutlineInputBorder(),
+                              contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            ),
+                            items: [
+                              const DropdownMenuItem(child: Text('None')),
+                              ...SpiceLevel.values.map((s) => DropdownMenuItem(
+                                    value: s,
+                                    child: Text('${s.emoji} ${s.displayName}'),
+                                  )),
+                            ],
+                            onChanged: (v) => setState(() => _spiceLevel = v),
+                          ),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: fieldSpacing),
+
+                    // Allergens
+                    Text(
+                      'Allergens',
+                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        fontSize: isMobile ? 12 : 14,
+                      ),
+                    ),
+                    SizedBox(height: isMobile ? 4 : 8),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 4,
+                      children: [
+                        'Gluten', 'Dairy', 'Nuts', 'Eggs', 'Soy',
+                        'Shellfish', 'Fish', 'Sesame',
+                      ].map((allergen) {
+                        final selected = _allergens.contains(allergen);
+                        return FilterChip(
+                          label: Text(allergen, style: TextStyle(fontSize: isMobile ? 11 : 13)),
+                          selected: selected,
+                          visualDensity: VisualDensity.compact,
+                          onSelected: (v) {
+                            setState(() {
+                              if (v) {
+                                _allergens.add(allergen);
+                              } else {
+                                _allergens.remove(allergen);
+                              }
+                            });
+                          },
+                        );
+                      }).toList(),
+                    ),
+                    SizedBox(height: fieldSpacing),
+
+                    // Descriptions (collapsible)
+                    ExpansionTile(
+                      title: const Text('Descriptions (Multi-language)'),
+                      tilePadding: EdgeInsets.zero,
+                      childrenPadding: EdgeInsets.zero,
+                      children: [
+                        AppTextField(
+                          label: 'Description (English)',
+                          controller: _descEnController,
+                          maxLines: 2,
+                        ),
+                        SizedBox(height: fieldSpacing),
+                        AppTextField(
+                          label: 'Description (Hindi)',
+                          controller: _descHiController,
+                          maxLines: 2,
+                        ),
+                        SizedBox(height: fieldSpacing),
+                        AppTextField(
+                          label: 'Description (Telugu)',
+                          controller: _descTeController,
+                          maxLines: 2,
+                        ),
+                        SizedBox(height: fieldSpacing),
+                      ],
+                    ),
+                    SizedBox(height: fieldSpacing),
+
                     Row(
                       children: [
                         Expanded(
@@ -347,6 +533,72 @@ class _AddProductModalState extends ConsumerState<AddProductModal> {
                             controller: _purchasePriceController,
                           ),
                         ),
+                      ],
+                    ),
+                    SizedBox(height: fieldSpacing),
+
+                    // Multi-price fields (collapsible)
+                    ExpansionTile(
+                      title: const Text('Alternate Prices'),
+                      tilePadding: EdgeInsets.zero,
+                      childrenPadding: EdgeInsets.zero,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: CurrencyTextField(
+                                label: 'Takeaway Price',
+                                controller: _priceTakeawayController,
+                              ),
+                            ),
+                            SizedBox(width: isMobile ? 8 : 12),
+                            Expanded(
+                              child: CurrencyTextField(
+                                label: 'Delivery Price',
+                                controller: _priceDeliveryController,
+                              ),
+                            ),
+                          ],
+                        ),
+                        SizedBox(height: fieldSpacing),
+                      ],
+                    ),
+                    SizedBox(height: fieldSpacing),
+
+                    // Kitchen station & GST (collapsible)
+                    ExpansionTile(
+                      title: const Text('Kitchen & Tax'),
+                      tilePadding: EdgeInsets.zero,
+                      childrenPadding: EdgeInsets.zero,
+                      children: [
+                        AppTextField(
+                          label: 'Kitchen Station',
+                          hint: 'e.g., Main Kitchen, Tandoor, Bar',
+                          controller: _kitchenStationController,
+                          prefixIcon: const Icon(Icons.kitchen),
+                        ),
+                        SizedBox(height: fieldSpacing),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: AppTextField(
+                                label: 'HSN Code',
+                                hint: '9963',
+                                controller: _hsnCodeController,
+                              ),
+                            ),
+                            SizedBox(width: isMobile ? 8 : 12),
+                            Expanded(
+                              child: AppTextField(
+                                label: 'GST Rate (%)',
+                                hint: '5',
+                                controller: _gstRateController,
+                                keyboardType: TextInputType.number,
+                              ),
+                            ),
+                          ],
+                        ),
+                        SizedBox(height: fieldSpacing),
                       ],
                     ),
                     SizedBox(height: fieldSpacing),
@@ -554,7 +806,7 @@ class _AddProductModalState extends ConsumerState<AddProductModal> {
                                     setState(() => _imageUrl = url);
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       const SnackBar(
-                                        content: Text('âœ… Image uploaded'),
+                                        content: Text('✅ Image uploaded'),
                                         backgroundColor: AppColors.success,
                                       ),
                                     );
@@ -606,7 +858,7 @@ class _AddProductModalState extends ConsumerState<AddProductModal> {
 
                     // Submit button
                     AppButton(
-                      label: _isEditing ? 'âœ… UPDATE PRODUCT' : 'âœ… ADD PRODUCT',
+                      label: _isEditing ? '✅ UPDATE PRODUCT' : '✅ ADD PRODUCT',
                       onPressed: _submit,
                       isLoading: _isLoading,
                     ),

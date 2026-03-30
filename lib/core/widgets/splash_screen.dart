@@ -66,7 +66,7 @@ class SplashScreen extends StatelessWidget {
                 const SizedBox(height: 8),
                 // Tagline
                 Text(
-                  'à¤­à¤¾à¤°à¤¤ à¤•à¤¾ à¤¸à¤¬à¤¸à¥‡ à¤†à¤¸à¤¾à¤¨ à¤¬à¤¿à¤²à¤¿à¤‚à¤— à¤à¤ª',
+                  'भारत का सबसे आसान बिलिंग ऐप',
                   style: TextStyle(
                     fontSize: 14,
                     color: Colors.white.withValues(alpha: 0.85),

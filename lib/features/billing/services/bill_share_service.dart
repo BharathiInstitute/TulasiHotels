@@ -1,4 +1,4 @@
-/// Bill sharing service â€” generates formatted text and PDF for sharing bills
+﻿/// Bill sharing service — generates formatted text and PDF for sharing bills
 library;
 
 import 'dart:typed_data';
@@ -16,7 +16,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 /// Service for sharing bills via WhatsApp, SMS, PDF download, and general share
 class BillShareService {
-  /// Default shop name used when no name is provided
+  /// Default hotel name used when no name is provided
   static const String _defaultShopName = AppConstants.defaultShopName;
 
   // ==================== Text Generation ====================
@@ -27,22 +27,22 @@ class BillShareService {
     final buffer = StringBuffer();
     final dateStr = DateFormat('dd MMM yyyy, hh:mm a').format(bill.createdAt);
 
-    buffer.writeln('ðŸ§¾ *$name*');
-    buffer.writeln('â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”');
+    buffer.writeln('🧾 *$name*');
+    buffer.writeln('━━━━━━━━━━━━━━━━━━');
     buffer.writeln('Bill #INV-${bill.billNumber}');
     buffer.writeln('Date: $dateStr');
-    buffer.writeln('Customer: ${bill.customerName ?? 'Walk-in'}');
+    buffer.writeln('Guest: ${bill.customerName ?? 'Walk-in'}');
     buffer.writeln();
 
     // Items
     for (final item in bill.items) {
       final itemTotal = Formatters.currency(item.price * item.quantity);
-      buffer.writeln('ðŸ“¦ ${item.name} Ã— ${item.quantity}  $itemTotal');
+      buffer.writeln('🍽 ${item.name} × ${item.quantity}  $itemTotal');
     }
 
     buffer.writeln();
-    buffer.writeln('â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”');
-    buffer.writeln('ðŸ’° *Total: ${Formatters.currency(bill.total)}*');
+    buffer.writeln('━━━━━━━━━━━━━━━━━━');
+    buffer.writeln('💰 *Total: ${Formatters.currency(bill.total)}*');
     buffer.writeln(
       '${bill.paymentMethod.emoji} Paid: ${bill.paymentMethod.displayName}',
     );
@@ -53,7 +53,7 @@ class BillShareService {
     }
 
     buffer.writeln();
-    buffer.writeln('Thank you for your purchase! ðŸ™');
+    buffer.writeln('Thank you for dining with us! 🙏');
 
     return buffer.toString();
   }
@@ -147,7 +147,7 @@ class BillShareService {
               ),
               pw.SizedBox(height: 4),
               pw.Text(
-                'Customer: ${bill.customerName ?? 'Walk-in'}',
+                'Guest: ${bill.customerName ?? 'Walk-in'}',
                 style: const pw.TextStyle(fontSize: 11),
               ),
               pw.SizedBox(height: 12),
@@ -314,7 +314,7 @@ class BillShareService {
               pw.Divider(color: PdfColors.grey400),
               pw.Center(
                 child: pw.Text(
-                  'Thank you for your purchase!',
+                  'Thank you for dining with us!',
                   style: pw.TextStyle(
                     fontSize: 10,
                     fontWeight: pw.FontWeight.bold,
@@ -353,7 +353,7 @@ class BillShareService {
       final pdfBytes = await generateBillPdf(bill);
       final fileName = 'Invoice_${bill.billNumber}.pdf';
 
-      // Share the PDF file â€” WhatsApp will be one of the sharing options
+      // Share the PDF file — WhatsApp will be one of the sharing options
       await Share.shareXFiles(
         [XFile.fromData(pdfBytes, name: fileName, mimeType: 'application/pdf')],
         text:
@@ -388,13 +388,13 @@ class BillShareService {
 
       final dateStr = DateFormat('d MMM yyyy').format(bill.createdAt);
       final msg =
-          'ðŸ§¾ *$shopDisplayName*\n'
+          '🧾 *$shopDisplayName*\n'
           'Bill #INV-${bill.billNumber}\n'
-          'ðŸ“… $dateStr\n\n'
-          '${bill.items.map((i) => 'â€¢ ${i.name} x${i.quantity} = â‚¹${(i.price * i.quantity).toStringAsFixed(0)}').join('\n')}\n\n'
-          'â”â”â”â”â”â”â”â”â”â”\n'
-          'ðŸ’° *Total: â‚¹${bill.total.toStringAsFixed(2)}*\n\n'
-          'Thank you for your purchase! ðŸ™';
+          '📅 $dateStr\n\n'
+          '${bill.items.map((i) => '\u{2022} ${i.name} x${i.quantity} = \u{20B9}${(i.price * i.quantity).toStringAsFixed(0)}').join('\n')}\n\n'
+          '━━━━━━━━━━\n'
+          '💰 *Total: ₹${bill.total.toStringAsFixed(2)}*\n\n'
+          'Thank you for dining with us! 🙏';
 
       final uri = Uri.parse(
         'https://wa.me/$normalised?text=${Uri.encodeComponent(msg)}',

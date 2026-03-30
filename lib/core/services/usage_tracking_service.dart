@@ -1,4 +1,4 @@
-/// Usage tracking service for monitoring app operations and cost tracking
+﻿/// Usage tracking service for monitoring app operations and cost tracking
 library;
 
 import 'package:flutter/foundation.dart';
@@ -93,7 +93,7 @@ class UsageTrackingService {
     await _prefs?.setInt(key, count + 1);
 
     debugPrint(
-      '📈 UsageTracking: ${type.name} tracked (total today: ${count + 1})',
+      '?? UsageTracking: ${type.name} tracked (total today: ${count + 1})',
     );
   }
 
@@ -230,7 +230,7 @@ class UsageTrackingService {
     }
 
     debugPrint(
-      '🧹 UsageTracking: Cleaned up ${keysToDelete.length} old records',
+      '?? UsageTracking: Cleaned up ${keysToDelete.length} old records',
     );
   }
 }

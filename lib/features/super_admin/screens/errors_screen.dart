@@ -1,4 +1,4 @@
-/// Errors & Health Screen â€” Enhanced with full context, copy, dedup, filters, trend
+﻿/// Errors & Health Screen — Enhanced with full context, copy, dedup, filters, trend
 library;
 
 import 'package:flutter/material.dart';
@@ -9,7 +9,7 @@ import 'package:tulasihotels/core/services/app_health_service.dart';
 import 'package:tulasihotels/core/services/error_logging_service.dart';
 import 'package:tulasihotels/features/super_admin/screens/admin_shell_screen.dart';
 
-// â”€â”€ Providers â”€â”€
+// ── Providers ──
 
 final _groupedErrorsProvider = FutureProvider.autoDispose<List<GroupedError>>((
   ref,
@@ -29,7 +29,7 @@ final _dailyTrendProvider = FutureProvider.autoDispose<Map<DateTime, int>>((
   return ErrorLoggingService.getDailyErrorCounts(days: 30);
 });
 
-// â”€â”€ Screen â”€â”€
+// ── Screen ──
 
 class ErrorsScreen extends ConsumerStatefulWidget {
   const ErrorsScreen({super.key});
@@ -133,7 +133,7 @@ class _ErrorsScreenState extends ConsumerState<ErrorsScreen> {
     );
   }
 
-  // â”€â”€â”€ Health Card â”€â”€â”€
+  // ─── Health Card ───
 
   Widget _buildHealthCard(Map<String, dynamic> data, ColorScheme cs) {
     final status = data['status'] as String? ?? 'unknown';
@@ -171,7 +171,7 @@ class _ErrorsScreenState extends ConsumerState<ErrorsScreen> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Uptime: ${data['uptimeHours'] ?? '?'}h Â· '
+                  'Uptime: ${data['uptimeHours'] ?? '?'}h · '
                   'Errors (24h): ${data['recentErrorCount'] ?? '?'}',
                   style: TextStyle(
                     color: Colors.white.withValues(alpha: 0.85),
@@ -195,7 +195,7 @@ class _ErrorsScreenState extends ConsumerState<ErrorsScreen> {
     );
   }
 
-  // â”€â”€â”€ 30-Day Uptime Bar Strip â”€â”€â”€
+  // ─── 30-Day Uptime Bar Strip ───
 
   Widget _buildTrendChart(Map<DateTime, int> data, ColorScheme cs) {
     final entries = data.entries.toList()
@@ -303,7 +303,7 @@ class _ErrorsScreenState extends ConsumerState<ErrorsScreen> {
                 children: [
                   _legendDot(Colors.green.shade400, '0', cs),
                   const SizedBox(width: 8),
-                  _legendDot(Colors.amber.shade600, '1â€“5', cs),
+                  _legendDot(Colors.amber.shade600, '1–5', cs),
                   const SizedBox(width: 8),
                   _legendDot(Colors.red.shade500, '6+', cs),
                 ],
@@ -345,7 +345,7 @@ class _ErrorsScreenState extends ConsumerState<ErrorsScreen> {
     );
   }
 
-  // â”€â”€â”€ Filter Bar â”€â”€â”€
+  // ─── Filter Bar ───
 
   Widget _buildFilterBar(ColorScheme cs) {
     return Wrap(
@@ -425,7 +425,7 @@ class _ErrorsScreenState extends ConsumerState<ErrorsScreen> {
     );
   }
 
-  // â”€â”€â”€ Error List â”€â”€â”€
+  // ─── Error List ───
 
   Widget _buildErrorList(List<GroupedError> errors, ColorScheme cs) {
     // Apply client-side filters
@@ -483,7 +483,7 @@ class _ErrorsScreenState extends ConsumerState<ErrorsScreen> {
     );
   }
 
-  // â”€â”€â”€ Error Card â”€â”€â”€
+  // ─── Error Card ───
 
   Widget _buildErrorCard(GroupedError group, ColorScheme cs) {
     final e = group.latestEntry;
@@ -535,7 +535,7 @@ class _ErrorsScreenState extends ConsumerState<ErrorsScreen> {
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Text(
-                  'Ã—${group.count}',
+                  '×${group.count}',
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.bold,
@@ -566,7 +566,7 @@ class _ErrorsScreenState extends ConsumerState<ErrorsScreen> {
             ),
             if (e.route != null) ...[
               Text(
-                ' Â· ',
+                ' · ',
                 style: TextStyle(color: cs.onSurface.withValues(alpha: 0.3)),
               ),
               Flexible(
@@ -582,7 +582,7 @@ class _ErrorsScreenState extends ConsumerState<ErrorsScreen> {
               ),
             ],
             Text(
-              ' Â· ',
+              ' · ',
               style: TextStyle(color: cs.onSurface.withValues(alpha: 0.3)),
             ),
             Text(
@@ -594,7 +594,7 @@ class _ErrorsScreenState extends ConsumerState<ErrorsScreen> {
             ),
             if (group.affectedUsers > 0) ...[
               Text(
-                ' Â· ',
+                ' · ',
                 style: TextStyle(color: cs.onSurface.withValues(alpha: 0.3)),
               ),
               Icon(
@@ -643,8 +643,8 @@ class _ErrorsScreenState extends ConsumerState<ErrorsScreen> {
             _detailRow(
               Icons.repeat,
               'Occurrences',
-              '${group.count} times Â· First: ${DateFormat.MMMd().add_jm().format(group.firstSeen)}'
-                  ' Â· Last: ${DateFormat.MMMd().add_jm().format(group.lastSeen)}',
+              '${group.count} times · First: ${DateFormat.MMMd().add_jm().format(group.firstSeen)}'
+                  ' · Last: ${DateFormat.MMMd().add_jm().format(group.lastSeen)}',
               cs,
             ),
 
@@ -658,7 +658,7 @@ class _ErrorsScreenState extends ConsumerState<ErrorsScreen> {
             _detailRow(
               Icons.aspect_ratio,
               'Screen',
-              '${e.screenWidth!.toInt()}Ã—${e.screenHeight!.toInt()}',
+              '${e.screenWidth!.toInt()}×${e.screenHeight!.toInt()}',
               cs,
             ),
           if (e.connectivity != null)
@@ -785,7 +785,7 @@ class _ErrorsScreenState extends ConsumerState<ErrorsScreen> {
     );
   }
 
-  // â”€â”€â”€ Helpers â”€â”€â”€
+  // ─── Helpers ───
 
   Widget _detailRow(IconData icon, String label, String value, ColorScheme cs) {
     return Padding(
@@ -897,7 +897,7 @@ class _ErrorsScreenState extends ConsumerState<ErrorsScreen> {
     return DateFormat.MMMd().format(dt);
   }
 
-  // â”€â”€â”€ Actions â”€â”€â”€
+  // ─── Actions ───
 
   void _copyError(ErrorLogEntry e) {
     Clipboard.setData(ClipboardData(text: e.toCopyText()));

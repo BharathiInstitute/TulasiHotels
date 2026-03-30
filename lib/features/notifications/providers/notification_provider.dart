@@ -1,4 +1,4 @@
-/// Notification providers â€” streams for real-time notification updates
+/// Notification providers — streams for real-time notification updates
 library;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';

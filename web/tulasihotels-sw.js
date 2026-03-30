@@ -1,4 +1,4 @@
-// Custom service worker for RetailLite PWA
+// Custom service worker for Tulasi Hotels PWA
 // Combines Firebase Cloud Messaging with offline-first caching strategy.
 //
 // This service worker is registered alongside Flutter's flutter_service_worker.js.
@@ -11,7 +11,7 @@
 // caches the app shell (HTML, JS, CSS, assets). This worker focuses on
 // runtime data caching and FCM.
 
-const CACHE_NAME = 'retaillite-data-v1';
+const CACHE_NAME = 'tulasihotels-data-v1';
 const OFFLINE_URL = '/index.html';
 
 // URLs to cache for offline access (app shell is cached by Flutter SW)
@@ -26,7 +26,7 @@ const DATA_CACHE_URLS = [
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      console.log('[retaillite-sw] Pre-caching offline assets');
+      console.log('[tulasihotels-sw] Pre-caching offline assets');
       return cache.addAll(DATA_CACHE_URLS);
     })
   );
@@ -40,9 +40,9 @@ self.addEventListener('activate', (event) => {
     caches.keys().then((cacheNames) => {
       return Promise.all(
         cacheNames
-          .filter((name) => name.startsWith('retaillite-') && name !== CACHE_NAME)
+          .filter((name) => name.startsWith('tulasihotels-') && name !== CACHE_NAME)
           .map((name) => {
-            console.log('[retaillite-sw] Removing old cache:', name);
+            console.log('[tulasihotels-sw] Removing old cache:', name);
             return caches.delete(name);
           })
       );

@@ -47,7 +47,7 @@ final settingsProvider = StateNotifierProvider<SettingsNotifier, AppSettings>((
   ref,
 ) {
   // Settings reload is triggered by ref.invalidate() from auth provider
-  // after login/logout â€” NOT by watching authNotifierProvider
+  // after login/logout — NOT by watching authNotifierProvider
   // (watching auth causes a provider rebuild cycle that resets auth state).
   return SettingsNotifier();
 });
@@ -60,7 +60,7 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
     _loadFromCloud();
   }
 
-  /// Synchronous load from SharedPreferences â€” instant, no flash
+  /// Synchronous load from SharedPreferences — instant, no flash
   void _loadLocalSync() {
     try {
       final isDark =
@@ -98,13 +98,13 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
         retentionDays: retDays,
         autoCleanupEnabled: autoCleanup,
       );
-      debugPrint('âœ… Settings loaded instantly from local cache');
+      debugPrint('✅ Settings loaded instantly from local cache');
     } catch (e) {
       debugPrint('Error loading settings from local cache: $e');
     }
   }
 
-  /// Async cloud fetch â€” updates if cloud has newer data
+  /// Async cloud fetch — updates if cloud has newer data
   Future<void> _loadFromCloud() async {
     try {
       final cloudData = await OfflineStorageService.loadAllSettingsFromCloud();
@@ -131,7 +131,7 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
               newState.retentionDays != state.retentionDays ||
               newState.autoCleanupEnabled != state.autoCleanupEnabled) {
             state = newState;
-            debugPrint('âœ… Settings updated from cloud');
+            debugPrint('✅ Settings updated from cloud');
           }
         }
       }
@@ -186,8 +186,8 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
 /// Language options
 enum AppLanguage {
   english('en', 'English'),
-  hindi('hi', 'à¤¹à¤¿à¤‚à¤¦à¥€'),
-  telugu('te', 'à°¤à±†à°²à±à°—à±');
+  hindi('hi', 'हिंदी'),
+  telugu('te', 'తెలుగు');
 
   final String code;
   final String displayName;

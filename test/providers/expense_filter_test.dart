@@ -12,7 +12,7 @@ import 'package:tulasihotels/models/expense_model.dart';
 void main() {
   group('ExpenseCategory', () {
     test('should have all expected categories', () {
-      expect(ExpenseCategory.values.length, 7);
+      expect(ExpenseCategory.values.length, 8);
       expect(ExpenseCategory.values, contains(ExpenseCategory.rent));
       expect(ExpenseCategory.values, contains(ExpenseCategory.salary));
       expect(ExpenseCategory.values, contains(ExpenseCategory.utilities));

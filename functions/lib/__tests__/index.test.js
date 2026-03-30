@@ -448,9 +448,9 @@ describe("Notification cleanup logic", () => {
 // ─── Scheduled Backup Logic ─────────────────────────────────────────────────
 describe("Scheduled backup config", () => {
     test("backup bucket naming convention", () => {
-        const projectId = "login-radha";
+        const projectId = "login1-aa21c";
         const bucket = `gs://${projectId}-firestore-backups`;
-        expect(bucket).toBe("gs://login-radha-firestore-backups");
+        expect(bucket).toBe("gs://login1-aa21c-firestore-backups");
     });
     test("backup path includes timestamp", () => {
         const timestamp = new Date().toISOString().replace(/[:.]/g, "-");

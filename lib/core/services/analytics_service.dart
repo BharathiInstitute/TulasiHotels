@@ -1,4 +1,4 @@
-/// Analytics and monitoring service for app health and crash reporting
+﻿/// Analytics and monitoring service for app health and crash reporting
 library;
 
 import 'dart:io' show Platform;
@@ -34,7 +34,7 @@ class AnalyticsService {
   /// Initialize all monitoring services
   static Future<void> initialize() async {
     if (!_isSupported) {
-      debugPrint('📊 AnalyticsService: Skipped on desktop (not supported)');
+      debugPrint('?? AnalyticsService: Skipped on desktop (not supported)');
       return;
     }
 
@@ -48,7 +48,7 @@ class AnalyticsService {
     // Set default analytics consent
     await _safeAnalytics.setAnalyticsCollectionEnabled(true);
 
-    debugPrint('📊 AnalyticsService: Initialized');
+    debugPrint('?? AnalyticsService: Initialized');
   }
 
   /// Enable or disable analytics collection (for privacy consent opt-out)
@@ -56,9 +56,9 @@ class AnalyticsService {
     if (!_isSupported) return;
     try {
       await _safeAnalytics.setAnalyticsCollectionEnabled(enabled);
-      debugPrint('📊 Analytics collection ${enabled ? 'enabled' : 'disabled'}');
+      debugPrint('?? Analytics collection ${enabled ? 'enabled' : 'disabled'}');
     } catch (e) {
-      debugPrint('⚠️ Failed to set analytics enabled: $e');
+      debugPrint('?? Failed to set analytics enabled: $e');
     }
   }
 

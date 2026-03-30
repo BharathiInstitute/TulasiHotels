@@ -6,7 +6,7 @@
 ///   - Consent versioning (re-consent on policy updates)
 ///   - Right to withdraw consent
 ///   - Right to data portability (export)
-///   - Right to erasure (account deletion Ã¢â‚¬â€ see auth_provider.dart)
+///   - Right to erasure (account deletion — see auth_provider.dart)
 library;
 
 import 'dart:async';
@@ -90,7 +90,7 @@ class PrivacyConsentService {
       if (!doc.exists || doc.data() == null) return null;
       return ConsentRecord.fromMap(doc.data()!);
     } catch (e) {
-      debugPrint('Ã¢Å¡Â Ã¯Â¸Â Failed to read consent: $e');
+      debugPrint('⚠️ Failed to read consent: $e');
       return null;
     }
   }
@@ -132,7 +132,7 @@ class PrivacyConsentService {
 
       return true;
     } catch (e) {
-      debugPrint('Ã¢Å¡Â Ã¯Â¸Â Failed to record consent: $e');
+      debugPrint('⚠️ Failed to record consent: $e');
       return false;
     }
   }
@@ -170,7 +170,7 @@ class PrivacyConsentService {
       await _applyAnalyticsPreference(enabled);
       return true;
     } catch (e) {
-      debugPrint('Ã¢Å¡Â Ã¯Â¸Â Failed to update analytics consent: $e');
+      debugPrint('⚠️ Failed to update analytics consent: $e');
       return false;
     }
   }
@@ -180,7 +180,7 @@ class PrivacyConsentService {
     try {
       await AnalyticsService.setAnalyticsEnabled(enabled);
     } catch (e) {
-      debugPrint('Ã¢Å¡Â Ã¯Â¸Â Failed to apply analytics preference: $e');
+      debugPrint('⚠️ Failed to apply analytics preference: $e');
     }
   }
 
@@ -261,7 +261,7 @@ class PrivacyConsentService {
         '  ',
       ).convert(_convertTimestamps(exportData));
     } catch (e) {
-      debugPrint('Ã¢Å¡Â Ã¯Â¸Â Data export failed: $e');
+      debugPrint('⚠️ Data export failed: $e');
       rethrow;
     }
   }

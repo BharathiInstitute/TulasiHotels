@@ -288,7 +288,7 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Referral code applied! Ã°Å¸Å½â€°'),
+          content: Text('Referral code applied! 🎉'),
           backgroundColor: Colors.green,
         ),
       );
@@ -313,10 +313,10 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
         title: const Text('Delete Account?'),
         content: const Text(
           'This will permanently delete:\n\n'
-          'Ã¢â‚¬Â¢ Your account and profile\n'
-          'Ã¢â‚¬Â¢ All products, bills, and inventory\n'
-          'Ã¢â‚¬Â¢ All settings and preferences\n'
-          'Ã¢â‚¬Â¢ Khata (credit) records\n\n'
+          '• Your account and profile\n'
+          '• All products, bills, and inventory\n'
+          '• All settings and preferences\n'
+          '• Khata (credit) records\n\n'
           'This action cannot be undone.',
         ),
         actions: [
@@ -438,7 +438,7 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
           ),
           errorWidget: (_, url, error) {
             debugPrint('Logo load error: $error');
-            return const Icon(Icons.store, size: 28, color: Colors.grey);
+            return const Icon(Icons.hotel, size: 28, color: Colors.grey);
           },
         );
       }
@@ -450,7 +450,7 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
         }
       }
     }
-    return const Icon(Icons.store, size: 28, color: Colors.grey);
+    return const Icon(Icons.hotel, size: 28, color: Colors.grey);
   }
 
   /// Build user profile avatar (separate from shop logo)
@@ -583,7 +583,7 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: Column(
         children: [
-          // Top bar Ã¢â‚¬â€ mirrors the main app header
+          // Top bar — mirrors the main app header
           _buildTopBar(),
 
           Expanded(
@@ -619,7 +619,7 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
     );
   }
 
-  /// Top bar with app branding + back arrow Ã¢â‚¬â€ consistent with main shell look
+  /// Top bar with app branding + back arrow — consistent with main shell look
   Widget _buildTopBar() {
     final user = ref.watch(currentUserProvider);
     return Container(
@@ -968,7 +968,7 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
       [
         // Shop Profile
         _SectionCard(
-          icon: Icons.store,
+          icon: Icons.hotel,
           iconColor: AppColors.info,
           title: 'Shop Profile',
           child: Column(
@@ -1039,7 +1039,7 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
                         ),
                         const SizedBox(height: 4),
                         const Text(
-                          '500Ãƒâ€”500px. JPG, PNG or SVG',
+                          '500×500px. JPG, PNG or SVG',
                           style: TextStyle(
                             fontSize: 11,
                             color: AppColors.textMuted,
@@ -1051,7 +1051,7 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
                 ],
               ),
               const SizedBox(height: 20),
-              _buildFieldLabel('Shop Name', required: true),
+              _buildFieldLabel('Hotel Name', required: true),
               _buildTextField(controller: _shopNameController),
               const SizedBox(height: 16),
               _responsiveFields([
@@ -1458,7 +1458,7 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
                   ),
                   Expanded(
                     child: SelectableText(
-                      user?.id ?? 'Ã¢â‚¬â€',
+                      user?.id ?? '—',
                       style: TextStyle(
                         fontSize: 11,
                         fontFamily: 'monospace',
@@ -1475,7 +1475,7 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
             _buildVerificationRow(
               icon: Icons.phone_android,
               label: 'Phone Number',
-              value: user?.phone ?? 'Ã¢â‚¬â€',
+              value: user?.phone ?? '—',
               isVerified: user?.phoneVerified ?? false,
               verifiedAt: user?.phoneVerifiedAt,
             ),
@@ -1485,7 +1485,7 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
             _buildVerificationRow(
               icon: Icons.email_outlined,
               label: 'Email Address',
-              value: user?.email ?? 'Ã¢â‚¬â€',
+              value: user?.email ?? '—',
               isVerified: user?.emailVerified ?? false,
             ),
           ],
@@ -1513,7 +1513,7 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
           subtitle: Text(
             _limits.billsThisMonth < _limits.billsLimit
                 ? '${_limits.billsThisMonth} / ${_limits.billsLimit == 999999 ? "\u221e" : _limits.billsLimit} bills used this month'
-                : '\u26a0\ufe0f Bill limit reached Ã¢â‚¬â€ upgrade to continue',
+                : '\u26a0\ufe0f Bill limit reached — upgrade to continue',
             style: TextStyle(
               color: _limits.billsThisMonth >= _limits.billsLimit
                   ? AppColors.error
@@ -2290,7 +2290,7 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _buildFieldLabel('Shop Name'),
+                        _buildFieldLabel('Hotel Name'),
                         _buildTextField(controller: _shopNameController),
                       ],
                     ),
@@ -2686,11 +2686,11 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Ã°Å¸â€œÂ§ Email: support@tulasihotels.com'),
+            Text('📧 Email: support@tulasihotels.com'),
             SizedBox(height: 8),
-            Text('Ã°Å¸â€œÅ¾ Phone: +91 9876543210'),
+            Text('📞 Phone: +91 9876543210'),
             SizedBox(height: 8),
-            Text('Ã°Å¸â€¢Â Mon-Sat: 9am - 6pm IST'),
+            Text('🕐 Mon-Sat: 9am - 6pm IST'),
           ],
         ),
         actions: [
@@ -2721,7 +2721,7 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
             const Text('Simple POS for Small Retailers'),
             const SizedBox(height: 16),
             const Text(
-              'Ã‚Â© 2026 Tulasi Hotels',
+              '© 2026 Tulasi Hotels',
               style: TextStyle(color: Colors.grey),
             ),
           ],

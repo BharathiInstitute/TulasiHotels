@@ -1,4 +1,4 @@
-/// Admin Shell â€” persistent sidebar for all super admin pages
+/// Admin Shell — persistent sidebar for all super admin pages
 library;
 
 import 'package:flutter/material.dart';
@@ -105,8 +105,8 @@ class AdminShellScreen extends ConsumerWidget {
                 width: double.infinity,
                 child: TextButton.icon(
                   onPressed: () => context.go('/billing'),
-                  icon: const Icon(Icons.store, size: 18),
-                  label: const Text('Back to Store'),
+                  icon: const Icon(Icons.hotel, size: 18),
+                  label: const Text('Back to Hotel'),
                   style: TextButton.styleFrom(
                     foregroundColor: Colors.grey.shade700,
                   ),
@@ -217,8 +217,8 @@ class AdminShellScreen extends ConsumerWidget {
           const Divider(height: 1),
           // Back to store
           ListTile(
-            leading: Icon(Icons.store, color: Colors.grey.shade700),
-            title: const Text('Back to Store'),
+            leading: Icon(Icons.hotel, color: Colors.grey.shade700),
+            title: const Text('Back to Hotel'),
             onTap: () {
               Navigator.of(context).pop();
               context.go('/billing');

@@ -1,4 +1,4 @@
-/// Notifications inbox screen â€” shows all user notifications
+/// Notifications inbox screen — shows all user notifications
 library;
 
 import 'package:flutter/material.dart';

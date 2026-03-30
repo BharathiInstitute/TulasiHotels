@@ -14,7 +14,7 @@ import 'package:tulasihotels/models/customer_model.dart';
 import 'package:tulasihotels/models/expense_model.dart';
 import 'package:tulasihotels/models/product_model.dart';
 
-/// Paginated bills provider â€” loads 50 bills per page, sorted by createdAt desc
+/// Paginated bills provider — loads 50 bills per page, sorted by createdAt desc
 final paginatedBillsProvider =
     StateNotifierProvider.autoDispose<
       PaginatedNotifier<BillModel>,
@@ -25,7 +25,7 @@ final paginatedBillsProvider =
       )..loadInitial();
     });
 
-/// Paginated expenses provider â€” loads 50 expenses per page
+/// Paginated expenses provider — loads 50 expenses per page
 final paginatedExpensesProvider =
     StateNotifierProvider.autoDispose<
       PaginatedNotifier<ExpenseModel>,
@@ -36,7 +36,7 @@ final paginatedExpensesProvider =
       )..loadInitial();
     });
 
-/// Paginated customers provider â€” loads 50 customers per page, sorted by name
+/// Paginated customers provider — loads 50 customers per page, sorted by name
 final paginatedCustomersProvider =
     StateNotifierProvider.autoDispose<
       PaginatedNotifier<CustomerModel>,
@@ -47,7 +47,7 @@ final paginatedCustomersProvider =
       )..loadInitial();
     });
 
-/// Paginated products provider â€” loads 50 products per page, sorted by name
+/// Paginated products provider — loads 50 products per page, sorted by name
 final paginatedProductsProvider =
     StateNotifierProvider.autoDispose<
       PaginatedNotifier<ProductModel>,

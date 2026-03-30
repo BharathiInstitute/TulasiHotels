@@ -1,4 +1,4 @@
-/// Notification bell icon with unread badge â€” for AppBar
+/// Notification bell icon with unread badge — for AppBar
 library;
 
 import 'package:flutter/material.dart';

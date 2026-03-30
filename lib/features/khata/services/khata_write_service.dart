@@ -8,6 +8,7 @@ import 'package:tulasihotels/core/services/demo_data_service.dart';
 import 'package:tulasihotels/core/services/offline_storage_service.dart';
 import 'package:tulasihotels/features/auth/providers/auth_provider.dart';
 import 'package:tulasihotels/features/khata/providers/khata_provider.dart';
+import 'package:tulasihotels/features/khata/providers/khata_stats_provider.dart';
 import 'package:tulasihotels/models/transaction_model.dart';
 
 /// Shared service for Khata write operations (payment + credit).
@@ -75,5 +76,6 @@ class KhataWriteService {
     ref.invalidate(customerProvider(customerId));
     ref.invalidate(customerTransactionsProvider(customerId));
     ref.invalidate(customersProvider);
+    ref.invalidate(khataStatsProvider);
   }
 }

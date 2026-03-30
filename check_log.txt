@@ -1,0 +1,5 @@
+﻿After 'available ': C3 A2 E2 82 AC E2 80 9D 20 74 61 70 20 74 6F 20
+After 'offline ': C3 A2 E2 82 AC E2 80 9D 20 24 75 6E 73 79 6E 63
+Category fallback bytes: 4E 2F 41 27 2C 0D 0A 20 20 20 20
+Files still with C3 A0+ C2: 25
+Em-dash (E2 80 94) occurrences across all files: 183

@@ -15,16 +15,16 @@ import 'package:tulasihotels/core/services/offline_storage_service.dart';
 
 /// Result of a conflict check
 enum ConflictResult {
-  /// No conflict â€” safe to write
+  /// No conflict — safe to write
   noConflict,
 
-  /// Server version is newer â€” data was modified on another device
+  /// Server version is newer — data was modified on another device
   serverNewer,
 
-  /// Local version is newer â€” safe to write (shouldn't normally happen)
+  /// Local version is newer — safe to write (shouldn't normally happen)
   localNewer,
 
-  /// No server document found â€” new document, safe to create
+  /// No server document found — new document, safe to create
   notFound,
 }
 
@@ -84,7 +84,7 @@ class ConflictResolutionService {
 
       return ConflictResult.noConflict;
     } catch (e) {
-      debugPrint('âš ï¸ Conflict check failed: $e');
+      debugPrint('⚠️ Conflict check failed: $e');
       return ConflictResult.noConflict; // Fail-open: allow write
     }
   }

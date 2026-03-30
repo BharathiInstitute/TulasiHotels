@@ -54,9 +54,9 @@ class ProductCsvService {
       // Share the file
       await Share.shareXFiles([XFile(file.path)], subject: 'Products Export');
 
-      debugPrint('âœ… Exported ${products.length} products to CSV');
+      debugPrint('✅ Exported ${products.length} products to CSV');
     } catch (e) {
-      debugPrint('âŒ CSV export error: $e');
+      debugPrint('❌ CSV export error: $e');
       rethrow;
     }
   }
@@ -78,7 +78,7 @@ class ProductCsvService {
           bytes: bytes,
         );
         if (result != null) {
-          debugPrint('âœ… Web CSV download triggered: $fileName');
+          debugPrint('✅ Web CSV download triggered: $fileName');
           return fileName;
         }
         return null;
@@ -95,12 +95,12 @@ class ProductCsvService {
       );
 
       if (result != null) {
-        debugPrint('âœ… Saved CSV to: $result');
+        debugPrint('✅ Saved CSV to: $result');
         return result;
       }
       return null;
     } catch (e) {
-      debugPrint('âŒ CSV save error: $e');
+      debugPrint('❌ CSV save error: $e');
       rethrow;
     }
   }
@@ -141,7 +141,7 @@ class ProductCsvService {
 
       return _parseCsv(csvContent);
     } catch (e) {
-      debugPrint('âŒ CSV import error: $e');
+      debugPrint('❌ CSV import error: $e');
       return CsvImportResult(products: [], errors: ['Import failed: $e']);
     }
   }
@@ -250,7 +250,7 @@ class ProductCsvService {
         }
       }
 
-      debugPrint('âœ… Parsed ${products.length} products, skipped $skipped');
+      debugPrint('✅ Parsed ${products.length} products, skipped $skipped');
       return CsvImportResult(
         products: products,
         skipped: skipped,

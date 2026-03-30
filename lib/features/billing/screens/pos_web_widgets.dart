@@ -1,4 +1,4 @@
-// ignore_for_file: unused_import
+﻿// ignore_for_file: unused_import
 part of 'pos_web_screen.dart';
 
 /// Extracted POS web screen widgets (4.1 — split large files)
@@ -11,133 +11,186 @@ class _WebProductCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: AppShadows.small,
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
+    return Opacity(
+      opacity: product.isAvailable ? 1.0 : 0.45,
+      child: Container(
+        decoration: BoxDecoration(
+          color: Theme.of(context).cardColor,
           borderRadius: BorderRadius.circular(12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Container(
-                  width: double.infinity,
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).scaffoldBackgroundColor,
-                    borderRadius: const BorderRadius.vertical(
-                      top: Radius.circular(12),
+          boxShadow: AppShadows.small,
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Container(
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).scaffoldBackgroundColor,
+                      borderRadius: const BorderRadius.vertical(
+                        top: Radius.circular(12),
+                      ),
+                      image: product.imageUrl != null
+                          ? DecorationImage(
+                              image: NetworkImage(product.imageUrl!),
+                              fit: BoxFit.cover,
+                            )
+                          : null,
                     ),
-                    image: product.imageUrl != null
-                        ? DecorationImage(
-                            image: NetworkImage(product.imageUrl!),
-                            fit: BoxFit.cover,
-                          )
-                        : null,
-                  ),
-                  child: Stack(
-                    children: [
-                      if (product.imageUrl == null)
-                        Center(
-                          child: Icon(
-                            Icons.image,
-                            size: 40,
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                      Positioned(
-                        top: 8,
-                        right: 8,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Theme.of(
-                              context,
-                            ).cardColor.withValues(alpha: 0.9),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            '${product.stock} in stock',
-                            style: const TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
+                    child: Stack(
+                      children: [
+                        if (product.imageUrl == null)
+                          Center(
+                            child: Icon(
+                              Icons.image,
+                              size: 40,
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onSurfaceVariant,
                             ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+                          ),
+                        // Stock badge
+                        Positioned(
+                          top: 8,
+                          right: 8,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Theme.of(
+                                context,
+                              ).cardColor.withValues(alpha: 0.9),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              '${product.stock} in stock',
+                              style: const TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
                         ),
+                        // Dietary badge (top-left)
+                        if (product.dietaryTag != DietaryTag.none)
+                          Positioned(
+                            top: 8,
+                            left: 8,
+                            child: Container(
+                              width: 16,
+                              height: 16,
+                              decoration: BoxDecoration(
+                                border: Border.all(
+                                  color: product.dietaryTag == DietaryTag.veg || product.dietaryTag == DietaryTag.jain
+                                      ? Colors.green
+                                      : (product.dietaryTag == DietaryTag.egg ? Colors.orange : Colors.red),
+                                  width: 1.5,
+                                ),
+                                borderRadius: BorderRadius.circular(3),
+                              ),
+                              child: Center(
+                                child: Icon(
+                                  Icons.circle,
+                                  size: 8,
+                                  color: product.dietaryTag == DietaryTag.veg || product.dietaryTag == DietaryTag.jain
+                                      ? Colors.green
+                                      : (product.dietaryTag == DietaryTag.egg ? Colors.orange : Colors.red),
+                                ),
+                              ),
+                            ),
+                          ),
+                        // Special badge
+                        if (product.isSpecial)
+                          const Positioned(
+                            bottom: 8,
+                            left: 8,
+                            child: Text('⭐', style: TextStyle(fontSize: 16)),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(10),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              product.name,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          if (product.spiceLevel != SpiceLevel.na) ...
+                            [Padding(
+                              padding: const EdgeInsets.only(left: 4),
+                              child: Text(
+                                product.spiceLevel.emoji,
+                                style: const TextStyle(fontSize: 11),
+                              ),
+                            )],
+                        ],
+                      ),
+                      Text(
+                        product.unit.displayName,
+                        style: const TextStyle(
+                          fontSize: 10,
+                          color: AppColors.textMuted,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Flexible(
+                            child: Text(
+                              product.price.asCurrency,
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          Container(
+                            width: 32,
+                            height: 32,
+                            decoration: BoxDecoration(
+                              color: AppColors.primaryBg,
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            child: Icon(
+                              Icons.add,
+                              color: AppColors.primary,
+                              size: 18,
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
                 ),
-              ),
-              Padding(
-                padding: const EdgeInsets.all(10),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      product.name,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 13,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    Text(
-                      product.unit.displayName,
-                      style: const TextStyle(
-                        fontSize: 10,
-                        color: AppColors.textMuted,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 4),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Flexible(
-                          child: Text(
-                            product.price.asCurrency,
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        Container(
-                          width: 32,
-                          height: 32,
-                          decoration: BoxDecoration(
-                            color: AppColors.primaryBg,
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          child: Icon(
-                            Icons.add,
-                            color: AppColors.primary,
-                            size: 18,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -203,7 +256,7 @@ class _WebCartSectionState extends ConsumerState<_WebCartSection> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: const Text(
-                '🚫 Monthly bill limit reached. Upgrade to Pro for 500 bills/month.',
+                '?? Monthly bill limit reached. Upgrade to Pro for 500 bills/month.',
               ),
               duration: const Duration(seconds: 5),
               action: SnackBarAction(
@@ -333,7 +386,7 @@ class _WebCartSectionState extends ConsumerState<_WebCartSection> {
           SnackBar(
             content: Text(
               isLimitError
-                  ? '🚫 Subscription limit reached. Upgrade your plan to continue.'
+                  ? '?? Subscription limit reached. Upgrade your plan to continue.'
                   : 'Failed to complete bill: $e',
             ),
             backgroundColor: AppColors.error,
@@ -549,7 +602,7 @@ class _WebCartSectionState extends ConsumerState<_WebCartSection> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               const Text(
-                'CUSTOMER DETAILS',
+                'GUEST DETAILS',
                 style: TextStyle(
                   fontSize: 12,
                   color: AppColors.textSecondary,
@@ -671,7 +724,7 @@ class _WebCartSectionState extends ConsumerState<_WebCartSection> {
                                       ),
                                       trailing: customer.balance > 0
                                           ? Text(
-                                              '₹${customer.balance.toStringAsFixed(0)}',
+                                              '?${customer.balance.toStringAsFixed(0)}',
                                               style: const TextStyle(
                                                 color: Colors.red,
                                                 fontSize: 12,
@@ -771,7 +824,7 @@ class _WebCartSectionState extends ConsumerState<_WebCartSection> {
                       ),
                       if (_selectedCustomer!.balance > 0)
                         Text(
-                          'Due: ₹${_selectedCustomer!.balance.toStringAsFixed(0)}',
+                          'Due: ?${_selectedCustomer!.balance.toStringAsFixed(0)}',
                           style: const TextStyle(
                             fontSize: 11,
                             color: Colors.red,
@@ -849,13 +902,13 @@ class _WebCartSectionState extends ConsumerState<_WebCartSection> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Icon(
-                        Icons.shopping_cart_outlined,
+                        Icons.receipt_long_outlined,
                         size: 48,
                         color: Theme.of(context).colorScheme.outline,
                       ),
                       const SizedBox(height: 12),
                       Text(
-                        'Cart is empty',
+                        'Order is empty',
                         style: TextStyle(
                           color: Theme.of(context).colorScheme.onSurfaceVariant,
                         ),
@@ -1041,7 +1094,7 @@ class _WebCartSectionState extends ConsumerState<_WebCartSection> {
                 if (gstEnabled) const SizedBox(height: 8),
                 const _SummaryRow(
                   label: 'Discount',
-                  value: '-₹0.00',
+                  value: '-?0.00',
                   isGreen: true,
                 ),
                 const Padding(
@@ -1106,7 +1159,7 @@ class _WebCartSectionState extends ConsumerState<_WebCartSection> {
                         if (_selectedCustomer == null) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
-                              content: Text('Please select a customer first'),
+                              content: Text('Please select a guest first'),
                             ),
                           );
                           return;
@@ -1264,7 +1317,7 @@ class _WebCartSectionState extends ConsumerState<_WebCartSection> {
                           SizedBox(width: 8),
                           Expanded(
                             child: Text(
-                              'Please select a customer for Credit payment',
+                              'Please select a guest for Credit payment',
                               style: TextStyle(
                                 fontSize: 11,
                                 color: AppColors.error,
@@ -1394,7 +1447,7 @@ class _MobileProductCard extends StatelessWidget {
                       if (product.imageUrl == null)
                         Center(
                           child: Icon(
-                            Icons.inventory_2_outlined,
+                            Icons.restaurant_menu_outlined,
                             size: 32,
                             color: Theme.of(
                               context,
@@ -1536,7 +1589,7 @@ class _MobileCartBar extends StatelessWidget {
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Icon(
-                          Icons.shopping_cart,
+                          Icons.receipt_long,
                           size: 18,
                           color: AppColors.primary,
                         ),
@@ -1727,7 +1780,7 @@ class _CustomerSelectorSheetState
             child: Row(
               children: [
                 const Text(
-                  'Select Customer',
+                  'Select Guest',
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
                 const Spacer(),
@@ -1827,7 +1880,7 @@ class _CustomerSelectorSheetState
                       ),
                       trailing: customer.balance > 0
                           ? Text(
-                              'Due: ₹${customer.balance.toStringAsFixed(0)}',
+                              'Due: ?${customer.balance.toStringAsFixed(0)}',
                               style: const TextStyle(
                                 color: Colors.red,
                                 fontSize: 12,

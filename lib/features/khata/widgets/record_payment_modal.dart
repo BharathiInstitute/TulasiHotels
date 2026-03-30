@@ -55,7 +55,7 @@ class _RecordPaymentModalState extends ConsumerState<RecordPaymentModal> {
     if (_amount > currentBalance) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Amount exceeds customer balance'),
+          content: Text('Amount exceeds guest balance'),
           backgroundColor: AppColors.warning,
         ),
       );
@@ -158,7 +158,7 @@ class _RecordPaymentModalState extends ConsumerState<RecordPaymentModal> {
 
           // Persist payment proof locally FIRST (crash-safe)
           debugPrint(
-            'ðŸ’³ Payment succeeded: ${result.paymentId} â€” syncing to Firestore...',
+            '💳 Payment succeeded: ${result.paymentId} — syncing to Firestore...',
           );
 
           const maxRetries = 3;
@@ -188,13 +188,13 @@ class _RecordPaymentModalState extends ConsumerState<RecordPaymentModal> {
                   ),
                 );
               }
-              return; // Success â€” exit retry loop
+              return; // Success — exit retry loop
             } catch (e) {
               debugPrint(
-                'âš ï¸ Firestore sync attempt $attempt/$maxRetries failed: $e',
+                '⚠️ Firestore sync attempt $attempt/$maxRetries failed: $e',
               );
               if (attempt == maxRetries) {
-                // All retries exhausted â€” payment was taken but not synced
+                // All retries exhausted — payment was taken but not synced
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
@@ -295,7 +295,7 @@ class _RecordPaymentModalState extends ConsumerState<RecordPaymentModal> {
                             style: Theme.of(context).textTheme.titleMedium,
                           ),
                           Text(
-                            'à¤¬à¤¾à¤•à¥€: ${balance.asCurrency}',
+                            'बाकी: ${balance.asCurrency}',
                             style: TextStyle(
                               color: balance > 0
                                   ? AppColors.error
@@ -320,7 +320,7 @@ class _RecordPaymentModalState extends ConsumerState<RecordPaymentModal> {
                 ],
                 decoration: const InputDecoration(
                   labelText: 'Amount Received',
-                  prefixText: 'â‚¹ ',
+                  prefixText: '\u{20B9} ',
                   hintText: '0.00',
                 ),
                 onChanged: (_) => setState(() {}),
@@ -333,21 +333,21 @@ class _RecordPaymentModalState extends ConsumerState<RecordPaymentModal> {
                 runSpacing: 8,
                 children: [
                   _QuickAmountChip(
-                    label: 'â‚¹100',
+                    label: '\u{20B9}100',
                     onTap: () {
                       _amountController.text = '100';
                       setState(() {});
                     },
                   ),
                   _QuickAmountChip(
-                    label: 'â‚¹500',
+                    label: '\u{20B9}500',
                     onTap: () {
                       _amountController.text = '500';
                       setState(() {});
                     },
                   ),
                   _QuickAmountChip(
-                    label: 'â‚¹1000',
+                    label: '\u{20B9}1000',
                     onTap: () {
                       _amountController.text = '1000';
                       setState(() {});
@@ -388,15 +388,6 @@ class _RecordPaymentModalState extends ConsumerState<RecordPaymentModal> {
                       icon: Icons.qr_code,
                       isSelected: _paymentMode == 'upi',
                       onTap: () => setState(() => _paymentMode = 'upi'),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: _PaymentModeButton(
-                      label: 'Online',
-                      icon: Icons.credit_card,
-                      isSelected: _paymentMode == 'online',
-                      onTap: () => setState(() => _paymentMode = 'online'),
                     ),
                   ),
                 ],
@@ -442,7 +433,7 @@ class _RecordPaymentModalState extends ConsumerState<RecordPaymentModal> {
 
               // Submit button
               AppButton(
-                label: 'âœ… RECORD PAYMENT',
+                label: '✅ RECORD PAYMENT',
                 onPressed: _amount > 0 ? _recordPayment : null,
                 isLoading: _isLoading,
                 backgroundColor: AppColors.success,

@@ -20,10 +20,10 @@ class Formatters {
     decimalDigits: 2,
   );
 
-  /// Format amount as currency (â‚¹1,234)
+  /// Format amount as currency (₹1,234)
   static String currency(num amount) => _currencyFormat.format(amount);
 
-  /// Format amount with decimals (â‚¹1,234.56)
+  /// Format amount with decimals (₹1,234.56)
   static String currencyWithDecimals(num amount) =>
       _currencyFormatWithDecimals.format(amount);
 

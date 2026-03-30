@@ -58,7 +58,7 @@ final billsFilterProvider = StateProvider<BillsFilter>((ref) {
   return const BillsFilter();
 });
 
-/// Filtered expenses provider â€” real-time stream from Firestore
+/// Filtered expenses provider — real-time stream from Firestore
 final filteredExpensesProvider = StreamProvider.autoDispose<List<ExpenseModel>>(
   (ref) {
     final filter = ref.watch(billsFilterProvider);
@@ -111,7 +111,7 @@ final filteredExpensesProvider = StreamProvider.autoDispose<List<ExpenseModel>>(
   },
 );
 
-/// Filtered bills provider â€” real-time stream from Firestore
+/// Filtered bills provider — real-time stream from Firestore
 final filteredBillsProvider = StreamProvider.autoDispose<List<BillModel>>((
   ref,
 ) {
@@ -162,7 +162,7 @@ final filteredBillsProvider = StreamProvider.autoDispose<List<BillModel>>((
   });
 });
 
-/// Per-bill sync status â€” maps bill ID â†’ hasPendingWrites
+/// Per-bill sync status — maps bill ID → hasPendingWrites
 final billsSyncStatusProvider = StreamProvider.autoDispose<Map<String, bool>>((
   ref,
 ) {
@@ -171,7 +171,7 @@ final billsSyncStatusProvider = StreamProvider.autoDispose<Map<String, bool>>((
   return OfflineStorageService.billsSyncStream();
 });
 
-/// Per-expense sync status â€” maps expense ID â†’ hasPendingWrites
+/// Per-expense sync status — maps expense ID → hasPendingWrites
 final expensesSyncStatusProvider =
     StreamProvider.autoDispose<Map<String, bool>>((ref) {
       final isDemoMode = ref.watch(authNotifierProvider).isDemoMode;

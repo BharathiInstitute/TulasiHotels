@@ -1,4 +1,4 @@
-# Flutter ProGuard Rules for RetailLite
+# Flutter ProGuard Rules for Tulasi Hotels
 # ───────────────────────────────────────
 
 # Keep Flutter engine

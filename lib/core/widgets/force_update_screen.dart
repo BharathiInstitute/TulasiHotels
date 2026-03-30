@@ -57,7 +57,7 @@ class _ForceUpdateScreenState extends State<ForceUpdateScreen> {
               _downloading = false;
               _error = null;
             });
-            // Show success â€” app will update on close
+            // Show success — app will update on close
             await showDialog(
               context: context,
               barrierDismissible: false,

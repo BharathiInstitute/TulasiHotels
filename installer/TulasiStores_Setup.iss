@@ -4,7 +4,7 @@
 #define MyAppName "Tulasi Shop Lite"
 #define MyAppVersion "9.1.0"
 #define MyAppPublisher "Tulasi Stores"
-#define MyAppExeName "retaillite.exe"
+#define MyAppExeName "tulasihotels.exe"
 #define MyAppURL "https://tulasistores.com"
 
 [Setup]
@@ -37,7 +37,7 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 Source: "vc_redist.x64.exe"; DestDir: "{tmp}"; Flags: deleteafterinstall
 
 ; Main app files
-Source: "..\build\windows\x64\runner\Release\retaillite.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\build\windows\x64\runner\Release\tulasihotels.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\build\windows\x64\runner\Release\flutter_windows.dll"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\build\windows\x64\runner\Release\pdfium.dll"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\build\windows\x64\runner\Release\connectivity_plus_plugin.dll"; DestDir: "{app}"; Flags: ignoreversion

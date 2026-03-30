@@ -35,7 +35,7 @@ class AdminFirestoreService {
 
     // Seed the admins collection directly (primary owner has rule-level access)
     try {
-      debugPrint('ðŸ”‘ AdminFirestore: Seeding admins collection...');
+      debugPrint('🔑 AdminFirestore: Seeding admins collection...');
       final batch = _firestore.batch();
       const emails = [
         primaryOwnerEmail,
@@ -53,9 +53,9 @@ class AdminFirestoreService {
         });
       }
       await batch.commit();
-      debugPrint('âœ… AdminFirestore: Seeded ${emails.length} admins');
+      debugPrint('✅ AdminFirestore: Seeded ${emails.length} admins');
     } catch (e) {
-      debugPrint('âš ï¸ AdminFirestore: Seed failed: $e');
+      debugPrint('⚠️ AdminFirestore: Seed failed: $e');
     }
   }
 
@@ -103,7 +103,7 @@ class AdminFirestoreService {
 
       return users;
     } catch (e) {
-      debugPrint('âŒ AdminFirestore: Failed to get users: $e');
+      debugPrint('❌ AdminFirestore: Failed to get users: $e');
       return [];
     }
   }
@@ -115,12 +115,12 @@ class AdminFirestoreService {
       if (!doc.exists) return null;
       return AdminUser.fromFirestore(doc);
     } catch (e) {
-      debugPrint('âŒ AdminFirestore: Failed to get user: $e');
+      debugPrint('❌ AdminFirestore: Failed to get user: $e');
       return null;
     }
   }
 
-  /// Get admin dashboard statistics â€” reads from aggregation counter doc
+  /// Get admin dashboard statistics — reads from aggregation counter doc
   /// (`app_config/stats`) kept up to date by the `onSubscriptionWrite` CF.
   /// Falls back to live count queries if the stats doc is missing/stale.
   static Future<AdminStats> getAdminStats() async {
@@ -140,7 +140,7 @@ class AdminFirestoreService {
           .doc('stats')
           .get();
 
-      // 5 count() aggregation queries â€” each costs 1 read, no doc data returned
+      // 5 count() aggregation queries — each costs 1 read, no doc data returned
       final countFutures = Future.wait([
         _firestore
             .collection('users')
@@ -204,7 +204,7 @@ class AdminFirestoreService {
         newUsersThisWeek: counts[4].count ?? 0,
       );
     } catch (e) {
-      debugPrint('âŒ AdminFirestore: Failed to get stats: $e');
+      debugPrint('❌ AdminFirestore: Failed to get stats: $e');
       return const AdminStats();
     }
   }
@@ -273,7 +273,7 @@ class AdminFirestoreService {
         'recalculatedAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
 
-      debugPrint('âœ… AdminFirestore: Recalculated stats â€” $total users');
+      debugPrint('✅ AdminFirestore: Recalculated stats — $total users');
 
       return AdminStats(
         totalUsers: total,
@@ -283,7 +283,7 @@ class AdminFirestoreService {
         mrr: mrr,
       );
     } catch (e) {
-      debugPrint('âŒ AdminFirestore: Failed to recalculate stats: $e');
+      debugPrint('❌ AdminFirestore: Failed to recalculate stats: $e');
       return const AdminStats();
     }
   }
@@ -347,7 +347,7 @@ class AdminFirestoreService {
         'limits.billsLimit': subscription.billsLimit,
       });
 
-      // Write audit log (non-fatal â€” don't fail the update if audit fails)
+      // Write audit log (non-fatal — don't fail the update if audit fails)
       try {
         await _firestore
             .collection('users')
@@ -362,12 +362,12 @@ class AdminFirestoreService {
               'changedBy': 'admin',
             });
       } catch (e) {
-        debugPrint('âš ï¸ AdminFirestore: Audit log failed (non-fatal): $e');
+        debugPrint('⚠️ AdminFirestore: Audit log failed (non-fatal): $e');
       }
 
       return true;
     } catch (e) {
-      debugPrint('âŒ AdminFirestore: Failed to update subscription: $e');
+      debugPrint('❌ AdminFirestore: Failed to update subscription: $e');
       return false;
     }
   }
@@ -381,7 +381,7 @@ class AdminFirestoreService {
       });
       return true;
     } catch (e) {
-      debugPrint('âŒ AdminFirestore: Failed to reset user limits: $e');
+      debugPrint('❌ AdminFirestore: Failed to reset user limits: $e');
       return false;
     }
   }
@@ -397,7 +397,7 @@ class AdminFirestoreService {
 
       return snapshot.docs.map((d) => AdminUser.fromFirestore(d)).toList();
     } catch (e) {
-      debugPrint('âŒ AdminFirestore: Failed to get recent users: $e');
+      debugPrint('❌ AdminFirestore: Failed to get recent users: $e');
       return [];
     }
   }
@@ -421,7 +421,7 @@ class AdminFirestoreService {
 
       return snapshot.docs.map((d) => AdminUser.fromFirestore(d)).toList();
     } catch (e) {
-      debugPrint('âŒ AdminFirestore: Failed to get expiring subscriptions: $e');
+      debugPrint('❌ AdminFirestore: Failed to get expiring subscriptions: $e');
       return [];
     }
   }
@@ -446,7 +446,7 @@ class AdminFirestoreService {
 
       return platformCounts.isEmpty ? {'unknown': 0} : platformCounts;
     } catch (e) {
-      debugPrint('âŒ AdminFirestore: Failed to get platform stats: $e');
+      debugPrint('❌ AdminFirestore: Failed to get platform stats: $e');
       return {'unknown': 0};
     }
   }
@@ -485,7 +485,7 @@ class AdminFirestoreService {
         'settings': 0.3,
       };
     } catch (e) {
-      debugPrint('âŒ AdminFirestore: Failed to get feature usage stats: $e');
+      debugPrint('❌ AdminFirestore: Failed to get feature usage stats: $e');
       return {
         'billing': 0,
         'products': 0,
@@ -509,7 +509,7 @@ class AdminFirestoreService {
         'adminStats': adminStats,
       };
     } catch (e) {
-      debugPrint('âŒ AdminFirestore: Failed to get aggregated analytics: $e');
+      debugPrint('❌ AdminFirestore: Failed to get aggregated analytics: $e');
       return {};
     }
   }
@@ -553,7 +553,7 @@ class AdminFirestoreService {
 
       return emails;
     } catch (e) {
-      debugPrint('âŒ AdminFirestore: Failed to get admin emails: $e');
+      debugPrint('❌ AdminFirestore: Failed to get admin emails: $e');
       return [primaryOwnerEmail];
     }
   }
@@ -568,7 +568,7 @@ class AdminFirestoreService {
         'updatedAt': FieldValue.serverTimestamp(),
       });
     } catch (e) {
-      debugPrint('âŒ AdminFirestore: Failed to init admin doc: $e');
+      debugPrint('❌ AdminFirestore: Failed to init admin doc: $e');
     }
   }
 
@@ -595,7 +595,7 @@ class AdminFirestoreService {
 
       return true;
     } catch (e) {
-      debugPrint('âŒ AdminFirestore: Failed to add admin: $e');
+      debugPrint('❌ AdminFirestore: Failed to add admin: $e');
       return false;
     }
   }
@@ -625,7 +625,7 @@ class AdminFirestoreService {
 
       return true;
     } catch (e) {
-      debugPrint('âŒ AdminFirestore: Failed to remove admin: $e');
+      debugPrint('❌ AdminFirestore: Failed to remove admin: $e');
       return false;
     }
   }

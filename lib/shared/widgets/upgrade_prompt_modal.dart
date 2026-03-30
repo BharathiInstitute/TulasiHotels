@@ -12,9 +12,9 @@ class UpgradePromptModal {
     required UpgradeTrigger trigger,
   }) async {
     final triggerMessages = {
-      UpgradeTrigger.productLimit: 'You\'ve reached your product limit.',
+      UpgradeTrigger.productLimit: 'You\'ve reached your menu item limit.',
       UpgradeTrigger.billLimit: 'You\'ve reached your monthly bill limit.',
-      UpgradeTrigger.customerLimit: 'You\'ve reached your customer limit.',
+      UpgradeTrigger.customerLimit: 'You\'ve reached your guest limit.',
       UpgradeTrigger.featureGated: 'This feature requires a higher plan.',
     };
 

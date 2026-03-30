@@ -1,4 +1,4 @@
-/// Transaction model for Khata (credit book)
+﻿/// Transaction model for Khata (credit book)
 library;
 
 import 'package:cloud_firestore/cloud_firestore.dart';

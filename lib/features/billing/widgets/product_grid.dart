@@ -170,18 +170,18 @@ class _ProductTile extends StatelessWidget {
 
   String _getEmoji(String name) {
     final lower = name.toLowerCase();
-    if (lower.contains('atta') || lower.contains('flour')) return 'ðŸš';
-    if (lower.contains('salt') || lower.contains('namak')) return 'ðŸ§‚';
-    if (lower.contains('oil') || lower.contains('tel')) return 'ðŸ›¢ï¸';
-    if (lower.contains('dal') || lower.contains('lentil')) return 'ðŸ«˜';
-    if (lower.contains('soap') || lower.contains('sabun')) return 'ðŸ§¼';
-    if (lower.contains('biscuit') || lower.contains('cookie')) return 'ðŸª';
-    if (lower.contains('tea') || lower.contains('chai')) return 'ðŸµ';
-    if (lower.contains('shampoo')) return 'ðŸ§´';
-    if (lower.contains('sugar') || lower.contains('cheeni')) return 'ðŸ¬';
-    if (lower.contains('rice') || lower.contains('chawal')) return 'ðŸš';
-    if (lower.contains('milk') || lower.contains('doodh')) return 'ðŸ¥›';
-    return 'ðŸ“¦';
+    if (lower.contains('atta') || lower.contains('flour')) return '🍚';
+    if (lower.contains('salt') || lower.contains('namak')) return '🧂';
+    if (lower.contains('oil') || lower.contains('tel')) return '🛢️';
+    if (lower.contains('dal') || lower.contains('lentil')) return '🫘';
+    if (lower.contains('soap') || lower.contains('sabun')) return '🧼';
+    if (lower.contains('biscuit') || lower.contains('cookie')) return '🍪';
+    if (lower.contains('tea') || lower.contains('chai')) return '🍵';
+    if (lower.contains('shampoo')) return '🧴';
+    if (lower.contains('sugar') || lower.contains('cheeni')) return '🍬';
+    if (lower.contains('rice') || lower.contains('chawal')) return '🍚';
+    if (lower.contains('milk') || lower.contains('doodh')) return '🥛';
+    return '📦';
   }
 }
 
@@ -195,20 +195,20 @@ class _EmptyProducts extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(
-            Icons.inventory_2_outlined,
+            Icons.restaurant_menu_outlined,
             size: 64,
             color: Theme.of(context).colorScheme.outline,
           ),
           const SizedBox(height: 16),
           Text(
-            'No products found',
+            'No menu items found',
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
               color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),
           ),
           const SizedBox(height: 8),
           Text(
-            'Add products from the Products tab',
+            'Add items from the Menu tab',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
               color: Theme.of(context).colorScheme.outline,
             ),

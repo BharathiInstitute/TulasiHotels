@@ -46,7 +46,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const admin = __importStar(require("firebase-admin"));
 // Point to emulator
 process.env.FIRESTORE_EMULATOR_HOST = "127.0.0.1:8080";
-const app = admin.initializeApp({ projectId: "login-radha" });
+const app = admin.initializeApp({ projectId: "login1-aa21c" });
 const db = admin.firestore();
 async function sleep(ms) {
     return new Promise((res) => setTimeout(res, ms));

@@ -97,7 +97,7 @@ class UserCostsScreen extends ConsumerWidget {
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      'Firestore usage is visible in Firebase Console â†’ Usage & Billing',
+                      'Firestore usage is visible in Firebase Console → Usage & Billing',
                       style: TextStyle(
                         color: Colors.blue.shade800,
                         fontSize: 12,

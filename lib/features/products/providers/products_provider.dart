@@ -15,7 +15,7 @@ import 'package:tulasihotels/core/services/sync_status_service.dart';
 import 'package:tulasihotels/features/auth/providers/auth_provider.dart';
 import 'package:tulasihotels/models/product_model.dart';
 
-/// Firestore instance (Firebase singletons â€” safe as top-level)
+/// Firestore instance (Firebase singletons — safe as top-level)
 final _firestore = FirebaseFirestore.instance;
 final _auth = FirebaseAuth.instance;
 
@@ -31,7 +31,7 @@ String get _productsPath {
 }
 
 /// Products list provider - reads from Firestore OR demo data
-/// Per-product sync status cache â€” updated by productsProvider
+/// Per-product sync status cache — updated by productsProvider
 Map<String, bool> _lastProductSyncStatus = {};
 
 final productsProvider = StreamProvider.autoDispose<List<ProductModel>>((ref) {
@@ -39,7 +39,7 @@ final productsProvider = StreamProvider.autoDispose<List<ProductModel>>((ref) {
 
   // Demo mode: return local demo data as a stream
   if (isDemoMode) {
-    debugPrint('ðŸ“¦ productsProvider: Demo mode - returning local data');
+    debugPrint('📦 productsProvider: Demo mode - returning local data');
     _lastProductSyncStatus = {};
     return Stream.value(DemoDataService.getProducts().toList());
   }
@@ -47,7 +47,7 @@ final productsProvider = StreamProvider.autoDispose<List<ProductModel>>((ref) {
   // Firebase mode: stream from Firestore
   // Safety cap at 2000 products to prevent massive reads if a user
   // accidentally imports a huge inventory
-  debugPrint('ðŸ“¦ productsProvider: Listening to Firestore products...');
+  debugPrint('📦 productsProvider: Listening to Firestore products...');
   return _firestore
       .collection(_productsPath)
       .orderBy('name')
@@ -74,16 +74,16 @@ final productsProvider = StreamProvider.autoDispose<List<ProductModel>>((ref) {
         };
         if (products.length >= 1000) {
           debugPrint(
-            'âš ï¸ productsProvider: Large inventory (${products.length} products) â€” '
+            '⚠️ productsProvider: Large inventory (${products.length} products) — '
             'consider pagination for better performance',
           );
         }
-        debugPrint('ðŸ“¦ productsProvider: Got ${products.length} products');
+        debugPrint('📦 productsProvider: Got ${products.length} products');
         return products;
       });
 });
 
-/// Paginated products fetch â€” returns (products, lastDocument) for cursor pagination.
+/// Paginated products fetch — returns (products, lastDocument) for cursor pagination.
 Future<(List<ProductModel>, DocumentSnapshot?)> fetchProductsPage({
   int pageSize = 50,
   DocumentSnapshot? startAfter,
@@ -99,7 +99,7 @@ Future<(List<ProductModel>, DocumentSnapshot?)> fetchProductsPage({
   return (products, lastDoc);
 }
 
-/// Per-product sync status â€” derived from productsProvider snapshot data
+/// Per-product sync status — derived from productsProvider snapshot data
 /// (no extra Firestore listener)
 final productsSyncStatusProvider =
     Provider.autoDispose<AsyncValue<Map<String, bool>>>((ref) {
@@ -108,7 +108,7 @@ final productsSyncStatusProvider =
       return productsAsync.whenData((_) => _lastProductSyncStatus);
     });
 
-/// Single product by ID â€” uses dedicated Firestore document stream
+/// Single product by ID — uses dedicated Firestore document stream
 /// to avoid watching the entire products collection.
 final productByIdProvider = StreamProvider.autoDispose
     .family<ProductModel?, String>((ref, id) {
@@ -273,7 +273,7 @@ class ProductsService {
       );
     }
 
-    // Use FieldValue.increment for atomic stock decrement â€” prevents
+    // Use FieldValue.increment for atomic stock decrement — prevents
     // race conditions when two concurrent sales of the same product
     // happen simultaneously.
     await collection.doc(productId).update({

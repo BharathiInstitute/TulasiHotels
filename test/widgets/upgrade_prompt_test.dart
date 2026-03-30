@@ -36,7 +36,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Upgrade Your Plan'), findsOneWidget);
-      expect(find.textContaining('product limit'), findsOneWidget);
+      expect(find.textContaining('menu item limit'), findsOneWidget);
     });
 
     testWidgets('shows dialog with bill limit message', (tester) async {
@@ -78,7 +78,7 @@ void main() {
       await tester.tap(find.text('Trigger'));
       await tester.pumpAndSettle();
 
-      expect(find.textContaining('customer limit'), findsOneWidget);
+      expect(find.textContaining('guest limit'), findsOneWidget);
     });
 
     testWidgets('shows Later and View Plans buttons', (tester) async {

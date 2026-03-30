@@ -66,7 +66,7 @@ class A11y {
 
   /// Create a semantic label for currency amounts
   static String currency(double amount) {
-    return 'â‚¹${amount.toStringAsFixed(2)}';
+    return '\u{20B9}${amount.toStringAsFixed(2)}';
   }
 
   /// Create a semantic label for stock status

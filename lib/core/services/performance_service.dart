@@ -136,9 +136,9 @@ class PerformanceService {
     }
   }
 
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // ═══════════════════════════════════════════════════════════════════════════
   // BREADCRUMBS
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // ═══════════════════════════════════════════════════════════════════════════
 
   /// Add a breadcrumb for user action tracking
   static void addBreadcrumb(
@@ -154,7 +154,7 @@ class PerformanceService {
     }
 
     if (kDebugMode) {
-      debugPrint('ðŸž Breadcrumb: $message');
+      debugPrint('🍞 Breadcrumb: $message');
     }
   }
 
@@ -189,9 +189,9 @@ class PerformanceService {
   /// Clear breadcrumbs
   static void clearBreadcrumbs() => _breadcrumbs.clear();
 
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // ═══════════════════════════════════════════════════════════════════════════
   // SCREEN LOAD TIMING
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // ═══════════════════════════════════════════════════════════════════════════
 
   /// Start tracking screen load time
   static void startScreenTiming(String screenName) {
@@ -221,7 +221,7 @@ class PerformanceService {
     }
 
     if (kDebugMode) {
-      final color = loadTime.inMilliseconds > 500 ? 'ðŸŸ¡' : 'ðŸŸ¢';
+      final color = loadTime.inMilliseconds > 500 ? '🟡' : '🟢';
       debugPrint(
         '$color Screen "$screenName" loaded in ${loadTime.inMilliseconds}ms',
       );
@@ -250,13 +250,13 @@ class PerformanceService {
       await batch.commit();
       _screenTimings.clear();
     } catch (e) {
-      if (kDebugMode) debugPrint('âŒ Failed to upload screen timings: $e');
+      if (kDebugMode) debugPrint('❌ Failed to upload screen timings: $e');
     }
   }
 
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // ═══════════════════════════════════════════════════════════════════════════
   // NETWORK MONITORING
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // ═══════════════════════════════════════════════════════════════════════════
 
   /// Track a network/API operation
   static Future<T> trackOperation<T>(
@@ -295,7 +295,7 @@ class PerformanceService {
       );
 
       if (kDebugMode) {
-        final icon = success ? 'âœ…' : 'âŒ';
+        final icon = success ? '✅' : '❌';
         debugPrint('$icon $type.$operationName: ${latency.inMilliseconds}ms');
       }
 
@@ -326,13 +326,13 @@ class PerformanceService {
       await batch.commit();
       _networkTimings.clear();
     } catch (e) {
-      if (kDebugMode) debugPrint('âŒ Failed to upload network timings: $e');
+      if (kDebugMode) debugPrint('❌ Failed to upload network timings: $e');
     }
   }
 
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // ═══════════════════════════════════════════════════════════════════════════
   // ADMIN DASHBOARD DATA
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // ═══════════════════════════════════════════════════════════════════════════
 
   /// Get screen performance summary (for admin dashboard)
   static Future<Map<String, dynamic>> getScreenPerformanceSummary() async {
@@ -379,7 +379,7 @@ class PerformanceService {
         'totalMeasurements': count,
       };
     } catch (e) {
-      debugPrint('âŒ Failed to get screen performance: $e');
+      debugPrint('❌ Failed to get screen performance: $e');
       return {'screens': {}, 'avgLoadTime': 0};
     }
   }
@@ -450,7 +450,7 @@ class PerformanceService {
         'totalRequests': totalCount,
       };
     } catch (e) {
-      debugPrint('âŒ Failed to get network health: $e');
+      debugPrint('❌ Failed to get network health: $e');
       return {'operations': {}, 'avgLatency': 0, 'successRate': 100};
     }
   }
@@ -500,7 +500,7 @@ class PerformanceService {
         'crashFreeUsers': crashFreeUsers,
       };
     } catch (e) {
-      debugPrint('âŒ Failed to get crash-free stats: $e');
+      debugPrint('❌ Failed to get crash-free stats: $e');
       return {'crashFreePercent': 100.0, 'totalUsers': 0};
     }
   }

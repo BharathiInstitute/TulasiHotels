@@ -165,7 +165,7 @@ class SuperAdminDashboardScreen extends ConsumerWidget {
       ),
       _StatCard(
         title: 'MRR',
-        value: 'â‚¹${stats.mrr.toStringAsFixed(0)}',
+        value: '\u{20B9}${stats.mrr.toStringAsFixed(0)}',
         icon: Icons.currency_rupee,
         color: Colors.orange,
       ),
@@ -337,7 +337,7 @@ class SuperAdminDashboardScreen extends ConsumerWidget {
                     style: TextStyle(color: Colors.white70),
                   ),
                   Text(
-                    'â‚¹${stats.mrr.toStringAsFixed(0)}',
+                    '\u{20B9}${stats.mrr.toStringAsFixed(0)}',
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 28,

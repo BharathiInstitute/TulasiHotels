@@ -75,7 +75,7 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> {
       );
 
       // getAllUsers returns a list but doesn't expose the last doc snapshot.
-      // We need to fetch that separately via a raw query â€” grab it from the
+      // We need to fetch that separately via a raw query — grab it from the
       // service's raw snapshot by re-querying with the same params.
       DocumentSnapshot? newLastDoc;
       if (page.isNotEmpty) {
@@ -293,7 +293,7 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> {
       child: SingleChildScrollView(
         child: DataTable(
           columns: const [
-            DataColumn(label: Text('Shop Name')),
+            DataColumn(label: Text('Hotel Name')),
             DataColumn(label: Text('Email')),
             DataColumn(label: Text('Plan')),
             DataColumn(label: Text('Bills')),

@@ -869,7 +869,7 @@ export const onNewUserSignup = functions
             .doc(userId)
             .collection("notifications")
             .add({
-                title: "Welcome to RetailLite! 🎉",
+                title: "Welcome to Tulasi Hotels! 🎉",
                 body: `Hi ${ownerName}, your shop "${shopName}" is all set up. Start adding products and making sales!`,
                 type: "system",
                 targetType: "user",
@@ -1387,7 +1387,7 @@ export const checkChurnedUsers = functions
         const messages: Record<number, { title: string; body: string }> = {
             7: {
                 title: "आपकी दुकान का इंतजार है! 🏪",
-                body: "7 दिनों से कोई bill नहीं बनाया। RetailLite पर वापस आएं और अपना कारोबार बढ़ाएं।",
+                body: "7 दिनों से कोई bill नहीं बनाया। Tulasi Hotels पर वापस आएं और अपना कारोबार बढ़ाएं।",
             },
             14: {
                 title: "वापस आएं — 30 दिन Pro plan मुफ्त 🎁",
@@ -1395,7 +1395,7 @@ export const checkChurnedUsers = functions
             },
             30: {
                 title: "We miss you, shopkeeper! 🙏",
-                body: "आपकी दुकान 30 दिनों से बंद है RetailLite पर। क्या कोई दिक्कत है? हम मदद करने के लिए यहाँ हैं।",
+                body: "आपकी दुकान 30 दिनों से बंद है Tulasi Hotels पर। क्या कोई दिक्कत है? हम मदद करने के लिए यहाँ हैं।",
             },
         };
 
@@ -2202,7 +2202,6 @@ export const seedAdmins = functions
             ? adminEmailsEnv.split(",").map(e => e.trim()).filter(e => e.length > 0)
             : [
                 "kehsaram001@gmail.com",
-                "admin@retaillite.com",
                 "bharathiinstitute1@gmail.com",
                 "bharahiinstitute1@gmail.com",
                 "shivamsingh8556@gmail.com",
@@ -2474,7 +2473,7 @@ export const scheduledFirestoreBackup = functions
     .pubsub.schedule("30 20 * * *") // 2:00 AM IST = 20:30 UTC
     .timeZone("Asia/Kolkata")
     .onRun(async () => {
-        const projectId = process.env.GCP_PROJECT || process.env.GCLOUD_PROJECT || "retaillite";
+        const projectId = process.env.GCP_PROJECT || process.env.GCLOUD_PROJECT || "login1-aa21c";
         const bucket = `gs://${projectId}-firestore-backups`;
         const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
 
@@ -2579,7 +2578,6 @@ export const seedUserUsage = functions
         const adminDoc = await db.collection("admins").doc(callerEmail).get();
         const hardcodedAdmins = [
             "kehsaram001@gmail.com",
-            "admin@retaillite.com",
         ];
         if (!adminDoc.exists && !hardcodedAdmins.includes(callerEmail)) {
             throw new functions.https.HttpsError("permission-denied", "Admin access required");
@@ -2692,3 +2690,414 @@ export const seedUserUsage = functions
         console.log(`✅ seedUserUsage: Seeded ${seeded} users`);
         return { success: true, seeded };
     });
+
+// ════════════════════════════════════════════════════════════════
+//  NEW CLOUD FUNCTIONS — Hotel Feature Support
+// ════════════════════════════════════════════════════════════════
+
+/**
+ * onRushOrderCreated — Notify staff when a rush order is placed
+ */
+export const onRushOrderCreated = functions
+    .region("asia-south1")
+    .runWith({ timeoutSeconds: 30, memory: "256MB" })
+    .firestore.document("users/{userId}/orders/{orderId}")
+    .onCreate(async (snap, context) => {
+        const order = snap.data();
+        if (!order?.isRush) return;
+
+        const { userId } = context.params;
+        const db = admin.firestore();
+
+        // Create notification for the owner
+        await db.collection(`users/${userId}/notifications`).add({
+            title: "🚨 Rush Order!",
+            body: `Rush order for ${order.tableName || "Takeaway"} — ${order.items?.length || 0} items`,
+            type: "rush_order",
+            read: false,
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            data: { orderId: context.params.orderId },
+        });
+    });
+
+/**
+ * onCustomerOrderCreated — Notify hotel when a customer places an order via web
+ */
+export const onCustomerOrderCreated = functions
+    .region("asia-south1")
+    .runWith({ timeoutSeconds: 30, memory: "256MB" })
+    .firestore.document("users/{userId}/orders/{orderId}")
+    .onCreate(async (snap, context) => {
+        const order = snap.data();
+        if (!order?.isCustomerOrder) return;
+
+        const { userId } = context.params;
+        const db = admin.firestore();
+
+        await db.collection(`users/${userId}/notifications`).add({
+            title: "📱 New Customer Order",
+            body: `${order.customerName || "Customer"} placed an order — ${order.items?.length || 0} items`,
+            type: "customer_order",
+            read: false,
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            data: { orderId: context.params.orderId },
+        });
+    });
+
+/**
+ * onOrderReady — Notify when order status changes to 'ready'
+ */
+export const onOrderReady = functions
+    .region("asia-south1")
+    .runWith({ timeoutSeconds: 30, memory: "256MB" })
+    .firestore.document("users/{userId}/orders/{orderId}")
+    .onUpdate(async (change, context) => {
+        const before = change.before.data();
+        const after = change.after.data();
+
+        // Only fire when status changes to 'ready'
+        if (before.status === after.status || after.status !== "ready") return;
+
+        const { userId } = context.params;
+        const db = admin.firestore();
+
+        await db.collection(`users/${userId}/notifications`).add({
+            title: "✅ Order Ready",
+            body: `Order for ${after.tableName || "Takeaway"} is ready to serve`,
+            type: "order_ready",
+            read: false,
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            data: { orderId: context.params.orderId },
+        });
+    });
+
+/**
+ * onLowIngredientStock — Alert when ingredient stock falls below reorder level
+ */
+export const onLowIngredientStock = functions
+    .region("asia-south1")
+    .runWith({ timeoutSeconds: 30, memory: "256MB" })
+    .firestore.document("users/{userId}/ingredients/{ingredientId}")
+    .onUpdate(async (change, context) => {
+        const after = change.after.data();
+        const before = change.before.data();
+
+        // Only fire when stock drops below reorder level
+        if (!after.reorderLevel || after.currentStock >= after.reorderLevel) return;
+        if (before.currentStock < before.reorderLevel) return; // Already low, don't re-notify
+
+        const { userId } = context.params;
+        const db = admin.firestore();
+
+        await db.collection(`users/${userId}/notifications`).add({
+            title: "⚠️ Low Stock Alert",
+            body: `${after.name} is low — ${after.currentStock} ${after.unit || "units"} remaining (reorder at ${after.reorderLevel})`,
+            type: "low_ingredient_stock",
+            read: false,
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            data: { ingredientId: context.params.ingredientId },
+        });
+    });
+
+/**
+ * onNewFeedback — Notify hotel owner when customer submits feedback
+ */
+export const onNewFeedback = functions
+    .region("asia-south1")
+    .runWith({ timeoutSeconds: 30, memory: "256MB" })
+    .firestore.document("users/{userId}/feedback/{feedbackId}")
+    .onCreate(async (snap, context) => {
+        const feedback = snap.data();
+        const { userId } = context.params;
+        const db = admin.firestore();
+
+        const avgRating = ((feedback.foodRating || 0) + (feedback.serviceRating || 0) + (feedback.ambianceRating || 0)) / 3;
+
+        await db.collection(`users/${userId}/notifications`).add({
+            title: avgRating >= 4 ? "⭐ Great Feedback!" : "📝 New Feedback",
+            body: `${feedback.customerName || "Anonymous"} rated: Food ${feedback.foodRating}/5, Service ${feedback.serviceRating}/5, Ambiance ${feedback.ambianceRating}/5`,
+            type: "new_feedback",
+            read: false,
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            data: { feedbackId: context.params.feedbackId },
+        });
+    });
+
+/**
+ * onNewReservation — Notify hotel when customer books a table
+ */
+export const onNewReservation = functions
+    .region("asia-south1")
+    .runWith({ timeoutSeconds: 30, memory: "256MB" })
+    .firestore.document("users/{userId}/reservations/{reservationId}")
+    .onCreate(async (snap, context) => {
+        const reservation = snap.data();
+        if (!reservation?.isCustomerBooking) return;
+
+        const { userId } = context.params;
+        const db = admin.firestore();
+
+        const dateStr = reservation.dateTime?.toDate?.()
+            ? reservation.dateTime.toDate().toLocaleDateString("en-IN")
+            : "Soon";
+
+        await db.collection(`users/${userId}/notifications`).add({
+            title: "📋 New Reservation",
+            body: `${reservation.customerName || "Customer"} booked for ${reservation.guestCount} guests on ${dateStr}`,
+            type: "new_reservation",
+            read: false,
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            data: { reservationId: context.params.reservationId },
+        });
+    });
+
+/**
+ * licenseExpiryReminder — Daily check for expiring licenses
+ */
+export const licenseExpiryReminder = functions
+    .region("asia-south1")
+    .runWith({ timeoutSeconds: 120, memory: "256MB" })
+    .pubsub.schedule("every day 09:00")
+    .timeZone("Asia/Kolkata")
+    .onRun(async () => {
+        const db = admin.firestore();
+        const now = new Date();
+        const thirtyDaysFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+
+        // Find all users
+        const usersSnap = await db.collection("users").get();
+
+        for (const userDoc of usersSnap.docs) {
+            const userId = userDoc.id;
+
+            // Check expiring licenses
+            const licensesSnap = await db
+                .collection(`users/${userId}/licenses`)
+                .where("expiryDate", "<=", admin.firestore.Timestamp.fromDate(thirtyDaysFromNow))
+                .get();
+
+            for (const licDoc of licensesSnap.docs) {
+                const license = licDoc.data();
+                const expiryDate = license.expiryDate?.toDate?.();
+                if (!expiryDate) continue;
+
+                const daysLeft = Math.ceil((expiryDate.getTime() - now.getTime()) / (24 * 60 * 60 * 1000));
+                if (daysLeft > 30 || daysLeft < -7) continue; // Only notify within 30 days before to 7 days after
+
+                const urgency = daysLeft <= 0 ? "EXPIRED" : daysLeft <= 7 ? "CRITICAL" : "WARNING";
+
+                await db.collection(`users/${userId}/notifications`).add({
+                    title: `🔔 License ${urgency}: ${license.name}`,
+                    body: daysLeft <= 0
+                        ? `${license.name} expired ${Math.abs(daysLeft)} days ago!`
+                        : `${license.name} expires in ${daysLeft} days`,
+                    type: "license_expiry",
+                    read: false,
+                    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+                    data: { licenseId: licDoc.id },
+                });
+            }
+        }
+
+        console.log("✅ licenseExpiryReminder: Completed");
+        return null;
+    });
+
+/**
+ * equipmentServiceReminder — Daily check for equipment needing service
+ */
+export const equipmentServiceReminder = functions
+    .region("asia-south1")
+    .runWith({ timeoutSeconds: 120, memory: "256MB" })
+    .pubsub.schedule("every day 08:00")
+    .timeZone("Asia/Kolkata")
+    .onRun(async () => {
+        const db = admin.firestore();
+        const now = admin.firestore.Timestamp.now();
+
+        const usersSnap = await db.collection("users").get();
+
+        for (const userDoc of usersSnap.docs) {
+            const userId = userDoc.id;
+
+            const equipSnap = await db
+                .collection(`users/${userId}/equipment`)
+                .where("nextServiceDate", "<=", now)
+                .get();
+
+            if (equipSnap.empty) continue;
+
+            const names = equipSnap.docs.map(d => d.data().name).join(", ");
+
+            await db.collection(`users/${userId}/notifications`).add({
+                title: "🔧 Equipment Service Due",
+                body: `${equipSnap.size} item(s) need service: ${names}`,
+                type: "equipment_service",
+                read: false,
+                createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            });
+        }
+
+        console.log("✅ equipmentServiceReminder: Completed");
+        return null;
+    });
+
+/**
+ * onComplaintCreated — Alert owner on new complaint
+ */
+export const onComplaintCreated = functions
+    .region("asia-south1")
+    .runWith({ timeoutSeconds: 30, memory: "256MB" })
+    .firestore.document("users/{userId}/complaints/{complaintId}")
+    .onCreate(async (snap, context) => {
+        const complaint = snap.data();
+        const { userId } = context.params;
+        const db = admin.firestore();
+
+        await db.collection(`users/${userId}/notifications`).add({
+            title: "🚨 New Complaint",
+            body: `${complaint.category || "General"}: ${complaint.title} — ${complaint.customerName || "Anonymous"}`,
+            type: "new_complaint",
+            read: false,
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            data: { complaintId: context.params.complaintId },
+        });
+    });
+
+/**
+ * onWastageLogged — Track wastage costs and alert on high-value waste
+ */
+export const onWastageLogged = functions
+    .region("asia-south1")
+    .runWith({ timeoutSeconds: 30, memory: "256MB" })
+    .firestore.document("users/{userId}/wastage/{wastageId}")
+    .onCreate(async (snap, context) => {
+        const wastage = snap.data();
+        const { userId } = context.params;
+
+        // Only notify for significant wastage (> ₹500)
+        if (!wastage.estimatedCost || wastage.estimatedCost < 500) return;
+
+        const db = admin.firestore();
+
+        await db.collection(`users/${userId}/notifications`).add({
+            title: "🗑️ High Wastage Alert",
+            body: `${wastage.itemName}: ₹${wastage.estimatedCost} wasted (${wastage.reason || "unknown"})`,
+            type: "high_wastage",
+            read: false,
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            data: { wastageId: context.params.wastageId },
+        });
+    });
+
+/**
+ * onNewOrderKitchenAlert — Send FCM to kitchen devices when a new order is placed
+ */
+export const onNewOrderKitchenAlert = functions
+    .region("asia-south1")
+    .runWith({ timeoutSeconds: 30, memory: "256MB" })
+    .firestore.document("users/{userId}/orders/{orderId}")
+    .onCreate(async (snap, context) => {
+        const order = snap.data();
+        const { userId } = context.params;
+        const db = admin.firestore();
+
+        await db.collection(`users/${userId}/notifications`).add({
+            title: "🍳 New Order",
+            body: `Order #${order.orderNumber || "?"} — ${order.tableName || order.orderType || "Takeaway"} (${order.items?.length || 0} items)`,
+            type: "kitchen_new_order",
+            read: false,
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            data: { orderId: context.params.orderId },
+        });
+    });
+
+/**
+ * onStockUpdate — Alert when ingredient stock drops below minimum level
+ */
+export const onStockUpdate = functions
+    .region("asia-south1")
+    .runWith({ timeoutSeconds: 30, memory: "256MB" })
+    .firestore.document("users/{userId}/ingredients/{ingredientId}")
+    .onUpdate(async (change, context) => {
+        const after = change.after.data();
+        const { userId } = context.params;
+
+        if (after.currentStock > after.minLevel) return;
+
+        const db = admin.firestore();
+
+        await db.collection(`users/${userId}/notifications`).add({
+            title: "⚠️ Low Stock",
+            body: `${after.name}: ${after.currentStock} ${after.unit || ""} remaining (min: ${after.minLevel})`,
+            type: "low_stock",
+            read: false,
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            data: { ingredientId: context.params.ingredientId },
+        });
+    });
+
+/**
+ * razorpayReconciliation — Daily reconciliation of Razorpay settlements
+ */
+export const razorpayReconciliation = functions
+    .region("asia-south1")
+    .runWith({ timeoutSeconds: 120, memory: "256MB" })
+    .pubsub.schedule("every day 06:00")
+    .timeZone("Asia/Kolkata")
+    .onRun(async () => {
+        // Reconciliation requires Razorpay API key — skipped if not configured
+        const razorpayKey = process.env.RAZORPAY_KEY_ID;
+        if (!razorpayKey) {
+            console.log("Razorpay key not configured — skipping reconciliation");
+            return;
+        }
+
+        const db = admin.firestore();
+        const usersSnap = await db.collection("users").get();
+
+        for (const userDoc of usersSnap.docs) {
+            const userId = userDoc.id;
+            const yesterday = new Date();
+            yesterday.setDate(yesterday.getDate() - 1);
+            yesterday.setHours(0, 0, 0, 0);
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            // Count yesterday's online payment bills
+            const billsSnap = await db
+                .collection(`users/${userId}/bills`)
+                .where("createdAt", ">=", yesterday)
+                .where("createdAt", "<", today)
+                .where("paymentMethod", "in", ["upi", "card", "online"])
+                .get();
+
+            if (billsSnap.empty) continue;
+
+            const totalOnline = billsSnap.docs.reduce(
+                (sum: number, doc: any) => sum + (doc.data().total || 0),
+                0
+            );
+
+            // Write reconciliation flag for owner to review
+            await db.collection(`users/${userId}/reconciliation_flags`).add({
+                date: yesterday,
+                onlineBillCount: billsSnap.size,
+                totalOnlineAmount: totalOnline,
+                status: "pending_review",
+                createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            });
+        }
+
+        console.log("Razorpay reconciliation completed");
+    });
+
+// ─── Phase 8: WhatsApp & SMS Cloud Functions ───
+export {
+    sendOrderConfirmation,
+    sendFeedbackRequest,
+    sendReservationReminder,
+    sendDailySummaryWhatsApp,
+} from "./whatsapp";
+
+export { sendOrderReadySMS } from "./sms";

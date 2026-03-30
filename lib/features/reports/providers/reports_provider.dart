@@ -48,7 +48,7 @@ Stream<List<BillModel>> _getBillsStreamForRange(
   return OfflineStorageService.billsInRangeStream(range.start, range.end);
 }
 
-/// Sales summary provider â€” real-time stream from Firestore
+/// Sales summary provider — real-time stream from Firestore
 final salesSummaryProvider = StreamProvider.autoDispose<SalesSummary>((ref) {
   final isDemoMode = ref.watch(isDemoModeProvider);
   final period = ref.watch(selectedPeriodProvider);
@@ -132,7 +132,7 @@ final salesSummaryProvider = StreamProvider.autoDispose<SalesSummary>((ref) {
   });
 });
 
-/// Bills for the selected period â€” real-time stream from Firestore
+/// Bills for the selected period — real-time stream from Firestore
 final periodBillsProvider = StreamProvider.autoDispose<List<BillModel>>((ref) {
   final isDemoMode = ref.watch(isDemoModeProvider);
   final period = ref.watch(selectedPeriodProvider);
@@ -143,7 +143,7 @@ final periodBillsProvider = StreamProvider.autoDispose<List<BillModel>>((ref) {
   return _getBillsStreamForRange(range, isDemoMode);
 });
 
-/// Top products for the selected period â€” derives from period bills stream
+/// Top products for the selected period — derives from period bills stream
 /// Includes Stopwatch-based performance monitoring for large datasets.
 final topProductsProvider = Provider.autoDispose<AsyncValue<List<ProductSale>>>((
   ref,
@@ -183,8 +183,8 @@ final topProductsProvider = Provider.autoDispose<AsyncValue<List<ProductSale>>>(
     sw.stop();
     if (sw.elapsedMilliseconds > 100) {
       debugPrint(
-        'âš ï¸ topProductsProvider: aggregation took ${sw.elapsedMilliseconds}ms '
-        'for ${bills.length} bills â€” consider server-side pre-aggregation',
+        '⚠️ topProductsProvider: aggregation took ${sw.elapsedMilliseconds}ms '
+        'for ${bills.length} bills — consider server-side pre-aggregation',
       );
     }
 
@@ -192,7 +192,7 @@ final topProductsProvider = Provider.autoDispose<AsyncValue<List<ProductSale>>>(
   });
 });
 
-/// Dashboard bills provider â€” real-time stream for last 7 days
+/// Dashboard bills provider — real-time stream for last 7 days
 final dashboardBillsProvider = StreamProvider.autoDispose<List<BillModel>>((
   ref,
 ) {

@@ -1,7 +1,8 @@
-# Smart Deploy Agent v4.0 - Tulasi Hotels
+﻿# Smart Deploy Agent v5.0 - Tulasi Hotels
 # Asks smart questions first, then runs everything automatically
-#
+# 
 # Usage: .\smart-deploy.ps1
+#        .\smart-deploy.ps1 -WebsiteOnly                  # Deploy marketing website only (no Flutter build)
 #        .\smart-deploy.ps1 -Rollback                    # Rollback all platforms
 #        .\smart-deploy.ps1 -Rollback -RollbackTarget web  # Rollback web only
 #        .\smart-deploy.ps1 -DryRun                      # Preview without deploying
@@ -11,12 +12,23 @@ param(
     [switch]$Rollback,
     [switch]$DryRun,
     [switch]$SetupMonitoring,
+    [switch]$WebsiteOnly,
     [string]$RollbackTarget = ""   # web, windows, android, or blank for all
 )
 
 $ErrorActionPreference = "Stop"
 $root = $PSScriptRoot
 if (-not $root) { $root = Get-Location }
+
+# --- Ensure JAVA_HOME and ANDROID_HOME are set ---
+if (-not $env:JAVA_HOME) {
+    $javaPath = "C:\Program Files\Microsoft\jdk-17.0.18.8-hotspot"
+    if (Test-Path $javaPath) { $env:JAVA_HOME = $javaPath }
+}
+if (-not $env:ANDROID_HOME) {
+    $androidPath = "$env:LOCALAPPDATA\Android\Sdk"
+    if (Test-Path $androidPath) { $env:ANDROID_HOME = $androidPath; $env:ANDROID_SDK_ROOT = $androidPath }
+}
 
 # --- Colors and Helpers ---
 function Write-Step { param($msg) Write-Host "`n[STEP] $msg" -ForegroundColor Cyan }
@@ -83,7 +95,7 @@ function Invoke-WithRetry {
 # --- Step-tracking for granular resume ---
 $script:completedSteps = @()
 
-function Is-StepDone {
+function Test-StepDone {
     param([string]$StepName)
     return $script:completedSteps -contains $StepName
 }
@@ -105,6 +117,118 @@ function Save-Progress {
 }
 
 # ===========================================================
+#   --WebsiteOnly: Quick website deploy (no Flutter build)
+# ===========================================================
+if ($WebsiteOnly) {
+    Write-Host ""
+    Write-Host "========================================================" -ForegroundColor Cyan
+    Write-Host "  Website-Only Deploy (Marketing Site)" -ForegroundColor Cyan
+    Write-Host "========================================================" -ForegroundColor Cyan
+
+    $distDir = Join-Path $root "dist"
+    $websiteDir = Join-Path $root "website"
+
+    if (-not (Test-Path $websiteDir)) {
+        Write-Fail "website/ directory not found!"
+        exit 1
+    }
+
+    # Backup existing app/ if present
+    $appBackup = $null
+    $appDir = Join-Path $distDir "app"
+    if (Test-Path $appDir) {
+        Write-Step "Preserving existing Flutter app (dist/app/)..."
+        $appBackup = Join-Path $root "deploy-backups\app_temp_$((Get-Date -Format 'yyyyMMdd_HHmmss'))"
+        New-Item -ItemType Directory -Path $appBackup -Force | Out-Null
+        Copy-Item -Path "$appDir\*" -Destination $appBackup -Recurse -Force
+        Write-Ok "Flutter app backed up"
+    }
+
+    # Copy website to dist
+    Write-Step "Copying website/ to dist/..."
+    if (Test-Path $distDir) { Remove-Item $distDir -Recurse -Force }
+    New-Item -ItemType Directory -Path $distDir -Force | Out-Null
+    Copy-Item -Path "$websiteDir\*" -Destination $distDir -Recurse -Force
+    Write-Ok "Website copied to dist/"
+
+    # Restore app/
+    if ($appBackup) {
+        $appDirNew = Join-Path $distDir "app"
+        New-Item -ItemType Directory -Path $appDirNew -Force | Out-Null
+        Copy-Item -Path "$appBackup\*" -Destination $appDirNew -Recurse -Force
+        Remove-Item $appBackup -Recurse -Force
+        Write-Ok "Flutter app restored to dist/app/"
+    } else {
+        Write-Warn "No existing Flutter app found in dist/app/ -- website will deploy without /app/ route"
+    }
+
+    # Create serve.json
+    $serveJson = '{"rewrites":[{"source":"/app/**","destination":"/app/index.html"}],"headers":[{"source":"**/*","headers":[{"key":"Cache-Control","value":"no-cache"}]}]}'
+    [System.IO.File]::WriteAllText((Join-Path $distDir "serve.json"), $serveJson, [System.Text.UTF8Encoding]::new($false))
+
+    if ($DryRun) {
+        Write-Host ""
+        Write-Ok "[DRY-RUN] Would deploy dist/ to Firebase Hosting"
+        Write-DeployLog "DRY-RUN | Website-only preview"
+        exit 0
+    }
+
+    # Deploy
+    Write-Step "Deploying to Firebase Hosting..."
+    $ErrorActionPreference = "Continue"
+    firebase deploy --only hosting
+    $fbExit = $LASTEXITCODE
+    $ErrorActionPreference = "Stop"
+
+    if ($fbExit -eq 0) {
+        Write-Ok "Website deployed to Firebase Hosting!"
+        Write-DeployLog "WEBSITE DEPLOY | Marketing site updated"
+
+        # Health check
+        Write-Step "Health check..."
+        Start-Sleep -Seconds 5
+        $healthUrls = @(
+            "https://login1-aa21c.web.app/",
+            "https://login1-aa21c.web.app/app/"
+        )
+        foreach ($url in $healthUrls) {
+            try {
+                $response = Invoke-WebRequest -Uri $url -UseBasicParsing -TimeoutSec 15 -ErrorAction Stop
+                if ($response.StatusCode -eq 200) { Write-Ok "$url -> HTTP 200" }
+                else { Write-Warn "$url -> HTTP $($response.StatusCode)" }
+            }
+            catch { Write-Warn "$url -> Could not reach" }
+        }
+
+        # Git commit
+        Write-Step "Git commit + push..."
+        $ErrorActionPreference = "Continue"
+        git add -A 2>&1 | Out-Null
+        git commit -m "website: update marketing site" 2>&1 | Out-Null
+        git push 2>&1 | Out-Null
+        Write-Ok "Pushed to remote"
+        $ErrorActionPreference = "Stop"
+        Write-DeployLog "GIT | Website update pushed"
+
+        Write-Host ""
+        Write-Host "========================================================" -ForegroundColor Green
+        Write-Host "  Website Deploy Complete!" -ForegroundColor Green
+        Write-Host "========================================================" -ForegroundColor Green
+        Write-Host "  Website: https://login1-aa21c.web.app/" -ForegroundColor White
+        Write-Host "  App:     https://login1-aa21c.web.app/app/" -ForegroundColor White
+        Write-Host "  Log:     deploy-history.log" -ForegroundColor Gray
+        Write-Host ""
+        Write-DeployLog "WEBSITE DEPLOY COMPLETE"
+        Write-DeployLog "------------------------------------------------"
+    } else {
+        Write-Fail "Firebase deploy failed!"
+        Write-DeployLog "WEBSITE DEPLOY FAILED"
+        exit 1
+    }
+    exit 0
+}
+
+# ===========================================================
 #   --setup-monitoring: One-time GCP budget + uptime setup
 # ===========================================================
 if ($SetupMonitoring) {
@@ -121,7 +245,7 @@ if ($SetupMonitoring) {
     }
 
     $projectId = (gcloud config get-value project 2>$null)
-    if (-not $projectId) { $projectId = "login-radha" }
+    if (-not $projectId) { $projectId = "login1-aa21c" }
     Write-Info "Project: $projectId"
 
     # 1. Enable required APIs
@@ -138,7 +262,7 @@ if ($SetupMonitoring) {
     $ErrorActionPreference = "Continue"
     gcloud monitoring uptime create "Tulasi Hotels Web App" `
         --resource-type=uptime-url `
-        --resource-labels="host=login-radha.web.app,project_id=$projectId" `
+        --resource-labels="host=login1-aa21c.web.app,project_id=$projectId" `
         --protocol=https `
         --path="/" `
         --period=5 `
@@ -151,7 +275,7 @@ if ($SetupMonitoring) {
     $ErrorActionPreference = "Continue"
     gcloud monitoring uptime create "Tulasi Hotels Flutter App" `
         --resource-type=uptime-url `
-        --resource-labels="host=login-radha.web.app,project_id=$projectId" `
+        --resource-labels="host=login1-aa21c.web.app,project_id=$projectId" `
         --protocol=https `
         --path="/app/" `
         --period=5 `
@@ -192,7 +316,7 @@ if ($SetupMonitoring) {
     Write-Step "Budget alert setup instructions..."
     Write-Host ""
     Write-Host "  +-------------------------------------------------+" -ForegroundColor Yellow
-    Write-Host "  |  GCP Budget Alerts (manual â€” requires billing    |" -ForegroundColor Yellow
+    Write-Host "  |  GCP Budget Alerts (manual -- requires billing    |" -ForegroundColor Yellow
     Write-Host "  |  admin access via console):                      |" -ForegroundColor Yellow
     Write-Host "  |                                                  |" -ForegroundColor Yellow
     Write-Host "  |  1. Go to: console.cloud.google.com/billing     |" -ForegroundColor White
@@ -213,7 +337,7 @@ if ($SetupMonitoring) {
     Write-Host "  - Backup retention: 30 days auto-delete" -ForegroundColor Green
     Write-Host "  - Budget alerts: follow instructions above" -ForegroundColor Yellow
     Write-Host ""
-    Write-DeployLog "MONITORING | Setup complete â€” uptime checks + backup retention"
+    Write-DeployLog "MONITORING | Setup complete -- uptime checks + backup retention"
     exit 0
 }
 
@@ -288,14 +412,14 @@ if ($Rollback) {
 
                 $gsutilExists = Get-Command gsutil -ErrorAction SilentlyContinue
                 if ($gsutilExists) {
-                    $storagePath = "gs://login-radha.firebasestorage.app/downloads/windows/"
+                    $storagePath = "gs://login1-aa21c.firebasestorage.app/downloads/windows/"
                     gsutil cp $winVersionPath "${storagePath}version.json"
                     gsutil setmeta -h "Cache-Control:no-cache,max-age=0" "${storagePath}version.json"
                     Write-Ok "Windows version.json uploaded to Storage"
                     Write-DeployLog "ROLLBACK | Windows version.json restored from $($latestWinBackup.Name)"
                     $rollbackPerformed = $true
                 } else {
-                    Write-Warn "gsutil not found â€” upload installer/version.json manually"
+                    Write-Warn "gsutil not found -- upload installer/version.json manually"
                 }
             }
         } else {
@@ -319,14 +443,14 @@ if ($Rollback) {
 
                 $gsutilExists = Get-Command gsutil -ErrorAction SilentlyContinue
                 if ($gsutilExists) {
-                    $storagePath = "gs://login-radha.firebasestorage.app/downloads/android/"
+                    $storagePath = "gs://login1-aa21c.firebasestorage.app/downloads/android/"
                     gsutil cp $androidVersionPath "${storagePath}version.json"
                     gsutil setmeta -h "Cache-Control:no-cache,max-age=0" "${storagePath}version.json"
                     Write-Ok "Android version.json uploaded to Storage"
                     Write-DeployLog "ROLLBACK | Android version.json restored from $($latestAndBackup.Name)"
                     $rollbackPerformed = $true
                 } else {
-                    Write-Warn "gsutil not found â€” upload installer/android-version.json manually"
+                    Write-Warn "gsutil not found -- upload installer/android-version.json manually"
                 }
             }
         } else {
@@ -392,28 +516,30 @@ if (Test-Path $statePath) {
         $buildMsix = [bool]$savedState.buildMsix
         $buildExe = [bool]$savedState.buildExe
         $winChoiceLabel = $savedState.winChoiceLabel
+        $deployWebsiteOnly = [bool]$savedState.deployWebsiteOnly
         # Restore completed steps for granular resume
         if ($savedState.completedSteps) {
             $script:completedSteps = @($savedState.completedSteps)
         }
         # Initialize $script:currentState for Save-Progress
         $script:currentState = @{
-            updateType       = $updateType
-            typeName         = $savedState.typeName
-            skipBuild        = $skipBuild
-            deployWeb        = $deployWeb
-            deployWindows    = $deployWindows
-            deployAndroid    = $deployAndroid
-            newVersion       = $newVersion
-            newBuild         = $newBuild
-            changelog        = $changelog
-            forceMinVersion  = $forceMinVersion
-            announcementMsg  = $announcementMsg
-            setLatestVersion = $setLatestVersion
-            buildMsix        = $buildMsix
-            buildExe         = $buildExe
-            winChoiceLabel   = $winChoiceLabel
-            completedSteps   = $script:completedSteps
+            updateType         = $updateType
+            typeName           = $savedState.typeName
+            skipBuild          = $skipBuild
+            deployWeb          = $deployWeb
+            deployWindows      = $deployWindows
+            deployAndroid      = $deployAndroid
+            deployWebsiteOnly  = $deployWebsiteOnly
+            newVersion         = $newVersion
+            newBuild           = $newBuild
+            changelog          = $changelog
+            forceMinVersion    = $forceMinVersion
+            announcementMsg    = $announcementMsg
+            setLatestVersion   = $setLatestVersion
+            buildMsix          = $buildMsix
+            buildExe           = $buildExe
+            winChoiceLabel     = $winChoiceLabel
+            completedSteps     = $script:completedSteps
             platforms        = $savedState.platforms
             savedAt          = $savedState.savedAt
         }
@@ -437,7 +563,7 @@ if (-not $resumed) {
     # ===========================================================
     Write-Host ""
     Write-Host "========================================================" -ForegroundColor Cyan
-    Write-Host "  Tulasi Hotels - Smart Deploy Agent v3.0" -ForegroundColor Cyan
+    Write-Host "  Tulasi Hotels - Smart Deploy Agent v5.0" -ForegroundColor Cyan
     Write-Host "  Answer a few questions, then I do the rest!" -ForegroundColor Cyan
     Write-Host "========================================================" -ForegroundColor Cyan
 
@@ -454,26 +580,29 @@ if (-not $resumed) {
     $deployWeb = $false
     $deployWindows = $false
     $deployAndroid = $false
+    $deployWebsiteOnly = $false
 
     # --- Q2: Platforms ---
     if (-not $skipBuild) {
         $platformChoice = Pick "Q2: Deploy to which platforms?" @(
-            "Web only",
+            "Website only         (marketing site, no Flutter build)",
+            "Web App + Website    (Flutter app + marketing site)",
             "Windows only",
             "Android only",
-            "Web + Windows",
-            "Web + Android",
+            "Web App + Windows",
+            "Web App + Android",
             "Windows + Android",
-            "All platforms"
+            "All platforms (Web App + Website + Windows + Android)"
         )
         switch ($platformChoice) {
-            1 { $deployWeb = $true }
-            2 { $deployWindows = $true }
-            3 { $deployAndroid = $true }
-            4 { $deployWeb = $true; $deployWindows = $true }
-            5 { $deployWeb = $true; $deployAndroid = $true }
-            6 { $deployWindows = $true; $deployAndroid = $true }
-            7 { $deployWeb = $true; $deployWindows = $true; $deployAndroid = $true }
+            1 { $deployWebsiteOnly = $true }
+            2 { $deployWeb = $true }
+            3 { $deployWindows = $true }
+            4 { $deployAndroid = $true }
+            5 { $deployWeb = $true; $deployWindows = $true }
+            6 { $deployWeb = $true; $deployAndroid = $true }
+            7 { $deployWindows = $true; $deployAndroid = $true }
+            8 { $deployWeb = $true; $deployWindows = $true; $deployAndroid = $true }
         }
     }
 
@@ -491,7 +620,7 @@ if (-not $resumed) {
     $newBuild = $currentVersion.build
 
     # --- Q3: Version bump ---
-    if (-not $skipBuild) {
+    if (-not $skipBuild -and -not $deployWebsiteOnly) {
         $parts = $currentVersion.version -split '\.'
         $patchBumped = "$($parts[0]).$($parts[1]).$([int]$parts[2] + 1)"
         $minorBumped = "$($parts[0]).$([int]$parts[1] + 1).0"
@@ -524,7 +653,7 @@ if (-not $resumed) {
 
     # --- Q4: Changelog ---
     $changelog = ""
-    if (-not $skipBuild) {
+    if (-not $skipBuild -and -not $deployWebsiteOnly) {
         Write-Host ""
         Write-Host "  Q4: What changed? (one per line, blank to finish)" -ForegroundColor White
         $lines = @()
@@ -547,7 +676,7 @@ if (-not $resumed) {
     # --- Q5/Q6: Announcement (optional) ---
     $announcementMsg = ""
     $setLatestVersion = $false
-    if (-not $skipBuild -and $updateType -le 3) {
+    if (-not $skipBuild -and -not $deployWebsiteOnly -and $updateType -le 3) {
         $setLatestVersion = $true
 
         Write-Host ""
@@ -588,10 +717,12 @@ if (-not $resumed) {
 
     $typeNames = @("", "Normal", "Patch", "Critical", "Maintenance", "Config Only")
     Write-Host "  Type:       $($typeNames[$updateType])" -ForegroundColor White
-    if (-not $skipBuild) {
+    if ($deployWebsiteOnly) {
+        Write-Host "  Platforms:  Website only (no Flutter build)" -ForegroundColor White
+    } elseif (-not $skipBuild) {
         Write-Host "  Version:    $newVersion+$newBuild" -ForegroundColor White
         $platforms = @()
-        if ($deployWeb) { $platforms += "Web" }
+        if ($deployWeb) { $platforms += "Web App + Website" }
         if ($deployWindows) { $platforms += "Windows" }
         if ($deployAndroid) { $platforms += "Android" }
         Write-Host "  Platforms:  $($platforms -join ', ')" -ForegroundColor White
@@ -607,11 +738,16 @@ if (-not $resumed) {
 
     Write-Host ""
     Write-Host "  After confirm, I will automatically:" -ForegroundColor Gray
-    if (-not $skipBuild) {
+    if ($deployWebsiteOnly) {
+        Write-Host "    > Copy website/ to dist/ (preserve existing app/)" -ForegroundColor Gray
+        Write-Host "    > Deploy to Firebase Hosting" -ForegroundColor Gray
+        Write-Host "    > Health check website + app URLs" -ForegroundColor Gray
+        Write-Host "    > Git commit + push" -ForegroundColor Gray
+    } elseif (-not $skipBuild) {
         Write-Host "    > Run tests + analyzer" -ForegroundColor Gray
         Write-Host "    > Bump version in pubspec.yaml" -ForegroundColor Gray
         Write-Host "    > Backup current deployment" -ForegroundColor Gray
-        if ($deployWeb) { Write-Host "    > Build web + deploy to Firebase Hosting + health check" -ForegroundColor Gray }
+        if ($deployWeb) { Write-Host "    > Build Flutter web app + copy website + deploy to Firebase Hosting + health check" -ForegroundColor Gray }
         if ($deployWindows) { Write-Host "    > Build Windows + MSIX + Inno Setup EXE + upload to Storage" -ForegroundColor Gray }
         if ($deployAndroid) { Write-Host "    > Build Android APK + update version.json + upload to Storage" -ForegroundColor Gray }
         Write-Host "    > Git commit + tag + push" -ForegroundColor Gray
@@ -628,24 +764,25 @@ if (-not $resumed) {
     $pubspecPath = Join-Path $root "pubspec.yaml"
     $typeNames = @("", "Normal", "Patch", "Critical", "Maintenance", "Config Only")
     $script:currentState = @{
-        updateType       = $updateType
-        typeName         = $typeNames[$updateType]
-        skipBuild        = $skipBuild
-        deployWeb        = $deployWeb
-        deployWindows    = $deployWindows
-        deployAndroid    = $deployAndroid
-        newVersion       = $newVersion
-        newBuild         = $newBuild
-        changelog        = $changelog
-        forceMinVersion  = $forceMinVersion
-        announcementMsg  = $announcementMsg
-        setLatestVersion = $setLatestVersion
-        buildMsix        = $buildMsix
-        buildExe         = $buildExe
-        winChoiceLabel   = $winChoiceLabel
-        completedSteps   = @()
-        platforms        = (@($(if ($deployWeb) { 'Web' }), $(if ($deployWindows) { 'Windows' }), $(if ($deployAndroid) { 'Android' })) | Where-Object { $_ }) -join ', '
-        savedAt          = (Get-Date -Format "yyyy-MM-dd HH:mm:ss")
+        updateType         = $updateType
+        typeName           = $typeNames[$updateType]
+        skipBuild          = $skipBuild
+        deployWeb          = $deployWeb
+        deployWindows      = $deployWindows
+        deployAndroid      = $deployAndroid
+        deployWebsiteOnly  = $deployWebsiteOnly
+        newVersion         = $newVersion
+        newBuild           = $newBuild
+        changelog          = $changelog
+        forceMinVersion    = $forceMinVersion
+        announcementMsg    = $announcementMsg
+        setLatestVersion   = $setLatestVersion
+        buildMsix          = $buildMsix
+        buildExe           = $buildExe
+        winChoiceLabel     = $winChoiceLabel
+        completedSteps     = @()
+        platforms          = $(if ($deployWebsiteOnly) { 'Website only' } else { (@($(if ($deployWeb) { 'Web App + Website' }), $(if ($deployWindows) { 'Windows' }), $(if ($deployAndroid) { 'Android' })) | Where-Object { $_ }) -join ', ' })
+        savedAt            = (Get-Date -Format "yyyy-MM-dd HH:mm:ss")
     }
     $stateData = $script:currentState | ConvertTo-Json -Depth 3
     [System.IO.File]::WriteAllText($statePath, $stateData, [System.Text.UTF8Encoding]::new($false))
@@ -684,10 +821,11 @@ if ($DryRun) {
         Write-Info "Would run: flutter test --reporter compact"
         Write-Info "Would run: flutter analyze"
     }
-    if ($deployWeb) { Write-Info "Would build web + deploy to Firebase Hosting + health check" }
+    if ($deployWebsiteOnly) { Write-Info "Would copy website/ to dist/ + deploy to Firebase Hosting + health check" }
+    if ($deployWeb) { Write-Info "Would build Flutter web + copy website + deploy to Firebase Hosting + health check" }
     if ($deployWindows) { Write-Info "Would build Windows + create $winChoiceLabel + upload to Storage" }
     if ($deployAndroid) { Write-Info "Would build Android APK + upload to Storage" }
-    if (-not $skipBuild) { Write-Info "Would git commit + tag v$newVersion+$newBuild + push" }
+    if (-not $skipBuild -and -not $deployWebsiteOnly) { Write-Info "Would git commit + tag v$newVersion+$newBuild + push" }
     if ($forceMinVersion) { Write-Info "Would set Remote Config: min_app_version = $forceMinVersion" }
     if ($announcementMsg) { Write-Info "Would set Remote Config: announcement = $announcementMsg" }
     Write-Host ""
@@ -701,7 +839,7 @@ try {
     # <- Catch ALL errors -- nothing can stop us!
 
     # --- Update pubspec.yaml ---
-    if (-not $skipBuild -and -not (Is-StepDone "version_bump")) {
+    if (-not $skipBuild -and -not $deployWebsiteOnly -and -not (Test-StepDone "version_bump")) {
         Write-Step "Updating version to $newVersion+$newBuild"
         $pubspecContent = Get-Content $pubspecPath -Raw
         $pubspecContent = $pubspecContent -replace 'version:\s*\d+\.\d+\.\d+\+\d+', "version: $newVersion+$newBuild"
@@ -709,12 +847,12 @@ try {
         Write-Ok "pubspec.yaml updated"
         Complete-Step "version_bump"
     }
-    elseif (Is-StepDone "version_bump") {
+    elseif (Test-StepDone "version_bump") {
         Write-Info "SKIP: Version already bumped"
     }
 
     # --- Run Tests ---
-    if (-not $skipBuild -and -not $failed -and -not (Is-StepDone "tests")) {
+    if (-not $skipBuild -and -not $deployWebsiteOnly -and -not $failed -and -not (Test-StepDone "tests")) {
         Write-Step "Running tests..."
         $ErrorActionPreference = "Continue"
         flutter test --reporter compact
@@ -729,12 +867,12 @@ try {
             Write-DeployLog "TESTS PASSED"
         }
     }
-    elseif (Is-StepDone "tests") {
+    elseif (Test-StepDone "tests") {
         Write-Info "SKIP: Tests already passed"
     }
 
     # --- Run Analyzer ---
-    if (-not $skipBuild -and -not $failed -and -not (Is-StepDone "analyzer")) {
+    if (-not $skipBuild -and -not $deployWebsiteOnly -and -not $failed -and -not (Test-StepDone "analyzer")) {
         Write-Step "Running analyzer..."
         $ErrorActionPreference = "Continue"
         flutter analyze --no-pub --no-fatal-infos --no-fatal-warnings
@@ -751,7 +889,7 @@ try {
             Complete-Step "analyzer"
         }
     }
-    elseif (Is-StepDone "analyzer") {
+    elseif (Test-StepDone "analyzer") {
         Write-Info "SKIP: Analyzer already passed"
     }
 
@@ -788,7 +926,7 @@ try {
     }
 
     # --- Build and Deploy: Windows (MSIX + Inno Setup EXE) --- [RUNS FIRST to update download.html before web deploy]
-    if (-not $failed -and $deployWindows -and -not (Is-StepDone "windows")) {
+    if (-not $failed -and $deployWindows -and -not (Test-StepDone "windows")) {
         Write-Step "Building Windows -- $winChoiceLabel..."
 
         # Update MSIX version in pubspec.yaml (MSIX needs x.x.x.0 format)
@@ -947,7 +1085,7 @@ WScript.Quit 0
                 # Update version.json with EXE download URL
                 $winVersionPath = Join-Path $root "installer\version.json"
                 $exeStorageName = "TulasiStores_Setup.exe"
-                $exeDownloadUrl = "https://firebasestorage.googleapis.com/v0/b/login-radha.firebasestorage.app/o/downloads%2Fwindows%2F$exeStorageName`?alt=media"
+                $exeDownloadUrl = "https://firebasestorage.googleapis.com/v0/b/login1-aa21c.firebasestorage.app/o/downloads%2Fwindows%2F$exeStorageName`?alt=media"
 
                 $versionJson = @{
                     version        = $newVersion
@@ -983,7 +1121,7 @@ WScript.Quit 0
                 # Upload EXE to Firebase Storage (MSIX goes to Microsoft Store separately)
                 $gsutilExists = Get-Command gsutil -ErrorAction SilentlyContinue
                 if ($gsutilExists) {
-                    $storagePath = "gs://login-radha.firebasestorage.app/downloads/windows/"
+                    $storagePath = "gs://login1-aa21c.firebasestorage.app/downloads/windows/"
 
                     # Upload version.json + EXE (overwrite single fixed filename)
                     Write-Step "Uploading EXE + version.json to Firebase Storage..."
@@ -1015,7 +1153,6 @@ WScript.Quit 0
                     Write-Ok "MSIX path copied to clipboard"
 
                     # Open MSIX folder in Explorer (so you can drag & drop)
-                    $msixFolder = Split-Path $msixFile -Parent
                     Start-Process explorer.exe -ArgumentList "/select,`"$msixFile`""
                     Write-Ok "Opened MSIX file in Explorer"
 
@@ -1037,12 +1174,12 @@ WScript.Quit 0
             Complete-Step "windows"
         }
     }
-    elseif (Is-StepDone "windows") {
+    elseif (Test-StepDone "windows") {
         Write-Info "SKIP: Windows already built + uploaded"
     }
 
     # --- Build and Deploy: Android --- [RUNS BEFORE Web so download.html has APK link before web deploy]
-    if (-not $failed -and $deployAndroid -and -not (Is-StepDone "android")) {
+    if (-not $failed -and $deployAndroid -and -not (Test-StepDone "android")) {
         Write-Step "Building Android APK..."
         $ErrorActionPreference = "Continue"
         flutter build apk --release
@@ -1061,7 +1198,7 @@ WScript.Quit 0
             # Update android-version.json
             $androidVersionPath = Join-Path $root "installer\android-version.json"
             $apkStorageName = "TulasiStores.apk"
-            $apkDownloadUrl = "https://firebasestorage.googleapis.com/v0/b/login-radha.firebasestorage.app/o/downloads%2Fandroid%2F$apkStorageName`?alt=media"
+            $apkDownloadUrl = "https://firebasestorage.googleapis.com/v0/b/login1-aa21c.firebasestorage.app/o/downloads%2Fandroid%2F$apkStorageName`?alt=media"
 
             $versionJson = @{
                 version     = $newVersion
@@ -1093,7 +1230,7 @@ WScript.Quit 0
             # Upload APK to Firebase Storage
             $gsutilExists = Get-Command gsutil -ErrorAction SilentlyContinue
             if ($gsutilExists) {
-                $storagePath = "gs://login-radha.firebasestorage.app/downloads/android/"
+                $storagePath = "gs://login1-aa21c.firebasestorage.app/downloads/android/"
 
                 # Upload version.json + APK (overwrite single fixed filename)
                 Write-Step "Uploading APK + version.json to Firebase Storage..."
@@ -1163,24 +1300,93 @@ WScript.Quit 0
                     Write-DeployLog "PLAY STORE | AAB v$newVersion uploaded to closed testing"
                 }
                 else {
-                    Write-Warn "Skipped Play Store upload â€” remember to upload manually!"
+                    Write-Warn "Skipped Play Store upload -- remember to upload manually!"
                     Write-DeployLog "PLAY STORE | AAB v$newVersion built but upload skipped"
                 }
             }
             else {
-                Write-Warn "AAB build failed â€” APK was uploaded to Firebase Storage, but Play Store upload skipped"
+                Write-Warn "AAB build failed -- APK was uploaded to Firebase Storage, but Play Store upload skipped"
                 Write-DeployLog "ANDROID AAB FAILED | APK upload OK, AAB failed"
             }
 
             Complete-Step "android"
         }
     }
-    elseif (Is-StepDone "android") {
+    elseif (Test-StepDone "android") {
         Write-Info "SKIP: Android already built + uploaded"
     }
 
+    # --- Deploy Website Only (no Flutter build) ---
+    if (-not $failed -and $deployWebsiteOnly -and -not (Test-StepDone "website_only")) {
+        Write-Step "Deploying Website Only (no Flutter build)..."
+        $distDir = Join-Path $root "dist"
+        $websiteDir = Join-Path $root "website"
+
+        # Preserve existing app/ directory
+        $appBackup = $null
+        $appDir = Join-Path $distDir "app"
+        if (Test-Path $appDir) {
+            Write-Info "Preserving existing Flutter app (dist/app/)..."
+            $appBackup = Join-Path $root "deploy-backups\app_temp_$((Get-Date -Format 'yyyyMMdd_HHmmss'))"
+            New-Item -ItemType Directory -Path $appBackup -Force | Out-Null
+            Copy-Item -Path "$appDir\*" -Destination $appBackup -Recurse -Force
+        }
+
+        if (Test-Path $distDir) { Remove-Item $distDir -Recurse -Force }
+        New-Item -ItemType Directory -Path $distDir -Force | Out-Null
+        Copy-Item -Path "$websiteDir\*" -Destination $distDir -Recurse -Force
+        Write-Ok "Website copied to dist/"
+
+        # Restore app/
+        if ($appBackup) {
+            $appDirNew = Join-Path $distDir "app"
+            New-Item -ItemType Directory -Path $appDirNew -Force | Out-Null
+            Copy-Item -Path "$appBackup\*" -Destination $appDirNew -Recurse -Force
+            Remove-Item $appBackup -Recurse -Force
+            Write-Ok "Flutter app restored to dist/app/"
+        } else {
+            Write-Warn "No existing Flutter app in dist/app/ -- website will deploy without /app/ route"
+        }
+
+        $serveJson = '{"rewrites":[{"source":"/app/**","destination":"/app/index.html"}],"headers":[{"source":"**/*","headers":[{"key":"Cache-Control","value":"no-cache"}]}]}'
+        [System.IO.File]::WriteAllText((Join-Path $distDir "serve.json"), $serveJson, [System.Text.UTF8Encoding]::new($false))
+
+        Write-Step "Deploying to Firebase Hosting..."
+        $ErrorActionPreference = "Continue"
+        firebase deploy --only hosting
+        $fbExit = $LASTEXITCODE
+        $ErrorActionPreference = "Stop"
+        if ($fbExit -eq 0) {
+            Write-Ok "Website deployed to Firebase Hosting!"
+            Write-DeployLog "WEBSITE DEPLOYED"
+
+            Write-Step "Health check..."
+            Start-Sleep -Seconds 5
+            $healthUrls = @(
+                "https://login1-aa21c.web.app/",
+                "https://login1-aa21c.web.app/app/"
+            )
+            foreach ($url in $healthUrls) {
+                try {
+                    $response = Invoke-WebRequest -Uri $url -UseBasicParsing -TimeoutSec 15 -ErrorAction Stop
+                    if ($response.StatusCode -eq 200) { Write-Ok "$url -> HTTP 200" }
+                    else { Write-Warn "$url -> HTTP $($response.StatusCode)" }
+                }
+                catch { Write-Warn "$url -> Could not reach" }
+            }
+            Write-DeployLog "HEALTH CHECK DONE"
+        } else {
+            Write-Fail "Firebase deploy failed!"
+            $failed = $true
+        }
+        Complete-Step "website_only"
+    }
+    elseif (Test-StepDone "website_only") {
+        Write-Info "SKIP: Website already deployed"
+    }
+
     # --- Build and Deploy: Web --- [RUNS LAST so download.html has ALL updated links (Windows + Android)]
-    if (-not $failed -and $deployWeb -and -not (Is-StepDone "web")) {
+    if (-not $failed -and $deployWeb -and -not (Test-StepDone "web")) {
         Write-Step "Building Web..."
         $distDir = Join-Path $root "dist"
         $websiteDir = Join-Path $root "website"
@@ -1223,8 +1429,8 @@ WScript.Quit 0
                 Write-Step "Health check..."
                 Start-Sleep -Seconds 5
                 $healthUrls = @(
-                    "https://login-radha.web.app/",
-                    "https://login-radha.web.app/app/"
+                    "https://login1-aa21c.web.app/",
+                    "https://login1-aa21c.web.app/app/"
                 )
                 foreach ($url in $healthUrls) {
                     try {
@@ -1245,7 +1451,7 @@ WScript.Quit 0
             Complete-Step "web"
         }
     }
-    elseif (Is-StepDone "web") {
+    elseif (Test-StepDone "web") {
         Write-Info "SKIP: Web already built + deployed"
     }
 
@@ -1333,7 +1539,17 @@ if ($setLatestVersion -or $announcementMsg) {
 }
 
 # --- Git Commit + Tag + Push ---
-if (-not $skipBuild) {
+if ($deployWebsiteOnly) {
+    Write-Step "Git commit + push (website)..."
+    $ErrorActionPreference = "Continue"
+    git add -A 2>&1 | Out-Null
+    git commit -m "website: update marketing site" 2>&1 | Out-Null
+    git push 2>&1 | Out-Null
+    Write-Ok "Pushed to remote"
+    Write-DeployLog "GIT | Website update pushed"
+    $ErrorActionPreference = "Stop"
+}
+elseif (-not $skipBuild) {
     Write-Step "Git commit + tag + push..."
     $ErrorActionPreference = "Continue"
     git add -A 2>&1 | Out-Null
@@ -1374,20 +1590,26 @@ Write-Host "  Deploy Complete!" -ForegroundColor Green
 Write-Host "========================================================" -ForegroundColor Green
 Write-Host ""
 
-if (-not $skipBuild) {
+if (-not $skipBuild -and -not $deployWebsiteOnly) {
     Write-Host "  Version: v$newVersion+$newBuild" -ForegroundColor White
 }
 Write-Host "  Type:    $($typeNames[$updateType])" -ForegroundColor White
 
-if ($deployWeb) { Write-Host "  Web:     Deployed + Health Checked" -ForegroundColor Green }
+if ($deployWebsiteOnly) { Write-Host "  Website: Deployed + Health Checked" -ForegroundColor Green }
+if ($deployWeb) { Write-Host "  Web App: Flutter + Website Deployed + Health Checked" -ForegroundColor Green }
 if ($deployWindows) { Write-Host "  Windows: MSIX + EXE Built + Uploaded" -ForegroundColor Green }
 if ($deployAndroid) { Write-Host "  Android: Built + Uploaded" -ForegroundColor Green }
 if ($forceMinVersion) { Write-Host "  Force:   min_app_version = $forceMinVersion" -ForegroundColor Red }
 if ($announcementMsg) { Write-Host "  Announce: $announcementMsg" -ForegroundColor Cyan }
 if ($updateType -eq 4) { Write-Host "  Mode:    Maintenance ON" -ForegroundColor Yellow }
 Write-Host ""
+if ($deployWebsiteOnly) {
+    Write-Host "  Website: https://login1-aa21c.web.app/" -ForegroundColor White
+    Write-Host "  App:     https://login1-aa21c.web.app/app/" -ForegroundColor White
+}
 Write-Host "  Log: deploy-history.log" -ForegroundColor Gray
 Write-Host ""
 
-Write-DeployLog "DEPLOY COMPLETE | v$newVersion+$newBuild | $($typeNames[$updateType])"
+$versionTag = if ($deployWebsiteOnly) { "website-update" } else { "v$newVersion+$newBuild" }
+Write-DeployLog "DEPLOY COMPLETE | $versionTag | $($typeNames[$updateType])"
 Write-DeployLog "------------------------------------------------"

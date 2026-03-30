@@ -212,9 +212,9 @@ class _KhataWebScreenState extends ConsumerState<KhataWebScreen> {
         buffer.writeln('=' * 50);
         buffer.writeln('Generated: $timestamp');
         buffer.writeln();
-        buffer.writeln('â”€' * 50);
+        buffer.writeln('─' * 50);
         buffer.writeln('SUMMARY');
-        buffer.writeln('â”€' * 50);
+        buffer.writeln('─' * 50);
         buffer.writeln(
           'Total Outstanding:   ${Formatters.currency(stats.totalOutstanding)}',
         );
@@ -228,9 +228,9 @@ class _KhataWebScreenState extends ConsumerState<KhataWebScreen> {
         // List customers with due balance
         final customersWithDue = customers.where((c) => c.balance > 0).toList();
         if (customersWithDue.isNotEmpty) {
-          buffer.writeln('â”€' * 50);
+          buffer.writeln('─' * 50);
           buffer.writeln('CUSTOMERS WITH PENDING BALANCE');
-          buffer.writeln('â”€' * 50);
+          buffer.writeln('─' * 50);
           buffer.writeln();
 
           for (int i = 0; i < customersWithDue.length; i++) {
@@ -727,7 +727,7 @@ class _CustomerCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  hasDue ? Formatters.currency(customer.balance) : 'â‚¹0',
+                  hasDue ? Formatters.currency(customer.balance) : '\u{20B9}0',
                   style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.bold,
@@ -1011,7 +1011,7 @@ class _CustomerDetailPanelState extends ConsumerState<_CustomerDetailPanel> {
             ),
           ),
           Text(
-            hasDue ? Formatters.currency(customer.balance) : 'â‚¹0',
+            hasDue ? Formatters.currency(customer.balance) : '\u{20B9}0',
             style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.bold,
@@ -1155,14 +1155,14 @@ class _CustomerDetailPanelState extends ConsumerState<_CustomerDetailPanel> {
           'Hi ${customer.name},\n\n'
           'You have a pending balance of *Rs $amt*.\n\n'
           'Pay via UPI:\n'
-          'â”â”â”â”â”â”â”â”â”â”â”â”â”â”\n'
+          '━━━━━━━━━━━━━━\n'
           'UPI ID: *$maskedUpi*\n'
           'Amount: *Rs $amt*\n'
-          'â”â”â”â”â”â”â”â”â”â”â”â”â”â”\n\n'
+          '━━━━━━━━━━━━━━\n\n'
           'Click here to pay:\n'
           '$payUrl\n\n'
           'Thank you\n'
-          'â€” $shopName';
+          '— $shopName';
     } else if (customer.balance > 0) {
       messageText =
           'Hi ${customer.name},\n\n'

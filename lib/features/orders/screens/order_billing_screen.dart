@@ -1,0 +1,407 @@
+﻿/// Order billing screen — generate bill from a completed order
+/// Shows order summary, discount/service charge controls, payment method selection
+library;
+
+import 'dart:async';
+
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:tulasihotels/features/billing/services/billing_service.dart';
+import 'package:tulasihotels/features/orders/screens/order_detail_screen.dart';
+import 'package:tulasihotels/features/orders/services/order_service.dart';
+import 'package:tulasihotels/models/bill_model.dart';
+import 'package:tulasihotels/models/order_model.dart';
+
+class OrderBillingScreen extends ConsumerStatefulWidget {
+  final String orderId;
+
+  const OrderBillingScreen({super.key, required this.orderId});
+
+  @override
+  ConsumerState<OrderBillingScreen> createState() => _OrderBillingScreenState();
+}
+
+class _OrderBillingScreenState extends ConsumerState<OrderBillingScreen> {
+  PaymentMethod _paymentMethod = PaymentMethod.cash;
+  double _discount = 0;
+  double _serviceChargePercent = 0;
+  bool _isProcessing = false;
+  final _discountController = TextEditingController();
+
+  @override
+  void dispose() {
+    _discountController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final orderAsync = ref.watch(orderDetailProvider(widget.orderId));
+    final theme = Theme.of(context);
+
+    return orderAsync.when(
+      data: (order) {
+        if (order == null) {
+          return Scaffold(
+            appBar: AppBar(title: const Text('Generate Bill')),
+            body: const Center(child: Text('Order not found')),
+          );
+        }
+
+        final subtotal = order.total;
+        final serviceCharge = subtotal * _serviceChargePercent / 100;
+        final total = subtotal - _discount + serviceCharge;
+
+        return Scaffold(
+          appBar: AppBar(
+            title: Text('Bill — Order #${order.orderNumber}'),
+          ),
+          body: ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              // Order info card
+              _OrderInfoCard(order: order),
+              const SizedBox(height: 16),
+
+              // Items list
+              Card(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                      child: Text('Items', style: theme.textTheme.titleMedium),
+                    ),
+                    ...order.items.map(
+                      (item) => ListTile(
+                        dense: true,
+                        title: Text(item.name),
+                        subtitle: item.itemNotes != null
+                            ? Text(item.itemNotes!,
+                                style: theme.textTheme.bodySmall)
+                            : null,
+                        trailing: Text(
+                          '${item.quantity} × ?${item.price.toStringAsFixed(0)} = ?${item.total.toStringAsFixed(0)}',
+                          style: theme.textTheme.bodyMedium,
+                        ),
+                      ),
+                    ),
+                    const Divider(),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text('Subtotal',
+                              style: theme.textTheme.titleSmall),
+                          Text('?${subtotal.toStringAsFixed(2)}',
+                              style: theme.textTheme.titleSmall),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // Discount & Service Charge
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Adjustments',
+                          style: theme.textTheme.titleMedium),
+                      const SizedBox(height: 12),
+
+                      // Discount
+                      Row(
+                        children: [
+                          const Expanded(
+                            flex: 2,
+                            child: Text('Discount (?)'),
+                          ),
+                          Expanded(
+                            child: TextField(
+                              controller: _discountController,
+                              keyboardType:
+                                  const TextInputType.numberWithOptions(
+                                      decimal: true),
+                              decoration: const InputDecoration(
+                                isDense: true,
+                                border: OutlineInputBorder(),
+                                hintText: '0',
+                              ),
+                              onChanged: (v) {
+                                final val =
+                                    double.tryParse(v) ?? 0;
+                                setState(() {
+                                  _discount = val.clamp(0, subtotal);
+                                });
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+
+                      // Service charge
+                      Row(
+                        children: [
+                          const Expanded(
+                            flex: 2,
+                            child: Text('Service Charge (%)'),
+                          ),
+                          Expanded(
+                            child: DropdownButtonFormField<double>(
+                              initialValue: _serviceChargePercent,
+                              decoration: const InputDecoration(
+                                isDense: true,
+                                border: OutlineInputBorder(),
+                              ),
+                              items: const [
+                                DropdownMenuItem(
+                                    value: 0, child: Text('None')),
+                                DropdownMenuItem(
+                                    value: 5, child: Text('5%')),
+                                DropdownMenuItem(
+                                    value: 10, child: Text('10%')),
+                              ],
+                              onChanged: (v) => setState(
+                                  () => _serviceChargePercent = v ?? 0),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // Payment method
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Payment Method',
+                          style: theme.textTheme.titleMedium),
+                      const SizedBox(height: 8),
+                      SegmentedButton<PaymentMethod>(
+                        segments: [
+                          ButtonSegment(
+                            value: PaymentMethod.cash,
+                            label: Text(PaymentMethod.cash.displayName),
+                            icon: const Icon(Icons.money),
+                          ),
+                          ButtonSegment(
+                            value: PaymentMethod.upi,
+                            label: Text(PaymentMethod.upi.displayName),
+                            icon: const Icon(Icons.phone_android),
+                          ),
+                          ButtonSegment(
+                            value: PaymentMethod.udhar,
+                            label: Text(PaymentMethod.udhar.displayName),
+                            icon: const Icon(Icons.credit_card),
+                          ),
+                        ],
+                        selected: {_paymentMethod},
+                        onSelectionChanged: (s) =>
+                            setState(() => _paymentMethod = s.first),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // Totals summary
+              Card(
+                color: theme.colorScheme.primaryContainer,
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    children: [
+                      _SummaryRow('Subtotal', subtotal),
+                      if (_discount > 0)
+                        _SummaryRow('Discount', -_discount),
+                      if (serviceCharge > 0)
+                        _SummaryRow(
+                            'Service Charge (${_serviceChargePercent.toStringAsFixed(0)}%)',
+                            serviceCharge),
+                      const Divider(),
+                      _SummaryRow('Total', total, isBold: true),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+
+              // Generate Bill button
+              FilledButton.icon(
+                onPressed: _isProcessing
+                    ? null
+                    : () => _generateBill(order, total),
+                icon: _isProcessing
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.receipt_long),
+                label: Text(
+                  _isProcessing
+                      ? 'Processing...'
+                      : 'Generate Bill — ?${total.toStringAsFixed(0)}',
+                ),
+                style: FilledButton.styleFrom(
+                  minimumSize: const Size(double.infinity, 56),
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
+          ),
+        );
+      },
+      loading: () => Scaffold(
+        appBar: AppBar(title: const Text('Generate Bill')),
+        body: const Center(child: CircularProgressIndicator()),
+      ),
+      error: (e, _) => Scaffold(
+        appBar: AppBar(title: const Text('Generate Bill')),
+        body: Center(child: Text('Error: $e')),
+      ),
+    );
+  }
+
+  Future<void> _generateBill(OrderModel order, double total) async {
+    if (total <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Bill total must be greater than zero')),
+      );
+      return;
+    }
+
+    setState(() => _isProcessing = true);
+
+    try {
+      final bill = await BillingService.createBillFromOrder(
+        order: order,
+        paymentMethod: _paymentMethod,
+        discount: _discount,
+        serviceChargePercent: _serviceChargePercent,
+      );
+
+      // Mark order as billed and free the table
+      unawaited(OrderService.completeOrder(order.id));
+
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Bill #${bill.billNumber} generated — ?${bill.total.toStringAsFixed(0)}',
+            ),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isProcessing = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to generate bill: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+}
+
+class _OrderInfoCard extends StatelessWidget {
+  final OrderModel order;
+
+  const _OrderInfoCard({required this.order});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                Icon(Icons.receipt, color: theme.colorScheme.primary),
+                const SizedBox(width: 8),
+                Text('Order #${order.orderNumber}',
+                    style: theme.textTheme.titleMedium),
+                const Spacer(),
+                Chip(
+                  label: Text(order.orderType.displayName),
+                  avatar: Text(order.orderType.emoji),
+                  visualDensity: VisualDensity.compact,
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                if (order.tableName != null) ...[
+                  const Icon(Icons.table_restaurant, size: 16),
+                  const SizedBox(width: 4),
+                  Text(order.tableName!),
+                  const SizedBox(width: 16),
+                ],
+                if (order.waiterName != null) ...[
+                  const Icon(Icons.person, size: 16),
+                  const SizedBox(width: 4),
+                  Text(order.waiterName!),
+                ],
+                const Spacer(),
+                Text('${order.items.length} items',
+                    style: theme.textTheme.bodySmall),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SummaryRow extends StatelessWidget {
+  final String label;
+  final double amount;
+  final bool isBold;
+
+  const _SummaryRow(this.label, this.amount, {this.isBold = false});
+
+  @override
+  Widget build(BuildContext context) {
+    final style = isBold
+        ? Theme.of(context).textTheme.titleLarge
+        : Theme.of(context).textTheme.bodyLarge;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: style),
+          Text(
+            '${amount < 0 ? '-' : ''}?${amount.abs().toStringAsFixed(2)}',
+            style: style,
+          ),
+        ],
+      ),
+    );
+  }
+}

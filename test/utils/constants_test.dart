@@ -11,8 +11,8 @@ void main() {
       expect(AppConstants.appName, isNotEmpty);
     });
 
-    test('currency symbol is â‚¹', () {
-      expect(AppConstants.currencySymbol, 'â‚¹');
+    test('currency symbol is ₹', () {
+      expect(AppConstants.currencySymbol, '₹');
     });
 
     test('country code is +91', () {

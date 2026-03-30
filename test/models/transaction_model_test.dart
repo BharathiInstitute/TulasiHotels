@@ -41,7 +41,7 @@ void main() {
     });
 
     test('payment has emoji', () {
-      expect(TransactionType.payment.emoji, 'ðŸ’µ');
+      expect(TransactionType.payment.emoji, '💵');
     });
   });
 

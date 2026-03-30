@@ -6,13 +6,14 @@ import 'package:tulasihotels/models/bill_model.dart';
 
 /// Expense category types
 enum ExpenseCategory {
-  rent('Rent', 'ðŸ '),
-  salary('Salary', 'ðŸ’°'),
-  utilities('Utilities', 'ðŸ’¡'),
-  supplies('Supplies', 'ðŸ“¦'),
-  transport('Transport', 'ðŸš—'),
-  maintenance('Maintenance', 'ðŸ”§'),
-  other('Other', 'ðŸ“‹');
+  rent('Rent', '🏠'),
+  salary('Salary', '💰'),
+  utilities('Utilities', '💡'),
+  supplies('Supplies', '📦'),
+  purchase('Purchase/Inventory', '🛒'),
+  transport('Transport', '🚗'),
+  maintenance('Maintenance', '🔧'),
+  other('Other', '📋');
 
   final String displayName;
   final String emoji;

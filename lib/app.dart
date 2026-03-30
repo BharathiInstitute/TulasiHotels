@@ -36,7 +36,7 @@ class LiteApp extends ConsumerWidget {
     final themeSettings = ref.watch(themeSettingsProvider);
     final fontScale = themeSettings.fontSizeScale;
 
-    // Check if Windows â€” only wrap with UpdateBanner on Windows
+    // Check if Windows — only wrap with UpdateBanner on Windows
     final isWindows = !kIsWeb && Platform.isWindows;
 
     return MaterialApp.router(

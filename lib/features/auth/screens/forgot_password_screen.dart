@@ -1,4 +1,4 @@
-/// Forgot Password screen â€” reset via email link
+/// Forgot Password screen — reset via email link
 library;
 
 import 'dart:async';

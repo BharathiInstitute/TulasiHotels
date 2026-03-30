@@ -30,7 +30,7 @@ class DemoDataService {
   /// Load demo data into memory
   static void loadDemoData() {
     debugPrint(
-      'ðŸŽ­ DemoDataService.loadDemoData() called. Already loaded: $_isLoaded',
+      '🎭 DemoDataService.loadDemoData() called. Already loaded: $_isLoaded',
     );
     if (_isLoaded) return; // Already loaded
 
@@ -41,7 +41,7 @@ class DemoDataService {
     _loadExpenses();
     _isLoaded = true;
     debugPrint(
-      'ðŸŽ­ Demo data loaded: ${_products.length} products, ${_customers.length} customers, ${_bills.length} bills, ${_expenses.length} expenses',
+      '🎭 Demo data loaded: ${_products.length} products, ${_customers.length} customers, ${_bills.length} bills, ${_expenses.length} expenses',
     );
   }
 
@@ -195,7 +195,7 @@ class DemoDataService {
       ),
       ProductModel(
         id: 'demo_prod_14',
-        name: 'Dairy Milk (â‚¹50)',
+        name: 'Dairy Milk (\u{20B9}50)',
         price: 50,
         purchasePrice: 44,
         stock: 40,
@@ -296,7 +296,7 @@ class DemoDataService {
         id: 'demo_cust_1',
         name: 'Rajesh Kumar',
         phone: '9876543210',
-        address: 'Shop No. 5, Main Market',
+        address: 'Near Main Road, City Center',
         balance: 2500,
         createdAt: now.subtract(const Duration(days: 60)),
       ),
@@ -648,7 +648,7 @@ class DemoDataService {
         id: 'demo_exp_1',
         amount: 5000,
         category: ExpenseCategory.rent,
-        description: 'Monthly shop rent',
+        description: 'Monthly hotel rent',
         paymentMethod: PaymentMethod.upi,
         createdAt: today.subtract(const Duration(days: 5)),
         date: _formatDateForExpense(today.subtract(const Duration(days: 5))),
