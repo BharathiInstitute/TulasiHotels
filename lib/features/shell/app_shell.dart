@@ -22,10 +22,25 @@ import 'package:tulasihotels/models/user_model.dart';
 import 'package:tulasihotels/router/app_router.dart';
 import 'package:tulasihotels/shared/widgets/shop_logo_widget.dart';
 
-class AppShell extends ConsumerWidget {
+class AppShell extends ConsumerStatefulWidget {
   final Widget child;
 
   const AppShell({super.key, required this.child});
+
+  @override
+  ConsumerState<AppShell> createState() => _AppShellState();
+}
+
+class _AppShellState extends ConsumerState<AppShell> {
+  final _scaffoldKey = GlobalKey<ScaffoldState>();
+
+  /// Bottom nav shows only these 4 popular indices + a "More" entry
+  static const _bottomNavIndices = [
+    0,
+    2,
+    6,
+    5,
+  ]; // Walk-in, Menu, Orders, Tables
 
   int _getSelectedIndex(BuildContext context) {
     final location = GoRouterState.of(context).matchedLocation;
@@ -55,30 +70,30 @@ class AppShell extends ConsumerWidget {
   /// Get routes list — staff sees /my-attendance at index 9, owner sees /attendance
   static List<String> _getRoutes(bool isStaff) {
     return [
-      AppRoutes.billing,   // 0
-      AppRoutes.khata,     // 1
-      AppRoutes.products,  // 2
+      AppRoutes.billing, // 0
+      AppRoutes.khata, // 1
+      AppRoutes.products, // 2
       AppRoutes.dashboard, // 3
-      AppRoutes.bills,     // 4
-      AppRoutes.tables,    // 5
-      AppRoutes.orders,    // 6
-      AppRoutes.kitchen,   // 7
-      AppRoutes.staff,     // 8
+      AppRoutes.bills, // 4
+      AppRoutes.tables, // 5
+      AppRoutes.orders, // 6
+      AppRoutes.kitchen, // 7
+      AppRoutes.staff, // 8
       isStaff ? AppRoutes.myAttendance : AppRoutes.attendance, // 9
     ];
   }
 
   /// Get visible nav indices based on logged-in staff role
-  List<int> _getVisibleIndices(WidgetRef ref) {
+  List<int> _getVisibleIndices() {
     final staff = ref.watch(loggedInStaffProvider);
     return StaffPermissions.visibleNavIndices(staff);
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final selectedIndex = _getSelectedIndex(context);
     final deviceType = ResponsiveHelper.getDeviceType(context);
-    final visibleIndices = _getVisibleIndices(ref);
+    final visibleIndices = _getVisibleIndices();
     final loggedInStaff = ref.watch(loggedInStaffProvider);
     final routes = _getRoutes(loggedInStaff != null);
 
@@ -89,17 +104,32 @@ class AppShell extends ConsumerWidget {
         selectedIndex: selectedIndex,
         visibleIndices: visibleIndices,
         onItemTapped: (index) => _onItemTapped(context, index, routes),
-        child: child,
+        child: widget.child,
       );
     }
 
     final user = ref.watch(currentUserProvider);
 
     return Scaffold(
+      key: _scaffoldKey,
       resizeToAvoidBottomInset: true,
+      drawer: deviceType == DeviceType.mobile
+          ? _buildDrawer(
+              context,
+              selectedIndex,
+              visibleIndices,
+              routes,
+              user,
+              loggedInStaff,
+            )
+          : null,
       appBar: deviceType == DeviceType.mobile
           ? AppBar(
               automaticallyImplyLeading: false,
+              leading: IconButton(
+                icon: const Icon(Icons.menu),
+                onPressed: () => _scaffoldKey.currentState?.openDrawer(),
+              ),
               title: Row(
                 children: [
                   ShopLogoWidget(
@@ -120,7 +150,9 @@ class AppShell extends ConsumerWidget {
                                 style: TextStyle(
                                   fontSize: 14,
                                   fontWeight: FontWeight.w600,
-                                  color: Theme.of(context).colorScheme.onSurface,
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurface,
                                 ),
                                 overflow: TextOverflow.ellipsis,
                               ),
@@ -128,7 +160,9 @@ class AppShell extends ConsumerWidget {
                                 '${loggedInStaff.role.emoji} ${loggedInStaff.role.displayName}',
                                 style: TextStyle(
                                   fontSize: 11,
-                                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurfaceVariant,
                                 ),
                               ),
                             ],
@@ -159,7 +193,7 @@ class AppShell extends ConsumerWidget {
                 const NotificationBell(),
                 IconButton(
                   icon: _buildProfileAvatar(user?.profileImagePath, 16),
-                  onPressed: () => _showProfileSheet(context, ref),
+                  onPressed: () => _showProfileSheet(context),
                 ),
               ],
               elevation: 0.5,
@@ -189,7 +223,7 @@ class AppShell extends ConsumerWidget {
                   ),
 
                 // Main content
-                Expanded(child: child),
+                Expanded(child: widget.child),
               ],
             ),
           ),
@@ -197,9 +231,260 @@ class AppShell extends ConsumerWidget {
       ),
       // Bottom navigation for mobile
       bottomNavigationBar: deviceType == DeviceType.mobile
-          ? _buildBottomNavigation(context, selectedIndex, visibleIndices, routes)
+          ? _buildBottomNavigation(
+              context,
+              selectedIndex,
+              visibleIndices,
+              routes,
+            )
           : null,
     );
+  }
+
+  /// Build the navigation drawer with all panels
+  Widget _buildDrawer(
+    BuildContext context,
+    int selectedIndex,
+    List<int> visibleIndices,
+    List<String> routes,
+    UserModel? user,
+    dynamic loggedInStaff,
+  ) {
+    final l10n = context.l10n;
+    final theme = Theme.of(context);
+
+    final allNavItems =
+        <int, ({IconData icon, IconData activeIcon, String label})>{
+          0: (
+            icon: Icons.point_of_sale_outlined,
+            activeIcon: Icons.point_of_sale,
+            label: 'Walk-in',
+          ),
+          1: (
+            icon: Icons.people_outline,
+            activeIcon: Icons.people,
+            label: l10n.khata,
+          ),
+          2: (
+            icon: Icons.restaurant_menu_outlined,
+            activeIcon: Icons.restaurant_menu,
+            label: l10n.products,
+          ),
+          3: (
+            icon: Icons.dashboard_outlined,
+            activeIcon: Icons.dashboard,
+            label: l10n.dashboard,
+          ),
+          4: (
+            icon: Icons.receipt_outlined,
+            activeIcon: Icons.receipt,
+            label: 'Bills',
+          ),
+          5: (
+            icon: Icons.table_restaurant_outlined,
+            activeIcon: Icons.table_restaurant,
+            label: 'Tables',
+          ),
+          6: (
+            icon: Icons.restaurant_menu_outlined,
+            activeIcon: Icons.restaurant_menu,
+            label: 'Orders',
+          ),
+          7: (
+            icon: Icons.kitchen_outlined,
+            activeIcon: Icons.kitchen,
+            label: 'Kitchen',
+          ),
+          8: (
+            icon: Icons.badge_outlined,
+            activeIcon: Icons.badge,
+            label: 'Staff',
+          ),
+          9: (
+            icon: Icons.access_time_outlined,
+            activeIcon: Icons.access_time_filled,
+            label: 'Attendance',
+          ),
+        };
+
+    return Drawer(
+      child: SafeArea(
+        child: Column(
+          children: [
+            // Header
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.fromLTRB(16, 20, 16, 16),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: 0.08),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      ShopLogoWidget(
+                        logoPath: user?.shopLogoPath,
+                        size: 40,
+                        borderRadius: 10,
+                        iconSize: 22,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              user?.shopName ?? AppConstants.defaultShopName,
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            if (loggedInStaff != null)
+                              Text(
+                                '${loggedInStaff.role.emoji} ${loggedInStaff.name}',
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1),
+            // Nav items + More Features sections
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                children: [
+                  // Core nav items (Walk-in, Khata, Menu, etc.)
+                  for (final idx in visibleIndices)
+                    if (allNavItems.containsKey(idx))
+                      _DrawerNavItem(
+                        icon: selectedIndex == idx
+                            ? allNavItems[idx]!.activeIcon
+                            : allNavItems[idx]!.icon,
+                        label: allNavItems[idx]!.label,
+                        isSelected: selectedIndex == idx,
+                        onTap: () {
+                          Navigator.pop(context);
+                          _onItemTapped(context, idx, routes);
+                        },
+                      ),
+
+                  // More Features sections (matching web shell)
+                  ..._buildMoreFeaturesSections(context, ref),
+
+                  const Divider(height: 1),
+                  // Settings
+                  _DrawerNavItem(
+                    icon: Icons.settings_outlined,
+                    label: 'Settings',
+                    isSelected: selectedIndex == 10,
+                    onTap: () {
+                      Navigator.pop(context);
+                      context.go('/settings/general');
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Build "More Features" sections for the drawer (Inventory, Hospitality, Reports, Compliance)
+  List<Widget> _buildMoreFeaturesSections(BuildContext context, WidgetRef ref) {
+    final staff = ref.watch(loggedInStaffProvider);
+    final currentPath = GoRouterState.of(context).matchedLocation;
+
+    Widget? routeItem(IconData icon, String label, String route) {
+      if (!StaffPermissions.canViewRoute(staff, route)) return null;
+      final isActive = currentPath.startsWith(route);
+      return _DrawerNavItem(
+        icon: icon,
+        label: label,
+        isSelected: isActive,
+        onTap: () {
+          Navigator.pop(context);
+          context.go(route);
+        },
+      );
+    }
+
+    final inventoryItems = [
+      routeItem(Icons.egg, 'Ingredients', AppRoutes.ingredients),
+      routeItem(Icons.local_shipping, 'Vendors', AppRoutes.vendors),
+      routeItem(Icons.delete_sweep, 'Wastage', AppRoutes.wastage),
+    ].whereType<Widget>().toList();
+
+    final hospitalityItems = [
+      routeItem(Icons.event_seat, 'Reservations', AppRoutes.reservations),
+      routeItem(Icons.local_offer, 'Coupons', AppRoutes.coupons),
+      routeItem(Icons.celebration, 'Events', AppRoutes.events),
+      routeItem(Icons.feedback, 'Feedback', AppRoutes.feedbackDashboard),
+    ].whereType<Widget>().toList();
+
+    final reportsItems = [
+      routeItem(Icons.bar_chart, 'Advanced Reports', AppRoutes.advancedReports),
+      routeItem(Icons.description, 'GST Export', AppRoutes.gstExport),
+    ].whereType<Widget>().toList();
+
+    final complianceItems = [
+      routeItem(Icons.build, 'Equipment', AppRoutes.equipment),
+      routeItem(Icons.badge, 'Licenses', AppRoutes.licenses),
+      routeItem(Icons.report_problem, 'Complaints', AppRoutes.complaints),
+    ].whereType<Widget>().toList();
+
+    final sections = <Widget>[];
+
+    if (inventoryItems.isNotEmpty ||
+        hospitalityItems.isNotEmpty ||
+        reportsItems.isNotEmpty ||
+        complianceItems.isNotEmpty) {
+      sections.add(const Divider(height: 16));
+      sections.add(
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
+          child: Text(
+            'More Features',
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.5,
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (inventoryItems.isNotEmpty) {
+      sections.add(
+        _DrawerSection(title: 'Inventory', children: inventoryItems),
+      );
+    }
+    if (hospitalityItems.isNotEmpty) {
+      sections.add(
+        _DrawerSection(title: 'Hospitality', children: hospitalityItems),
+      );
+    }
+    if (reportsItems.isNotEmpty) {
+      sections.add(_DrawerSection(title: 'Reports', children: reportsItems));
+    }
+    if (complianceItems.isNotEmpty) {
+      sections.add(
+        _DrawerSection(title: 'Compliance', children: complianceItems),
+      );
+    }
+
+    return sections;
   }
 
   /// Build profile avatar that handles both URL and local file
@@ -233,7 +518,7 @@ class AppShell extends ConsumerWidget {
     );
   }
 
-  void _showProfileSheet(BuildContext context, WidgetRef ref) {
+  void _showProfileSheet(BuildContext context) {
     final user = ref.watch(currentUserProvider);
 
     showModalBottomSheet(
@@ -480,13 +765,27 @@ class AppShell extends ConsumerWidget {
       ),
     };
 
-    // Filter to visible items only
-    final filteredIndices = visibleIndices.where((i) => allItems.containsKey(i)).toList();
-    final items = filteredIndices.map((i) => allItems[i]!).toList();
+    // Show only the top 4 popular panels that the user is allowed to see + "More"
+    final popularIndices = _bottomNavIndices
+        .where((i) => visibleIndices.contains(i) && allItems.containsKey(i))
+        .toList();
 
-    // Map the logical selectedIndex to the filtered position
-    final filteredSelectedIndex = filteredIndices.indexOf(selectedIndex);
-    final clampedIndex = filteredSelectedIndex >= 0 ? filteredSelectedIndex : 0;
+    final items = popularIndices.map((i) => allItems[i]!).toList();
+    // Add "More" as the 5th item
+    items.add(
+      const BottomNavigationBarItem(
+        icon: Icon(Icons.more_horiz_outlined),
+        activeIcon: Icon(Icons.more_horiz),
+        label: 'More',
+      ),
+    );
+
+    // Check if the current page is one of the popular ones
+    final filteredSelectedIndex = popularIndices.indexOf(selectedIndex);
+    // If current page is not in bottom nav, don't highlight any (show More as active)
+    final clampedIndex = filteredSelectedIndex >= 0
+        ? filteredSelectedIndex
+        : items.length - 1; // "More" index
 
     return Container(
       decoration: BoxDecoration(
@@ -502,9 +801,12 @@ class AppShell extends ConsumerWidget {
       child: SafeArea(
         child: BottomNavigationBar(
           currentIndex: clampedIndex,
-          onTap: (tappedFilteredIndex) {
-            if (tappedFilteredIndex < filteredIndices.length) {
-              _onItemTapped(context, filteredIndices[tappedFilteredIndex], routes);
+          onTap: (tappedIndex) {
+            if (tappedIndex == items.length - 1) {
+              // "More" tapped — open drawer
+              _scaffoldKey.currentState?.openDrawer();
+            } else if (tappedIndex < popularIndices.length) {
+              _onItemTapped(context, popularIndices[tappedIndex], routes);
             }
           },
           type: BottomNavigationBarType.fixed,
@@ -642,6 +944,75 @@ class AppShell extends ConsumerWidget {
             const SizedBox(height: 8),
         ],
       ),
+    );
+  }
+}
+
+class _DrawerNavItem extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  const _DrawerNavItem({
+    required this.icon,
+    required this.label,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      leading: Icon(
+        icon,
+        color: isSelected
+            ? AppColors.primary
+            : Theme.of(context).colorScheme.onSurfaceVariant,
+      ),
+      title: Text(
+        label,
+        style: TextStyle(
+          color: isSelected
+              ? AppColors.primary
+              : Theme.of(context).colorScheme.onSurface,
+          fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+        ),
+      ),
+      selected: isSelected,
+      selectedTileColor: OpacityColors.primary10,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+      onTap: onTap,
+    );
+  }
+}
+
+class _DrawerSection extends StatelessWidget {
+  final String title;
+  final List<Widget> children;
+
+  const _DrawerSection({required this.title, required this.children});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 2),
+          child: Text(
+            title.toUpperCase(),
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.8,
+              fontSize: 11,
+            ),
+          ),
+        ),
+        ...children,
+      ],
     );
   }
 }

@@ -1,9 +1,9 @@
 /// User Costs Screen - Per-user backend usage and costs
 library;
 
-import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:tulasihotels/core/services/cloud_function_helper.dart';
 import 'package:tulasihotels/core/services/user_usage_service.dart';
 import 'package:tulasihotels/features/super_admin/screens/admin_shell_screen.dart';
 
@@ -732,10 +732,8 @@ class _SeedUsageButtonState extends State<_SeedUsageButton> {
       _message = null;
     });
     try {
-      final fn = FirebaseFunctions.instanceFor(region: 'asia-south1');
-      final result = await fn.httpsCallable('seedUserUsage').call();
-      final data = result.data as Map<String, dynamic>?;
-      final seeded = data?['seeded'] ?? 0;
+      final data = await CloudFunctionHelper.call('seedUserUsage');
+      final seeded = data['seeded'] ?? 0;
       setState(() => _message = 'Seeded $seeded users');
       widget.onSeeded();
     } catch (e) {

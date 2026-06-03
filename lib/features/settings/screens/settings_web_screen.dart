@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:io';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -10,6 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:tulasihotels/core/constants/app_constants.dart';
+import 'package:tulasihotels/core/services/cloud_function_helper.dart';
 import 'package:tulasihotels/features/auth/providers/auth_provider.dart';
 import 'package:tulasihotels/features/settings/providers/settings_provider.dart';
 import 'package:tulasihotels/features/settings/providers/theme_settings_provider.dart';
@@ -283,8 +283,7 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
     controller.dispose();
     if (result == null || result.length != 8 || !mounted) return;
     try {
-      final fn = FirebaseFunctions.instanceFor(region: 'asia-south1');
-      await fn.httpsCallable('redeemReferralCode').call({'code': result});
+      await CloudFunctionHelper.call('redeemReferralCode', {'code': result});
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(

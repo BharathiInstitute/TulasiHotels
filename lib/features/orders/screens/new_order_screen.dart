@@ -44,8 +44,7 @@ class _NewOrderScreenState extends ConsumerState<NewOrderScreen> {
     super.dispose();
   }
 
-  double get _orderTotal =>
-      _items.fold(0.0, (sum, item) => sum + item.total);
+  double get _orderTotal => _items.fold(0.0, (sum, item) => sum + item.total);
 
   @override
   Widget build(BuildContext context) {
@@ -76,281 +75,315 @@ class _NewOrderScreenState extends ConsumerState<NewOrderScreen> {
             ),
         ],
       ),
-      body: Row(
-        children: [
-          // Left: Menu items
-          Expanded(
-            flex: 3,
-            child: Column(
-              children: [
-                // Search bar
-                Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: TextField(
-                    controller: _searchController,
-                    decoration: InputDecoration(
-                      hintText: 'Search menu...',
-                      prefixIcon: const Icon(Icons.search),
-                      suffixIcon: _searchQuery.isNotEmpty
-                          ? IconButton(
-                              icon: const Icon(Icons.clear),
-                              onPressed: () {
-                                _searchController.clear();
-                                setState(() => _searchQuery = '');
-                              },
-                            )
-                          : null,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      isDense: true,
-                    ),
-                    onChanged: (v) => setState(() => _searchQuery = v),
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final isMobile = constraints.maxWidth < 600;
+          if (isMobile) {
+            return _buildMobileBody(theme, productsAsync);
+          }
+          return _buildWideBody(theme, productsAsync);
+        },
+      ),
+      floatingActionButton: LayoutBuilder(
+        builder: (context, constraints) {
+          if (constraints.maxWidth >= 600) return const SizedBox.shrink();
+          return _buildCartFab(context, theme);
+        },
+      ),
+    );
+  }
+
+  /// Cart FAB for mobile — shows item count + total, opens order sheet
+  Widget _buildCartFab(BuildContext context, ThemeData theme) {
+    if (_items.isEmpty) return const SizedBox.shrink();
+    return FloatingActionButton.extended(
+      onPressed: () => _showOrderSheet(context, theme),
+      icon: Badge(
+        label: Text('${_items.length}'),
+        child: const Icon(Icons.shopping_cart),
+      ),
+      label: Text('₹${_orderTotal.toStringAsFixed(0)}'),
+    );
+  }
+
+  /// Order summary shown as a bottom sheet on mobile
+  void _showOrderSheet(BuildContext context, ThemeData theme) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) => DraggableScrollableSheet(
+        initialChildSize: 0.75,
+        minChildSize: 0.4,
+        maxChildSize: 0.95,
+        expand: false,
+        builder: (ctx, scrollController) => StatefulBuilder(
+          builder: (ctx, setSheetState) => Column(
+            children: [
+              // Handle bar
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade400,
+                    borderRadius: BorderRadius.circular(2),
                   ),
                 ),
-
-                // Category filter
-                productsAsync.when(
-                  data: (products) {
-                    final categories = products
-                        .map((p) => p.category)
-                        .whereType<String>()
-                        .toSet()
-                        .toList()
-                      ..sort();
-                    if (categories.isEmpty) return const SizedBox.shrink();
-
-                    return SizedBox(
-                      height: 40,
-                      child: ListView(
-                        scrollDirection: Axis.horizontal,
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
-                        children: [
-                          _CategoryChip(
-                            label: 'All',
-                            isSelected: _selectedCategory == null,
-                            onTap: () =>
-                                setState(() => _selectedCategory = null),
-                          ),
-                          ...categories.map(
-                            (cat) => _CategoryChip(
-                              label: cat,
-                              isSelected: _selectedCategory == cat,
-                              onTap: () =>
-                                  setState(() => _selectedCategory = cat),
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  },
-                  loading: () => const SizedBox.shrink(),
-                  error: (_, _) => const SizedBox.shrink(),
-                ),
-
-                const SizedBox(height: 8),
-
-                // Product grid
-                Expanded(
-                  child: productsAsync.when(
-                    data: (products) {
-                      var filtered = products.toList();
-                      if (_searchQuery.isNotEmpty) {
-                        final q = _searchQuery.toLowerCase();
-                        filtered = filtered
-                            .where((p) =>
-                                p.name.toLowerCase().contains(q) ||
-                                (p.category?.toLowerCase().contains(q) ??
-                                    false))
-                            .toList();
-                      }
-                      if (_selectedCategory != null) {
-                        filtered = filtered
-                            .where((p) => p.category == _selectedCategory)
-                            .toList();
-                      }
-
-                      if (filtered.isEmpty) {
-                        return const Center(child: Text('No items found'));
-                      }
-
-                      return GridView.builder(
-                        padding: const EdgeInsets.all(12),
-                        gridDelegate:
-                            const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 2,
-                          mainAxisSpacing: 8,
-                          crossAxisSpacing: 8,
-                          childAspectRatio: 2.2,
-                        ),
-                        itemCount: filtered.length,
-                        itemBuilder: (context, index) => _MenuItemCard(
-                          product: filtered[index],
-                          onAdd: () => _addItem(filtered[index]),
-                        ),
-                      );
-                    },
-                    loading: () =>
-                        const Center(child: CircularProgressIndicator()),
-                    error: (err, _) => Center(child: Text('Error: $err')),
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          // Right: Order summary
-          Container(
-            width: 320,
-            decoration: BoxDecoration(
-              color: theme.cardColor,
-              border: Border(
-                left: BorderSide(color: theme.dividerColor),
               ),
-            ),
-            child: Column(
-              children: [
-                // Header
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    border: Border(
-                      bottom: BorderSide(color: theme.dividerColor),
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(Icons.receipt_long, color: theme.primaryColor),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Order (${_items.length} items)',
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-                // Items list
-                Expanded(
-                  child: _items.isEmpty
-                      ? Center(
-                          child: Text(
-                            'Tap menu items to add',
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              color: Colors.grey,
-                            ),
-                          ),
-                        )
-                      : ListView.builder(
-                          itemCount: _items.length,
-                          itemBuilder: (context, index) => _OrderItemTile(
-                            item: _items[index],
-                            onIncrement: () => _incrementItem(index),
-                            onDecrement: () => _decrementItem(index),
-                            onRemove: () => _removeItem(index),
-                            onNotesChanged: (notes) =>
-                                _updateItemNotes(index, notes),
+              // Header
+              _buildOrderHeader(theme),
+              const Divider(height: 1),
+              // Items list
+              Expanded(
+                child: _items.isEmpty
+                    ? Center(
+                        child: Text(
+                          'Tap menu items to add',
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: Colors.grey,
                           ),
                         ),
-                ),
-
-                // Rush & VIP toggles
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: FilterChip(
-                          label: const Text('🔥 Rush'),
-                          selected: _isRush,
-                          onSelected: (v) => setState(() => _isRush = v),
-                          selectedColor: Colors.red[100],
+                      )
+                    : ListView.builder(
+                        controller: scrollController,
+                        itemCount: _items.length,
+                        itemBuilder: (context, index) => _OrderItemTile(
+                          item: _items[index],
+                          onIncrement: () {
+                            _incrementItem(index);
+                            setSheetState(() {});
+                          },
+                          onDecrement: () {
+                            _decrementItem(index);
+                            setSheetState(() {});
+                          },
+                          onRemove: () {
+                            _removeItem(index);
+                            setSheetState(() {});
+                          },
+                          onNotesChanged: (notes) {
+                            _updateItemNotes(index, notes);
+                            setSheetState(() {});
+                          },
                         ),
                       ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: FilterChip(
-                          label: const Text('👑 VIP'),
-                          selected: _isVip,
-                          onSelected: (v) => setState(() => _isVip = v),
-                          selectedColor: Colors.amber[100],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 8),
+              ),
+              // Rush/VIP + Notes + Total + Place Order
+              _buildOrderFooter(theme),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
-                // Notes field
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  child: TextField(
-                    decoration: const InputDecoration(
-                      hintText: 'Order notes...',
-                      isDense: true,
-                      border: OutlineInputBorder(),
-                    ),
-                    onChanged: (v) => _notes = v,
-                  ),
-                ),
-                const SizedBox(height: 8),
+  /// Mobile layout: full-width menu, no side panel
+  Widget _buildMobileBody(
+    ThemeData theme,
+    AsyncValue<List<ProductModel>> productsAsync,
+  ) {
+    return Column(
+      children: [
+        _buildSearchBar(),
+        _buildCategoryFilter(productsAsync),
+        const SizedBox(height: 8),
+        Expanded(child: _buildProductGrid(productsAsync, isMobile: true)),
+      ],
+    );
+  }
 
-                // Total & Place Order
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: theme.primaryColor.withValues(alpha: 0.05),
-                    border: Border(
-                      top: BorderSide(color: theme.dividerColor),
-                    ),
-                  ),
-                  child: Column(
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            'Total',
-                            style: theme.textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
+  /// Wide (tablet/desktop) layout: side-by-side panels
+  Widget _buildWideBody(
+    ThemeData theme,
+    AsyncValue<List<ProductModel>> productsAsync,
+  ) {
+    return Row(
+      children: [
+        // Left: Menu items
+        Expanded(
+          flex: 3,
+          child: Column(
+            children: [
+              _buildSearchBar(),
+              _buildCategoryFilter(productsAsync),
+              const SizedBox(height: 8),
+              Expanded(
+                child: _buildProductGrid(productsAsync, isMobile: false),
+              ),
+            ],
+          ),
+        ),
+        // Right: Order summary panel
+        Container(
+          width: 320,
+          decoration: BoxDecoration(
+            color: theme.cardColor,
+            border: Border(left: BorderSide(color: theme.dividerColor)),
+          ),
+          child: Column(
+            children: [
+              _buildOrderHeader(theme),
+              // Items list
+              Expanded(
+                child: _items.isEmpty
+                    ? Center(
+                        child: Text(
+                          'Tap menu items to add',
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: Colors.grey,
                           ),
-                          Text(
-                            '?${_orderTotal.toStringAsFixed(2)}',
-                            style: theme.textTheme.titleLarge?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              color: theme.primaryColor,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      SizedBox(
-                        width: double.infinity,
-                        child: FilledButton.icon(
-                          onPressed:
-                              _items.isEmpty || _isPlacingOrder
-                                  ? null
-                                  : _placeOrder,
-                          icon: _isPlacingOrder
-                              ? const SizedBox(
-                                  width: 16,
-                                  height: 16,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: Colors.white,
-                                  ),
-                                )
-                              : const Icon(Icons.send),
-                          label: const Text('Place Order'),
+                        ),
+                      )
+                    : ListView.builder(
+                        itemCount: _items.length,
+                        itemBuilder: (context, index) => _OrderItemTile(
+                          item: _items[index],
+                          onIncrement: () => _incrementItem(index),
+                          onDecrement: () => _decrementItem(index),
+                          onRemove: () => _removeItem(index),
+                          onNotesChanged: (notes) =>
+                              _updateItemNotes(index, notes),
                         ),
                       ),
-                    ],
-                  ),
+              ),
+              _buildOrderFooter(theme),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Search bar (shared)
+  Widget _buildSearchBar() {
+    return Padding(
+      padding: const EdgeInsets.all(12),
+      child: TextField(
+        controller: _searchController,
+        decoration: InputDecoration(
+          hintText: 'Search menu...',
+          prefixIcon: const Icon(Icons.search),
+          suffixIcon: _searchQuery.isNotEmpty
+              ? IconButton(
+                  icon: const Icon(Icons.clear),
+                  onPressed: () {
+                    _searchController.clear();
+                    setState(() => _searchQuery = '');
+                  },
+                )
+              : null,
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+          isDense: true,
+        ),
+        onChanged: (v) => setState(() => _searchQuery = v),
+      ),
+    );
+  }
+
+  /// Category filter chips (shared)
+  Widget _buildCategoryFilter(AsyncValue<List<ProductModel>> productsAsync) {
+    return productsAsync.when(
+      data: (products) {
+        final categories =
+            products.map((p) => p.category).whereType<String>().toSet().toList()
+              ..sort();
+        if (categories.isEmpty) return const SizedBox.shrink();
+
+        return SizedBox(
+          height: 40,
+          child: ListView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            children: [
+              _CategoryChip(
+                label: 'All',
+                isSelected: _selectedCategory == null,
+                onTap: () => setState(() => _selectedCategory = null),
+              ),
+              ...categories.map(
+                (cat) => _CategoryChip(
+                  label: cat,
+                  isSelected: _selectedCategory == cat,
+                  onTap: () => setState(() => _selectedCategory = cat),
                 ),
-              ],
+              ),
+            ],
+          ),
+        );
+      },
+      loading: () => const SizedBox.shrink(),
+      error: (_, _) => const SizedBox.shrink(),
+    );
+  }
+
+  /// Product grid with responsive column count
+  Widget _buildProductGrid(
+    AsyncValue<List<ProductModel>> productsAsync, {
+    required bool isMobile,
+  }) {
+    return productsAsync.when(
+      data: (products) {
+        var filtered = products.toList();
+        if (_searchQuery.isNotEmpty) {
+          final q = _searchQuery.toLowerCase();
+          filtered = filtered
+              .where(
+                (p) =>
+                    p.name.toLowerCase().contains(q) ||
+                    (p.category?.toLowerCase().contains(q) ?? false),
+              )
+              .toList();
+        }
+        if (_selectedCategory != null) {
+          filtered = filtered
+              .where((p) => p.category == _selectedCategory)
+              .toList();
+        }
+
+        if (filtered.isEmpty) {
+          return const Center(child: Text('No items found'));
+        }
+
+        return GridView.builder(
+          padding: EdgeInsets.fromLTRB(12, 0, 12, isMobile ? 80 : 12),
+          gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
+            maxCrossAxisExtent: isMobile ? 200 : 220,
+            mainAxisSpacing: 8,
+            crossAxisSpacing: 8,
+            childAspectRatio: isMobile ? 1.6 : 2.2,
+          ),
+          itemCount: filtered.length,
+          itemBuilder: (context, index) => _MenuItemCard(
+            product: filtered[index],
+            onAdd: () => _addItem(filtered[index]),
+          ),
+        );
+      },
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (err, _) => Center(child: Text('Error: $err')),
+    );
+  }
+
+  /// Order header row (shared between side panel and sheet)
+  Widget _buildOrderHeader(ThemeData theme) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        border: Border(bottom: BorderSide(color: theme.dividerColor)),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.receipt_long, color: theme.primaryColor),
+          const SizedBox(width: 8),
+          Text(
+            'Order (${_items.length} items)',
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.bold,
             ),
           ),
         ],
@@ -358,22 +391,121 @@ class _NewOrderScreenState extends ConsumerState<NewOrderScreen> {
     );
   }
 
+  /// Order footer: Rush/VIP, Notes, Total, Place Order (shared)
+  Widget _buildOrderFooter(ThemeData theme) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Rush & VIP toggles
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: Row(
+            children: [
+              Expanded(
+                child: FilterChip(
+                  label: const Text('🔥 Rush'),
+                  selected: _isRush,
+                  onSelected: (v) => setState(() => _isRush = v),
+                  selectedColor: Colors.red[100],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: FilterChip(
+                  label: const Text('👑 VIP'),
+                  selected: _isVip,
+                  onSelected: (v) => setState(() => _isVip = v),
+                  selectedColor: Colors.amber[100],
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 8),
+        // Notes field
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: TextField(
+            decoration: const InputDecoration(
+              hintText: 'Order notes...',
+              isDense: true,
+              border: OutlineInputBorder(),
+            ),
+            onChanged: (v) => _notes = v,
+          ),
+        ),
+        const SizedBox(height: 8),
+        // Total & Place Order
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: theme.primaryColor.withValues(alpha: 0.05),
+            border: Border(top: BorderSide(color: theme.dividerColor)),
+          ),
+          child: Column(
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Total',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  Text(
+                    '₹${_orderTotal.toStringAsFixed(2)}',
+                    style: theme.textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: theme.primaryColor,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: _items.isEmpty || _isPlacingOrder
+                      ? null
+                      : _placeOrder,
+                  icon: _isPlacingOrder
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Icon(Icons.send),
+                  label: const Text('Place Order'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
   void _addItem(ProductModel product) {
     setState(() {
-      final existingIndex =
-          _items.indexWhere((i) => i.productId == product.id);
+      final existingIndex = _items.indexWhere((i) => i.productId == product.id);
       if (existingIndex >= 0) {
         _items[existingIndex] = _items[existingIndex].copyWith(
           quantity: _items[existingIndex].quantity + 1,
         );
       } else {
-        _items.add(OrderItem(
-          productId: product.id,
-          name: product.name,
-          price: product.price,
-          quantity: 1,
-          unit: product.unit.shortName,
-        ));
+        _items.add(
+          OrderItem(
+            productId: product.id,
+            name: product.name,
+            price: product.price,
+            quantity: 1,
+            unit: product.unit.shortName,
+          ),
+        );
       }
     });
   }
@@ -436,9 +568,9 @@ class _NewOrderScreenState extends ConsumerState<NewOrderScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error placing order: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error placing order: $e')));
       }
     } finally {
       if (mounted) setState(() => _isPlacingOrder = false);
@@ -487,24 +619,27 @@ class _MenuItemCard extends StatelessWidget {
         onTap: onAdd,
         borderRadius: BorderRadius.circular(8),
         child: Padding(
-          padding: const EdgeInsets.all(10),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Text(
-                product.name,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  fontWeight: FontWeight.w600,
+              Flexible(
+                child: Text(
+                  product.name,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
               ),
               const SizedBox(height: 2),
               Row(
                 children: [
                   Text(
-                    '?${product.price.toStringAsFixed(0)}',
+                    '₹${product.price.toStringAsFixed(0)}',
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: theme.primaryColor,
                       fontWeight: FontWeight.bold,
@@ -512,10 +647,14 @@ class _MenuItemCard extends StatelessWidget {
                   ),
                   const Spacer(),
                   if (product.category != null)
-                    Text(
-                      product.category!,
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: Colors.grey,
+                    Flexible(
+                      child: Text(
+                        product.category!,
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: Colors.grey,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                 ],

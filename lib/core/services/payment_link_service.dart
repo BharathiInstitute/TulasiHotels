@@ -3,9 +3,9 @@
 /// Uses Firebase Cloud Functions to create Razorpay payment links
 library;
 
-import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/foundation.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:tulasihotels/core/services/cloud_function_helper.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 /// Result of creating a payment link
@@ -40,8 +40,6 @@ class PaymentLinkResult {
 
 /// Service for creating and sharing payment links
 class PaymentLinkService {
-  static final FirebaseFunctions _functions = FirebaseFunctions.instance;
-
   // UPI ID loaded from Remote Config or Cloud Function — never hardcoded
   // Set via Firebase Remote Config key: 'merchant_upi_id'
   static String _upiId = '';
@@ -178,10 +176,6 @@ class PaymentLinkService {
       if (kDebugMode) {
         debugPrint('>>> Calling Cloud Function: createPaymentLink');
       }
-      final callable = _functions.httpsCallable(
-        'createPaymentLink',
-        options: HttpsCallableOptions(timeout: const Duration(seconds: 30)),
-      );
 
       final params = {
         'amount': amount,
@@ -194,8 +188,7 @@ class PaymentLinkService {
       };
       if (kDebugMode) debugPrint('>>> Params: $params');
 
-      final result = await callable.call<Map<String, dynamic>>(params);
-      final data = result.data;
+      final data = await CloudFunctionHelper.call('createPaymentLink', params);
       if (data['success'] == true && data['paymentLink'] != null) {
         if (kDebugMode) {
           debugPrint('>>> ? Razorpay link: ${data['paymentLink']}');
@@ -209,16 +202,6 @@ class PaymentLinkService {
           data['error'] as String? ?? 'Failed to create payment link',
         );
       }
-    } on FirebaseFunctionsException catch (e) {
-      debugPrint('>>> ? Firebase error: ${e.code} - ${e.message}');
-      if (e.code == 'unauthenticated') {
-        return PaymentLinkResult.failure(
-          'Please login to create payment links',
-        );
-      }
-      return PaymentLinkResult.failure(
-        'UPI ID not configured. Go to Settings ? Billing to set up.',
-      );
     } catch (e) {
       debugPrint('>>> ? Error: $e');
       return PaymentLinkResult.failure(

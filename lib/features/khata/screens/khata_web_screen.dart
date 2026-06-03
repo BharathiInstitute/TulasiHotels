@@ -107,6 +107,7 @@ class _KhataWebScreenState extends ConsumerState<KhataWebScreen> {
                       Expanded(
                         child: _selectedCustomerId != null
                             ? _CustomerDetailPanel(
+                                key: ValueKey(_selectedCustomerId),
                                 customerId: _selectedCustomerId!,
                                 onClose: () =>
                                     setState(() => _selectedCustomerId = null),
@@ -784,7 +785,11 @@ class _CustomerDetailPanel extends ConsumerStatefulWidget {
   final String customerId;
   final VoidCallback onClose;
 
-  const _CustomerDetailPanel({required this.customerId, required this.onClose});
+  const _CustomerDetailPanel({
+    super.key,
+    required this.customerId,
+    required this.onClose,
+  });
 
   @override
   ConsumerState<_CustomerDetailPanel> createState() =>
@@ -963,6 +968,8 @@ class _CustomerDetailPanelState extends ConsumerState<_CustomerDetailPanel> {
                 await ref
                     .read(khataServiceProvider)
                     .deleteCustomer(customer.id);
+
+                if (!mounted) return;
 
                 // Close panel
                 widget.onClose();

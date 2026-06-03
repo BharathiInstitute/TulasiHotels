@@ -7,9 +7,9 @@
 /// products are configured. Currently falls back to Razorpay on all platforms.
 library;
 
-import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:tulasihotels/core/services/cloud_function_helper.dart';
 import 'package:tulasihotels/core/services/razorpay_service.dart';
 import 'package:tulasihotels/core/services/user_metrics_service.dart';
 
@@ -27,18 +27,17 @@ class SubscriptionPricing {
 
 /// Service for managing subscription upgrades
 class SubscriptionService {
-  final FirebaseFunctions _functions;
-
-  SubscriptionService()
-      : _functions = FirebaseFunctions.instanceFor(region: 'asia-south1');
+  SubscriptionService();
 
   /// Get the current user's subscription from Firestore
   Future<UserSubscription> getCurrentSubscription() async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return UserSubscription();
 
-    final doc =
-        await FirebaseFirestore.instance.collection('users').doc(uid).get();
+    final doc = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(uid)
+        .get();
     final subMap = doc.data()?['subscription'] as Map<String, dynamic>?;
     return UserSubscription.fromMap(subMap);
   }
@@ -81,7 +80,7 @@ class SubscriptionService {
 
     // Step 2: Verify payment & activate subscription via Cloud Function
     try {
-      final result = await _functions.httpsCallable('activateSubscription').call({
+      final data = await CloudFunctionHelper.call('activateSubscription', {
         'plan': plan,
         'cycle': cycle,
         'razorpayPaymentId': paymentResult.paymentId,
@@ -89,7 +88,6 @@ class SubscriptionService {
         'razorpaySignature': paymentResult.signature,
       });
 
-      final data = result.data as Map<String, dynamic>;
       if (data['success'] == true) {
         return SubscriptionResult.success(
           plan: plan,
@@ -99,8 +97,8 @@ class SubscriptionService {
       } else {
         return SubscriptionResult.failure('Activation failed');
       }
-    } on FirebaseFunctionsException catch (e) {
-      return SubscriptionResult.failure(e.message ?? 'Activation failed');
+    } catch (e) {
+      return SubscriptionResult.failure(e.toString());
     }
   }
 
@@ -177,15 +175,9 @@ class _RazorpayCompleter {
       if (_result != null) return false;
       await Future.delayed(const Duration(milliseconds: 100));
       return true;
-    }).timeout(
-      const Duration(minutes: 10),
-      onTimeout: () {},
-    );
+    }).timeout(const Duration(minutes: 10), onTimeout: () {});
 
     return _result ??
-        const PaymentResult(
-          success: false,
-          errorMessage: 'Payment timed out',
-        );
+        const PaymentResult(success: false, errorMessage: 'Payment timed out');
   }
 }

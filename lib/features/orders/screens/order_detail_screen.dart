@@ -8,18 +8,16 @@ import 'package:tulasihotels/features/orders/services/order_service.dart';
 import 'package:tulasihotels/models/order_model.dart';
 
 /// Provider that streams a single order by ID
-final orderDetailProvider =
-    StreamProvider.autoDispose.family<OrderModel?, String>((ref, orderId) {
-  return OrderService.activeOrdersStream().map(
-    (orders) {
-      try {
-        return orders.firstWhere((o) => o.id == orderId);
-      } catch (_) {
-        return null;
-      }
-    },
-  );
-});
+final orderDetailProvider = StreamProvider.autoDispose
+    .family<OrderModel?, String>((ref, orderId) {
+      return OrderService.activeOrdersStream().map((orders) {
+        try {
+          return orders.firstWhere((o) => o.id == orderId);
+        } catch (_) {
+          return null;
+        }
+      });
+    });
 
 class OrderDetailScreen extends ConsumerWidget {
   final String orderId;
@@ -35,19 +33,42 @@ class OrderDetailScreen extends ConsumerWidget {
       data: (order) {
         if (order == null) {
           return Scaffold(
-            appBar: AppBar(title: const Text('Order')),
-            body: const Center(child: Text('Order not found or already closed')),
+            appBar: AppBar(
+              leading: IconButton(
+                icon: const Icon(Icons.arrow_back),
+                onPressed: () {
+                  if (context.canPop()) {
+                    context.pop();
+                  } else {
+                    context.go('/orders');
+                  }
+                },
+              ),
+              title: const Text('Order'),
+            ),
+            body: const Center(
+              child: Text('Order not found or already closed'),
+            ),
           );
         }
 
         return Scaffold(
           appBar: AppBar(
+            leading: IconButton(
+              icon: const Icon(Icons.arrow_back),
+              onPressed: () {
+                if (context.canPop()) {
+                  context.pop();
+                } else {
+                  context.go('/orders');
+                }
+              },
+            ),
             title: Text('Order #${order.orderNumber}'),
             actions: [
               if (order.isActive)
                 PopupMenuButton<String>(
-                  onSelected: (action) =>
-                      _handleAction(context, action, order),
+                  onSelected: (action) => _handleAction(context, action, order),
                   itemBuilder: (context) => [
                     if (order.status != OrderStatus.served)
                       const PopupMenuItem(
@@ -61,8 +82,10 @@ class OrderDetailScreen extends ConsumerWidget {
                       ),
                     const PopupMenuItem(
                       value: 'cancel',
-                      child:
-                          Text('Cancel Order', style: TextStyle(color: Colors.red)),
+                      child: Text(
+                        'Cancel Order',
+                        style: TextStyle(color: Colors.red),
+                      ),
                     ),
                   ],
                 ),
@@ -79,18 +102,12 @@ class OrderDetailScreen extends ConsumerWidget {
                     padding: const EdgeInsets.all(16),
                     child: Column(
                       children: [
-                        _InfoRow(
-                          'Table',
-                          order.tableName ?? 'N/A',
-                        ),
+                        _InfoRow('Table', order.tableName ?? 'N/A'),
                         _InfoRow('Type', order.orderType.displayName),
                         _InfoRow('Status', order.status.displayName),
                         if (order.waiterName != null)
                           _InfoRow('Waiter', order.waiterName!),
-                        _InfoRow(
-                          'Placed',
-                          _formatTime(order.createdAt),
-                        ),
+                        _InfoRow('Placed', _formatTime(order.createdAt)),
                         if (order.notes != null && order.notes!.isNotEmpty)
                           _InfoRow('Notes', order.notes!),
                       ],
@@ -201,17 +218,13 @@ class OrderDetailScreen extends ConsumerWidget {
     return '$h:$m';
   }
 
-  void _handleAction(
-    BuildContext context,
-    String action,
-    OrderModel order,
-  ) {
+  void _handleAction(BuildContext context, String action, OrderModel order) {
     switch (action) {
       case 'add_items':
         // TODO: Navigate to add items screen
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Add items coming soon')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Add items coming soon')));
         break;
       case 'generate_bill':
         context.push('/orders/${order.id}/bill');
@@ -269,16 +282,13 @@ class _InfoRow extends StatelessWidget {
             width: 80,
             child: Text(
               label,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Colors.grey,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: Colors.grey),
             ),
           ),
           Expanded(
-            child: Text(
-              value,
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
+            child: Text(value, style: Theme.of(context).textTheme.bodyMedium),
           ),
         ],
       ),
@@ -369,10 +379,7 @@ class _StatusDropdown extends StatelessWidget {
   final OrderItemStatus status;
   final ValueChanged<OrderItemStatus> onChanged;
 
-  const _StatusDropdown({
-    required this.status,
-    required this.onChanged,
-  });
+  const _StatusDropdown({required this.status, required this.onChanged});
 
   @override
   Widget build(BuildContext context) {

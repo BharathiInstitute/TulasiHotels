@@ -1,0 +1,39 @@
+name,price,purchasePrice,stock,unit,barcode,lowStockAlert
+biryani chicken,199.0,199.0,58,piece,,56
+biryani chicken,199.0,199.0,58,piece,,56
+black graph juice,300.0,300.0,15,piece,,15
+black graph juice,300.0,300.0,15,piece,,1
+butter chicken,89.0,90.0,56,piece,,54
+butter chicken,89.0,90.0,56,piece,,54
+chicken curry,0.0,,44,piece,,34
+chicken curry,0.0,,44,piece,,34
+chicken pakodi,50.0,50.0,50,piece,,45
+chicken pakodi,50.0,50.0,50,piece,,45
+chickenpickle,200.0,200.0,50,piece,,49
+chickenpickle,200.0,200.0,50,piece,,49
+dsfds,12.0,,12,piece,,5
+dsfds,12.0,,12,piece,,5
+eggcurry,37.0,40.0,39,piece,,40
+eggcurry,37.0,40.0,39,piece,,40
+fishfry,100.0,100.0,30,piece,,36
+fishfry,100.0,100.0,30,piece,,36
+gongura pickle,100.0,100.0,44,piece,,50
+gongura pickle,100.0,100.0,44,piece,,50
+graphs  juice,300.0,300.0,45,piece,,45
+graphs  juice,300.0,300.0,45,piece,,45
+gulabjammun with ice cream,170.0,200.0,55,piece,,45
+gulabjammun with ice cream,170.0,200.0,55,piece,,45
+gulabjamun,100.0,100.0,20,piece,,19
+gulabjamun,100.0,100.0,20,piece,,19
+icecreame,40.0,40.0,44,piece,,40
+icecreame,40.0,40.0,44,piece,,40
+mutton curry,100.0,100.0,56,pack,,52
+mutton curry,100.0,100.0,56,pack,,52
+orange juice,500.0,500.0,56,piece,,51
+orange juice,500.0,500.0,56,piece,,51
+prawnspickle,288.0,288.0,300,piece,,200
+prawnspickle,288.0,288.0,300,piece,,200
+silk,99.0,99.0,14,piece,,13
+silk,99.0,99.0,14,piece,,13
+watermelon juice,50.0,50.0,23,piece,,23
+watermelon juice,50.0,50.0,23,piece,,23

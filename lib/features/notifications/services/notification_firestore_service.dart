@@ -2,8 +2,8 @@
 library;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/foundation.dart';
+import 'package:tulasihotels/core/services/cloud_function_helper.dart';
 import 'package:tulasihotels/features/notifications/models/notification_model.dart';
 
 class NotificationFirestoreService {
@@ -114,11 +114,7 @@ class NotificationFirestoreService {
     required NotificationModel notification,
   }) async {
     try {
-      final callable = FirebaseFunctions.instanceFor(
-        region: 'asia-south1',
-      ).httpsCallable('sendNotificationToAll');
-
-      final result = await callable.call<Map<String, dynamic>>({
+      final result = await CloudFunctionHelper.call('sendNotificationToAll', {
         'title': notification.title,
         'body': notification.body,
         'type': notification.type.name,
@@ -126,7 +122,7 @@ class NotificationFirestoreService {
         if (notification.data != null) 'data': notification.data,
       });
 
-      final count = (result.data['recipientCount'] as num?)?.toInt() ?? 0;
+      final count = (result['recipientCount'] as num?)?.toInt() ?? 0;
       debugPrint('✅ Notification sent to $count users via CF');
       return count;
     } catch (e, st) {
@@ -141,11 +137,7 @@ class NotificationFirestoreService {
     required NotificationModel notification,
   }) async {
     try {
-      final callable = FirebaseFunctions.instanceFor(
-        region: 'asia-south1',
-      ).httpsCallable('sendNotificationToPlan');
-
-      final result = await callable.call<Map<String, dynamic>>({
+      final result = await CloudFunctionHelper.call('sendNotificationToPlan', {
         'plan': plan,
         'title': notification.title,
         'body': notification.body,
@@ -154,7 +146,7 @@ class NotificationFirestoreService {
         if (notification.data != null) 'data': notification.data,
       });
 
-      final count = (result.data['recipientCount'] as num?)?.toInt() ?? 0;
+      final count = (result['recipientCount'] as num?)?.toInt() ?? 0;
       debugPrint('✅ Notification sent to $count $plan users via CF');
       return count;
     } catch (e, st) {

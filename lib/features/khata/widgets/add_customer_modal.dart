@@ -72,9 +72,7 @@ class _AddCustomerModalState extends ConsumerState<AddCustomerModal> {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
-                content: Text(
-                  'A guest with this phone number already exists',
-                ),
+                content: Text('A guest with this phone number already exists'),
                 backgroundColor: AppColors.warning,
               ),
             );
@@ -105,12 +103,11 @@ class _AddCustomerModalState extends ConsumerState<AddCustomerModal> {
       }
 
       // Refresh the customers list (derived providers cascade automatically)
-      ref.invalidate(customersProvider);
-      if (_isEditMode) {
-        ref.invalidate(customerProvider(customer.id));
-      }
-
       if (mounted) {
+        ref.invalidate(customersProvider);
+        if (_isEditMode) {
+          ref.invalidate(customerProvider(customer.id));
+        }
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

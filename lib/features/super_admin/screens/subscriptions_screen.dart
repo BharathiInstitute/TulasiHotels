@@ -16,14 +16,17 @@ class SubscriptionsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final statsAsync = ref.watch(adminStatsProvider);
     final expiringAsync = ref.watch(expiringSubscriptionsProvider);
-    final isWide = MediaQuery.of(context).size.width > 800;
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isMobile = screenWidth < 600;
+    final isTablet = screenWidth >= 600 && screenWidth < 1024;
+    final isDesktop = screenWidth >= 1024;
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Subscriptions'),
         backgroundColor: Colors.deepPurple,
         foregroundColor: Colors.white,
-        leading: MediaQuery.of(context).size.width >= 1024
+        leading: isDesktop
             ? null
             : IconButton(
                 icon: const Icon(Icons.menu),
@@ -39,14 +42,15 @@ class SubscriptionsScreen extends ConsumerWidget {
           children: [
             // Stats Cards
             statsAsync.when(
-              data: (stats) => _buildStatsRow(stats, isWide),
+              data: (stats) =>
+                  _buildStatsRow(stats, isMobile: isMobile, isTablet: isTablet),
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (e, _) => Text('Error: $e'),
             ),
 
             const SizedBox(height: 24),
 
-            if (isWide)
+            if (isDesktop || isTablet)
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -95,7 +99,11 @@ class SubscriptionsScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildStatsRow(AdminStats stats, bool isWide) {
+  Widget _buildStatsRow(
+    AdminStats stats, {
+    required bool isMobile,
+    required bool isTablet,
+  }) {
     final cards = [
       _StatCard(
         title: 'MRR',
@@ -127,12 +135,25 @@ class SubscriptionsScreen extends ConsumerWidget {
       ),
     ];
 
+    final int crossAxisCount;
+    final double childAspectRatio;
+    if (isMobile) {
+      crossAxisCount = 2;
+      childAspectRatio = 1.4;
+    } else if (isTablet) {
+      crossAxisCount = 4;
+      childAspectRatio = 1.5;
+    } else {
+      crossAxisCount = 4;
+      childAspectRatio = 2.2;
+    }
+
     return GridView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: isWide ? 4 : 2,
-        childAspectRatio: isWide ? 2 : 1.5,
+        crossAxisCount: crossAxisCount,
+        childAspectRatio: childAspectRatio,
         crossAxisSpacing: 12,
         mainAxisSpacing: 12,
       ),
@@ -355,7 +376,10 @@ class SubscriptionsScreen extends ConsumerWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                _buildRevenueInfo('Pro Users', '${stats.proUsers} \u{00D7} \u{20B9}299'),
+                _buildRevenueInfo(
+                  'Pro Users',
+                  '${stats.proUsers} \u{00D7} \u{20B9}299',
+                ),
                 Container(
                   width: 1,
                   height: 30,
@@ -481,6 +505,7 @@ class SubscriptionsScreen extends ConsumerWidget {
 
   Widget _buildUserTile(BuildContext context, WidgetRef ref, AdminUser user) {
     return ListTile(
+      onTap: () => _showEditDialog(context, ref, user),
       leading: CircleAvatar(
         backgroundColor: _getPlanColor(user.subscription.plan),
         child: Text(
@@ -753,30 +778,41 @@ class _StatCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
           children: [
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(icon, color: color, size: 20),
-                const SizedBox(width: 8),
-                Text(title, style: TextStyle(color: Colors.grey.shade600)),
+                Icon(icon, color: color, size: 18),
+                const SizedBox(width: 6),
+                Flexible(
+                  child: Text(
+                    title,
+                    style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
               ],
             ),
-            const SizedBox(height: 8),
-            Text(
-              value,
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: color,
+            const SizedBox(height: 6),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                value,
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: color,
+                ),
               ),
             ),
             Text(
               subtitle,
               style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+              overflow: TextOverflow.ellipsis,
             ),
           ],
         ),

@@ -271,7 +271,23 @@ class _EventsScreenState extends ConsumerState<EventsScreen> {
     final clientName = _clientNameCtrl.text.trim();
     final clientPhone = _phoneCtrl.text.trim();
     final guestCount = int.tryParse(_guestsCtrl.text.trim()) ?? 0;
-    if (name.isEmpty || clientName.isEmpty) return;
+
+    if (name.isEmpty || clientName.isEmpty || guestCount <= 0) {
+      if (ctx.mounted) {
+        ScaffoldMessenger.of(ctx).showSnackBar(
+          SnackBar(
+            content: Text(
+              name.isEmpty
+                  ? 'Please enter an event name'
+                  : clientName.isEmpty
+                  ? 'Please enter a client name'
+                  : 'Please enter a valid guest count',
+            ),
+          ),
+        );
+      }
+      return;
+    }
 
     final perPlate = double.tryParse(_priceCtrl.text.trim()) ?? 0;
     final advance = double.tryParse(_advanceCtrl.text.trim()) ?? 0;

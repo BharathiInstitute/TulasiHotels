@@ -7,11 +7,11 @@
 /// 4. Windows app polls Firestore and picks up the custom token
 library;
 
-import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tulasihotels/core/constants/app_constants.dart';
 import 'package:tulasihotels/core/design/design_system.dart';
+import 'package:tulasihotels/core/services/cloud_function_helper.dart';
 import 'package:tulasihotels/features/auth/providers/auth_provider.dart';
 import 'package:tulasihotels/features/auth/widgets/auth_social_section.dart';
 
@@ -55,11 +55,9 @@ class _DesktopLoginBridgeScreenState
     }
 
     try {
-      final callable = FirebaseFunctions.instanceFor(
-        region: 'asia-south1',
-      ).httpsCallable('generateDesktopToken');
-      final result = await callable.call({'linkCode': code});
-      final data = result.data as Map<String, dynamic>;
+      final data = await CloudFunctionHelper.call('generateDesktopToken', {
+        'linkCode': code,
+      });
 
       if (data['success'] == true) {
         if (mounted) {

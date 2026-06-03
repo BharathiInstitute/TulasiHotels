@@ -5,12 +5,12 @@ library;
 import 'dart:async';
 import 'dart:io';
 
-import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:tulasihotels/core/design/app_colors.dart';
+import 'package:tulasihotels/core/services/cloud_function_helper.dart';
 import 'package:tulasihotels/core/services/image_service.dart';
 import 'package:tulasihotels/core/services/privacy_consent_service.dart';
 import 'package:tulasihotels/core/services/user_metrics_service.dart';
@@ -497,8 +497,7 @@ class _AccountSettingsScreenState extends ConsumerState<AccountSettingsScreen> {
     controller.dispose();
     if (result == null || result.length != 8 || !mounted) return;
     try {
-      final fn = FirebaseFunctions.instanceFor(region: 'asia-south1');
-      await fn.httpsCallable('redeemReferralCode').call({'code': result});
+      await CloudFunctionHelper.call('redeemReferralCode', {'code': result});
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(

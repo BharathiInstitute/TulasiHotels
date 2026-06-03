@@ -7,7 +7,6 @@ import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
@@ -16,6 +15,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:tulasihotels/core/config/razorpay_config.dart';
 import 'package:tulasihotels/core/constants/app_constants.dart';
+import 'package:tulasihotels/core/services/cloud_function_helper.dart';
 import 'package:tulasihotels/core/services/demo_data_service.dart';
 import 'package:tulasihotels/core/services/offline_storage_service.dart';
 import 'package:tulasihotels/features/referral/services/referral_service.dart';
@@ -869,11 +869,10 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
       // Use signInWithEmailLink is not viable. Let's call the cloud function
       // to exchange the idToken for a customToken
       try {
-        final functions = FirebaseFunctions.instance;
-        final result = await functions.httpsCallable('exchangeIdToken').call({
+        final data = await CloudFunctionHelper.call('exchangeIdToken', {
           'idToken': idToken,
         });
-        final customToken = result.data['customToken'] as String;
+        final customToken = data['customToken'] as String;
         await _auth.signInWithCustomToken(customToken);
         debugPrint('✅ Windows: Signed in with custom token');
         return true;
@@ -1080,11 +1079,10 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
       );
 
       try {
-        final functions = FirebaseFunctions.instance;
-        final result = await functions.httpsCallable('exchangeIdToken').call({
+        final data = await CloudFunctionHelper.call('exchangeIdToken', {
           'idToken': idToken,
         });
-        final customToken = result.data['customToken'] as String;
+        final customToken = data['customToken'] as String;
         await _auth.signInWithCustomToken(customToken);
 
         // Create Firestore doc after successful auth
@@ -1282,8 +1280,7 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
       // The caller should ensure re-authentication before calling this.
 
       // Call Cloud Function to delete all data
-      final functions = FirebaseFunctions.instanceFor(region: 'asia-south1');
-      await functions.httpsCallable('deleteUserAccount').call();
+      await CloudFunctionHelper.call('deleteUserAccount');
 
       // Clean up local state
       try {
@@ -1569,11 +1566,9 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
   /// Send registration OTP via Cloud Function (no auth required)
   Future<bool> sendRegistrationOTP(String email) async {
     try {
-      final callable = FirebaseFunctions.instanceFor(
-        region: 'asia-south1',
-      ).httpsCallable('sendRegistrationOTP');
-      final result = await callable.call({'email': email.trim().toLowerCase()});
-      final data = result.data as Map<String, dynamic>;
+      final data = await CloudFunctionHelper.call('sendRegistrationOTP', {
+        'email': email.trim().toLowerCase(),
+      });
 
       if (data['success'] == true) {
         debugPrint('📧 Registration OTP sent to $email');
@@ -1596,14 +1591,10 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
   /// Verify registration OTP via Cloud Function (no auth required)
   Future<bool> verifyRegistrationOTP(String email, String otp) async {
     try {
-      final callable = FirebaseFunctions.instanceFor(
-        region: 'asia-south1',
-      ).httpsCallable('verifyRegistrationOTP');
-      final result = await callable.call({
+      final data = await CloudFunctionHelper.call('verifyRegistrationOTP', {
         'email': email.trim().toLowerCase(),
         'otp': otp,
       });
-      final data = result.data as Map<String, dynamic>;
 
       if (data['success'] == true) {
         debugPrint('✅ Registration OTP verified for $email');

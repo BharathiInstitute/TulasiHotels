@@ -113,11 +113,10 @@ class _RecordPaymentModalState extends ConsumerState<RecordPaymentModal> {
       }
 
       // 3. Invalidate providers to refresh UI immediately
-      ref.invalidate(customerProvider(widget.customer.id));
-      ref.invalidate(customerTransactionsProvider(widget.customer.id));
-      ref.invalidate(customersProvider);
-
       if (mounted) {
+        ref.invalidate(customerProvider(widget.customer.id));
+        ref.invalidate(customerTransactionsProvider(widget.customer.id));
+        ref.invalidate(customersProvider);
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -173,11 +172,12 @@ class _RecordPaymentModalState extends ConsumerState<RecordPaymentModal> {
               );
 
               // 3. Invalidate providers
-              ref.invalidate(customerProvider(widget.customer.id));
-              ref.invalidate(customerTransactionsProvider(widget.customer.id));
-              ref.invalidate(customersProvider);
-
               if (mounted) {
+                ref.invalidate(customerProvider(widget.customer.id));
+                ref.invalidate(
+                  customerTransactionsProvider(widget.customer.id),
+                );
+                ref.invalidate(customersProvider);
                 Navigator.pop(context);
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
