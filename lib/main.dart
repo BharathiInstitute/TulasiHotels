@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io' show Platform;
+import 'dart:ui' show PlatformDispatcher;
 
 import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -49,6 +50,18 @@ void main() {
     () {
       // CRITICAL: Initialize binding FIRST, before anything else
       WidgetsFlutterBinding.ensureInitialized();
+
+      // Last-resort error handler for errors that escape runZonedGuarded.
+      // On Windows, the Firebase C++ SDK sends platform channel messages from
+      // non-platform threads which can cause unhandled errors. This prevents
+      // those from crashing the app process.
+      PlatformDispatcher.instance.onError = (error, stack) {
+        debugPrint('🟡 PlatformDispatcher.onError: $error');
+        if (_firebaseReady) {
+          ErrorHandler.report(error, stack);
+        }
+        return true; // Mark as handled — don't kill the app
+      };
 
       // Mark app start time for health metrics
       AppHealthService.markAppStart();

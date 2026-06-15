@@ -11,6 +11,7 @@ import 'package:tulasihotels/core/design/design_system.dart';
 import 'package:tulasihotels/features/auth/providers/auth_provider.dart';
 import 'package:tulasihotels/features/auth/widgets/auth_layout.dart';
 import 'package:tulasihotels/features/auth/widgets/auth_social_section.dart';
+import 'package:tulasihotels/features/auth/widgets/windows_webview_login.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
@@ -54,13 +55,139 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     ref.read(authNotifierProvider.notifier).clearError();
 
     try {
-      await ref.read(authNotifierProvider.notifier).signInWithGoogle();
+      final success = await ref
+          .read(authNotifierProvider.notifier)
+          .signInWithGoogle();
+      // If linking is needed, show password dialog
+      if (!success && mounted) {
+        final authState = ref.read(authNotifierProvider);
+        if (authState.pendingAccountLink) {
+          _showLinkPasswordDialog(authState.pendingLinkEmail ?? '');
+        } else if (authState.isLoggedIn) {
+          // User was authenticated via authStateChanges even though
+          // signInWithGoogle returned false — router will redirect.
+          return;
+        }
+      }
       // Router redirect handles navigation automatically
     } finally {
       if (mounted) {
         setState(() => _isGoogleLoading = false);
       }
     }
+  }
+
+  /// Show dialog to enter password for account linking
+  void _showLinkPasswordDialog(String email) {
+    final linkPasswordController = TextEditingController();
+    bool obscure = true;
+    bool linking = false;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          title: const Text('Link Your Account'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'An account with $email already exists. '
+                'Enter your password to link Google sign-in to this account.',
+                style: const TextStyle(fontSize: 14),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: linkPasswordController,
+                obscureText: obscure,
+                autofocus: true,
+                decoration: InputDecoration(
+                  labelText: 'Password',
+                  prefixIcon: const Icon(Icons.lock_outlined),
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      obscure
+                          ? Icons.visibility_off_outlined
+                          : Icons.visibility_outlined,
+                    ),
+                    onPressed: () => setDialogState(() => obscure = !obscure),
+                  ),
+                ),
+                onSubmitted: linking
+                    ? null
+                    : (_) async {
+                        setDialogState(() => linking = true);
+                        final success = await ref
+                            .read(authNotifierProvider.notifier)
+                            .completeLinkWithPassword(
+                              linkPasswordController.text,
+                            );
+                        if (ctx.mounted) {
+                          Navigator.pop(ctx);
+                        }
+                        if (!success && mounted) {
+                          final error = ref.read(authErrorProvider);
+                          if (error != null) {
+                            ScaffoldMessenger.of(
+                              context,
+                            ).showSnackBar(SnackBar(content: Text(error)));
+                          }
+                        }
+                      },
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: linking
+                  ? null
+                  : () {
+                      ref
+                          .read(authNotifierProvider.notifier)
+                          .cancelPendingLink();
+                      Navigator.pop(ctx);
+                    },
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: linking
+                  ? null
+                  : () async {
+                      setDialogState(() => linking = true);
+                      final success = await ref
+                          .read(authNotifierProvider.notifier)
+                          .completeLinkWithPassword(
+                            linkPasswordController.text,
+                          );
+                      if (ctx.mounted) {
+                        Navigator.pop(ctx);
+                      }
+                      if (!success && mounted) {
+                        final error = ref.read(authErrorProvider);
+                        if (error != null) {
+                          ScaffoldMessenger.of(
+                            context,
+                          ).showSnackBar(SnackBar(content: Text(error)));
+                        }
+                      }
+                    },
+              child: linking
+                  ? const SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Text('Link & Sign In'),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Future<void> _handleEmailLogin() async {
@@ -96,7 +223,20 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final authState = ref.watch(authNotifierProvider);
     final error = ref.watch(authErrorProvider);
+
+    // Windows: show embedded WebView when desktop login URL is set
+    if (_isWindowsDesktop && authState.desktopLoginUrl != null) {
+      return WindowsWebViewLogin(
+        url: authState.desktopLoginUrl!,
+        linkCode: authState.desktopLinkCode,
+        expiresAt: authState.desktopLinkExpiresAt,
+        onCancel: () {
+          ref.read(authNotifierProvider.notifier).cancelDesktopAuth();
+        },
+      );
+    }
 
     return AuthLayout(
       title: 'Welcome',

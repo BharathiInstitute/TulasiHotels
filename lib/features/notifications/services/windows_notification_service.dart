@@ -9,6 +9,7 @@ import 'dart:io' show Platform;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:tulasihotels/core/utils/windows_firestore_helper.dart';
 
 class WindowsNotificationService {
   static final _plugin = FlutterLocalNotificationsPlugin();
@@ -53,15 +54,16 @@ class WindowsNotificationService {
     _subscription?.cancel();
 
     // Listen for new unread notifications
-    _subscription = _firestore
-        .collection('users')
-        .doc(userId)
-        .collection('notifications')
-        .where('read', isEqualTo: false)
-        .orderBy('createdAt', descending: true)
-        .limit(1)
-        .snapshots()
-        .listen(
+    _subscription =
+        safeSnapshots(
+          _firestore
+              .collection('users')
+              .doc(userId)
+              .collection('notifications')
+              .where('read', isEqualTo: false)
+              .orderBy('createdAt', descending: true)
+              .limit(1),
+        ).listen(
           (snapshot) {
             for (final change in snapshot.docChanges) {
               if (change.type == DocumentChangeType.added) {

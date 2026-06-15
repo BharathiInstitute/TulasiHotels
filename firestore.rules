@@ -602,6 +602,35 @@ service cloud.firestore {
       allow update: if isAdmin();
       allow delete: if false;
     }
+
+    // ===================
+    // SUPPORT TICKETS
+    // ===================
+    match /support_tickets/{ticketId} {
+      // Users can read their own tickets, admins can read all
+      allow read: if isAuthenticated() && 
+        (resource.data.storeId == request.auth.uid || isAdmin());
+      // Users can create tickets (storeId must match their uid)
+      allow create: if isAuthenticated() 
+        && request.resource.data.storeId == request.auth.uid
+        && isReasonableSize();
+      // Users can update their own tickets (e.g. close), admins can update any
+      allow update: if isAuthenticated() && 
+        (resource.data.storeId == request.auth.uid || isAdmin());
+      allow delete: if false;
+
+      // Messages subcollection
+      match /messages/{messageId} {
+        // Users can read messages in their own tickets, admins can read all
+        allow read: if isAuthenticated() && 
+          (get(/databases/$(database)/documents/support_tickets/$(ticketId)).data.storeId == request.auth.uid || isAdmin());
+        // Users can create messages in their own tickets, admins can create in any
+        allow create: if isAuthenticated() && isReasonableSize() &&
+          (get(/databases/$(database)/documents/support_tickets/$(ticketId)).data.storeId == request.auth.uid || isAdmin());
+        allow update: if false;
+        allow delete: if false;
+      }
+    }
     
     // ===================
     // DESKTOP AUTH SESSIONS (for web-based desktop login flow)

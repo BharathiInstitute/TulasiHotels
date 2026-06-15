@@ -512,6 +512,36 @@
                     "order": "DESCENDING"
                 }
             ]
+        },
+        {
+            "__comment": "support_tickets: user's tickets ordered by updatedAt",
+            "collectionGroup": "support_tickets",
+            "queryScope": "COLLECTION",
+            "fields": [
+                {
+                    "fieldPath": "storeId",
+                    "order": "ASCENDING"
+                },
+                {
+                    "fieldPath": "updatedAt",
+                    "order": "DESCENDING"
+                }
+            ]
+        },
+        {
+            "__comment": "support_tickets: user's unread tickets",
+            "collectionGroup": "support_tickets",
+            "queryScope": "COLLECTION",
+            "fields": [
+                {
+                    "fieldPath": "storeId",
+                    "order": "ASCENDING"
+                },
+                {
+                    "fieldPath": "unreadStore",
+                    "order": "ASCENDING"
+                }
+            ]
         }
     ],
     "fieldOverrides": [

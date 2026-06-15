@@ -35,7 +35,11 @@ import 'package:tulasihotels/features/super_admin/screens/manage_admins_screen.d
 import 'package:tulasihotels/features/super_admin/screens/admin_shell_screen.dart';
 import 'package:tulasihotels/features/super_admin/screens/super_admin_login_screen.dart';
 import 'package:tulasihotels/features/super_admin/screens/notifications_admin_screen.dart';
+import 'package:tulasihotels/features/super_admin/screens/support_admin_screen.dart';
+import 'package:tulasihotels/features/super_admin/screens/admin_chat_screen.dart';
 import 'package:tulasihotels/features/super_admin/providers/super_admin_provider.dart';
+import 'package:tulasihotels/features/support/screens/my_tickets_screen.dart';
+import 'package:tulasihotels/features/support/screens/ticket_chat_screen.dart';
 import 'package:tulasihotels/features/notifications/screens/notifications_screen.dart';
 import 'package:tulasihotels/features/subscription/screens/subscription_screen.dart';
 import 'package:tulasihotels/features/tables/screens/tables_screen.dart';
@@ -175,6 +179,10 @@ class AppRoutes {
   static const String superAdminUserCosts = '/super-admin/user-costs';
   static const String superAdminManageAdmins = '/super-admin/manage-admins';
   static const String superAdminNotifications = '/super-admin/notifications';
+  static const String superAdminSupport = '/super-admin/support';
+  static const String superAdminSupportChat = '/super-admin/support/:id';
+  static const String support = '/support';
+  static const String supportChat = '/support/:id';
   static const String notifications = '/notifications';
 }
 
@@ -710,6 +718,19 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const SubscriptionScreen(),
       ),
 
+      // User support tickets
+      GoRoute(
+        path: AppRoutes.support,
+        builder: (context, state) => const MyTicketsScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.supportChat,
+        builder: (context, state) {
+          final ticketId = state.pathParameters['id']!;
+          return TicketChatScreen(ticketId: ticketId);
+        },
+      ),
+
       // User notifications inbox (outside main shell)
       GoRoute(
         path: AppRoutes.notifications,
@@ -778,7 +799,21 @@ final routerProvider = Provider<GoRouter>((ref) {
             pageBuilder: (context, state) =>
                 const NoTransitionPage(child: NotificationsAdminScreen()),
           ),
+          GoRoute(
+            path: AppRoutes.superAdminSupport,
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: SupportAdminScreen()),
+          ),
         ],
+      ),
+
+      // Admin support chat (outside admin shell for full-screen chat)
+      GoRoute(
+        path: AppRoutes.superAdminSupportChat,
+        builder: (context, state) {
+          final ticketId = state.pathParameters['id']!;
+          return AdminChatScreen(ticketId: ticketId);
+        },
       ),
     ],
     errorBuilder: (context, state) =>

@@ -12,6 +12,7 @@ import 'package:tulasihotels/core/utils/id_generator.dart';
 import 'package:tulasihotels/core/services/user_metrics_service.dart';
 import 'package:tulasihotels/core/services/demo_data_service.dart';
 import 'package:tulasihotels/core/services/sync_status_service.dart';
+import 'package:tulasihotels/core/utils/windows_firestore_helper.dart';
 import 'package:tulasihotels/features/auth/providers/auth_provider.dart';
 import 'package:tulasihotels/models/product_model.dart';
 
@@ -48,39 +49,38 @@ final productsProvider = StreamProvider.autoDispose<List<ProductModel>>((ref) {
   // Safety cap at 2000 products to prevent massive reads if a user
   // accidentally imports a huge inventory
   debugPrint('📦 productsProvider: Listening to Firestore products...');
-  return _firestore
-      .collection(_productsPath)
-      .orderBy('name')
-      .limit(AppConstants.queryLimitProducts)
-      .snapshots()
-      .map((snapshot) {
-        final products = snapshot.docs
-            .map((doc) => ProductModel.fromFirestore(doc))
-            .toList();
-        // Report sync status
-        final pendingCount = snapshot.docs
-            .where((d) => d.metadata.hasPendingWrites)
-            .length;
-        SyncStatusService.updateCollection(
-          'products',
-          totalDocs: products.length,
-          unsyncedDocs: pendingCount,
-          hasPendingWrites: snapshot.metadata.hasPendingWrites,
-        );
-        // Cache per-product sync status for productsSyncStatusProvider
-        _lastProductSyncStatus = {
-          for (final doc in snapshot.docs)
-            doc.id: doc.metadata.hasPendingWrites,
-        };
-        if (products.length >= 1000) {
-          debugPrint(
-            '⚠️ productsProvider: Large inventory (${products.length} products) — '
-            'consider pagination for better performance',
-          );
-        }
-        debugPrint('📦 productsProvider: Got ${products.length} products');
-        return products;
-      });
+  return safeSnapshots(
+    _firestore
+        .collection(_productsPath)
+        .orderBy('name')
+        .limit(AppConstants.queryLimitProducts),
+  ).map((snapshot) {
+    final products = snapshot.docs
+        .map((doc) => ProductModel.fromFirestore(doc))
+        .toList();
+    // Report sync status
+    final pendingCount = snapshot.docs
+        .where((d) => d.metadata.hasPendingWrites)
+        .length;
+    SyncStatusService.updateCollection(
+      'products',
+      totalDocs: products.length,
+      unsyncedDocs: pendingCount,
+      hasPendingWrites: snapshot.metadata.hasPendingWrites,
+    );
+    // Cache per-product sync status for productsSyncStatusProvider
+    _lastProductSyncStatus = {
+      for (final doc in snapshot.docs) doc.id: doc.metadata.hasPendingWrites,
+    };
+    if (products.length >= 1000) {
+      debugPrint(
+        '⚠️ productsProvider: Large inventory (${products.length} products) — '
+        'consider pagination for better performance',
+      );
+    }
+    debugPrint('📦 productsProvider: Got ${products.length} products');
+    return products;
+  });
 });
 
 /// Paginated products fetch — returns (products, lastDocument) for cursor pagination.

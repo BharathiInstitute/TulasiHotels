@@ -45,7 +45,7 @@ class DefaultFirebaseOptions {
     appId: '1:883551466761:web:c79809059abc26268b8fd8',
     messagingSenderId: '883551466761',
     projectId: 'login1-aa21c',
-    authDomain: 'login1-aa21c.firebaseapp.com',
+    authDomain: 'hotels.tulasierp.com',
     storageBucket: 'login1-aa21c.firebasestorage.app',
     measurementId: 'G-H1LN6C5CQW',
   );
@@ -64,7 +64,8 @@ class DefaultFirebaseOptions {
     messagingSenderId: '883551466761',
     projectId: 'login1-aa21c',
     storageBucket: 'login1-aa21c.firebasestorage.app',
-    iosClientId: '883551466761-fn2nqoibtchckr3fokt70hag0lq3c5vk.apps.googleusercontent.com',
+    iosClientId:
+        '883551466761-fn2nqoibtchckr3fokt70hag0lq3c5vk.apps.googleusercontent.com',
     iosBundleId: 'com.example.tulasihotels',
   );
 
@@ -74,7 +75,8 @@ class DefaultFirebaseOptions {
     messagingSenderId: '883551466761',
     projectId: 'login1-aa21c',
     storageBucket: 'login1-aa21c.firebasestorage.app',
-    iosClientId: '883551466761-fn2nqoibtchckr3fokt70hag0lq3c5vk.apps.googleusercontent.com',
+    iosClientId:
+        '883551466761-fn2nqoibtchckr3fokt70hag0lq3c5vk.apps.googleusercontent.com',
     iosBundleId: 'com.example.tulasihotels',
   );
 
@@ -87,5 +89,4 @@ class DefaultFirebaseOptions {
     storageBucket: 'login1-aa21c.firebasestorage.app',
     measurementId: 'G-H1LN6C5CQW',
   );
-
 }

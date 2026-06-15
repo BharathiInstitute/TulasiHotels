@@ -102,6 +102,51 @@ class ReceiptService {
     );
   }
 
+  /// Print receipt directly to a specific printer (no dialog).
+  static Future<bool> directPrintReceipt({
+    required Printer printer,
+    required BillModel bill,
+    String? shopName,
+    String? shopAddress,
+    String? shopPhone,
+    String? gstNumber,
+    String? receiptFooter,
+    String? shopLogoPath,
+    int? paperSizeIndex,
+  }) async {
+    final effectivePaperSize =
+        paperSizeIndex ?? PrinterStorage.getSavedPaperSize();
+    final baseFormat = _getPageFormat(effectivePaperSize);
+    // Use finite height for Windows compatibility
+    final directFormat = PdfPageFormat(
+      baseFormat.width,
+      300 * PdfPageFormat.mm,
+      marginLeft: baseFormat.marginLeft,
+      marginTop: baseFormat.marginTop,
+      marginRight: baseFormat.marginRight,
+      marginBottom: baseFormat.marginBottom,
+    );
+
+    final pdf = await generateReceipt(
+      bill: bill,
+      shopName: shopName,
+      shopAddress: shopAddress,
+      shopPhone: shopPhone,
+      gstNumber: gstNumber,
+      receiptFooter: receiptFooter,
+      shopLogoPath: shopLogoPath,
+      paperSizeIndex: effectivePaperSize,
+    );
+
+    return await Printing.directPrintPdf(
+      printer: printer,
+      onLayout: (format) => pdf.save(),
+      name: 'Bill_${bill.billNumber}',
+      format: directFormat,
+      dynamicLayout: false,
+    );
+  }
+
   /// Share receipt as PDF
   static Future<void> shareReceipt({
     required BillModel bill,

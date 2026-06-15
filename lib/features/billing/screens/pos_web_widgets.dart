@@ -90,9 +90,13 @@ class _WebProductCard extends StatelessWidget {
                               height: 16,
                               decoration: BoxDecoration(
                                 border: Border.all(
-                                  color: product.dietaryTag == DietaryTag.veg || product.dietaryTag == DietaryTag.jain
+                                  color:
+                                      product.dietaryTag == DietaryTag.veg ||
+                                          product.dietaryTag == DietaryTag.jain
                                       ? Colors.green
-                                      : (product.dietaryTag == DietaryTag.egg ? Colors.orange : Colors.red),
+                                      : (product.dietaryTag == DietaryTag.egg
+                                            ? Colors.orange
+                                            : Colors.red),
                                   width: 1.5,
                                 ),
                                 borderRadius: BorderRadius.circular(3),
@@ -101,9 +105,13 @@ class _WebProductCard extends StatelessWidget {
                                 child: Icon(
                                   Icons.circle,
                                   size: 8,
-                                  color: product.dietaryTag == DietaryTag.veg || product.dietaryTag == DietaryTag.jain
+                                  color:
+                                      product.dietaryTag == DietaryTag.veg ||
+                                          product.dietaryTag == DietaryTag.jain
                                       ? Colors.green
-                                      : (product.dietaryTag == DietaryTag.egg ? Colors.orange : Colors.red),
+                                      : (product.dietaryTag == DietaryTag.egg
+                                            ? Colors.orange
+                                            : Colors.red),
                                 ),
                               ),
                             ),
@@ -138,14 +146,15 @@ class _WebProductCard extends StatelessWidget {
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
-                          if (product.spiceLevel != SpiceLevel.na) ...
-                            [Padding(
+                          if (product.spiceLevel != SpiceLevel.na) ...[
+                            Padding(
                               padding: const EdgeInsets.only(left: 4),
                               child: Text(
                                 product.spiceLevel.emoji,
                                 style: const TextStyle(fontSize: 11),
                               ),
-                            )],
+                            ),
+                          ],
                         ],
                       ),
                       Text(
@@ -410,92 +419,16 @@ class _WebCartSectionState extends ConsumerState<_WebCartSection> {
     BillModel bill,
     ScaffoldMessengerState scaffoldMessenger,
   ) async {
-    try {
-      final user = ref.read(currentUserProvider);
-      final printerState = ref.read(printerProvider);
-      final footer = printerState.receiptFooter.isNotEmpty
-          ? printerState.receiptFooter
-          : null;
-      bool? directSuccess;
+    final user = ref.read(currentUserProvider);
+    final printerState = ref.read(printerProvider);
 
-      switch (printerState.printerType) {
-        case PrinterTypeOption.bluetooth:
-          if (ThermalPrinterService.isAvailable) {
-            directSuccess = await ThermalPrinterService.printReceipt(
-              bill: bill,
-              shopName: user?.shopName,
-              shopAddress: user?.address,
-              shopPhone: user?.phone,
-              gstNumber: user?.gstNumber,
-              receiptFooter: footer,
-            );
-          }
-          break;
-        case PrinterTypeOption.wifi:
-          if (WifiPrinterService.isConnected) {
-            directSuccess = await WifiPrinterService.printReceipt(
-              bill: bill,
-              shopName: user?.shopName,
-              shopAddress: user?.address,
-              shopPhone: user?.phone,
-              gstNumber: user?.gstNumber,
-              receiptFooter: footer,
-            );
-          }
-          break;
-        case PrinterTypeOption.usb:
-          final usbName = UsbPrinterService.getSavedPrinterName();
-          if (usbName.isNotEmpty) {
-            directSuccess = await UsbPrinterService.printReceipt(
-              printerName: usbName,
-              bill: bill,
-              shopName: user?.shopName,
-              shopAddress: user?.address,
-              shopPhone: user?.phone,
-              gstNumber: user?.gstNumber,
-              receiptFooter: footer,
-            );
-          }
-          break;
-        case PrinterTypeOption.system:
-          await ReceiptService.printReceipt(
-            bill: bill,
-            shopName: user?.shopName,
-            shopAddress: user?.address,
-            shopPhone: user?.phone,
-            gstNumber: user?.gstNumber,
-            receiptFooter: footer,
-            shopLogoPath: user?.shopLogoPath,
-          );
-          return;
-      }
-
-      if (directSuccess == false) {
-        scaffoldMessenger.showSnackBar(
-          SnackBar(
-            content: const Text('Print failed: Printer not connected'),
-            action: SnackBarAction(
-              label: 'Retry',
-              onPressed: () => _printReceipt(bill, scaffoldMessenger),
-            ),
-          ),
-        );
-      } else if (directSuccess == null) {
-        await ReceiptService.printReceipt(
-          bill: bill,
-          shopName: user?.shopName,
-          shopAddress: user?.address,
-          shopPhone: user?.phone,
-          gstNumber: user?.gstNumber,
-          receiptFooter: footer,
-          shopLogoPath: user?.shopLogoPath,
-        );
-      }
-    } catch (e) {
-      scaffoldMessenger.showSnackBar(
-        SnackBar(content: Text('Print failed: $e')),
-      );
-    }
+    await PrintHelper.printReceipt(
+      bill: bill,
+      printerState: printerState,
+      user: user,
+      scaffoldMessenger: scaffoldMessenger,
+      onRetry: () => _printReceipt(bill, scaffoldMessenger),
+    );
   }
 
   void _showBillCompleteDialog(BillModel bill) {

@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+                                                    <!DOCTYPE html>
 <html lang="en">
 
 <head>
@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Pricing — Tulasi Hotels | Free to Start, Scales With You</title>
   <meta name="description"
-    content="Tulasi Hotels pricing plans: Free plan with unlimited billing, Pro at ₹999/month for advanced features, Enterprise for multi-location chains. Start free, no card needed.">
+    content="Tulasi Hotels pricing plans: Free plan with unlimited billing, Starter at ₹500/month, Pro at ₹1,000/month, Business at ₹2,000/month. Start free, no card needed.">
   <meta property="og:title" content="Pricing — Tulasi Hotels">
   <meta property="og:description" content="Start free, upgrade when ready. Transparent pricing with no hidden fees.">
   <meta property="og:type" content="website">
@@ -108,7 +108,7 @@
           <span class="pricing-save-badge">Save 17%</span>
         </div>
 
-        <div class="grid-3" id="pricingCards">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1.5rem;" id="pricingCards">
 
           <!-- FREE -->
           <div class="pricing-card animate-on-scroll">
@@ -124,15 +124,39 @@
             <ul class="pricing-features-list">
               <li>Unlimited billing &amp; orders</li>
               <li>Menu management</li>
-              <li>Basic table management</li>
+              <li>Basic table management (5 tables)</li>
               <li>PDF receipt sharing</li>
               <li>Single user (Owner)</li>
               <li>Basic dashboard</li>
               <li class="disabled">Kitchen Display System</li>
-              <li class="disabled">Staff &amp; HR modules</li>
-              <li class="disabled">Inventory management</li>
-              <li class="disabled">Advanced reports</li>
+              <li class="disabled">Staff management</li>
+              <li class="disabled">Inventory tracking</li>
               <li class="disabled">Customer portal</li>
+            </ul>
+          </div>
+
+          <!-- STARTER -->
+          <div class="pricing-card animate-on-scroll">
+            <div style="margin-bottom: 1.5rem;">
+              <h3 style="font-size: 1.25rem; margin-bottom: 0.25rem;">Starter</h3>
+              <p style="font-size: 0.875rem; color: var(--color-text-light);">For small restaurants</p>
+            </div>
+            <div style="margin-bottom: 1.5rem;">
+              <span style="font-size: 2.5rem; font-weight: 800;" data-monthly="₹10" data-annual="₹8">₹10</span>
+              <span style="color: var(--color-text-light); font-size: 0.875rem;" data-monthly="/month" data-annual="/mo (billed yearly)">/month</span>
+            </div>
+            <a href="/app/" class="btn btn-secondary" style="width: 100%; text-align: center; margin-bottom: 1rem;" data-subscribe="starter">Subscribe</a>
+            <ul class="pricing-features-list">
+              <li>Everything in Free, plus:</li>
+              <li>Kitchen Display System</li>
+              <li>Up to 3 staff users</li>
+              <li>Basic inventory tracking</li>
+              <li>Customer database</li>
+              <li>GST export (GSTR-1)</li>
+              <li>Email support</li>
+              <li class="disabled">QR menu &amp; online ordering</li>
+              <li class="disabled">Advanced analytics</li>
+              <li class="disabled">Multi-location</li>
             </ul>
           </div>
 
@@ -143,35 +167,35 @@
               <p style="font-size: 0.875rem; color: var(--color-text-light);">For growing hotels &amp; restaurants</p>
             </div>
             <div style="margin-bottom: 1.5rem;">
-              <span style="font-size: 2.5rem; font-weight: 800;" data-monthly="₹999" data-annual="₹833">₹999</span>
+              <span style="font-size: 2.5rem; font-weight: 800;" data-monthly="₹20" data-annual="₹17">₹20</span>
               <span style="color: var(--color-text-light); font-size: 0.875rem;" data-monthly="/month" data-annual="/mo (billed yearly)">/month</span>
             </div>
-            <a href="/app/" class="btn btn-primary" style="width: 100%; text-align: center; margin-bottom: 1rem;">Start 14-Day Trial</a>
+            <a href="/app/" class="btn btn-primary" style="width: 100%; text-align: center; margin-bottom: 1rem;" data-subscribe="pro">Start 14-Day Trial</a>
             <ul class="pricing-features-list">
-              <li>Everything in Free, plus:</li>
-              <li>Kitchen Display System</li>
-              <li>Staff management (up to 15 users)</li>
-              <li>Attendance &amp; shift scheduling</li>
-              <li>Inventory &amp; ingredient tracking</li>
+              <li>Everything in Starter, plus:</li>
+              <li>Up to 10 staff users</li>
+              <li>Full inventory &amp; ingredients</li>
               <li>Customer portal (QR menu, ordering)</li>
-              <li>Reservations</li>
+              <li>Reservations &amp; events</li>
               <li>Coupons &amp; discounts</li>
               <li>9 analytics dashboards</li>
-              <li>GST export for GSTR-1</li>
+              <li>Attendance &amp; shift scheduling</li>
               <li>Priority email support</li>
+              <li class="disabled">Multi-location</li>
             </ul>
           </div>
 
-          <!-- ENTERPRISE -->
+          <!-- BUSINESS -->
           <div class="pricing-card animate-on-scroll">
             <div style="margin-bottom: 1.5rem;">
-              <h3 style="font-size: 1.25rem; margin-bottom: 0.25rem;">Enterprise</h3>
+              <h3 style="font-size: 1.25rem; margin-bottom: 0.25rem;">Business</h3>
               <p style="font-size: 0.875rem; color: var(--color-text-light);">For chains &amp; multi-location</p>
             </div>
             <div style="margin-bottom: 1.5rem;">
-              <span style="font-size: 2.5rem; font-weight: 800;">Custom</span>
+              <span style="font-size: 2.5rem; font-weight: 800;" data-monthly="₹30" data-annual="₹25">₹30</span>
+              <span style="color: var(--color-text-light); font-size: 0.875rem;" data-monthly="/month" data-annual="/mo (billed yearly)">/month</span>
             </div>
-            <a href="support.html" class="btn btn-secondary" style="width: 100%; text-align: center; margin-bottom: 1rem;">Contact Sales</a>
+            <a href="/app/" class="btn btn-primary" style="width: 100%; text-align: center; margin-bottom: 1rem;" data-subscribe="business">Subscribe</a>
             <ul class="pricing-features-list">
               <li>Everything in Pro, plus:</li>
               <li>Unlimited staff users</li>
@@ -180,7 +204,6 @@
               <li>API access &amp; integrations</li>
               <li>Dedicated account manager</li>
               <li>Phone &amp; WhatsApp support</li>
-              <li>Custom onboarding &amp; training</li>
               <li>White-label option</li>
               <li>SLA guarantee</li>
             </ul>
@@ -210,80 +233,82 @@
               <tr>
                 <th>Feature</th>
                 <th>Free</th>
+                <th>Starter</th>
                 <th style="color: var(--color-primary);">Pro</th>
-                <th>Enterprise</th>
+                <th>Business</th>
               </tr>
             </thead>
             <tbody>
               <!-- Billing -->
-              <tr class="section-row"><td colspan="4">Billing &amp; Orders</td></tr>
-              <tr><td>POS Billing</td><td>✅</td><td>✅</td><td>✅</td></tr>
-              <tr><td>Order Management</td><td>✅</td><td>✅</td><td>✅</td></tr>
-              <tr><td>PDF Receipts</td><td>✅</td><td>✅</td><td>✅</td></tr>
-              <tr><td>GST Calculation</td><td>✅</td><td>✅</td><td>✅</td></tr>
-              <tr><td>GST Export (GSTR-1)</td><td>—</td><td>✅</td><td>✅</td></tr>
-              <tr><td>Kitchen Display System</td><td>—</td><td>✅</td><td>✅</td></tr>
-              <tr><td>Split Billing</td><td>—</td><td>✅</td><td>✅</td></tr>
+              <tr class="section-row"><td colspan="5">Billing &amp; Orders</td></tr>
+              <tr><td>POS Billing</td><td>✅</td><td>✅</td><td>✅</td><td>✅</td></tr>
+              <tr><td>Order Management</td><td>✅</td><td>✅</td><td>✅</td><td>✅</td></tr>
+              <tr><td>PDF Receipts</td><td>✅</td><td>✅</td><td>✅</td><td>✅</td></tr>
+              <tr><td>GST Calculation</td><td>✅</td><td>✅</td><td>✅</td><td>✅</td></tr>
+              <tr><td>GST Export (GSTR-1)</td><td>—</td><td>✅</td><td>✅</td><td>✅</td></tr>
+              <tr><td>Kitchen Display System</td><td>—</td><td>✅</td><td>✅</td><td>✅</td></tr>
+              <tr><td>Split Billing</td><td>—</td><td>—</td><td>✅</td><td>✅</td></tr>
 
               <!-- Menu -->
-              <tr class="section-row"><td colspan="4">Menu &amp; Products</td></tr>
-              <tr><td>Menu Management</td><td>✅</td><td>✅</td><td>✅</td></tr>
-              <tr><td>Combo Meals</td><td>✅</td><td>✅</td><td>✅</td></tr>
-              <tr><td>Daily Specials</td><td>—</td><td>✅</td><td>✅</td></tr>
+              <tr class="section-row"><td colspan="5">Menu &amp; Products</td></tr>
+              <tr><td>Menu Management</td><td>✅</td><td>✅</td><td>✅</td><td>✅</td></tr>
+              <tr><td>Combo Meals</td><td>✅</td><td>✅</td><td>✅</td><td>✅</td></tr>
+              <tr><td>Daily Specials</td><td>—</td><td>✅</td><td>✅</td><td>✅</td></tr>
 
               <!-- Tables -->
-              <tr class="section-row"><td colspan="4">Table &amp; Reservations</td></tr>
-              <tr><td>Table Management</td><td>Basic</td><td>✅ Full</td><td>✅ Full</td></tr>
-              <tr><td>Online Reservations</td><td>—</td><td>✅</td><td>✅</td></tr>
+              <tr class="section-row"><td colspan="5">Table &amp; Reservations</td></tr>
+              <tr><td>Table Management</td><td>5 tables</td><td>15 tables</td><td>✅ Unlimited</td><td>✅ Unlimited</td></tr>
+              <tr><td>Online Reservations</td><td>—</td><td>—</td><td>✅</td><td>✅</td></tr>
 
               <!-- Staff -->
-              <tr class="section-row"><td colspan="4">Staff &amp; HR</td></tr>
-              <tr><td>Staff Users</td><td>1 (Owner)</td><td>Up to 15</td><td>Unlimited</td></tr>
-              <tr><td>Attendance Tracking</td><td>—</td><td>✅</td><td>✅</td></tr>
-              <tr><td>Shift Scheduling</td><td>—</td><td>✅</td><td>✅</td></tr>
-              <tr><td>Task Board</td><td>—</td><td>✅</td><td>✅</td></tr>
-              <tr><td>Salary &amp; Payroll</td><td>—</td><td>✅</td><td>✅</td></tr>
-              <tr><td>Cash Register</td><td>—</td><td>✅</td><td>✅</td></tr>
-              <tr><td>Internal Messaging</td><td>—</td><td>✅</td><td>✅</td></tr>
+              <tr class="section-row"><td colspan="5">Staff &amp; HR</td></tr>
+              <tr><td>Staff Users</td><td>1 (Owner)</td><td>Up to 3</td><td>Up to 10</td><td>Unlimited</td></tr>
+              <tr><td>Attendance Tracking</td><td>—</td><td>—</td><td>✅</td><td>✅</td></tr>
+              <tr><td>Shift Scheduling</td><td>—</td><td>—</td><td>✅</td><td>✅</td></tr>
+              <tr><td>Task Board</td><td>—</td><td>—</td><td>✅</td><td>✅</td></tr>
+              <tr><td>Salary &amp; Payroll</td><td>—</td><td>—</td><td>✅</td><td>✅</td></tr>
+              <tr><td>Cash Register</td><td>—</td><td>✅</td><td>✅</td><td>✅</td></tr>
+              <tr><td>Internal Messaging</td><td>—</td><td>—</td><td>✅</td><td>✅</td></tr>
 
               <!-- Inventory -->
-              <tr class="section-row"><td colspan="4">Inventory</td></tr>
-              <tr><td>Ingredient Tracking</td><td>—</td><td>✅</td><td>✅</td></tr>
-              <tr><td>Vendor Management</td><td>—</td><td>✅</td><td>✅</td></tr>
-              <tr><td>Wastage Logging</td><td>—</td><td>✅</td><td>✅</td></tr>
+              <tr class="section-row"><td colspan="5">Inventory</td></tr>
+              <tr><td>Ingredient Tracking</td><td>—</td><td>Basic</td><td>✅ Full</td><td>✅ Full</td></tr>
+              <tr><td>Vendor Management</td><td>—</td><td>—</td><td>✅</td><td>✅</td></tr>
+              <tr><td>Wastage Logging</td><td>—</td><td>—</td><td>✅</td><td>✅</td></tr>
 
               <!-- Customer -->
-              <tr class="section-row"><td colspan="4">Customer Engagement</td></tr>
-              <tr><td>QR Menu Portal</td><td>—</td><td>✅</td><td>✅</td></tr>
-              <tr><td>Online Ordering</td><td>—</td><td>✅</td><td>✅</td></tr>
-              <tr><td>Coupons &amp; Discounts</td><td>—</td><td>✅</td><td>✅</td></tr>
-              <tr><td>Feedback &amp; NPS</td><td>—</td><td>✅</td><td>✅</td></tr>
+              <tr class="section-row"><td colspan="5">Customer Engagement</td></tr>
+              <tr><td>Customer Database</td><td>—</td><td>✅</td><td>✅</td><td>✅</td></tr>
+              <tr><td>QR Menu Portal</td><td>—</td><td>—</td><td>✅</td><td>✅</td></tr>
+              <tr><td>Online Ordering</td><td>—</td><td>—</td><td>✅</td><td>✅</td></tr>
+              <tr><td>Coupons &amp; Discounts</td><td>—</td><td>—</td><td>✅</td><td>✅</td></tr>
+              <tr><td>Feedback &amp; NPS</td><td>—</td><td>—</td><td>✅</td><td>✅</td></tr>
 
               <!-- Compliance -->
-              <tr class="section-row"><td colspan="4">Compliance &amp; Operations</td></tr>
-              <tr><td>License Tracking</td><td>—</td><td>✅</td><td>✅</td></tr>
-              <tr><td>Equipment Maintenance</td><td>—</td><td>✅</td><td>✅</td></tr>
-              <tr><td>Events &amp; Banquets</td><td>—</td><td>✅</td><td>✅</td></tr>
+              <tr class="section-row"><td colspan="5">Compliance &amp; Operations</td></tr>
+              <tr><td>License Tracking</td><td>—</td><td>—</td><td>✅</td><td>✅</td></tr>
+              <tr><td>Equipment Maintenance</td><td>—</td><td>—</td><td>✅</td><td>✅</td></tr>
+              <tr><td>Events &amp; Banquets</td><td>—</td><td>—</td><td>✅</td><td>✅</td></tr>
 
               <!-- Analytics -->
-              <tr class="section-row"><td colspan="4">Analytics &amp; Reports</td></tr>
-              <tr><td>Basic Dashboard</td><td>✅</td><td>✅</td><td>✅</td></tr>
-              <tr><td>9 Analytics Dashboards</td><td>—</td><td>✅</td><td>✅</td></tr>
-              <tr><td>Custom Reports</td><td>—</td><td>—</td><td>✅</td></tr>
-              <tr><td>API Access</td><td>—</td><td>—</td><td>✅</td></tr>
+              <tr class="section-row"><td colspan="5">Analytics &amp; Reports</td></tr>
+              <tr><td>Basic Dashboard</td><td>✅</td><td>✅</td><td>✅</td><td>✅</td></tr>
+              <tr><td>9 Analytics Dashboards</td><td>—</td><td>—</td><td>✅</td><td>✅</td></tr>
+              <tr><td>Custom Reports</td><td>—</td><td>—</td><td>—</td><td>✅</td></tr>
+              <tr><td>API Access</td><td>—</td><td>—</td><td>—</td><td>✅</td></tr>
 
               <!-- Support -->
-              <tr class="section-row"><td colspan="4">Support</td></tr>
-              <tr><td>Community Support</td><td>✅</td><td>✅</td><td>✅</td></tr>
-              <tr><td>Email Support</td><td>—</td><td>✅ Priority</td><td>✅ Priority</td></tr>
-              <tr><td>Phone &amp; WhatsApp</td><td>—</td><td>—</td><td>✅</td></tr>
-              <tr><td>Dedicated Account Manager</td><td>—</td><td>—</td><td>✅</td></tr>
+              <tr class="section-row"><td colspan="5">Support</td></tr>
+              <tr><td>Community Support</td><td>✅</td><td>✅</td><td>✅</td><td>✅</td></tr>
+              <tr><td>Email Support</td><td>—</td><td>✅</td><td>✅ Priority</td><td>✅ Priority</td></tr>
+              <tr><td>Phone &amp; WhatsApp</td><td>—</td><td>—</td><td>—</td><td>✅</td></tr>
+              <tr><td>Dedicated Account Manager</td><td>—</td><td>—</td><td>—</td><td>✅</td></tr>
 
               <!-- Platforms -->
-              <tr class="section-row"><td colspan="4">Platforms</td></tr>
-              <tr><td>Android</td><td>✅</td><td>✅</td><td>✅</td></tr>
-              <tr><td>Web Browser</td><td>✅</td><td>✅</td><td>✅</td></tr>
-              <tr><td>Windows Desktop</td><td>✅</td><td>✅</td><td>✅</td></tr>
+              <tr class="section-row"><td colspan="5">Platforms</td></tr>
+              <tr><td>Android</td><td>✅</td><td>✅</td><td>✅</td><td>✅</td></tr>
+              <tr><td>Web Browser</td><td>✅</td><td>✅</td><td>✅</td><td>✅</td></tr>
+              <tr><td>Windows Desktop</td><td>✅</td><td>✅</td><td>✅</td><td>✅</td></tr>
             </tbody>
           </table>
         </div>
@@ -416,34 +441,346 @@
 
   <button class="scroll-top" aria-label="Scroll to top">↑</button>
   <script src="../js/main.js?v=4" defer></script>
+
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-functions-compat.js"></script>
+  <!-- Razorpay Checkout.js -->
+  <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+
+  <!-- Login Modal -->
+  <div id="login-modal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.5);align-items:center;justify-content:center;">
+    <div style="background:white;border-radius:16px;padding:2rem;max-width:400px;width:90%;position:relative;">
+      <button onclick="closeLoginModal()" style="position:absolute;top:12px;right:16px;background:none;border:none;font-size:1.5rem;cursor:pointer;">&times;</button>
+      <div id="modal-signin-view">
+        <h3 style="margin-bottom:1rem;text-align:center;">Sign in to Subscribe</h3>
+        <button onclick="signInWithGoogle()" style="width:100%;padding:12px;border:1px solid #ddd;border-radius:8px;background:white;cursor:pointer;font-size:0.9rem;display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:1rem;">
+          <img src="https://www.google.com/favicon.ico" width="18" height="18" alt="G"> Sign in with Google
+        </button>
+        <div style="text-align:center;color:#999;margin:0.75rem 0;font-size:0.8rem;">or sign in with email</div>
+        <form onsubmit="signInWithEmail(event)">
+          <input id="login-email" type="email" placeholder="Email" required style="width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:8px;margin-bottom:0.75rem;font-size:0.9rem;">
+          <div style="position:relative;">
+            <input id="login-password" type="password" placeholder="Password" required style="width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:8px;font-size:0.9rem;">
+            <button type="button" onclick="togglePasswordVisibility('login-password',this)" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;">👁</button>
+          </div>
+          <div style="text-align:right;margin:0.5rem 0;"><a href="#" onclick="showModalForgotPassword();return false;" style="font-size:0.8rem;color:var(--color-primary);">Forgot password?</a></div>
+          <button id="email-login-btn" type="submit" style="width:100%;padding:12px;background:var(--color-primary);color:white;border:none;border-radius:8px;cursor:pointer;font-size:0.9rem;font-weight:600;">🔐 Sign In</button>
+        </form>
+        <div id="login-error" style="display:none;color:red;font-size:0.8rem;margin-top:0.75rem;text-align:center;"></div>
+      </div>
+      <div id="modal-forgot-view" style="display:none;">
+        <h3 style="margin-bottom:1rem;text-align:center;">Reset Password</h3>
+        <form onsubmit="sendModalPasswordReset(event)">
+          <input id="modal-forgot-email" type="email" placeholder="Your email" required style="width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:8px;margin-bottom:0.75rem;font-size:0.9rem;">
+          <button id="modal-forgot-btn" type="submit" style="width:100%;padding:12px;background:var(--color-primary);color:white;border:none;border-radius:8px;cursor:pointer;font-size:0.9rem;font-weight:600;">Send Reset Link</button>
+        </form>
+        <div id="modal-forgot-error" style="display:none;color:red;font-size:0.8rem;margin-top:0.75rem;text-align:center;"></div>
+        <div id="modal-forgot-success" style="display:none;color:green;font-size:0.8rem;margin-top:0.75rem;text-align:center;"></div>
+        <button onclick="hideModalForgotPassword()" style="width:100%;padding:10px;margin-top:0.75rem;background:none;border:1px solid #ddd;border-radius:8px;cursor:pointer;font-size:0.85rem;">← Back to Sign In</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Payment Overlay -->
+  <div id="payment-overlay" style="display:none;position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,0.6);align-items:center;justify-content:center;">
+    <div style="background:white;border-radius:16px;padding:2.5rem;max-width:400px;width:90%;text-align:center;">
+      <div id="payment-spinner" style="margin-bottom:1rem;"><div style="width:40px;height:40px;border:3px solid #eee;border-top-color:var(--color-primary);border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto;"></div></div>
+      <div id="payment-icon" style="display:none;font-size:3rem;margin-bottom:1rem;"></div>
+      <h3 id="payment-title" style="margin-bottom:0.5rem;">Processing...</h3>
+      <p id="payment-message" style="color:#666;font-size:0.9rem;margin-bottom:1.5rem;"></p>
+      <a id="payment-open-app" href="/app/" style="display:none;padding:10px 24px;background:var(--color-primary);color:white;border-radius:8px;text-decoration:none;font-weight:600;margin:0 4px;">Open App</a>
+      <button id="payment-close" onclick="closePaymentOverlay()" style="display:none;padding:10px 24px;background:#eee;border:none;border-radius:8px;cursor:pointer;font-weight:600;">Close</button>
+    </div>
+  </div>
+  <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
+
   <script>
-    // Billing toggle
+    // ─── Firebase Init ───
+    var firebaseConfig = {
+      apiKey: "AIzaSyDVGeqG6auSmAyFMBUVMnLcv5GNR8fvUUo",
+      authDomain: "login1-aa21c.firebaseapp.com",
+      projectId: "login1-aa21c",
+      storageBucket: "login1-aa21c.appspot.com",
+      messagingSenderId: "1075407732576",
+      appId: "1:1075407732576:web:96ef24dd36f56c9c7f5d47"
+    };
+    firebase.initializeApp(firebaseConfig);
+    var auth = firebase.auth();
+    var functions = firebase.app().functions('asia-south1');
+
+    // ─── Razorpay Key (live or test) ───
+    var RAZORPAY_KEY = 'rzp_live_T1qs5zRrCgB0LR';
+
+    // ─── State ───
+    var currentUser = null;
+    var pendingPlan = null;
+    var isAnnual = false;
+
+    // ─── Auth State ───
+    auth.onAuthStateChanged(function(user) {
+      currentUser = user;
+      if (user && pendingPlan) {
+        var plan = pendingPlan;
+        pendingPlan = null;
+        closeLoginModal();
+        startPayment(plan);
+      }
+    });
+
+    // ─── Billing Toggle ───
     document.addEventListener('DOMContentLoaded', function () {
       var toggle = document.getElementById('billingToggle');
       var labels = document.querySelectorAll('.pricing-toggle-label');
-      var isAnnual = false;
 
-      function updatePricing() {
+      function updatePrices() {
         toggle.classList.toggle('annual', isAnnual);
+        toggle.setAttribute('aria-checked', isAnnual);
         labels.forEach(function (l) {
           l.classList.toggle('active', (l.dataset.billing === 'annual') === isAnnual);
         });
         document.querySelectorAll('[data-monthly]').forEach(function (el) {
           el.textContent = isAnnual ? el.dataset.annual : el.dataset.monthly;
         });
-        document.querySelectorAll('[data-monthly][data-monthly*="/"]').forEach(function () {});
-        // Update period labels
-        document.querySelectorAll('span[data-monthly*="/"]').forEach(function (el) {
+        document.querySelectorAll('span[data-monthly]').forEach(function (el) {
           if (el.dataset.monthly && el.dataset.annual) {
             el.textContent = isAnnual ? el.dataset.annual : el.dataset.monthly;
           }
         });
       }
 
-      toggle.addEventListener('click', function () { isAnnual = !isAnnual; updatePricing(); });
-      toggle.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); isAnnual = !isAnnual; updatePricing(); } });
-      labels.forEach(function (l) { l.addEventListener('click', function () { isAnnual = l.dataset.billing === 'annual'; updatePricing(); }); });
+      toggle.addEventListener('click', function () { isAnnual = !isAnnual; updatePrices(); });
+      toggle.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); isAnnual = !isAnnual; updatePrices(); } });
+      labels.forEach(function (l) { l.addEventListener('click', function () { isAnnual = l.dataset.billing === 'annual'; updatePrices(); }); });
+
+      // Wire up subscribe buttons
+      var starterBtns = document.querySelectorAll('[data-subscribe="starter"]');
+      var proBtns = document.querySelectorAll('[data-subscribe="pro"]');
+      var bizBtns = document.querySelectorAll('[data-subscribe="business"]');
+      starterBtns.forEach(function(b) { b.addEventListener('click', function(e) { e.preventDefault(); handleSubscribe('starter'); }); });
+      proBtns.forEach(function(b) { b.addEventListener('click', function(e) { e.preventDefault(); handleSubscribe('pro'); }); });
+      bizBtns.forEach(function(b) { b.addEventListener('click', function(e) { e.preventDefault(); handleSubscribe('business'); }); });
     });
+
+    // ─── URL Params (from app deep link) ───
+    (function checkUrlParams() {
+      var params = new URLSearchParams(window.location.search);
+      var plan = params.get('plan');
+      var cycle = params.get('cycle');
+      var token = params.get('token');
+
+      if (token) {
+        var cleanUrl = window.location.pathname + '?' +
+          Array.from(params.entries()).filter(function(e) { return e[0] !== 'token'; })
+            .map(function(e) { return e[0] + '=' + encodeURIComponent(e[1]); }).join('&');
+        window.history.replaceState({}, '', cleanUrl);
+      }
+
+      if (cycle === 'annual') { isAnnual = true; }
+
+      if (token && plan && (plan === 'starter' || plan === 'pro' || plan === 'business')) {
+        auth.signInWithCustomToken(token).then(function() {
+          pendingPlan = plan;
+        }).catch(function(err) {
+          console.error('Token sign-in failed:', err);
+          setTimeout(function () { handleSubscribe(plan); }, 500);
+        });
+      } else if (plan && (plan === 'starter' || plan === 'pro' || plan === 'business')) {
+        setTimeout(function () { handleSubscribe(plan); }, 500);
+      }
+    })();
+
+    // ─── Subscribe Handler ───
+    function handleSubscribe(plan) {
+      if (!currentUser) {
+        pendingPlan = plan;
+        showLoginModal();
+        return;
+      }
+      startPayment(plan);
+    }
+
+    // ─── Login Modal ───
+    function showLoginModal() {
+      document.getElementById('modal-signin-view').style.display = 'block';
+      document.getElementById('modal-forgot-view').style.display = 'none';
+      document.getElementById('login-modal').style.display = 'flex';
+      document.getElementById('login-error').style.display = 'none';
+    }
+    function closeLoginModal() {
+      document.getElementById('login-modal').style.display = 'none';
+      pendingPlan = null;
+    }
+
+    async function signInWithGoogle() {
+      try {
+        document.getElementById('login-error').style.display = 'none';
+        var provider = new firebase.auth.GoogleAuthProvider();
+        await auth.signInWithPopup(provider);
+      } catch (err) {
+        console.error('Sign-in error:', err);
+        var errorEl = document.getElementById('login-error');
+        errorEl.textContent = err.message || 'Sign-in failed.';
+        errorEl.style.display = 'block';
+      }
+    }
+
+    async function signInWithEmail(e) {
+      e.preventDefault();
+      var email = document.getElementById('login-email').value.trim();
+      var password = document.getElementById('login-password').value;
+      var btn = document.getElementById('email-login-btn');
+      var errorEl = document.getElementById('login-error');
+      errorEl.style.display = 'none';
+      if (!email || !password) { errorEl.textContent = 'Enter both email and password.'; errorEl.style.display = 'block'; return; }
+      btn.disabled = true; btn.textContent = 'Signing in...';
+      try {
+        await auth.signInWithEmailAndPassword(email, password);
+      } catch (err) {
+        var msg = 'Sign-in failed.';
+        if (err.code === 'auth/user-not-found') msg = 'No account with this email. Register in the app first.';
+        else if (err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') msg = 'Wrong password.';
+        else if (err.code === 'auth/too-many-requests') msg = 'Too many attempts. Wait a moment.';
+        errorEl.textContent = msg; errorEl.style.display = 'block';
+      } finally { btn.disabled = false; btn.innerHTML = '🔐 Sign In'; }
+    }
+
+    function togglePasswordVisibility(id, btn) {
+      var input = document.getElementById(id);
+      if (input.type === 'password') { input.type = 'text'; btn.textContent = '🙈'; }
+      else { input.type = 'password'; btn.textContent = '👁'; }
+    }
+
+    function showModalForgotPassword() {
+      document.getElementById('modal-signin-view').style.display = 'none';
+      document.getElementById('modal-forgot-view').style.display = 'block';
+    }
+    function hideModalForgotPassword() {
+      document.getElementById('modal-forgot-view').style.display = 'none';
+      document.getElementById('modal-signin-view').style.display = 'block';
+    }
+    async function sendModalPasswordReset(e) {
+      e.preventDefault();
+      var email = document.getElementById('modal-forgot-email').value.trim();
+      var errorEl = document.getElementById('modal-forgot-error');
+      var successEl = document.getElementById('modal-forgot-success');
+      errorEl.style.display = 'none'; successEl.style.display = 'none';
+      if (!email) { errorEl.textContent = 'Enter your email.'; errorEl.style.display = 'block'; return; }
+      try {
+        await auth.sendPasswordResetEmail(email);
+        successEl.textContent = '✅ Reset email sent! Check your inbox.'; successEl.style.display = 'block';
+      } catch (err) {
+        errorEl.textContent = err.code === 'auth/user-not-found' ? 'No account with this email.' : 'Failed. Try again.';
+        errorEl.style.display = 'block';
+      }
+    }
+
+    // ─── Payment Overlay ───
+    function showPaymentOverlay(title, message) {
+      document.getElementById('payment-spinner').style.display = 'block';
+      document.getElementById('payment-icon').style.display = 'none';
+      document.getElementById('payment-title').textContent = title || 'Processing...';
+      document.getElementById('payment-message').textContent = message || '';
+      document.getElementById('payment-open-app').style.display = 'none';
+      document.getElementById('payment-close').style.display = 'none';
+      document.getElementById('payment-overlay').style.display = 'flex';
+    }
+    function showPaymentSuccess(plan) {
+      document.getElementById('payment-spinner').style.display = 'none';
+      var icon = document.getElementById('payment-icon');
+      icon.textContent = '🎉'; icon.style.display = 'block';
+      var pName = plan === 'starter' ? 'Starter' : plan === 'pro' ? 'Pro' : 'Business';
+      document.getElementById('payment-title').textContent = pName + ' Plan Activated!';
+      document.getElementById('payment-message').textContent = 'Your subscription is now active. Enjoy your upgraded features!';
+      document.getElementById('payment-open-app').style.display = 'inline-flex';
+      document.getElementById('payment-close').style.display = 'none';
+    }
+    function showPaymentError(message) {
+      document.getElementById('payment-spinner').style.display = 'none';
+      var icon = document.getElementById('payment-icon');
+      icon.textContent = '❌'; icon.style.display = 'block';
+      document.getElementById('payment-title').textContent = 'Payment Failed';
+      document.getElementById('payment-message').textContent = message || 'Something went wrong. Please try again.';
+      document.getElementById('payment-open-app').style.display = 'none';
+      document.getElementById('payment-close').style.display = 'inline-flex';
+    }
+    function closePaymentOverlay() { document.getElementById('payment-overlay').style.display = 'none'; }
+
+    // ─── One-Time Payment Flow ───
+    async function startPayment(plan) {
+      var cycle = isAnnual ? 'annual' : 'monthly';
+      var planName = plan === 'starter' ? 'Starter' : plan === 'pro' ? 'Pro' : 'Business';
+      showPaymentOverlay('Creating order...', 'Setting up your ' + planName + ' plan.');
+
+      try {
+        var createOrderFn = functions.httpsCallable('createOrder');
+        var result = await createOrderFn({ plan: plan, cycle: cycle });
+        var data = result.data;
+        if (!data.success || !data.orderId) { throw new Error(data.error || 'Failed to create order'); }
+        closePaymentOverlay();
+        openRazorpayCheckout(data.orderId, data.amount, plan, cycle);
+      } catch (err) {
+        console.error('Payment error:', err);
+        showPaymentError(err.message || 'Could not create order. Please try again.');
+      }
+    }
+
+    function openRazorpayCheckout(orderId, amount, plan, cycle) {
+      var isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+      var options = {
+        key: RAZORPAY_KEY,
+        amount: amount * 100,
+        currency: 'INR',
+        order_id: orderId,
+        name: 'Tulasi Hotels',
+        description: (plan === 'starter' ? 'Starter' : plan === 'pro' ? 'Pro' : 'Business') + ' Plan (' + (cycle === 'annual' ? 'Annual' : 'Monthly') + ')',
+        prefill: {
+          email: currentUser.email || '',
+          contact: currentUser.phoneNumber || '',
+          name: currentUser.displayName || '',
+        },
+        theme: { color: '#F97316' },
+        modal: {
+          confirm_close: true,
+          ondismiss: function () { /* user closed checkout */ },
+        },
+        handler: function (response) {
+          verifyAndActivate(plan, cycle, response.razorpay_payment_id, response.razorpay_order_id, response.razorpay_signature);
+        },
+      };
+
+      if (isMobile) {
+        options.method = { upi: true, card: true, netbanking: true, wallet: false, emi: false, paylater: false };
+      } else {
+        options.method = { upi: true, card: false, netbanking: false, wallet: false, emi: false, paylater: false };
+      }
+
+      var rzp = new Razorpay(options);
+      rzp.on('payment.failed', function (response) {
+        console.error('Payment failed:', response.error);
+        showPaymentError(response.error.description || 'Payment failed. Please try again.');
+      });
+      rzp.open();
+    }
+
+    async function verifyAndActivate(plan, cycle, paymentId, orderId, signature) {
+      showPaymentOverlay('Verifying payment...', 'Activating your ' + (plan === 'starter' ? 'Starter' : plan === 'pro' ? 'Pro' : 'Business') + ' plan.');
+      try {
+        var verifyFn = functions.httpsCallable('verifyPayment');
+        var result = await verifyFn({
+          plan: plan, cycle: cycle,
+          razorpayPaymentId: paymentId,
+          razorpayOrderId: orderId,
+          razorpaySignature: signature || '',
+        });
+        if (result.data.success) { showPaymentSuccess(plan); }
+        else { showPaymentError('Verification failed. Plan will activate within 5 minutes.'); }
+      } catch (err) {
+        console.error('Verification error:', err);
+        showPaymentError('Payment received. Plan will activate automatically within a few minutes.');
+      }
+    }
   </script>
 </body>
 

@@ -1,0 +1,190 @@
+/// Super Admin providers for state management
+library;
+
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:retaillite/features/auth/providers/auth_provider.dart';
+import 'package:retaillite/features/super_admin/models/admin_user_model.dart';
+import 'package:retaillite/features/super_admin/services/admin_firestore_service.dart';
+
+/// Hardcoded super admin email fallback (used when Firestore is unavailable)
+const List<String> superAdminEmails = [
+  'kehsaram001@gmail.com',
+  'admin@retaillite.com',
+  'bharathiinstitute1@gmail.com',
+  'bharahiinstitute1@gmail.com',
+  'shivamsingh8556@gmail.com',
+  'admin@lite.app',
+  'kehsihba@gmail.com',
+];
+
+/// Admin emails from Firestore (live list)
+final adminEmailsProvider = FutureProvider<List<String>>((ref) async {
+  return AdminFirestoreService.getAdminEmails();
+});
+
+/// Check if current user is a super admin
+/// Uses hardcoded list for quick sync check (used by router),
+/// but also validates against Firestore async list.
+final isSuperAdminProvider = Provider<bool>((ref) {
+  final authState = ref.watch(authNotifierProvider);
+  final user = authState.user;
+
+  if (user == null || user.email == null) return false;
+
+  final normalizedEmail = user.email!.toLowerCase().trim();
+
+  // Primary: check Firestore-based admin list (if loaded)
+  final firestoreEmails = ref.watch(adminEmailsProvider);
+  final isInFirestore = firestoreEmails.whenOrNull(
+    data: (emails) =>
+        emails.map((e) => e.toLowerCase().trim()).contains(normalizedEmail),
+  );
+  if (isInFirestore != null) return isInFirestore;
+
+  // Fallback: hardcoded list (for offline / first load)
+  return superAdminEmails.contains(normalizedEmail);
+});
+
+/// Check if current user is the primary owner (kehsaram001@gmail.com)
+final isPrimaryOwnerProvider = Provider<bool>((ref) {
+  final authState = ref.watch(authNotifierProvider);
+  final user = authState.user;
+  if (user == null || user.email == null) return false;
+  return user.email!.toLowerCase().trim() ==
+      AdminFirestoreService.primaryOwnerEmail;
+});
+
+/// Seed gate — all admin providers depend on this
+final _adminSeedProvider = FutureProvider<void>((ref) async {
+  await AdminFirestoreService.ensureAdminSeeded();
+});
+
+/// Dashboard statistics provider
+final adminStatsProvider = FutureProvider<AdminStats>((ref) async {
+  await ref.watch(_adminSeedProvider.future);
+  return AdminFirestoreService.getAdminStats();
+});
+
+/// All users provider with pagination
+final allUsersProvider =
+    FutureProvider.family<List<AdminUser>, UsersQueryParams>((
+      ref,
+      params,
+    ) async {
+      await ref.watch(_adminSeedProvider.future);
+      return AdminFirestoreService.getAllUsers(
+        limit: params.limit,
+        searchQuery: params.searchQuery,
+        planFilter: params.planFilter,
+      );
+    });
+
+/// Simple all users provider (for initial load)
+final usersListProvider = FutureProvider<List<AdminUser>>((ref) async {
+  await ref.watch(_adminSeedProvider.future);
+  return AdminFirestoreService.getAllUsers();
+});
+
+/// Recent users for dashboard
+final recentUsersProvider = FutureProvider<List<AdminUser>>((ref) async {
+  await ref.watch(_adminSeedProvider.future);
+  return AdminFirestoreService.getRecentUsers();
+});
+
+/// Single user detail provider
+final userDetailProvider = FutureProvider.family<AdminUser?, String>((
+  ref,
+  userId,
+) async {
+  return AdminFirestoreService.getUser(userId);
+});
+
+/// Expiring subscriptions provider
+final expiringSubscriptionsProvider = FutureProvider<List<AdminUser>>((
+  ref,
+) async {
+  return AdminFirestoreService.getExpiringSubscriptions();
+});
+
+/// Query parameters for users list
+class UsersQueryParams {
+  final int limit;
+  final String? searchQuery;
+  final SubscriptionPlan? planFilter;
+
+  const UsersQueryParams({this.limit = 100, this.searchQuery, this.planFilter});
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is UsersQueryParams &&
+        other.limit == limit &&
+        other.searchQuery == searchQuery &&
+        other.planFilter == planFilter;
+  }
+
+  @override
+  int get hashCode => Object.hash(limit, searchQuery, planFilter);
+}
+
+/// Search query state
+final usersSearchQueryProvider = StateProvider<String>((ref) => '');
+
+/// Plan filter state
+final usersPlanFilterProvider = StateProvider<SubscriptionPlan?>((ref) => null);
+
+/// Filtered users provider (combines search and filter)
+final filteredUsersProvider = FutureProvider<List<AdminUser>>((ref) async {
+  final searchQuery = ref.watch(usersSearchQueryProvider);
+  final planFilter = ref.watch(usersPlanFilterProvider);
+
+  return AdminFirestoreService.getAllUsers(
+    searchQuery: searchQuery.isEmpty ? null : searchQuery,
+    planFilter: planFilter,
+  );
+});
+
+/// Recalculate stats once — shared by platform & feature usage providers.
+/// Ensures `app_config/stats` has fresh `platformCounts` and
+/// `featureUsageCounts` before either provider reads from it.
+final analyticsRecalcProvider = FutureProvider<void>((ref) async {
+  await AdminFirestoreService.recalculateStats();
+});
+
+/// Platform distribution stats provider
+final platformStatsProvider = FutureProvider<Map<String, int>>((ref) async {
+  await ref.watch(analyticsRecalcProvider.future);
+  return AdminFirestoreService.getPlatformStats();
+});
+
+/// Feature usage stats provider
+final featureUsageProvider = FutureProvider<Map<String, double>>((ref) async {
+  await ref.watch(analyticsRecalcProvider.future);
+  return AdminFirestoreService.getFeatureUsageStats();
+});
+
+/// Referral program statistics
+final referralStatsProvider = FutureProvider<ReferralStats>((ref) async {
+  await ref.watch(_adminSeedProvider.future);
+  return AdminFirestoreService.getReferralStats();
+});
+
+/// Top referrers leaderboard
+final topReferrersProvider = FutureProvider<List<ReferrerInfo>>((ref) async {
+  await ref.watch(_adminSeedProvider.future);
+  return AdminFirestoreService.getTopReferrers();
+});
+
+/// Recent referral activity feed
+final recentReferralsProvider = FutureProvider<List<ReferralActivity>>((
+  ref,
+) async {
+  await ref.watch(_adminSeedProvider.future);
+  return AdminFirestoreService.getRecentReferrals();
+});
+
+/// Admin-generated promo codes
+final promoCodesProvider = FutureProvider<List<PromoCode>>((ref) async {
+  await ref.watch(_adminSeedProvider.future);
+  return AdminFirestoreService.getPromoCodes();
+});

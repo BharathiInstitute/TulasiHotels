@@ -1119,7 +1119,7 @@ export const activateSubscription = functions
     .region("asia-south1")
     .runWith({ timeoutSeconds: 60, memory: "256MB", maxInstances: 50 })
     .https.onCall(async (data: {
-        plan: "pro" | "business";
+        plan: "starter" | "pro" | "business";
         cycle: "monthly" | "annual";
         razorpayPaymentId: string;
         razorpayOrderId?: string;
@@ -1167,9 +1167,9 @@ export const activateSubscription = functions
         const expiresAt = new Date();
         expiresAt.setDate(expiresAt.getDate() + daysToAdd);
 
-        const billsLimit = plan === "pro" ? 500 : 999999;
-        const productsLimit = 999999; // unlimited for both Pro and Business
-        const customersLimit = 999999; // unlimited for both Pro and Business
+        const billsLimit = plan === "starter" ? 300 : plan === "pro" ? 500 : 999999;
+        const productsLimit = plan === "starter" ? 100 : 999999; // unlimited for Pro and Business
+        const customersLimit = plan === "starter" ? 200 : 999999; // unlimited for Pro and Business
 
         const db = admin.firestore();
 
@@ -1201,10 +1201,11 @@ export const activateSubscription = functions
         }
 
         // Welcome notification
+        const planDisplayName = plan === "starter" ? "Starter" : plan === "pro" ? "Pro" : "Business";
         await db.collection("users").doc(userId)
             .collection("notifications").add({
-                title: `Welcome to ${plan === "pro" ? "Pro" : "Business"} Plan! 🎉`,
-                body: `Your ${plan === "pro" ? "Pro" : "Business"} plan is now active. Enjoy ${plan === "pro" ? "500 bills/month" : "unlimited billing"}!`,
+                title: `Welcome to ${planDisplayName} Plan! 🎉`,
+                body: `Your ${planDisplayName} plan is now active. Enjoy your upgraded features!`,
                 type: "subscription",
                 read: false,
                 createdAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -3090,6 +3091,209 @@ export const razorpayReconciliation = functions
         }
 
         console.log("Razorpay reconciliation completed");
+    });
+
+// ─── Payment Token & Order Cloud Functions ───
+
+/**
+ * createPaymentToken — Returns a short-lived Firebase custom token.
+ * Used by the Flutter app to authenticate the user on the website pricing page.
+ *
+ * Flow:
+ * 1. App calls createPaymentToken() (user is already signed in)
+ * 2. Function returns a custom token
+ * 3. App opens pricing.html?token=CUSTOM_TOKEN&plan=pro&cycle=monthly
+ * 4. Pricing page calls signInWithCustomToken(token) → correct user
+ */
+export const createPaymentToken = functions
+    .region("asia-south1")
+    .runWith({ timeoutSeconds: 10, memory: "256MB", maxInstances: 20 })
+    .https.onCall(async (_data, context) => {
+        if (!context.auth) {
+            throw new functions.https.HttpsError(
+                "unauthenticated",
+                "User must be authenticated"
+            );
+        }
+
+        try {
+            const customToken = await admin.auth().createCustomToken(context.auth.uid);
+            return { success: true, token: customToken };
+        } catch (error) {
+            console.error("Error creating payment token:", error);
+            throw new functions.https.HttpsError(
+                "internal",
+                "Failed to create auth token"
+            );
+        }
+    });
+
+/**
+ * createOrder — Creates a Razorpay order for subscription payment.
+ * Called from the website pricing page after user is authenticated.
+ *
+ * Returns: { success: true, orderId: string, amount: number }
+ */
+export const createOrder = functions
+    .region("asia-south1")
+    .runWith({ timeoutSeconds: 30, memory: "256MB", maxInstances: 50 })
+    .https.onCall(async (data: { plan: string; cycle: string }, context) => {
+        if (!context.auth) {
+            throw new functions.https.HttpsError("unauthenticated", "Login required");
+        }
+
+        const { plan, cycle } = data;
+        if (!plan || !cycle) {
+            throw new functions.https.HttpsError("invalid-argument", "plan and cycle are required");
+        }
+
+        // Pricing (in rupees) — TEST PRICES (revert to production later)
+        const pricing: Record<string, Record<string, number>> = {
+            starter: { monthly: 10, annual: 100 },
+            pro: { monthly: 20, annual: 200 },
+            business: { monthly: 30, annual: 300 },
+        };
+
+        const amount = pricing[plan]?.[cycle];
+        if (!amount) {
+            throw new functions.https.HttpsError("invalid-argument", `Invalid plan (${plan}) or cycle (${cycle})`);
+        }
+
+        const razorpayConfig = getRazorpayConfig();
+        if (!razorpayConfig.keyId || !razorpayConfig.keySecret) {
+            throw new functions.https.HttpsError("failed-precondition", "Razorpay not configured");
+        }
+
+        try {
+            const auth = Buffer.from(`${razorpayConfig.keyId}:${razorpayConfig.keySecret}`).toString("base64");
+            const orderRes = await fetch("https://api.razorpay.com/v1/orders", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Basic ${auth}`,
+                },
+                body: JSON.stringify({
+                    amount: amount * 100, // paise
+                    currency: "INR",
+                    receipt: `sub_${context.auth.uid.substring(0, 8)}_${Date.now()}`,
+                    notes: {
+                        userId: context.auth.uid,
+                        plan,
+                        cycle,
+                    },
+                }),
+            });
+
+            if (!orderRes.ok) {
+                const errText = await orderRes.text();
+                console.error("Razorpay order creation failed:", errText);
+                throw new functions.https.HttpsError("internal", "Failed to create order");
+            }
+
+            const order = await orderRes.json() as { id: string; amount: number };
+            return { success: true, orderId: order.id, amount };
+        } catch (err: any) {
+            if (err instanceof functions.https.HttpsError) throw err;
+            console.error("createOrder error:", err);
+            throw new functions.https.HttpsError("internal", "Order creation failed");
+        }
+    });
+
+/**
+ * verifyPayment — Verifies Razorpay payment signature and activates subscription.
+ * Called from the website pricing page after successful Razorpay checkout.
+ */
+export const verifyPayment = functions
+    .region("asia-south1")
+    .runWith({ timeoutSeconds: 60, memory: "256MB", maxInstances: 50 })
+    .https.onCall(async (data: {
+        plan: string;
+        cycle: string;
+        razorpayPaymentId: string;
+        razorpayOrderId: string;
+        razorpaySignature: string;
+    }, context) => {
+        if (!context.auth) {
+            throw new functions.https.HttpsError("unauthenticated", "Login required");
+        }
+
+        const { plan, cycle, razorpayPaymentId, razorpayOrderId, razorpaySignature } = data;
+        if (!plan || !cycle || !razorpayPaymentId || !razorpayOrderId) {
+            throw new functions.https.HttpsError("invalid-argument", "Missing required fields");
+        }
+
+        const userId = context.auth.uid;
+        const razorpayConfig = getRazorpayConfig();
+
+        // Verify signature
+        if (razorpaySignature && razorpayConfig.keySecret) {
+            const expectedSignature = crypto
+                .createHmac("sha256", razorpayConfig.keySecret)
+                .update(`${razorpayOrderId}|${razorpayPaymentId}`)
+                .digest("hex");
+
+            if (expectedSignature !== razorpaySignature) {
+                throw new functions.https.HttpsError("permission-denied", "Invalid payment signature");
+            }
+        }
+
+        // Verify payment status with Razorpay
+        try {
+            const auth = Buffer.from(`${razorpayConfig.keyId}:${razorpayConfig.keySecret}`).toString("base64");
+            const verifyRes = await fetch(
+                `https://api.razorpay.com/v1/payments/${razorpayPaymentId}`,
+                { headers: { Authorization: `Basic ${auth}` } }
+            );
+            if (!verifyRes.ok) {
+                throw new functions.https.HttpsError("not-found", "Payment not found");
+            }
+            const payment = await verifyRes.json() as { status: string };
+            if (payment.status !== "captured" && payment.status !== "authorized") {
+                throw new functions.https.HttpsError("failed-precondition", `Payment status: ${payment.status}`);
+            }
+        } catch (err: any) {
+            if (err instanceof functions.https.HttpsError) throw err;
+            console.error("Payment verification error:", err);
+            throw new functions.https.HttpsError("internal", "Could not verify payment");
+        }
+
+        // Activate subscription
+        const daysToAdd = cycle === "annual" ? 365 : 30;
+        const expiresAt = new Date();
+        expiresAt.setDate(expiresAt.getDate() + daysToAdd);
+
+        const billsLimit = plan === "starter" ? 300 : plan === "pro" ? 500 : 999999;
+        const productsLimit = plan === "starter" ? 100 : 999999;
+        const customersLimit = plan === "starter" ? 200 : 999999;
+
+        const db = admin.firestore();
+
+        await db.collection("users").doc(userId).update({
+            "subscription.plan": plan,
+            "subscription.status": "active",
+            "subscription.startedAt": admin.firestore.FieldValue.serverTimestamp(),
+            "subscription.expiresAt": admin.firestore.Timestamp.fromDate(expiresAt),
+            "subscription.razorpayOrderId": razorpayOrderId,
+            "subscription.razorpayPaymentId": razorpayPaymentId,
+            "limits.billsLimit": billsLimit,
+            "limits.productsLimit": productsLimit,
+            "limits.customersLimit": customersLimit,
+        });
+
+        // Welcome notification
+        const planName = plan === "starter" ? "Starter" : plan === "pro" ? "Pro" : "Business";
+        await db.collection("users").doc(userId)
+            .collection("notifications").add({
+                title: `Welcome to ${planName} Plan! 🎉`,
+                body: `Your ${planName} plan is now active. Enjoy your upgraded features!`,
+                type: "subscription",
+                read: false,
+                createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            });
+
+        console.log(`✅ verifyPayment: user ${userId} activated ${plan} (${cycle}), expires ${expiresAt.toISOString()}`);
+
+        return { success: true, plan, cycle, expiresAt: expiresAt.toISOString() };
     });
 
 // ─── Phase 8: WhatsApp & SMS Cloud Functions ───

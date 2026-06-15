@@ -1,0 +1,8 @@
+<Project>
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <MultiProcessorCompilation>false</MultiProcessorCompilation>
+      <AdditionalOptions>%(AdditionalOptions) /FS</AdditionalOptions>
+    </ClCompile>
+  </ItemDefinitionGroup>
+</Project>

@@ -9,7 +9,10 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tulasihotels/core/design/app_colors.dart';
+import 'package:tulasihotels/core/services/sunmi_printer_service.dart';
 import 'package:tulasihotels/core/services/thermal_printer_service.dart';
+import 'package:tulasihotels/core/services/web_bluetooth_printer_service.dart';
+import 'package:tulasihotels/core/services/web_serial_printer_service.dart';
 import 'package:tulasihotels/features/settings/providers/settings_provider.dart';
 import 'package:tulasihotels/core/services/sync_settings_service.dart';
 import 'package:tulasihotels/l10n/app_localizations.dart';
@@ -207,6 +210,63 @@ class _HardwareSettingsScreenState
           ),
         );
         break;
+
+      case PrinterTypeOption.sunmi:
+        final sunmiAvailable = await SunmiPrinterService.isAvailable;
+        if (!sunmiAvailable) {
+          scaffoldMessenger.showSnackBar(
+            const SnackBar(content: Text('Sunmi printer not available')),
+          );
+          return;
+        }
+        final sunmiSuccess = await SunmiPrinterService.printTestPage();
+        scaffoldMessenger.showSnackBar(
+          SnackBar(
+            content: Text(sunmiSuccess ? 'Test print sent!' : 'Print failed'),
+            backgroundColor: sunmiSuccess ? AppColors.success : AppColors.error,
+          ),
+        );
+        break;
+
+      case PrinterTypeOption.webBluetooth:
+        if (!WebBluetoothPrinterService.isSupported) {
+          scaffoldMessenger.showSnackBar(
+            const SnackBar(
+              content: Text('Web Bluetooth not supported in this browser'),
+            ),
+          );
+          return;
+        }
+        if (!WebBluetoothPrinterService.isConnected) {
+          scaffoldMessenger.showSnackBar(
+            const SnackBar(content: Text('No Bluetooth printer connected')),
+          );
+          return;
+        }
+        final wbSuccess = await WebBluetoothPrinterService.printTestPage();
+        scaffoldMessenger.showSnackBar(
+          SnackBar(
+            content: Text(wbSuccess ? 'Test print sent!' : 'Print failed'),
+            backgroundColor: wbSuccess ? AppColors.success : AppColors.error,
+          ),
+        );
+        break;
+
+      case PrinterTypeOption.webSerial:
+        if (!WebSerialPrinterService.isConnected) {
+          scaffoldMessenger.showSnackBar(
+            const SnackBar(content: Text('No USB serial port connected')),
+          );
+          return;
+        }
+        final wsSuccess = await WebSerialPrinterService.printTestPage();
+        scaffoldMessenger.showSnackBar(
+          SnackBar(
+            content: Text(wsSuccess ? 'Test print sent!' : 'Print failed'),
+            backgroundColor: wsSuccess ? AppColors.success : AppColors.error,
+          ),
+        );
+        break;
     }
   }
 
@@ -310,6 +370,10 @@ class _HardwareSettingsScreenState
             _buildWifiSection(theme),
           if (printerState.printerType == PrinterTypeOption.usb)
             _buildUsbSection(theme),
+          if (printerState.printerType == PrinterTypeOption.webBluetooth)
+            _buildWebBluetoothSection(theme),
+          if (printerState.printerType == PrinterTypeOption.webSerial)
+            _buildWebSerialSection(theme),
           _buildPaperSettingsCard(theme, printerState),
           const SizedBox(height: 16),
           _buildReceiptSettingsCard(theme, printerState),
@@ -504,6 +568,9 @@ class _HardwareSettingsScreenState
     final showBluetooth = !kIsWeb && (Platform.isAndroid || Platform.isIOS);
     const showWifi = !kIsWeb;
     final showUsb = !kIsWeb && Platform.isWindows;
+    final showSunmi = !kIsWeb && Platform.isAndroid;
+    const showWebBluetooth = kIsWeb;
+    const showWebSerial = kIsWeb;
 
     return Card(
       child: Padding(
@@ -548,6 +615,33 @@ class _HardwareSettingsScreenState
               _buildPrinterTypeOption(
                 theme,
                 PrinterTypeOption.usb,
+                printerState.printerType,
+                Icons.usb,
+              ),
+            ],
+            if (showSunmi) ...[
+              const SizedBox(height: 8),
+              _buildPrinterTypeOption(
+                theme,
+                PrinterTypeOption.sunmi,
+                printerState.printerType,
+                Icons.point_of_sale,
+              ),
+            ],
+            if (showWebBluetooth) ...[
+              const SizedBox(height: 8),
+              _buildPrinterTypeOption(
+                theme,
+                PrinterTypeOption.webBluetooth,
+                printerState.printerType,
+                Icons.bluetooth,
+              ),
+            ],
+            if (showWebSerial) ...[
+              const SizedBox(height: 8),
+              _buildPrinterTypeOption(
+                theme,
+                PrinterTypeOption.webSerial,
                 printerState.printerType,
                 Icons.usb,
               ),
@@ -988,6 +1082,216 @@ class _HardwareSettingsScreenState
     );
   }
 
+  // ─── Web Bluetooth Section ───
+  Widget _buildWebBluetoothSection(ThemeData theme) {
+    final isConnected = WebBluetoothPrinterService.isConnected;
+    final deviceName = WebBluetoothPrinterService.connectedDeviceName;
+
+    return Column(
+      children: [
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      Icons.bluetooth,
+                      color: isConnected ? AppColors.success : Colors.grey,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            isConnected ? deviceName : 'Web Bluetooth Printer',
+                            style: const TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                          Text(
+                            isConnected
+                                ? 'Connected'
+                                : 'Tap "Select Printer" to pair a device',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: isConnected
+                                  ? AppColors.success
+                                  : Colors.grey,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        icon: const Icon(Icons.bluetooth_searching),
+                        label: Text(
+                          isConnected ? 'Reconnect' : 'Select Printer',
+                        ),
+                        onPressed: () async {
+                          final success =
+                              await WebBluetoothPrinterService.connect();
+                          if (mounted) {
+                            setState(() {});
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  success
+                                      ? 'Connected to ${WebBluetoothPrinterService.connectedDeviceName}'
+                                      : 'Connection failed or cancelled',
+                                ),
+                                backgroundColor: success
+                                    ? AppColors.success
+                                    : AppColors.error,
+                              ),
+                            );
+                          }
+                        },
+                      ),
+                    ),
+                    if (isConnected) ...[
+                      const SizedBox(width: 8),
+                      OutlinedButton(
+                        onPressed: () {
+                          WebBluetoothPrinterService.disconnect();
+                          setState(() {});
+                        },
+                        child: const Text('Disconnect'),
+                      ),
+                    ],
+                  ],
+                ),
+                if (!WebBluetoothPrinterService.isSupported)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Text(
+                      'Web Bluetooth requires Chrome or Edge on HTTPS.',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: theme.colorScheme.error,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+      ],
+    );
+  }
+
+  // ─── Web Serial Section ───
+  Widget _buildWebSerialSection(ThemeData theme) {
+    final isConnected = WebSerialPrinterService.isConnected;
+    final portName = WebSerialPrinterService.connectedPortName;
+
+    return Column(
+      children: [
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      Icons.usb,
+                      color: isConnected ? AppColors.success : Colors.grey,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            isConnected ? portName : 'USB Serial Printer',
+                            style: const TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                          Text(
+                            isConnected
+                                ? 'Connected'
+                                : 'Tap "Connect Port" to select USB port',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: isConnected
+                                  ? AppColors.success
+                                  : Colors.grey,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        icon: const Icon(Icons.usb),
+                        label: Text(isConnected ? 'Reconnect' : 'Connect Port'),
+                        onPressed: () async {
+                          final success =
+                              await WebSerialPrinterService.connect();
+                          if (mounted) {
+                            setState(() {});
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  success
+                                      ? 'Connected to ${WebSerialPrinterService.connectedPortName}'
+                                      : 'Connection failed or cancelled',
+                                ),
+                                backgroundColor: success
+                                    ? AppColors.success
+                                    : AppColors.error,
+                              ),
+                            );
+                          }
+                        },
+                      ),
+                    ),
+                    if (isConnected) ...[
+                      const SizedBox(width: 8),
+                      OutlinedButton(
+                        onPressed: () {
+                          WebSerialPrinterService.disconnect();
+                          setState(() {});
+                        },
+                        child: const Text('Disconnect'),
+                      ),
+                    ],
+                  ],
+                ),
+                if (!WebSerialPrinterService.isSupported)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Text(
+                      'Web Serial requires Chrome or Edge on HTTPS.',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: theme.colorScheme.error,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+      ],
+    );
+  }
+
   // ─── Paper Settings Card ───
   Widget _buildPaperSettingsCard(ThemeData theme, PrinterState printerState) {
     return Card(
@@ -1088,6 +1392,146 @@ class _HardwareSettingsScreenState
               value: printerState.autoPrint,
               onChanged: (v) {
                 ref.read(printerProvider.notifier).setAutoPrint(v);
+              },
+            ),
+            const Divider(),
+
+            // Print copies
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.copy_all),
+              title: const Text('Print Copies'),
+              subtitle: const Text('Number of copies per receipt'),
+              trailing: DropdownButton<int>(
+                value: printerState.printCopies,
+                underline: const SizedBox.shrink(),
+                items: [1, 2, 3]
+                    .map((c) => DropdownMenuItem(value: c, child: Text('$c')))
+                    .toList(),
+                onChanged: (v) {
+                  if (v != null) {
+                    ref.read(printerProvider.notifier).setPrintCopies(v);
+                  }
+                },
+              ),
+            ),
+            const Divider(),
+
+            // Receipt language
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.language),
+              title: const Text('Receipt Language'),
+              trailing: DropdownButton<ReceiptLanguage>(
+                value: printerState.receiptLanguage,
+                underline: const SizedBox.shrink(),
+                items: ReceiptLanguage.values
+                    .map(
+                      (l) => DropdownMenuItem(
+                        value: l,
+                        child: Text(
+                          l.name[0].toUpperCase() + l.name.substring(1),
+                        ),
+                      ),
+                    )
+                    .toList(),
+                onChanged: (v) {
+                  if (v != null) {
+                    ref.read(printerProvider.notifier).setReceiptLanguage(v);
+                  }
+                },
+              ),
+            ),
+            const Divider(),
+
+            // Show QR on receipt
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              secondary: const Icon(Icons.qr_code),
+              title: const Text('UPI QR on Receipt'),
+              subtitle: const Text('Print UPI QR code for payment'),
+              value: printerState.showQrOnReceipt,
+              onChanged: (v) {
+                ref.read(printerProvider.notifier).setShowQrOnReceipt(v);
+              },
+            ),
+            const Divider(),
+
+            // Show GST breakdown
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              secondary: const Icon(Icons.receipt_long),
+              title: const Text('GST Breakdown'),
+              subtitle: const Text('Show CGST/SGST details on receipt'),
+              value: printerState.showGstBreakdown,
+              onChanged: (v) {
+                ref.read(printerProvider.notifier).setShowGstBreakdown(v);
+              },
+            ),
+            const Divider(),
+
+            // Show logo on thermal
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              secondary: const Icon(Icons.image),
+              title: const Text('Logo on Receipt'),
+              subtitle: const Text('Print shop logo at the top'),
+              value: printerState.showLogoOnThermal,
+              onChanged: (v) {
+                ref.read(printerProvider.notifier).setShowLogoOnThermal(v);
+              },
+            ),
+            const Divider(),
+
+            // Open cash drawer
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              secondary: const Icon(Icons.point_of_sale),
+              title: const Text('Open Cash Drawer'),
+              subtitle: const Text('Kick cash drawer after printing'),
+              value: printerState.openCashDrawer,
+              onChanged: (v) {
+                ref.read(printerProvider.notifier).setOpenCashDrawer(v);
+              },
+            ),
+            const Divider(),
+
+            // Cut mode
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.content_cut),
+              title: const Text('Paper Cut Mode'),
+              trailing: DropdownButton<CutMode>(
+                value: printerState.cutMode,
+                underline: const SizedBox.shrink(),
+                items: CutMode.values
+                    .map(
+                      (m) => DropdownMenuItem(
+                        value: m,
+                        child: Text(
+                          m == CutMode.fullCut ? 'Full Cut' : 'Partial Cut',
+                        ),
+                      ),
+                    )
+                    .toList(),
+                onChanged: (v) {
+                  if (v != null) {
+                    ref.read(printerProvider.notifier).setCutMode(v);
+                  }
+                },
+              ),
+            ),
+            const Divider(),
+
+            // Copy label (ORIGINAL / DUPLICATE)
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              secondary: const Icon(Icons.label_outline),
+              title: const Text('Copy Label'),
+              subtitle: const Text('Print ORIGINAL/DUPLICATE on copies'),
+              value: printerState.showCopyLabel,
+              onChanged: (v) {
+                ref.read(printerProvider.notifier).setShowCopyLabel(v);
               },
             ),
             const Divider(),

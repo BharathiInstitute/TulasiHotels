@@ -309,5 +309,10 @@ class AdminShellScreen extends ConsumerWidget {
       'label': 'Notifications',
       'route': '/super-admin/notifications',
     },
+    {
+      'icon': Icons.support_agent,
+      'label': 'Support',
+      'route': '/super-admin/support',
+    },
   ];
 }

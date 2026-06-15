@@ -11,9 +11,8 @@ import 'package:tulasihotels/core/design/design_system.dart';
 import 'package:tulasihotels/core/services/analytics_service.dart';
 import 'package:tulasihotels/features/billing/services/bill_share_service.dart';
 import 'package:tulasihotels/core/services/offline_storage_service.dart';
-import 'package:tulasihotels/core/services/receipt_service.dart';
 import 'package:tulasihotels/core/services/user_metrics_service.dart';
-import 'package:tulasihotels/core/services/thermal_printer_service.dart';
+import 'package:tulasihotels/core/services/print_helper.dart';
 import 'package:go_router/go_router.dart';
 import 'package:tulasihotels/router/app_router.dart';
 import 'package:tulasihotels/core/utils/formatters.dart';
@@ -247,98 +246,16 @@ class _PaymentModalState extends ConsumerState<PaymentModal> {
     BillModel bill,
     ScaffoldMessengerState scaffoldMessenger,
   ) async {
-    try {
-      final user = ref.read(currentUserProvider);
-      final printerState = ref.read(printerProvider);
-      final footer = printerState.receiptFooter.isNotEmpty
-          ? printerState.receiptFooter
-          : null;
+    final user = ref.read(currentUserProvider);
+    final printerState = ref.read(printerProvider);
 
-      bool? directSuccess;
-
-      switch (printerState.printerType) {
-        case PrinterTypeOption.bluetooth:
-          if (ThermalPrinterService.isAvailable) {
-            directSuccess = await ThermalPrinterService.printReceipt(
-              bill: bill,
-              shopName: user?.shopName,
-              shopAddress: user?.address,
-              shopPhone: user?.phone,
-              gstNumber: user?.gstNumber,
-              receiptFooter: footer,
-            );
-          }
-          break;
-
-        case PrinterTypeOption.wifi:
-          if (WifiPrinterService.isConnected) {
-            directSuccess = await WifiPrinterService.printReceipt(
-              bill: bill,
-              shopName: user?.shopName,
-              shopAddress: user?.address,
-              shopPhone: user?.phone,
-              gstNumber: user?.gstNumber,
-              receiptFooter: footer,
-            );
-          }
-          break;
-
-        case PrinterTypeOption.usb:
-          final usbName = UsbPrinterService.getSavedPrinterName();
-          if (usbName.isNotEmpty) {
-            directSuccess = await UsbPrinterService.printReceipt(
-              printerName: usbName,
-              bill: bill,
-              shopName: user?.shopName,
-              shopAddress: user?.address,
-              shopPhone: user?.phone,
-              gstNumber: user?.gstNumber,
-              receiptFooter: footer,
-            );
-          }
-          break;
-
-        case PrinterTypeOption.system:
-          // Use system print dialog (PDF)
-          await ReceiptService.printReceipt(
-            bill: bill,
-            shopName: user?.shopName,
-            shopAddress: user?.address,
-            shopPhone: user?.phone,
-            gstNumber: user?.gstNumber,
-            receiptFooter: footer,
-            shopLogoPath: user?.shopLogoPath,
-          );
-          return;
-      }
-
-      if (directSuccess == false) {
-        scaffoldMessenger.showSnackBar(
-          SnackBar(
-            content: const Text('Print failed: Printer not connected'),
-            action: SnackBarAction(
-              label: 'Retry',
-              onPressed: () => _printReceipt(bill, scaffoldMessenger),
-            ),
-          ),
-        );
-      } else if (directSuccess == null) {
-        // Printer type selected but not available — fallback to system
-        await ReceiptService.printReceipt(
-          bill: bill,
-          shopName: user?.shopName,
-          shopAddress: user?.address,
-          shopPhone: user?.phone,
-          gstNumber: user?.gstNumber,
-          receiptFooter: footer,
-          shopLogoPath: user?.shopLogoPath,
-        );
-      }
-    } catch (e) {
-      scaffoldMessenger.showSnackBar(
-        SnackBar(content: Text('Print failed: $e')),
-      );
-    }
+    await PrintHelper.printReceipt(
+      bill: bill,
+      printerState: printerState,
+      user: user,
+      scaffoldMessenger: scaffoldMessenger,
+      onRetry: () => _printReceipt(bill, scaffoldMessenger),
+    );
   }
 
   void _showBillCompleteDialog(BillModel bill) {

@@ -1,25 +1,21 @@
-﻿import 'package:flutter/foundation.dart';
+﻿import 'dart:convert';
+
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:tulasihotels/features/auth/providers/auth_provider.dart';
-import 'package:tulasihotels/features/subscription/services/subscription_service.dart';
+import 'package:http/http.dart' as http;
+import 'package:tulasihotels/features/subscription/providers/subscription_provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 /// Screen for viewing and managing subscription plans.
 ///
-/// **Google Play Billing Policy Compliance:**
-/// Digital subscriptions on Android MUST use Google Play Billing (IAP).
-/// Razorpay / external payment gateways can only be used for:
-///   - Web platform subscriptions
-///   - Server-side renewals (outside Google Play)
-/// Using external gateways for in-app digital purchases on Android
-/// will cause rejection from the Play Store.
-///
-/// Implementation plan:
-///   - Android: Use `in_app_purchase` package with Google Play Billing
-///   - Web: Use Razorpay or Stripe payment links
-///   - Windows: Use Razorpay or direct bank transfer
-///   - iOS (future): Use StoreKit via `in_app_purchase`
+/// All platforms redirect to the website pricing page for payment via
+/// Razorpay Checkout.js. The app listens for Firestore subscription
+/// changes in real-time, so the UI updates automatically after payment.
 class SubscriptionScreen extends ConsumerStatefulWidget {
   const SubscriptionScreen({super.key});
 
@@ -28,12 +24,48 @@ class SubscriptionScreen extends ConsumerStatefulWidget {
 }
 
 class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
-  final _service = SubscriptionService();
-  bool _upgrading = false;
+  bool _isAnnual = false;
+  bool _isLoading = false;
+
+  String _currentPlan = 'free';
+  String _subscriptionStatus = 'active';
+  DateTime? _expiresAt;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCurrentSubscription();
+  }
+
+  Future<void> _loadCurrentSubscription() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+
+    final doc = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(uid)
+        .get();
+    final sub = doc.data()?['subscription'] as Map<String, dynamic>?;
+    if (sub != null && mounted) {
+      setState(() {
+        _currentPlan = (sub['plan'] as String?) ?? 'free';
+        _subscriptionStatus = (sub['status'] as String?) ?? 'active';
+        _expiresAt = (sub['expiresAt'] as Timestamp?)?.toDate();
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final user = ref.watch(currentUserProvider);
+    // Watch real-time subscription plan from Firestore
+    final planAsync = ref.watch(subscriptionPlanProvider);
+    planAsync.whenData((plan) {
+      if (plan != _currentPlan) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) setState(() => _currentPlan = plan);
+        });
+      }
+    });
 
     return Scaffold(
       appBar: AppBar(
@@ -48,119 +80,158 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
         ),
         title: const Text('Subscription Plans'),
       ),
-      body: FutureBuilder(
-        future: _service.getCurrentSubscription(),
-        builder: (context, snapshot) {
-          final currentPlan = snapshot.data?.plan.name ?? 'free';
-          final isActive = snapshot.data?.isActive ?? true;
-          final expiresAt = snapshot.data?.expiresAt;
-
-          return SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Text(
+              'Choose the right plan for your business',
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            if (_currentPlan != 'free' && _expiresAt != null)
+              Text(
+                'Current: ${_currentPlan[0].toUpperCase()}${_currentPlan.substring(1)} '
+                '($_subscriptionStatus) — expires ${_expiresAt!.day}/${_expiresAt!.month}/${_expiresAt!.year}',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.grey[600], fontSize: 13),
+              ),
+            const SizedBox(height: 16),
+            // Monthly / Annual toggle
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Text(
-                  'Choose the right plan for your business',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                  textAlign: TextAlign.center,
+                const Text('Monthly'),
+                Switch(
+                  value: _isAnnual,
+                  onChanged: (v) => setState(() => _isAnnual = v),
                 ),
-                if (!isActive && expiresAt != null)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 8),
-                    child: Card(
-                      color: Colors.red.shade50,
-                      child: Padding(
-                        padding: const EdgeInsets.all(12),
-                        child: Text(
-                          'Your plan expired. Upgrade to continue using premium features.',
-                          style: TextStyle(color: Colors.red.shade800),
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
+                const Text('Annual'),
+                const SizedBox(width: 4),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.green.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Text(
+                    'Save ~17%',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.green,
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
-                const SizedBox(height: 24),
-                _buildPlanCard(
-                  context,
-                  name: 'Free',
-                  planKey: 'free',
-                  price: '₹0',
-                  period: 'forever',
-                  features: [
-                    '50 bills/month',
-                    '100 menu items',
-                    '10 customers',
-                    'Basic reports',
-                  ],
-                  color: Colors.grey,
-                  isCurrent: currentPlan == 'free',
-                  userName: user?.ownerName ?? '',
-                  userEmail: user?.email,
-                  userPhone: user?.phone,
-                ),
-                const SizedBox(height: 16),
-                _buildPlanCard(
-                  context,
-                  name: 'Pro',
-                  planKey: 'pro',
-                  price: '₹299',
-                  period: '/month',
-                  features: [
-                    '500 bills/month',
-                    '1,000 menu items',
-                    '100 customers',
-                    'Advanced reports',
-                    'Priority support',
-                  ],
-                  color: Colors.blue,
-                  isCurrent: currentPlan == 'pro',
-                  userName: user?.ownerName ?? '',
-                  userEmail: user?.email,
-                  userPhone: user?.phone,
-                ),
-                const SizedBox(height: 16),
-                _buildPlanCard(
-                  context,
-                  name: 'Business',
-                  planKey: 'business',
-                  price: '₹999',
-                  period: '/month',
-                  features: [
-                    'Unlimited bills',
-                    'Unlimited menu items',
-                    'Unlimited customers',
-                    'All reports',
-                    'Dedicated support',
-                    'Multi-device sync',
-                  ],
-                  color: Colors.purple,
-                  isCurrent: currentPlan == 'business',
-                  userName: user?.ownerName ?? '',
-                  userEmail: user?.email,
-                  userPhone: user?.phone,
                 ),
               ],
             ),
-          );
-        },
+            if (!kIsWeb) ...[
+              const SizedBox(height: 8),
+              Text(
+                'You\'ll be redirected to the website to complete payment',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+              ),
+            ],
+            const SizedBox(height: 16),
+            _buildPlanCard(
+              context,
+              planKey: 'free',
+              name: 'Free',
+              monthlyPrice: 0,
+              annualPrice: 0,
+              features: [
+                'Unlimited billing & orders',
+                'Menu management',
+                'Basic table management (5 tables)',
+                'PDF receipt sharing',
+                'Single user (Owner)',
+              ],
+              color: Colors.grey,
+            ),
+            const SizedBox(height: 16),
+            _buildPlanCard(
+              context,
+              planKey: 'starter',
+              name: 'Starter',
+              monthlyPrice: 500,
+              annualPrice: 5000,
+              features: [
+                'Everything in Free, plus:',
+                'Kitchen Display System',
+                'Up to 3 staff users',
+                'Basic inventory tracking',
+                'Customer database',
+                'GST export (GSTR-1)',
+                'Email support',
+              ],
+              color: Colors.teal,
+            ),
+            const SizedBox(height: 16),
+            _buildPlanCard(
+              context,
+              planKey: 'pro',
+              name: 'Pro',
+              monthlyPrice: 1000,
+              annualPrice: 10000,
+              features: [
+                'Everything in Starter, plus:',
+                'Up to 10 staff users',
+                'Full inventory & ingredients',
+                'Customer portal (QR menu, ordering)',
+                'Reservations & events',
+                'Coupons & discounts',
+                '9 analytics dashboards',
+                'Priority email support',
+              ],
+              color: Colors.blue,
+            ),
+            const SizedBox(height: 16),
+            _buildPlanCard(
+              context,
+              planKey: 'business',
+              name: 'Business',
+              monthlyPrice: 2000,
+              annualPrice: 20000,
+              features: [
+                'Everything in Pro, plus:',
+                'Unlimited staff users',
+                'Multi-location management',
+                'Custom report builder',
+                'API access & integrations',
+                'Dedicated account manager',
+                'Phone & WhatsApp support',
+              ],
+              color: Colors.purple,
+            ),
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildPlanCard(
     BuildContext context, {
-    required String name,
     required String planKey,
-    required String price,
-    required String period,
+    required String name,
+    required int monthlyPrice,
+    required int annualPrice,
     required List<String> features,
     required Color color,
-    required bool isCurrent,
-    required String userName,
-    String? userEmail,
-    String? userPhone,
   }) {
+    final isCurrent = _currentPlan == planKey;
+    final price = _isAnnual ? annualPrice : monthlyPrice;
+    final period = planKey == 'free'
+        ? 'forever'
+        : _isAnnual
+        ? '/year'
+        : '/month';
+
     return Card(
       elevation: isCurrent ? 0 : 4,
       shape: RoundedRectangleBorder(
@@ -195,7 +266,7 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
               text: TextSpan(
                 children: [
                   TextSpan(
-                    text: price,
+                    text: '₹$price',
                     style: TextStyle(
                       fontSize: 32,
                       fontWeight: FontWeight.bold,
@@ -226,22 +297,18 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
             if (!isCurrent && planKey != 'free')
               SizedBox(
                 width: double.infinity,
-                child: FilledButton(
-                  onPressed: _upgrading
-                      ? null
-                      : () => _handleUpgrade(
-                          context,
-                          planKey,
-                          userName,
-                          userEmail,
-                          userPhone,
-                        ),
+                child: FilledButton.icon(
+                  onPressed: _isLoading ? null : () => _handleUpgrade(planKey),
                   style: FilledButton.styleFrom(backgroundColor: color),
-                  child: _upgrading
+                  icon: const Icon(Icons.open_in_browser, size: 18),
+                  label: _isLoading
                       ? const SizedBox(
-                          width: 20,
                           height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
+                          width: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
                         )
                       : Text('Upgrade to $name'),
                 ),
@@ -252,74 +319,95 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
     );
   }
 
-  /// Handle subscription upgrade with platform-aware payment flow.
+  /// Handle subscription upgrade — opens the website pricing page.
   ///
-  /// - **Android**: Must use Google Play Billing (IAP) per Play Store policy.
-  /// - **Web / Windows**: Can use Razorpay, Stripe, or direct payment links.
-  /// - **iOS**: Must use StoreKit (Apple IAP) per App Store policy.
-  Future<void> _handleUpgrade(
-    BuildContext context,
-    String planKey,
-    String userName,
-    String? userEmail,
-    String? userPhone,
-  ) async {
-    final isAndroid =
-        !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
-    final isIOS = !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
+  /// All platforms (Android, Web, Windows, iOS) redirect to the website
+  /// pricing page which handles Razorpay Checkout.js payment. The app
+  /// listens for Firestore subscription changes in real-time via
+  /// subscriptionPlanProvider, so the UI updates automatically after payment.
+  Future<void> _handleUpgrade(String planKey) async {
+    setState(() => _isLoading = true);
+    final cycle = _isAnnual ? 'annual' : 'monthly';
 
-    if (isAndroid || isIOS) {
-      // Google Play / App Store IAP — requires in_app_purchase package setup
-      // When Play Console products are configured, replace this with IAP flow
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Upgrade via ${isAndroid ? "Google Play" : "App Store"} coming soon!',
-          ),
-        ),
-      );
+    // Get a custom token so the pricing page signs in as the correct user
+    String? token;
+    try {
+      if (!kIsWeb && defaultTargetPlatform == TargetPlatform.windows) {
+        // On Windows desktop, the cloud_functions SDK doesn't reliably
+        // attach auth headers. Call via direct HTTP instead.
+        token = await _getPaymentTokenViaHttp();
+      } else {
+        final callable = FirebaseFunctions.instanceFor(
+          region: 'asia-south1',
+        ).httpsCallable('createPaymentToken');
+        final result = await callable.call<Map<String, dynamic>>({});
+        token = result.data['token'] as String?;
+      }
+    } catch (e) {
+      debugPrint('Failed to get payment token: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Authentication error: $e')));
+        setState(() => _isLoading = false);
+      }
       return;
     }
 
-    // Web / Desktop: Use Razorpay checkout → activateSubscription Cloud Function
-    setState(() => _upgrading = true);
-
-    try {
-      final result = await _service.upgradePlan(
-        plan: planKey,
-        cycle: 'monthly',
-        customerName: userName,
-        customerEmail: userEmail,
-        customerPhone: userPhone,
-      );
-
-      if (!mounted) return;
-
-      if (result.success) {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                '${planKey[0].toUpperCase()}${planKey.substring(1)} plan activated!',
-              ),
-              backgroundColor: Colors.green,
+    if (token == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Could not authenticate. Please sign out and sign back in, then try again.',
             ),
-          );
-        }
-        // Refresh the screen to show updated plan
-        setState(() {});
-      } else {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(result.error ?? 'Upgrade failed'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
+          ),
+        );
+        setState(() => _isLoading = false);
       }
-    } finally {
-      if (mounted) setState(() => _upgrading = false);
+      return;
     }
+
+    final url =
+        'https://hotels.tulasierp.com/src/pages/pricing.html?plan=$planKey&cycle=$cycle&token=${Uri.encodeComponent(token)}';
+
+    final uri = Uri.parse(url);
+    final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!launched && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Could not open browser. Please visit hotels.tulasierp.com to upgrade.',
+          ),
+        ),
+      );
+    }
+
+    if (mounted) setState(() => _isLoading = false);
+  }
+
+  /// Calls createPaymentToken via direct HTTP for Windows desktop.
+  Future<String?> _getPaymentTokenViaHttp() async {
+    final idToken = await FirebaseAuth.instance.currentUser?.getIdToken(true);
+    if (idToken == null) throw Exception('Not signed in');
+
+    final response = await http.post(
+      Uri.parse(
+        'https://asia-south1-login1-aa21c.cloudfunctions.net/createPaymentToken',
+      ),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $idToken',
+      },
+      body: json.encode({'data': {}}),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Server error ${response.statusCode}: ${response.body}');
+    }
+
+    final body = json.decode(response.body) as Map<String, dynamic>;
+    final result = body['result'] as Map<String, dynamic>?;
+    return result?['token'] as String?;
   }
 }

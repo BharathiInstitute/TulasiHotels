@@ -14,6 +14,7 @@ import 'package:tulasihotels/core/constants/app_constants.dart';
 import 'package:tulasihotels/core/services/sync_status_service.dart';
 import 'package:tulasihotels/core/services/user_usage_service.dart';
 import 'package:tulasihotels/core/utils/id_generator.dart';
+import 'package:tulasihotels/core/utils/windows_firestore_helper.dart';
 import 'package:tulasihotels/models/bill_model.dart';
 import 'package:tulasihotels/models/customer_model.dart';
 import 'package:tulasihotels/models/expense_model.dart';
@@ -57,6 +58,18 @@ class PrinterStorage {
   static const String _wifiIpKey = 'printer_wifi_ip';
   static const String _wifiPortKey = 'printer_wifi_port';
   static const String _usbPrinterNameKey = 'printer_usb_name';
+  static const String _openCashDrawerKey = 'printer_open_cash_drawer';
+  static const String _printCopiesKey = 'printer_copies';
+  static const String _showQrOnReceiptKey = 'printer_show_qr';
+  static const String _showGstBreakdownKey = 'printer_show_gst';
+  static const String _receiptLanguageKey = 'printer_language';
+  static const String _showLogoOnThermalKey = 'printer_show_logo';
+  static const String _cutModeKey = 'printer_cut_mode';
+  static const String _showCopyLabelKey = 'printer_show_copy_label';
+  static const String _showHsnOnReceiptKey = 'printer_show_hsn';
+  static const String _printDensityKey = 'printer_density';
+  static const String _systemPrinterNameKey = 'printer_system_name';
+  static const String _systemPrinterUrlKey = 'printer_system_url';
 
   static SharedPreferences? _prefs;
 
@@ -189,6 +202,93 @@ class PrinterStorage {
   static Future<void> saveUsbPrinterName(String name) async {
     await _ensurePrefs();
     await _prefs?.setString(_usbPrinterNameKey, name);
+  }
+
+  // ── Cash drawer ──
+  static bool getOpenCashDrawer() =>
+      _prefs?.getBool(_openCashDrawerKey) ?? false;
+  static Future<void> saveOpenCashDrawer(bool open) async {
+    await _ensurePrefs();
+    await _prefs?.setBool(_openCashDrawerKey, open);
+  }
+
+  // ── Print copies ──
+  static int getPrintCopies() => _prefs?.getInt(_printCopiesKey) ?? 1;
+  static Future<void> savePrintCopies(int copies) async {
+    await _ensurePrefs();
+    await _prefs?.setInt(_printCopiesKey, copies);
+  }
+
+  // ── Show QR on receipt ──
+  static bool getShowQrOnReceipt() =>
+      _prefs?.getBool(_showQrOnReceiptKey) ?? false;
+  static Future<void> saveShowQrOnReceipt(bool show) async {
+    await _ensurePrefs();
+    await _prefs?.setBool(_showQrOnReceiptKey, show);
+  }
+
+  // ── Show GST breakdown ──
+  static bool getShowGstBreakdown() =>
+      _prefs?.getBool(_showGstBreakdownKey) ?? false;
+  static Future<void> saveShowGstBreakdown(bool show) async {
+    await _ensurePrefs();
+    await _prefs?.setBool(_showGstBreakdownKey, show);
+  }
+
+  // ── Receipt language ──
+  static String getReceiptLanguage() =>
+      _prefs?.getString(_receiptLanguageKey) ?? 'english';
+  static Future<void> saveReceiptLanguage(String lang) async {
+    await _ensurePrefs();
+    await _prefs?.setString(_receiptLanguageKey, lang);
+  }
+
+  // ── Show logo on thermal ──
+  static bool getShowLogoOnThermal() =>
+      _prefs?.getBool(_showLogoOnThermalKey) ?? false;
+  static Future<void> saveShowLogoOnThermal(bool show) async {
+    await _ensurePrefs();
+    await _prefs?.setBool(_showLogoOnThermalKey, show);
+  }
+
+  // ── Cut mode ──
+  static String getCutMode() => _prefs?.getString(_cutModeKey) ?? 'fullCut';
+  static Future<void> saveCutMode(String mode) async {
+    await _ensurePrefs();
+    await _prefs?.setString(_cutModeKey, mode);
+  }
+
+  // ── Show copy label ──
+  static bool getShowCopyLabel() => _prefs?.getBool(_showCopyLabelKey) ?? false;
+  static Future<void> saveShowCopyLabel(bool show) async {
+    await _ensurePrefs();
+    await _prefs?.setBool(_showCopyLabelKey, show);
+  }
+
+  // ── Show HSN on receipt ──
+  static bool getShowHsnOnReceipt() =>
+      _prefs?.getBool(_showHsnOnReceiptKey) ?? false;
+  static Future<void> saveShowHsnOnReceipt(bool show) async {
+    await _ensurePrefs();
+    await _prefs?.setBool(_showHsnOnReceiptKey, show);
+  }
+
+  // ── Print density ──
+  static int getPrintDensity() => _prefs?.getInt(_printDensityKey) ?? 1;
+  static Future<void> savePrintDensity(int density) async {
+    await _ensurePrefs();
+    await _prefs?.setInt(_printDensityKey, density);
+  }
+
+  // ── System printer (for direct PDF print) ──
+  static String getSystemPrinterName() =>
+      _prefs?.getString(_systemPrinterNameKey) ?? '';
+  static String getSystemPrinterUrl() =>
+      _prefs?.getString(_systemPrinterUrlKey) ?? '';
+  static Future<void> saveSystemPrinter(String name, String url) async {
+    await _ensurePrefs();
+    await _prefs?.setString(_systemPrinterNameKey, name);
+    await _prefs?.setString(_systemPrinterUrlKey, url);
   }
 
   /// Initialize (called during app startup)
@@ -451,7 +551,9 @@ class OfflineStorageService {
     String? paymentMethod,
   }) {
     if (_basePath.isEmpty) return Stream.value([]);
-    Query query = _firestore.collection('$_basePath/bills');
+    Query<Map<String, dynamic>> query = _firestore.collection(
+      '$_basePath/bills',
+    );
 
     // Equality filters first (Firestore requires equality before range/orderBy)
     if (paymentMethod != null) {
@@ -477,7 +579,7 @@ class OfflineStorageService {
 
     query = query.limit(AppConstants.queryLimitBills);
 
-    return query.snapshots().map((snapshot) {
+    return safeSnapshots(query).map((snapshot) {
       final bills = snapshot.docs
           .map((doc) => BillModel.fromFirestore(doc))
           .toList();
@@ -520,17 +622,17 @@ class OfflineStorageService {
     DateTime end,
   ) {
     if (_basePath.isEmpty) return Stream.value([]);
-    return _firestore
-        .collection('$_basePath/bills')
-        .where('createdAt', isGreaterThanOrEqualTo: Timestamp.fromDate(start))
-        .where('createdAt', isLessThanOrEqualTo: Timestamp.fromDate(end))
-        .orderBy('createdAt', descending: true)
-        .limit(AppConstants.queryLimitBills)
-        .snapshots()
-        .map(
-          (snapshot) =>
-              snapshot.docs.map((doc) => BillModel.fromFirestore(doc)).toList(),
-        );
+    return safeSnapshots(
+      _firestore
+          .collection('$_basePath/bills')
+          .where('createdAt', isGreaterThanOrEqualTo: Timestamp.fromDate(start))
+          .where('createdAt', isLessThanOrEqualTo: Timestamp.fromDate(end))
+          .orderBy('createdAt', descending: true)
+          .limit(AppConstants.queryLimitBills),
+    ).map(
+      (snapshot) =>
+          snapshot.docs.map((doc) => BillModel.fromFirestore(doc)).toList(),
+    );
   }
 
   /// Delete old bills (data retention) — processes in batches of 400
@@ -602,7 +704,9 @@ class OfflineStorageService {
     String? paymentMethod,
   }) {
     if (_basePath.isEmpty) return Stream.value([]);
-    Query query = _firestore.collection('$_basePath/expenses');
+    Query<Map<String, dynamic>> query = _firestore.collection(
+      '$_basePath/expenses',
+    );
 
     // Equality filters first (Firestore requires equality before range/orderBy)
     if (paymentMethod != null) {
@@ -628,7 +732,7 @@ class OfflineStorageService {
 
     query = query.limit(AppConstants.queryLimitExpenses);
 
-    return query.snapshots().map((snapshot) {
+    return safeSnapshots(query).map((snapshot) {
       final expenses = snapshot.docs
           .map((doc) => ExpenseModel.fromFirestore(doc))
           .toList();
@@ -827,26 +931,26 @@ class OfflineStorageService {
   /// Stream of all customers (real-time updates from Firestore)
   static Stream<List<CustomerModel>> customersStream() {
     if (_basePath.isEmpty) return Stream.value([]);
-    return _firestore
-        .collection('$_basePath/customers')
-        .limit(AppConstants.queryLimitCustomers)
-        .snapshots()
-        .map((snapshot) {
-          final customers = snapshot.docs
-              .map((doc) => CustomerModel.fromFirestore(doc))
-              .toList();
-          // Report sync status
-          final pendingCount = snapshot.docs
-              .where((d) => d.metadata.hasPendingWrites)
-              .length;
-          SyncStatusService.updateCollection(
-            'customers',
-            totalDocs: customers.length,
-            unsyncedDocs: pendingCount,
-            hasPendingWrites: snapshot.metadata.hasPendingWrites,
-          );
-          return customers;
-        });
+    return safeSnapshots(
+      _firestore
+          .collection('$_basePath/customers')
+          .limit(AppConstants.queryLimitCustomers),
+    ).map((snapshot) {
+      final customers = snapshot.docs
+          .map((doc) => CustomerModel.fromFirestore(doc))
+          .toList();
+      // Report sync status
+      final pendingCount = snapshot.docs
+          .where((d) => d.metadata.hasPendingWrites)
+          .length;
+      SyncStatusService.updateCollection(
+        'customers',
+        totalDocs: customers.length,
+        unsyncedDocs: pendingCount,
+        hasPendingWrites: snapshot.metadata.hasPendingWrites,
+      );
+      return customers;
+    });
   }
 
   /// Paginated customers fetch — returns (customers, lastDocument) for cursor pagination.
@@ -872,10 +976,9 @@ class OfflineStorageService {
   /// Stream of a single customer (real-time)
   static Stream<CustomerModel?> customerStream(String customerId) {
     if (_basePath.isEmpty) return Stream.value(null);
-    return _firestore
-        .doc('$_basePath/customers/$customerId')
-        .snapshots()
-        .map((doc) => doc.exists ? CustomerModel.fromFirestore(doc) : null);
+    return safeDocSnapshots(
+      _firestore.doc('$_basePath/customers/$customerId'),
+    ).map((doc) => doc.exists ? CustomerModel.fromFirestore(doc) : null);
   }
 
   // ==================== Transactions ====================
@@ -970,28 +1073,28 @@ class OfflineStorageService {
     String customerId,
   ) {
     if (_basePath.isEmpty) return Stream.value([]);
-    return _firestore
-        .collection('$_basePath/transactions')
-        .where('customerId', isEqualTo: customerId)
-        .orderBy('createdAt', descending: true)
-        .limit(AppConstants.queryLimitTransactions)
-        .snapshots()
-        .map((snapshot) {
-          final transactions = snapshot.docs
-              .map((doc) => TransactionModel.fromFirestore(doc))
-              .toList();
-          // Report sync status
-          final pendingCount = snapshot.docs
-              .where((d) => d.metadata.hasPendingWrites)
-              .length;
-          SyncStatusService.updateCollection(
-            'transactions',
-            totalDocs: transactions.length,
-            unsyncedDocs: pendingCount,
-            hasPendingWrites: snapshot.metadata.hasPendingWrites,
-          );
-          return transactions;
-        });
+    return safeSnapshots(
+      _firestore
+          .collection('$_basePath/transactions')
+          .where('customerId', isEqualTo: customerId)
+          .orderBy('createdAt', descending: true)
+          .limit(AppConstants.queryLimitTransactions),
+    ).map((snapshot) {
+      final transactions = snapshot.docs
+          .map((doc) => TransactionModel.fromFirestore(doc))
+          .toList();
+      // Report sync status
+      final pendingCount = snapshot.docs
+          .where((d) => d.metadata.hasPendingWrites)
+          .length;
+      SyncStatusService.updateCollection(
+        'transactions',
+        totalDocs: transactions.length,
+        unsyncedDocs: pendingCount,
+        hasPendingWrites: snapshot.metadata.hasPendingWrites,
+      );
+      return transactions;
+    });
   }
 
   // ==================== Sync Status Streams ====================
@@ -1000,50 +1103,50 @@ class OfflineStorageService {
   /// Only tracks documents with hasPendingWrites=true to keep the map bounded.
   static Stream<Map<String, bool>> billsSyncStream() {
     if (_basePath.isEmpty) return Stream.value({});
-    return _firestore
-        .collection('$_basePath/bills')
-        .orderBy('createdAt', descending: true)
-        .limit(AppConstants.queryLimitBills)
-        .snapshots()
-        .map(
-          (snapshot) => {
-            for (final doc in snapshot.docs)
-              if (doc.metadata.hasPendingWrites) doc.id: true,
-          },
-        );
+    return safeSnapshots(
+      _firestore
+          .collection('$_basePath/bills')
+          .orderBy('createdAt', descending: true)
+          .limit(AppConstants.queryLimitBills),
+    ).map(
+      (snapshot) => {
+        for (final doc in snapshot.docs)
+          if (doc.metadata.hasPendingWrites) doc.id: true,
+      },
+    );
   }
 
   /// Stream of per-document sync status for customers
   /// Only tracks documents with hasPendingWrites=true to keep the map bounded.
   static Stream<Map<String, bool>> customersSyncStream() {
     if (_basePath.isEmpty) return Stream.value({});
-    return _firestore
-        .collection('$_basePath/customers')
-        .limit(AppConstants.queryLimitCustomers)
-        .snapshots()
-        .map(
-          (snapshot) => {
-            for (final doc in snapshot.docs)
-              if (doc.metadata.hasPendingWrites) doc.id: true,
-          },
-        );
+    return safeSnapshots(
+      _firestore
+          .collection('$_basePath/customers')
+          .limit(AppConstants.queryLimitCustomers),
+    ).map(
+      (snapshot) => {
+        for (final doc in snapshot.docs)
+          if (doc.metadata.hasPendingWrites) doc.id: true,
+      },
+    );
   }
 
   /// Stream of per-document sync status for expenses
   /// Only tracks documents with hasPendingWrites=true to keep the map bounded.
   static Stream<Map<String, bool>> expensesSyncStream() {
     if (_basePath.isEmpty) return Stream.value({});
-    return _firestore
-        .collection('$_basePath/expenses')
-        .orderBy('createdAt', descending: true)
-        .limit(AppConstants.queryLimitExpenses)
-        .snapshots()
-        .map(
-          (snapshot) => {
-            for (final doc in snapshot.docs)
-              if (doc.metadata.hasPendingWrites) doc.id: true,
-          },
-        );
+    return safeSnapshots(
+      _firestore
+          .collection('$_basePath/expenses')
+          .orderBy('createdAt', descending: true)
+          .limit(AppConstants.queryLimitExpenses),
+    ).map(
+      (snapshot) => {
+        for (final doc in snapshot.docs)
+          if (doc.metadata.hasPendingWrites) doc.id: true,
+      },
+    );
   }
 
   // ==================== Settings ====================

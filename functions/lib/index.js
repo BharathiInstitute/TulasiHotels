@@ -48,7 +48,8 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.seedUserUsage = exports.scheduledFirestoreBackup = exports.sendNotificationToPlan = exports.sendNotificationToAll = exports.getSubscriptionLimits = exports.seedAdmins = exports.onCustomerDeleted = exports.onCustomerCreated = exports.onProductDeleted = exports.onProductCreated = exports.onBillCreated = exports.processReferralReward = exports.redeemReferralCode = exports.onSubscriptionWrite = exports.generateMonthlyReport = exports.exchangeIdToken = exports.sendDailySalesSummary = exports.checkChurnedUsers = exports.checkSubscriptionExpiry = exports.activateSubscription = exports.checkLowStock = exports.cleanupOldNotifications = exports.sendPushNotification = exports.onNewUserSignup = exports.generateDesktopToken = exports.deleteUserAccount = exports.onUserDeleted = exports.verifyRegistrationOTP = exports.sendRegistrationOTP = exports.razorpayWebhook = exports.createPaymentLink = void 0;
+exports.sendReservationReminder = exports.sendFeedbackRequest = exports.sendOrderConfirmation = exports.verifyPayment = exports.createOrder = exports.createPaymentToken = exports.razorpayReconciliation = exports.onStockUpdate = exports.onNewOrderKitchenAlert = exports.onWastageLogged = exports.onComplaintCreated = exports.equipmentServiceReminder = exports.licenseExpiryReminder = exports.onNewReservation = exports.onNewFeedback = exports.onLowIngredientStock = exports.onOrderReady = exports.onCustomerOrderCreated = exports.onRushOrderCreated = exports.seedUserUsage = exports.scheduledFirestoreBackup = exports.sendNotificationToPlan = exports.sendNotificationToAll = exports.getSubscriptionLimits = exports.seedAdmins = exports.onCustomerDeleted = exports.onCustomerCreated = exports.onProductDeleted = exports.onProductCreated = exports.onBillCreated = exports.processReferralReward = exports.redeemReferralCode = exports.onSubscriptionWrite = exports.generateMonthlyReport = exports.exchangeIdToken = exports.sendDailySalesSummary = exports.checkChurnedUsers = exports.checkSubscriptionExpiry = exports.activateSubscription = exports.checkLowStock = exports.cleanupOldNotifications = exports.sendPushNotification = exports.onNewUserSignup = exports.generateDesktopToken = exports.deleteUserAccount = exports.onUserDeleted = exports.verifyRegistrationOTP = exports.sendRegistrationOTP = exports.razorpayWebhook = exports.createPaymentLink = void 0;
+exports.sendOrderReadySMS = exports.sendDailySummaryWhatsApp = void 0;
 const functions = __importStar(require("firebase-functions"));
 const admin = __importStar(require("firebase-admin"));
 const crypto = __importStar(require("crypto"));
@@ -1026,9 +1027,9 @@ exports.activateSubscription = functions
     const daysToAdd = cycle === "annual" ? 365 : 30;
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + daysToAdd);
-    const billsLimit = plan === "pro" ? 500 : 999999;
-    const productsLimit = 999999; // unlimited for both Pro and Business
-    const customersLimit = 999999; // unlimited for both Pro and Business
+    const billsLimit = plan === "starter" ? 300 : plan === "pro" ? 500 : 999999;
+    const productsLimit = plan === "starter" ? 100 : 999999; // unlimited for Pro and Business
+    const customersLimit = plan === "starter" ? 200 : 999999; // unlimited for Pro and Business
     const db = admin.firestore();
     // Update user document
     await db.collection("users").doc(userId).update(Object.assign(Object.assign({ "subscription.plan": plan, "subscription.status": "active", "subscription.startedAt": admin.firestore.FieldValue.serverTimestamp(), "subscription.expiresAt": admin.firestore.Timestamp.fromDate(expiresAt) }, (razorpaySubscriptionId && {
@@ -1047,10 +1048,11 @@ exports.activateSubscription = functions
         }, { merge: true });
     }
     // Welcome notification
+    const planDisplayName = plan === "starter" ? "Starter" : plan === "pro" ? "Pro" : "Business";
     await db.collection("users").doc(userId)
         .collection("notifications").add({
-        title: `Welcome to ${plan === "pro" ? "Pro" : "Business"} Plan! 🎉`,
-        body: `Your ${plan === "pro" ? "Pro" : "Business"} plan is now active. Enjoy ${plan === "pro" ? "500 bills/month" : "unlimited billing"}!`,
+        title: `Welcome to ${planDisplayName} Plan! 🎉`,
+        body: `Your ${planDisplayName} plan is now active. Enjoy your upgraded features!`,
         type: "subscription",
         read: false,
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -2339,4 +2341,538 @@ exports.seedUserUsage = functions
     console.log(`✅ seedUserUsage: Seeded ${seeded} users`);
     return { success: true, seeded };
 });
+// ════════════════════════════════════════════════════════════════
+//  NEW CLOUD FUNCTIONS — Hotel Feature Support
+// ════════════════════════════════════════════════════════════════
+/**
+ * onRushOrderCreated — Notify staff when a rush order is placed
+ */
+exports.onRushOrderCreated = functions
+    .region("asia-south1")
+    .runWith({ timeoutSeconds: 30, memory: "256MB" })
+    .firestore.document("users/{userId}/orders/{orderId}")
+    .onCreate(async (snap, context) => {
+    var _a;
+    const order = snap.data();
+    if (!(order === null || order === void 0 ? void 0 : order.isRush))
+        return;
+    const { userId } = context.params;
+    const db = admin.firestore();
+    // Create notification for the owner
+    await db.collection(`users/${userId}/notifications`).add({
+        title: "🚨 Rush Order!",
+        body: `Rush order for ${order.tableName || "Takeaway"} — ${((_a = order.items) === null || _a === void 0 ? void 0 : _a.length) || 0} items`,
+        type: "rush_order",
+        read: false,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        data: { orderId: context.params.orderId },
+    });
+});
+/**
+ * onCustomerOrderCreated — Notify hotel when a customer places an order via web
+ */
+exports.onCustomerOrderCreated = functions
+    .region("asia-south1")
+    .runWith({ timeoutSeconds: 30, memory: "256MB" })
+    .firestore.document("users/{userId}/orders/{orderId}")
+    .onCreate(async (snap, context) => {
+    var _a;
+    const order = snap.data();
+    if (!(order === null || order === void 0 ? void 0 : order.isCustomerOrder))
+        return;
+    const { userId } = context.params;
+    const db = admin.firestore();
+    await db.collection(`users/${userId}/notifications`).add({
+        title: "📱 New Customer Order",
+        body: `${order.customerName || "Customer"} placed an order — ${((_a = order.items) === null || _a === void 0 ? void 0 : _a.length) || 0} items`,
+        type: "customer_order",
+        read: false,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        data: { orderId: context.params.orderId },
+    });
+});
+/**
+ * onOrderReady — Notify when order status changes to 'ready'
+ */
+exports.onOrderReady = functions
+    .region("asia-south1")
+    .runWith({ timeoutSeconds: 30, memory: "256MB" })
+    .firestore.document("users/{userId}/orders/{orderId}")
+    .onUpdate(async (change, context) => {
+    const before = change.before.data();
+    const after = change.after.data();
+    // Only fire when status changes to 'ready'
+    if (before.status === after.status || after.status !== "ready")
+        return;
+    const { userId } = context.params;
+    const db = admin.firestore();
+    await db.collection(`users/${userId}/notifications`).add({
+        title: "✅ Order Ready",
+        body: `Order for ${after.tableName || "Takeaway"} is ready to serve`,
+        type: "order_ready",
+        read: false,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        data: { orderId: context.params.orderId },
+    });
+});
+/**
+ * onLowIngredientStock — Alert when ingredient stock falls below reorder level
+ */
+exports.onLowIngredientStock = functions
+    .region("asia-south1")
+    .runWith({ timeoutSeconds: 30, memory: "256MB" })
+    .firestore.document("users/{userId}/ingredients/{ingredientId}")
+    .onUpdate(async (change, context) => {
+    const after = change.after.data();
+    const before = change.before.data();
+    // Only fire when stock drops below reorder level
+    if (!after.reorderLevel || after.currentStock >= after.reorderLevel)
+        return;
+    if (before.currentStock < before.reorderLevel)
+        return; // Already low, don't re-notify
+    const { userId } = context.params;
+    const db = admin.firestore();
+    await db.collection(`users/${userId}/notifications`).add({
+        title: "⚠️ Low Stock Alert",
+        body: `${after.name} is low — ${after.currentStock} ${after.unit || "units"} remaining (reorder at ${after.reorderLevel})`,
+        type: "low_ingredient_stock",
+        read: false,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        data: { ingredientId: context.params.ingredientId },
+    });
+});
+/**
+ * onNewFeedback — Notify hotel owner when customer submits feedback
+ */
+exports.onNewFeedback = functions
+    .region("asia-south1")
+    .runWith({ timeoutSeconds: 30, memory: "256MB" })
+    .firestore.document("users/{userId}/feedback/{feedbackId}")
+    .onCreate(async (snap, context) => {
+    const feedback = snap.data();
+    const { userId } = context.params;
+    const db = admin.firestore();
+    const avgRating = ((feedback.foodRating || 0) + (feedback.serviceRating || 0) + (feedback.ambianceRating || 0)) / 3;
+    await db.collection(`users/${userId}/notifications`).add({
+        title: avgRating >= 4 ? "⭐ Great Feedback!" : "📝 New Feedback",
+        body: `${feedback.customerName || "Anonymous"} rated: Food ${feedback.foodRating}/5, Service ${feedback.serviceRating}/5, Ambiance ${feedback.ambianceRating}/5`,
+        type: "new_feedback",
+        read: false,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        data: { feedbackId: context.params.feedbackId },
+    });
+});
+/**
+ * onNewReservation — Notify hotel when customer books a table
+ */
+exports.onNewReservation = functions
+    .region("asia-south1")
+    .runWith({ timeoutSeconds: 30, memory: "256MB" })
+    .firestore.document("users/{userId}/reservations/{reservationId}")
+    .onCreate(async (snap, context) => {
+    var _a, _b;
+    const reservation = snap.data();
+    if (!(reservation === null || reservation === void 0 ? void 0 : reservation.isCustomerBooking))
+        return;
+    const { userId } = context.params;
+    const db = admin.firestore();
+    const dateStr = ((_b = (_a = reservation.dateTime) === null || _a === void 0 ? void 0 : _a.toDate) === null || _b === void 0 ? void 0 : _b.call(_a))
+        ? reservation.dateTime.toDate().toLocaleDateString("en-IN")
+        : "Soon";
+    await db.collection(`users/${userId}/notifications`).add({
+        title: "📋 New Reservation",
+        body: `${reservation.customerName || "Customer"} booked for ${reservation.guestCount} guests on ${dateStr}`,
+        type: "new_reservation",
+        read: false,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        data: { reservationId: context.params.reservationId },
+    });
+});
+/**
+ * licenseExpiryReminder — Daily check for expiring licenses
+ */
+exports.licenseExpiryReminder = functions
+    .region("asia-south1")
+    .runWith({ timeoutSeconds: 120, memory: "256MB" })
+    .pubsub.schedule("every day 09:00")
+    .timeZone("Asia/Kolkata")
+    .onRun(async () => {
+    var _a, _b;
+    const db = admin.firestore();
+    const now = new Date();
+    const thirtyDaysFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+    // Find all users
+    const usersSnap = await db.collection("users").get();
+    for (const userDoc of usersSnap.docs) {
+        const userId = userDoc.id;
+        // Check expiring licenses
+        const licensesSnap = await db
+            .collection(`users/${userId}/licenses`)
+            .where("expiryDate", "<=", admin.firestore.Timestamp.fromDate(thirtyDaysFromNow))
+            .get();
+        for (const licDoc of licensesSnap.docs) {
+            const license = licDoc.data();
+            const expiryDate = (_b = (_a = license.expiryDate) === null || _a === void 0 ? void 0 : _a.toDate) === null || _b === void 0 ? void 0 : _b.call(_a);
+            if (!expiryDate)
+                continue;
+            const daysLeft = Math.ceil((expiryDate.getTime() - now.getTime()) / (24 * 60 * 60 * 1000));
+            if (daysLeft > 30 || daysLeft < -7)
+                continue; // Only notify within 30 days before to 7 days after
+            const urgency = daysLeft <= 0 ? "EXPIRED" : daysLeft <= 7 ? "CRITICAL" : "WARNING";
+            await db.collection(`users/${userId}/notifications`).add({
+                title: `🔔 License ${urgency}: ${license.name}`,
+                body: daysLeft <= 0
+                    ? `${license.name} expired ${Math.abs(daysLeft)} days ago!`
+                    : `${license.name} expires in ${daysLeft} days`,
+                type: "license_expiry",
+                read: false,
+                createdAt: admin.firestore.FieldValue.serverTimestamp(),
+                data: { licenseId: licDoc.id },
+            });
+        }
+    }
+    console.log("✅ licenseExpiryReminder: Completed");
+    return null;
+});
+/**
+ * equipmentServiceReminder — Daily check for equipment needing service
+ */
+exports.equipmentServiceReminder = functions
+    .region("asia-south1")
+    .runWith({ timeoutSeconds: 120, memory: "256MB" })
+    .pubsub.schedule("every day 08:00")
+    .timeZone("Asia/Kolkata")
+    .onRun(async () => {
+    const db = admin.firestore();
+    const now = admin.firestore.Timestamp.now();
+    const usersSnap = await db.collection("users").get();
+    for (const userDoc of usersSnap.docs) {
+        const userId = userDoc.id;
+        const equipSnap = await db
+            .collection(`users/${userId}/equipment`)
+            .where("nextServiceDate", "<=", now)
+            .get();
+        if (equipSnap.empty)
+            continue;
+        const names = equipSnap.docs.map(d => d.data().name).join(", ");
+        await db.collection(`users/${userId}/notifications`).add({
+            title: "🔧 Equipment Service Due",
+            body: `${equipSnap.size} item(s) need service: ${names}`,
+            type: "equipment_service",
+            read: false,
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+    }
+    console.log("✅ equipmentServiceReminder: Completed");
+    return null;
+});
+/**
+ * onComplaintCreated — Alert owner on new complaint
+ */
+exports.onComplaintCreated = functions
+    .region("asia-south1")
+    .runWith({ timeoutSeconds: 30, memory: "256MB" })
+    .firestore.document("users/{userId}/complaints/{complaintId}")
+    .onCreate(async (snap, context) => {
+    const complaint = snap.data();
+    const { userId } = context.params;
+    const db = admin.firestore();
+    await db.collection(`users/${userId}/notifications`).add({
+        title: "🚨 New Complaint",
+        body: `${complaint.category || "General"}: ${complaint.title} — ${complaint.customerName || "Anonymous"}`,
+        type: "new_complaint",
+        read: false,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        data: { complaintId: context.params.complaintId },
+    });
+});
+/**
+ * onWastageLogged — Track wastage costs and alert on high-value waste
+ */
+exports.onWastageLogged = functions
+    .region("asia-south1")
+    .runWith({ timeoutSeconds: 30, memory: "256MB" })
+    .firestore.document("users/{userId}/wastage/{wastageId}")
+    .onCreate(async (snap, context) => {
+    const wastage = snap.data();
+    const { userId } = context.params;
+    // Only notify for significant wastage (> ₹500)
+    if (!wastage.estimatedCost || wastage.estimatedCost < 500)
+        return;
+    const db = admin.firestore();
+    await db.collection(`users/${userId}/notifications`).add({
+        title: "🗑️ High Wastage Alert",
+        body: `${wastage.itemName}: ₹${wastage.estimatedCost} wasted (${wastage.reason || "unknown"})`,
+        type: "high_wastage",
+        read: false,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        data: { wastageId: context.params.wastageId },
+    });
+});
+/**
+ * onNewOrderKitchenAlert — Send FCM to kitchen devices when a new order is placed
+ */
+exports.onNewOrderKitchenAlert = functions
+    .region("asia-south1")
+    .runWith({ timeoutSeconds: 30, memory: "256MB" })
+    .firestore.document("users/{userId}/orders/{orderId}")
+    .onCreate(async (snap, context) => {
+    var _a;
+    const order = snap.data();
+    const { userId } = context.params;
+    const db = admin.firestore();
+    await db.collection(`users/${userId}/notifications`).add({
+        title: "🍳 New Order",
+        body: `Order #${order.orderNumber || "?"} — ${order.tableName || order.orderType || "Takeaway"} (${((_a = order.items) === null || _a === void 0 ? void 0 : _a.length) || 0} items)`,
+        type: "kitchen_new_order",
+        read: false,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        data: { orderId: context.params.orderId },
+    });
+});
+/**
+ * onStockUpdate — Alert when ingredient stock drops below minimum level
+ */
+exports.onStockUpdate = functions
+    .region("asia-south1")
+    .runWith({ timeoutSeconds: 30, memory: "256MB" })
+    .firestore.document("users/{userId}/ingredients/{ingredientId}")
+    .onUpdate(async (change, context) => {
+    const after = change.after.data();
+    const { userId } = context.params;
+    if (after.currentStock > after.minLevel)
+        return;
+    const db = admin.firestore();
+    await db.collection(`users/${userId}/notifications`).add({
+        title: "⚠️ Low Stock",
+        body: `${after.name}: ${after.currentStock} ${after.unit || ""} remaining (min: ${after.minLevel})`,
+        type: "low_stock",
+        read: false,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        data: { ingredientId: context.params.ingredientId },
+    });
+});
+/**
+ * razorpayReconciliation — Daily reconciliation of Razorpay settlements
+ */
+exports.razorpayReconciliation = functions
+    .region("asia-south1")
+    .runWith({ timeoutSeconds: 120, memory: "256MB" })
+    .pubsub.schedule("every day 06:00")
+    .timeZone("Asia/Kolkata")
+    .onRun(async () => {
+    // Reconciliation requires Razorpay API key — skipped if not configured
+    const razorpayKey = process.env.RAZORPAY_KEY_ID;
+    if (!razorpayKey) {
+        console.log("Razorpay key not configured — skipping reconciliation");
+        return;
+    }
+    const db = admin.firestore();
+    const usersSnap = await db.collection("users").get();
+    for (const userDoc of usersSnap.docs) {
+        const userId = userDoc.id;
+        const yesterday = new Date();
+        yesterday.setDate(yesterday.getDate() - 1);
+        yesterday.setHours(0, 0, 0, 0);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        // Count yesterday's online payment bills
+        const billsSnap = await db
+            .collection(`users/${userId}/bills`)
+            .where("createdAt", ">=", yesterday)
+            .where("createdAt", "<", today)
+            .where("paymentMethod", "in", ["upi", "card", "online"])
+            .get();
+        if (billsSnap.empty)
+            continue;
+        const totalOnline = billsSnap.docs.reduce((sum, doc) => sum + (doc.data().total || 0), 0);
+        // Write reconciliation flag for owner to review
+        await db.collection(`users/${userId}/reconciliation_flags`).add({
+            date: yesterday,
+            onlineBillCount: billsSnap.size,
+            totalOnlineAmount: totalOnline,
+            status: "pending_review",
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+    }
+    console.log("Razorpay reconciliation completed");
+});
+// ─── Payment Token & Order Cloud Functions ───
+/**
+ * createPaymentToken — Returns a short-lived Firebase custom token.
+ * Used by the Flutter app to authenticate the user on the website pricing page.
+ *
+ * Flow:
+ * 1. App calls createPaymentToken() (user is already signed in)
+ * 2. Function returns a custom token
+ * 3. App opens pricing.html?token=CUSTOM_TOKEN&plan=pro&cycle=monthly
+ * 4. Pricing page calls signInWithCustomToken(token) → correct user
+ */
+exports.createPaymentToken = functions
+    .region("asia-south1")
+    .runWith({ timeoutSeconds: 10, memory: "256MB", maxInstances: 20 })
+    .https.onCall(async (_data, context) => {
+    if (!context.auth) {
+        throw new functions.https.HttpsError("unauthenticated", "User must be authenticated");
+    }
+    try {
+        const customToken = await admin.auth().createCustomToken(context.auth.uid);
+        return { success: true, token: customToken };
+    }
+    catch (error) {
+        console.error("Error creating payment token:", error);
+        throw new functions.https.HttpsError("internal", "Failed to create auth token");
+    }
+});
+/**
+ * createOrder — Creates a Razorpay order for subscription payment.
+ * Called from the website pricing page after user is authenticated.
+ *
+ * Returns: { success: true, orderId: string, amount: number }
+ */
+exports.createOrder = functions
+    .region("asia-south1")
+    .runWith({ timeoutSeconds: 30, memory: "256MB", maxInstances: 50 })
+    .https.onCall(async (data, context) => {
+    var _a;
+    if (!context.auth) {
+        throw new functions.https.HttpsError("unauthenticated", "Login required");
+    }
+    const { plan, cycle } = data;
+    if (!plan || !cycle) {
+        throw new functions.https.HttpsError("invalid-argument", "plan and cycle are required");
+    }
+    // Pricing (in rupees) — TEST PRICES (revert to production later)
+    const pricing = {
+        starter: { monthly: 10, annual: 100 },
+        pro: { monthly: 20, annual: 200 },
+        business: { monthly: 30, annual: 300 },
+    };
+    const amount = (_a = pricing[plan]) === null || _a === void 0 ? void 0 : _a[cycle];
+    if (!amount) {
+        throw new functions.https.HttpsError("invalid-argument", `Invalid plan (${plan}) or cycle (${cycle})`);
+    }
+    const razorpayConfig = getRazorpayConfig();
+    if (!razorpayConfig.keyId || !razorpayConfig.keySecret) {
+        throw new functions.https.HttpsError("failed-precondition", "Razorpay not configured");
+    }
+    try {
+        const auth = Buffer.from(`${razorpayConfig.keyId}:${razorpayConfig.keySecret}`).toString("base64");
+        const orderRes = await fetch("https://api.razorpay.com/v1/orders", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                Authorization: `Basic ${auth}`,
+            },
+            body: JSON.stringify({
+                amount: amount * 100, // paise
+                currency: "INR",
+                receipt: `sub_${context.auth.uid.substring(0, 8)}_${Date.now()}`,
+                notes: {
+                    userId: context.auth.uid,
+                    plan,
+                    cycle,
+                },
+            }),
+        });
+        if (!orderRes.ok) {
+            const errText = await orderRes.text();
+            console.error("Razorpay order creation failed:", errText);
+            throw new functions.https.HttpsError("internal", "Failed to create order");
+        }
+        const order = await orderRes.json();
+        return { success: true, orderId: order.id, amount };
+    }
+    catch (err) {
+        if (err instanceof functions.https.HttpsError)
+            throw err;
+        console.error("createOrder error:", err);
+        throw new functions.https.HttpsError("internal", "Order creation failed");
+    }
+});
+/**
+ * verifyPayment — Verifies Razorpay payment signature and activates subscription.
+ * Called from the website pricing page after successful Razorpay checkout.
+ */
+exports.verifyPayment = functions
+    .region("asia-south1")
+    .runWith({ timeoutSeconds: 60, memory: "256MB", maxInstances: 50 })
+    .https.onCall(async (data, context) => {
+    if (!context.auth) {
+        throw new functions.https.HttpsError("unauthenticated", "Login required");
+    }
+    const { plan, cycle, razorpayPaymentId, razorpayOrderId, razorpaySignature } = data;
+    if (!plan || !cycle || !razorpayPaymentId || !razorpayOrderId) {
+        throw new functions.https.HttpsError("invalid-argument", "Missing required fields");
+    }
+    const userId = context.auth.uid;
+    const razorpayConfig = getRazorpayConfig();
+    // Verify signature
+    if (razorpaySignature && razorpayConfig.keySecret) {
+        const expectedSignature = crypto
+            .createHmac("sha256", razorpayConfig.keySecret)
+            .update(`${razorpayOrderId}|${razorpayPaymentId}`)
+            .digest("hex");
+        if (expectedSignature !== razorpaySignature) {
+            throw new functions.https.HttpsError("permission-denied", "Invalid payment signature");
+        }
+    }
+    // Verify payment status with Razorpay
+    try {
+        const auth = Buffer.from(`${razorpayConfig.keyId}:${razorpayConfig.keySecret}`).toString("base64");
+        const verifyRes = await fetch(`https://api.razorpay.com/v1/payments/${razorpayPaymentId}`, { headers: { Authorization: `Basic ${auth}` } });
+        if (!verifyRes.ok) {
+            throw new functions.https.HttpsError("not-found", "Payment not found");
+        }
+        const payment = await verifyRes.json();
+        if (payment.status !== "captured" && payment.status !== "authorized") {
+            throw new functions.https.HttpsError("failed-precondition", `Payment status: ${payment.status}`);
+        }
+    }
+    catch (err) {
+        if (err instanceof functions.https.HttpsError)
+            throw err;
+        console.error("Payment verification error:", err);
+        throw new functions.https.HttpsError("internal", "Could not verify payment");
+    }
+    // Activate subscription
+    const daysToAdd = cycle === "annual" ? 365 : 30;
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + daysToAdd);
+    const billsLimit = plan === "starter" ? 300 : plan === "pro" ? 500 : 999999;
+    const productsLimit = plan === "starter" ? 100 : 999999;
+    const customersLimit = plan === "starter" ? 200 : 999999;
+    const db = admin.firestore();
+    await db.collection("users").doc(userId).update({
+        "subscription.plan": plan,
+        "subscription.status": "active",
+        "subscription.startedAt": admin.firestore.FieldValue.serverTimestamp(),
+        "subscription.expiresAt": admin.firestore.Timestamp.fromDate(expiresAt),
+        "subscription.razorpayOrderId": razorpayOrderId,
+        "subscription.razorpayPaymentId": razorpayPaymentId,
+        "limits.billsLimit": billsLimit,
+        "limits.productsLimit": productsLimit,
+        "limits.customersLimit": customersLimit,
+    });
+    // Welcome notification
+    const planName = plan === "starter" ? "Starter" : plan === "pro" ? "Pro" : "Business";
+    await db.collection("users").doc(userId)
+        .collection("notifications").add({
+        title: `Welcome to ${planName} Plan! 🎉`,
+        body: `Your ${planName} plan is now active. Enjoy your upgraded features!`,
+        type: "subscription",
+        read: false,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+    console.log(`✅ verifyPayment: user ${userId} activated ${plan} (${cycle}), expires ${expiresAt.toISOString()}`);
+    return { success: true, plan, cycle, expiresAt: expiresAt.toISOString() };
+});
+// ─── Phase 8: WhatsApp & SMS Cloud Functions ───
+var whatsapp_1 = require("./whatsapp");
+Object.defineProperty(exports, "sendOrderConfirmation", { enumerable: true, get: function () { return whatsapp_1.sendOrderConfirmation; } });
+Object.defineProperty(exports, "sendFeedbackRequest", { enumerable: true, get: function () { return whatsapp_1.sendFeedbackRequest; } });
+Object.defineProperty(exports, "sendReservationReminder", { enumerable: true, get: function () { return whatsapp_1.sendReservationReminder; } });
+Object.defineProperty(exports, "sendDailySummaryWhatsApp", { enumerable: true, get: function () { return whatsapp_1.sendDailySummaryWhatsApp; } });
+var sms_1 = require("./sms");
+Object.defineProperty(exports, "sendOrderReadySMS", { enumerable: true, get: function () { return sms_1.sendOrderReadySMS; } });
 //# sourceMappingURL=index.js.map

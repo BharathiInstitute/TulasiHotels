@@ -3,8 +3,11 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:tulasihotels/core/services/thermal_printer_service.dart';
+import 'package:tulasihotels/features/kitchen/services/kot_printer_service.dart';
 import 'package:tulasihotels/features/orders/services/order_service.dart';
 import 'package:tulasihotels/features/products/providers/products_provider.dart';
+import 'package:tulasihotels/features/settings/providers/printer_provider.dart';
 import 'package:tulasihotels/models/order_model.dart';
 import 'package:tulasihotels/models/product_model.dart';
 
@@ -545,7 +548,7 @@ class _NewOrderScreenState extends ConsumerState<NewOrderScreen> {
   Future<void> _placeOrder() async {
     setState(() => _isPlacingOrder = true);
     try {
-      await OrderService.createOrder(
+      final order = await OrderService.createOrder(
         items: _items,
         orderType: _orderType,
         tableId: widget.tableId,
@@ -554,6 +557,9 @@ class _NewOrderScreenState extends ConsumerState<NewOrderScreen> {
         isRush: _isRush,
         isVip: _isVip,
       );
+
+      // Print KOT to kitchen printer
+      _printKOT(order);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -574,6 +580,37 @@ class _NewOrderScreenState extends ConsumerState<NewOrderScreen> {
       }
     } finally {
       if (mounted) setState(() => _isPlacingOrder = false);
+    }
+  }
+
+  /// Fire-and-forget KOT print to the configured thermal printer.
+  void _printKOT(OrderModel order) {
+    final printerState = ref.read(printerProvider);
+    // Only print KOT if a thermal printer is configured
+    if (printerState.printerType != PrinterTypeOption.bluetooth &&
+        printerState.printerType != PrinterTypeOption.wifi &&
+        printerState.printerType != PrinterTypeOption.usb) {
+      return;
+    }
+
+    final bytes = KotPrinter.buildKOT(order: order);
+
+    switch (printerState.printerType) {
+      case PrinterTypeOption.bluetooth:
+        if (ThermalPrinterService.isAvailable) {
+          ThermalPrinterService.sendBytes(bytes);
+        }
+      case PrinterTypeOption.wifi:
+        if (WifiPrinterService.isConnected) {
+          WifiPrinterService.sendBytes(bytes);
+        }
+      case PrinterTypeOption.usb:
+        final name = UsbPrinterService.getSavedPrinterName();
+        if (name.isNotEmpty) {
+          UsbPrinterService.sendBytes(name, bytes);
+        }
+      default:
+        break;
     }
   }
 }

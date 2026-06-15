@@ -5,6 +5,7 @@ library;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:tulasihotels/features/super_admin/models/admin_user_model.dart';
+import 'package:tulasihotels/features/support/models/support_ticket.dart';
 
 class AdminFirestoreService {
   AdminFirestoreService._();
@@ -628,5 +629,162 @@ class AdminFirestoreService {
       debugPrint('❌ AdminFirestore: Failed to remove admin: $e');
       return false;
     }
+  }
+
+  // =====================
+  // SUPPORT TICKETS
+  // =====================
+
+  /// Get all support tickets (admin view), ordered by updatedAt desc
+  static Stream<List<SupportTicket>> getAllTicketsStream() {
+    return _firestore
+        .collection('support_tickets')
+        .orderBy('updatedAt', descending: true)
+        .limit(200)
+        .snapshots()
+        .map(
+          (snap) =>
+              snap.docs.map((d) => SupportTicket.fromFirestore(d)).toList(),
+        );
+  }
+
+  /// Get total unread tickets count for admin badge
+  static Stream<int> getAdminUnreadTicketsStream() {
+    return _firestore
+        .collection('support_tickets')
+        .where('unreadAdmin', isGreaterThan: 0)
+        .snapshots()
+        .map((snap) => snap.docs.length);
+  }
+
+  /// Send a message as admin
+  static Future<bool> sendAdminMessage({
+    required String ticketId,
+    required String text,
+    required String adminName,
+  }) async {
+    try {
+      final batch = _firestore.batch();
+
+      final msgRef = _firestore
+          .collection('support_tickets')
+          .doc(ticketId)
+          .collection('messages')
+          .doc();
+
+      batch.set(msgRef, {
+        'senderId': 'admin',
+        'senderName': adminName,
+        'senderRole': 'admin',
+        'text': text,
+        'type': 'text',
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+
+      batch.update(_firestore.collection('support_tickets').doc(ticketId), {
+        'lastMessage': text,
+        'lastSenderRole': 'admin',
+        'updatedAt': FieldValue.serverTimestamp(),
+        'unreadStore': FieldValue.increment(1),
+        'unreadAdmin': 0,
+      });
+
+      await batch.commit();
+      return true;
+    } catch (e) {
+      debugPrint('❌ AdminFirestore: Failed to send admin message: $e');
+      return false;
+    }
+  }
+
+  /// Update ticket status (with system message)
+  static Future<bool> updateTicketStatus(
+    String ticketId,
+    String newStatus,
+  ) async {
+    try {
+      final batch = _firestore.batch();
+
+      final updates = <String, dynamic>{
+        'status': newStatus,
+        'updatedAt': FieldValue.serverTimestamp(),
+      };
+      if (newStatus == 'closed') {
+        updates['closedAt'] = FieldValue.serverTimestamp();
+      }
+
+      batch.update(
+        _firestore.collection('support_tickets').doc(ticketId),
+        updates,
+      );
+
+      // System message
+      final msgRef = _firestore
+          .collection('support_tickets')
+          .doc(ticketId)
+          .collection('messages')
+          .doc();
+      final label = switch (newStatus) {
+        'inProgress' => 'In Progress',
+        'resolved' => 'Resolved',
+        'closed' => 'Closed',
+        _ => 'Open',
+      };
+      batch.set(msgRef, {
+        'senderId': 'system',
+        'senderName': 'System',
+        'senderRole': 'system',
+        'text': 'Ticket status changed to $label.',
+        'type': 'system',
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+
+      await batch.commit();
+      return true;
+    } catch (e) {
+      debugPrint('❌ AdminFirestore: Failed to update ticket status: $e');
+      return false;
+    }
+  }
+
+  /// Update ticket priority
+  static Future<bool> updateTicketPriority(
+    String ticketId,
+    String priority,
+  ) async {
+    try {
+      await _firestore.collection('support_tickets').doc(ticketId).update({
+        'priority': priority,
+      });
+      return true;
+    } catch (e) {
+      debugPrint('❌ AdminFirestore: Failed to update priority: $e');
+      return false;
+    }
+  }
+
+  /// Update ticket tags
+  static Future<bool> updateTicketTags(
+    String ticketId,
+    List<String> tags,
+  ) async {
+    try {
+      await _firestore.collection('support_tickets').doc(ticketId).update({
+        'tags': tags,
+      });
+      return true;
+    } catch (e) {
+      debugPrint('❌ AdminFirestore: Failed to update tags: $e');
+      return false;
+    }
+  }
+
+  /// Mark ticket as read by admin
+  static Future<void> markTicketReadAdmin(String ticketId) async {
+    try {
+      await _firestore.collection('support_tickets').doc(ticketId).update({
+        'unreadAdmin': 0,
+      });
+    } catch (_) {}
   }
 }

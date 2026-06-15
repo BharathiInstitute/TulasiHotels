@@ -2,6 +2,14 @@
   "projects": {
     "default": "login1-aa21c"
   },
-  "targets": {},
+  "targets": {
+    "login1-aa21c": {
+      "hosting": {
+        "login1-aa21c": [
+          "login1-aa21c"
+        ]
+      }
+    }
+  },
   "etags": {}
 }

@@ -32,6 +32,9 @@ dependencies:
   # Google Sign-In
   google_sign_in: ^6.2.2
 
+  # Windows WebView (for desktop login)
+  webview_windows: ^0.4.0
+
   # Charts (for admin dashboard)
   fl_chart: ^0.66.0
   
@@ -88,6 +91,15 @@ dependencies:
   speech_to_text: ^7.0.0
   in_app_update: ^4.2.5
   in_app_review: ^2.0.9
+
+  # Sunmi Built-in Printer (Android POS)
+  sunmi_printer_plus: ^4.1.1
+
+  # Permissions (Bluetooth, etc.)
+  permission_handler: ^11.4.0
+
+  # Web APIs (Web Bluetooth, Web Serial)
+  web: ^1.1.1
 
 
 dev_dependencies:

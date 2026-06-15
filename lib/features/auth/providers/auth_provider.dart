@@ -12,7 +12,6 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_sign_in/google_sign_in.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:tulasihotels/core/config/razorpay_config.dart';
 import 'package:tulasihotels/core/constants/app_constants.dart';
 import 'package:tulasihotels/core/services/cloud_function_helper.dart';
@@ -27,6 +26,9 @@ import 'package:tulasihotels/features/notifications/services/fcm_token_service.d
 import 'package:tulasihotels/features/notifications/services/notification_service.dart';
 import 'package:tulasihotels/features/notifications/services/windows_notification_service.dart';
 import 'package:tulasihotels/models/user_model.dart';
+
+/// Google sign-in instance (shared for sign-out)
+final googleSignInProvider = Provider<GoogleSignIn>((ref) => GoogleSignIn());
 
 /// Sentinel value for distinguishing "not provided" from "set to null" in copyWith
 const _sentinel = Object();
@@ -52,6 +54,15 @@ class AuthState {
   /// Desktop auth: when the link code expires (A19)
   final DateTime? desktopLinkExpiresAt;
 
+  /// Desktop auth: URL for embedded WebView login (Windows)
+  final String? desktopLoginUrl;
+
+  /// Account linking: email of the account that needs linking
+  final String? pendingLinkEmail;
+
+  /// Account linking: true when a password dialog should be shown
+  final bool pendingAccountLink;
+
   const AuthState({
     this.status = AuthStatus.unauthenticated,
     this.firebaseUser,
@@ -64,6 +75,9 @@ class AuthState {
     this.error,
     this.desktopLinkCode,
     this.desktopLinkExpiresAt,
+    this.desktopLoginUrl,
+    this.pendingLinkEmail,
+    this.pendingAccountLink = false,
   });
 
   AuthState copyWith({
@@ -78,6 +92,9 @@ class AuthState {
     String? error,
     String? desktopLinkCode,
     DateTime? desktopLinkExpiresAt,
+    Object? desktopLoginUrl = _sentinel,
+    Object? pendingLinkEmail = _sentinel,
+    bool? pendingAccountLink,
   }) {
     return AuthState(
       status: status ?? this.status,
@@ -93,6 +110,13 @@ class AuthState {
       error: error,
       desktopLinkCode: desktopLinkCode ?? this.desktopLinkCode,
       desktopLinkExpiresAt: desktopLinkExpiresAt ?? this.desktopLinkExpiresAt,
+      desktopLoginUrl: desktopLoginUrl == _sentinel
+          ? this.desktopLoginUrl
+          : desktopLoginUrl as String?,
+      pendingLinkEmail: pendingLinkEmail == _sentinel
+          ? this.pendingLinkEmail
+          : pendingLinkEmail as String?,
+      pendingAccountLink: pendingAccountLink ?? this.pendingAccountLink,
     );
   }
 }
@@ -108,6 +132,14 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
   bool _pendingReauth = false;
   bool _signOutTriggered = false;
   bool _profileLoadInProgress = false;
+
+  /// Stores a Google credential while waiting for password to complete linking
+  AuthCredential? _pendingGoogleCredential;
+
+  /// Desktop auth: cancellation support
+  Completer<bool>? _desktopAuthCompleter;
+  StreamSubscription<DocumentSnapshot>? _desktopAuthSub;
+  Timer? _desktopAuthTimer;
 
   FirebaseAuthNotifier(this._ref) : super(const AuthState()) {
     _init();
@@ -173,6 +205,16 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
             }
           })
           .catchError((e) {
+            if (e is FirebaseAuthException &&
+                e.code == 'account-exists-with-different-credential') {
+              _pendingGoogleCredential = e.credential;
+              state = state.copyWith(
+                isLoading: false,
+                pendingAccountLink: true,
+                pendingLinkEmail: e.email,
+              );
+              return;
+            }
             debugPrint('🔐 Redirect result check: $e');
           });
     }
@@ -430,8 +472,8 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
       if (kIsWeb) {
         return await _googleSignInWeb();
       } else if (!kIsWeb && defaultTargetPlatform == TargetPlatform.windows) {
-        // Windows: open browser to /desktop-login bridge page for Google auth
-        return await signInDesktop();
+        // Windows: open Edge app-mode window for Google auth
+        return await signInDesktop(autoGoogle: true);
       } else {
         return await _googleSignInMobile();
       }
@@ -453,33 +495,77 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
       final googleProvider = GoogleAuthProvider();
       googleProvider.addScope('email');
       googleProvider.addScope('profile');
-      final userCredential = await _auth.signInWithPopup(googleProvider);
+      final userCredential = await _auth
+          .signInWithPopup(googleProvider)
+          .timeout(const Duration(seconds: 60));
       final user = userCredential.user;
       if (user != null) {
         await _ensureFirestoreDoc(user);
+        // Load profile directly — authStateChanges may not fire reliably
+        // on web (especially with 3rd-party cookie blocking in Chrome).
+        _authResolved = true;
+        _pendingReauth = false;
+        _profileLoaded = true;
+        await _loadUserProfile(user);
         debugPrint('✅ Google Sign-In Layer 1 success: ${user.email}');
         return true;
       }
     } on FirebaseAuthException catch (e) {
       debugPrint('🔐 Layer 1 failed: ${e.code} - ${e.message}');
 
-      // If user deliberately cancelled, don't try other layers
+      // popup-closed-by-user can be a false positive when 3rd-party cookies
+      // are blocked: the popup authenticates the user but can't communicate
+      // the result back. Check if the user is actually signed in.
       if (e.code == 'popup-closed-by-user' ||
           e.code == 'cancelled-popup-request') {
-        return false;
+        // Give Firebase a moment to sync the auth state internally
+        await Future.delayed(const Duration(seconds: 2));
+        // Reload to pick up any sign-in that completed in the popup
+        await _auth.currentUser?.reload();
+        final currentUser = _auth.currentUser;
+        if (currentUser != null) {
+          debugPrint(
+            '🔐 Popup closed but user IS authenticated: ${currentUser.email}',
+          );
+          await _ensureFirestoreDoc(currentUser);
+          _authResolved = true;
+          _pendingReauth = false;
+          _profileLoaded = true;
+          await _loadUserProfile(currentUser);
+          return true;
+        }
+        debugPrint('🔐 Popup closed — no user found, trying Layer 2');
+        // Don't return false — try Layer 2 instead
       }
 
-      // Account conflict - show specific message, don't try other layers
+      // Account conflict — save credential for linking after password entry
       if (e.code == 'account-exists-with-different-credential') {
+        _pendingGoogleCredential = e.credential;
         state = state.copyWith(
           isLoading: false,
-          error:
-              'An account already exists with this email using a different sign-in method.',
+          pendingAccountLink: true,
+          pendingLinkEmail: e.email,
         );
         return false;
       }
 
       // For popup-blocked or other errors, try Layer 2
+    } on TimeoutException {
+      debugPrint('🔐 Layer 1 timed out');
+      // Popup may have authenticated the user but hung communicating back
+      final currentUser = _auth.currentUser;
+      if (currentUser != null) {
+        debugPrint(
+          '🔐 Popup timed out but user IS authenticated: ${currentUser.email}',
+        );
+        await _ensureFirestoreDoc(currentUser);
+        _authResolved = true;
+        _pendingReauth = false;
+        _profileLoaded = true;
+        await _loadUserProfile(currentUser);
+        return true;
+      }
+      // Continue to Layer 2
     } catch (e) {
       debugPrint('🔐 Layer 1 failed: $e');
       // Continue to Layer 2
@@ -496,24 +582,53 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
 
       final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
       if (googleUser == null) {
-        return false; // User cancelled
+        // Check if user is already authenticated (popup may have succeeded
+        // but GIS package failed to return the result)
+        final currentUser = _auth.currentUser;
+        if (currentUser != null) {
+          debugPrint(
+            '🔐 GIS returned null but user IS authenticated: ${currentUser.email}',
+          );
+          await _ensureFirestoreDoc(currentUser);
+          _authResolved = true;
+          _pendingReauth = false;
+          _profileLoaded = true;
+          await _loadUserProfile(currentUser);
+          return true;
+        }
+        debugPrint('🔐 Layer 2 cancelled & no currentUser — trying Layer 3');
+      } else {
+        final GoogleSignInAuthentication googleAuth =
+            await googleUser.authentication;
+
+        final credential = GoogleAuthProvider.credential(
+          accessToken: googleAuth.accessToken,
+          idToken: googleAuth.idToken,
+        );
+
+        final userCredential = await _auth.signInWithCredential(credential);
+        final user = userCredential.user;
+        if (user != null) {
+          await _ensureFirestoreDoc(user);
+          _authResolved = true;
+          _pendingReauth = false;
+          _profileLoaded = true;
+          await _loadUserProfile(user);
+          debugPrint('✅ Google Sign-In Layer 2 success: ${user.email}');
+          return true;
+        }
       }
-
-      final GoogleSignInAuthentication googleAuth =
-          await googleUser.authentication;
-
-      final credential = GoogleAuthProvider.credential(
-        accessToken: googleAuth.accessToken,
-        idToken: googleAuth.idToken,
-      );
-
-      final userCredential = await _auth.signInWithCredential(credential);
-      final user = userCredential.user;
-      if (user != null) {
-        await _ensureFirestoreDoc(user);
-        debugPrint('✅ Google Sign-In Layer 2 success: ${user.email}');
-        return true;
+    } on FirebaseAuthException catch (e) {
+      if (e.code == 'account-exists-with-different-credential') {
+        _pendingGoogleCredential = e.credential;
+        state = state.copyWith(
+          isLoading: false,
+          pendingAccountLink: true,
+          pendingLinkEmail: e.email,
+        );
+        return false;
       }
+      debugPrint('🔐 Layer 2 failed: ${e.code} - ${e.message}');
     } catch (e) {
       debugPrint('🔐 Layer 2 failed: $e');
       // Continue to Layer 3
@@ -539,15 +654,15 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
     }
   }
 
-  /// Windows Desktop: Web-based auth via browser
-  /// Opens the hosted web app for full auth (Google, email, phone, shop setup)
-  /// then polls Firestore for a custom auth token
-  Future<bool> signInDesktop() async {
+  /// Windows Desktop: Web-based auth via Edge app mode
+  /// Opens the hosted web app in a clean Edge window for auth
+  /// then listens on Firestore for a custom auth token.
+  Future<bool> signInDesktop({bool autoGoogle = false}) async {
     try {
       state = state.copyWith(isLoading: true);
       debugPrint('🖥️ Desktop: Starting web-based auth flow...');
 
-      // 1. Generate a random 8-character link code (2.7: increased from 6)
+      // 1. Generate a random 8-character link code
       final random = math.Random.secure();
       const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // No ambiguous chars
       final linkCode = List.generate(
@@ -557,7 +672,7 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
 
       debugPrint('🖥️ Desktop: Link code: $linkCode');
 
-      // Derive a simple device identifier for session binding (2.7)
+      // Derive a simple device identifier for session binding
       final deviceId =
           '${defaultTargetPlatform.name}_${DateTime.now().millisecondsSinceEpoch}';
 
@@ -570,47 +685,40 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
         'deviceId': deviceId,
       });
 
-      // Expose link code + expiry to UI for countdown display (A19)
+      // 3. Set login URL in state — UI shows embedded WebView (no browser needed)
+      const webAppUrl = 'https://app.tulasihotels.com/app/desktop-login';
+      final autoParam = autoGoogle ? '&auto=google' : '';
+      final fullUrl = '$webAppUrl?code=$linkCode$autoParam';
+
       state = state.copyWith(
         isLoading: true,
         desktopLinkCode: linkCode,
         desktopLinkExpiresAt: expiresAt,
+        desktopLoginUrl: fullUrl,
       );
 
-      // 3. Open web app in browser
-      const webAppUrl = 'https://app.tulasihotels.com/app/desktop-login';
-      final fullUrl = Uri.parse('$webAppUrl?code=$linkCode');
-
-      if (!await launchUrl(fullUrl, mode: LaunchMode.externalApplication)) {
-        state = state.copyWith(
-          isLoading: false,
-          error: 'Could not open browser. Please try again.',
-        );
-        return false;
-      }
-
-      debugPrint('🖥️ Desktop: Opened browser, waiting for auth token...');
+      debugPrint('🖥️ Desktop: Login URL set, waiting for auth token...');
 
       // 4. Listen for auth token via real-time snapshot (not polling)
-      // This uses a single Firestore listener instead of ~200 reads over 10 min.
       final completer = Completer<bool>();
-      StreamSubscription<DocumentSnapshot>? sessionSub;
+      _desktopAuthCompleter = completer;
 
       // Safety timeout after 10 minutes
-      final timer = Timer(const Duration(minutes: 10), () {
+      _desktopAuthTimer = Timer(const Duration(minutes: 10), () {
         if (!completer.isCompleted) {
           debugPrint('🖥️ Desktop: Auth timed out');
-          sessionSub?.cancel();
+          _desktopAuthSub?.cancel();
           _firestore.collection('desktop_auth_sessions').doc(linkCode).delete();
           state = state.copyWith(
             isLoading: false,
+            desktopLoginUrl: null,
             error: 'Sign-in timed out. Please try again.',
           );
           completer.complete(false);
         }
       });
 
-      sessionSub = _firestore
+      _desktopAuthSub = _firestore
           .collection('desktop_auth_sessions')
           .doc(linkCode)
           .snapshots()
@@ -620,10 +728,11 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
 
               if (!snapshot.exists) {
                 debugPrint('🖥️ Desktop: Session deleted (expired)');
-                timer.cancel();
-                unawaited(sessionSub?.cancel());
+                _desktopAuthTimer?.cancel();
+                unawaited(_desktopAuthSub?.cancel());
                 state = state.copyWith(
                   isLoading: false,
+                  desktopLoginUrl: null,
                   error: 'Session expired. Please try again.',
                 );
                 completer.complete(false);
@@ -646,15 +755,18 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
                       .delete();
 
                   debugPrint('✅ Desktop: Signed in successfully!');
-                  timer.cancel();
-                  unawaited(sessionSub?.cancel());
+                  _desktopAuthTimer?.cancel();
+                  unawaited(_desktopAuthSub?.cancel());
+                  // Clear WebView URL — UI will dismiss the overlay
+                  state = state.copyWith(desktopLoginUrl: null);
                   if (!completer.isCompleted) completer.complete(true);
                 } catch (e) {
                   debugPrint('🖥️ Desktop: signInWithCustomToken failed: $e');
-                  timer.cancel();
-                  unawaited(sessionSub?.cancel());
+                  _desktopAuthTimer?.cancel();
+                  unawaited(_desktopAuthSub?.cancel());
                   state = state.copyWith(
                     isLoading: false,
+                    desktopLoginUrl: null,
                     error: 'Sign-in failed. Please try again.',
                   );
                   if (!completer.isCompleted) completer.complete(false);
@@ -663,10 +775,11 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
             },
             onError: (e) {
               debugPrint('🖥️ Desktop: Snapshot listener error: $e');
-              timer.cancel();
+              _desktopAuthTimer?.cancel();
               if (!completer.isCompleted) {
                 state = state.copyWith(
                   isLoading: false,
+                  desktopLoginUrl: null,
                   error: 'Sign-in failed. Please try again.',
                 );
                 completer.complete(false);
@@ -677,12 +790,46 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
       return await completer.future;
     } catch (e) {
       debugPrint('🖥️ Desktop auth error: $e');
+      final msg = e.toString();
       state = state.copyWith(
         isLoading: false,
-        error: 'Sign-in failed. Please try again.',
+        error:
+            msg.contains('permission-denied') ||
+                msg.contains('PERMISSION_DENIED')
+            ? 'Firestore permission denied. Please update security rules and redeploy.'
+            : 'Sign-in failed. Please try again.',
       );
       return false;
     }
+  }
+
+  /// Cancel an in-progress desktop auth flow (user closed the WebView)
+  void cancelDesktopAuth() {
+    _desktopAuthTimer?.cancel();
+    _desktopAuthSub?.cancel();
+    if (_desktopAuthCompleter != null && !_desktopAuthCompleter!.isCompleted) {
+      _desktopAuthCompleter!.complete(false);
+    }
+    // Clean up Firestore session
+    final linkCode = state.desktopLinkCode;
+    if (linkCode != null) {
+      _firestore.collection('desktop_auth_sessions').doc(linkCode).delete();
+    }
+    // Force-clear nullable fields using a fresh state
+    state = AuthState(
+      status: state.status,
+      firebaseUser: state.firebaseUser,
+      user: state.user,
+      isLoggedIn: state.isLoggedIn,
+      isShopSetupComplete: state.isShopSetupComplete,
+      isEmailVerified: state.isEmailVerified,
+      isDemoMode: state.isDemoMode,
+      isLoading: false,
+      error: state.error,
+      pendingLinkEmail: state.pendingLinkEmail,
+      pendingAccountLink: state.pendingAccountLink,
+      // desktopLinkCode, desktopLinkExpiresAt, desktopLoginUrl → null
+    );
   }
 
   /// Mobile: GoogleSignIn package
@@ -701,14 +848,31 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
       idToken: googleAuth.idToken,
     );
 
-    final userCredential = await _auth.signInWithCredential(credential);
-    final user = userCredential.user;
-    if (user != null) {
-      await _ensureFirestoreDoc(user);
-      debugPrint('✅ Google Sign-In: ${user.email}');
-      return true;
+    try {
+      final userCredential = await _auth.signInWithCredential(credential);
+      final user = userCredential.user;
+      if (user != null) {
+        await _ensureFirestoreDoc(user);
+        _authResolved = true;
+        _pendingReauth = false;
+        _profileLoaded = true;
+        await _loadUserProfile(user);
+        debugPrint('✅ Google Sign-In: ${user.email}');
+        return true;
+      }
+      return false;
+    } on FirebaseAuthException catch (e) {
+      if (e.code == 'account-exists-with-different-credential') {
+        _pendingGoogleCredential = credential;
+        state = state.copyWith(
+          isLoading: false,
+          pendingAccountLink: true,
+          pendingLinkEmail: googleUser.email,
+        );
+        return false;
+      }
+      rethrow;
     }
-    return false;
   }
 
   /// Sign in with email and password
@@ -1226,7 +1390,7 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
 
       // 2. Sign out of Firebase Auth first
       try {
-        await GoogleSignIn().signOut();
+        await _ref.read(googleSignInProvider).signOut();
       } catch (e) {
         debugPrint('⚠️ Google sign-out failed (non-fatal): $e');
       }
@@ -1751,6 +1915,92 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
       debugPrint('🔐 Change password error: ${e.code} - ${e.message}');
       throw Exception('Failed to change password. Please try again.');
     }
+  }
+
+  // ── Account Linking ─────────────────────────────────────────────────────
+
+  /// Complete account linking: user enters their email/password,
+  /// then the pending Google credential is linked to that account.
+  Future<bool> completeLinkWithPassword(String password) async {
+    final pendingCredential = _pendingGoogleCredential;
+    final email = state.pendingLinkEmail;
+    if (pendingCredential == null || email == null) return false;
+
+    try {
+      state = state.copyWith(isLoading: true);
+
+      // Sign in with existing email+password account
+      final result = await _auth.signInWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+      final user = result.user;
+      if (user == null) {
+        state = state.copyWith(
+          isLoading: false,
+          error: 'Sign-in failed. Please try again.',
+        );
+        return false;
+      }
+
+      // Link the Google credential to this account
+      await user.linkWithCredential(pendingCredential);
+      debugPrint('✅ Google account linked to email/password account');
+
+      // Clear pending state
+      _pendingGoogleCredential = null;
+      state = state.copyWith(pendingAccountLink: false, pendingLinkEmail: null);
+
+      // Update Firestore doc (mark emailVerified, add photoUrl if available)
+      await _ensureFirestoreDoc(user);
+
+      // Let authStateChanges pick up the signed-in user
+      _pendingReauth = true;
+      _profileLoaded = false;
+      _authResolved = false;
+      await _loadUserProfile(user);
+      return true;
+    } on FirebaseAuthException catch (e) {
+      String message;
+      switch (e.code) {
+        case 'wrong-password':
+        case 'invalid-credential':
+          message = 'Wrong password. Please try again.';
+          break;
+        case 'too-many-requests':
+          message = 'Too many attempts. Please try later.';
+          break;
+        case 'provider-already-linked':
+          // Already linked — just sign in normally
+          _pendingGoogleCredential = null;
+          state = state.copyWith(
+            pendingAccountLink: false,
+            pendingLinkEmail: null,
+          );
+          _pendingReauth = true;
+          _profileLoaded = false;
+          _authResolved = false;
+          await _loadUserProfile(_auth.currentUser!);
+          return true;
+        default:
+          message = 'Linking failed. Please try again.';
+      }
+      state = state.copyWith(isLoading: false, error: message);
+      return false;
+    } catch (e) {
+      debugPrint('🔐 completeLinkWithPassword error: $e');
+      state = state.copyWith(
+        isLoading: false,
+        error: 'Linking failed. Please try again.',
+      );
+      return false;
+    }
+  }
+
+  /// Cancel the pending account link dialog
+  void cancelPendingLink() {
+    _pendingGoogleCredential = null;
+    state = state.copyWith(pendingAccountLink: false, pendingLinkEmail: null);
   }
 
   /// Start demo mode (keeps local data for demo)

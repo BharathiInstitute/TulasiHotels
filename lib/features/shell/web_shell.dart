@@ -453,6 +453,15 @@ class _WebSidebar extends ConsumerWidget {
                       );
                     },
                   ),
+
+                // Help & Support
+                _SidebarItem(
+                  icon: Icons.support_agent,
+                  label: 'Help & Support',
+                  isSelected: currentPath == '/support',
+                  isCollapsed: isCollapsed,
+                  onTap: () => GoRouter.of(context).push('/support'),
+                ),
               ],
             ),
           ),
