@@ -122,11 +122,11 @@ void main() {
               onPressed: () {
                 showDialog<void>(
                   context: context,
-                  builder: (_) => AlertDialog(
+                  builder: (_) => const AlertDialog(
                     actions: [
                       FilledButton(
                         onPressed: null,
-                        child: const Text('Submit'),
+                        child: Text('Submit'),
                       ),
                     ],
                   ),

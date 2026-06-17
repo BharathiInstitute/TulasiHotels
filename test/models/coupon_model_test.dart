@@ -76,13 +76,12 @@ void main() {
 
     group('calculateDiscount', () {
       test('percentage discount', () {
-        final m = makeCoupon(type: CouponType.percentage, value: 10);
+        final m = makeCoupon();
         expect(m.calculateDiscount(1000), 100);
       });
 
       test('percentage discount with maxDiscount cap', () {
         final m = makeCoupon(
-          type: CouponType.percentage,
           value: 20,
           maxDiscount: 50,
         );
@@ -101,8 +100,6 @@ void main() {
 
       test('returns 0 when below minOrderAmount', () {
         final m = makeCoupon(
-          type: CouponType.percentage,
-          value: 10,
           minOrderAmount: 500,
         );
         expect(m.calculateDiscount(400), 0);
@@ -110,15 +107,13 @@ void main() {
 
       test('applies discount when at minOrderAmount', () {
         final m = makeCoupon(
-          type: CouponType.percentage,
-          value: 10,
           minOrderAmount: 500,
         );
         expect(m.calculateDiscount(500), 50);
       });
 
       test('percentage discount cannot be negative', () {
-        final m = makeCoupon(type: CouponType.percentage, value: 0);
+        final m = makeCoupon(value: 0);
         expect(m.calculateDiscount(1000), 0);
       });
     });
@@ -162,7 +157,7 @@ void main() {
         final m = makeCoupon(
           minOrderAmount: 500,
           maxDiscount: 100,
-          validFrom: DateTime(2024, 1, 1),
+          validFrom: DateTime(2024),
           validUntil: DateTime(2024, 12, 31),
           maxUses: 100,
           isHappyHour: true,

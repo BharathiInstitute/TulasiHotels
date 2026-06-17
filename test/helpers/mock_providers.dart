@@ -34,7 +34,6 @@ StaffModel _makeStaff({
     name: name ?? 'Test ${role.displayName}',
     role: role,
     pin: pin,
-    isActive: true,
     createdAt: DateTime(2024),
   );
 }

@@ -12,9 +12,9 @@ void main() {
   group('filteredTablesProvider', () {
     test('returns all tables when no floor selected', () {
       final tables = [
-        makeTable(id: 't1', floor: 0),
+        makeTable(id: 't1'),
         makeTable(id: 't2', floor: 1),
-        makeTable(id: 't3', floor: 0),
+        makeTable(id: 't3'),
       ];
 
       final container = ProviderContainer(
@@ -51,9 +51,9 @@ void main() {
     test('extracts unique sorted floor numbers', () {
       final tables = [
         makeTable(id: 't1', floor: 2),
-        makeTable(id: 't2', floor: 0),
+        makeTable(id: 't2'),
         makeTable(id: 't3', floor: 1),
-        makeTable(id: 't4', floor: 0),
+        makeTable(id: 't4'),
       ];
 
       // Pure logic: extract unique floors
@@ -65,9 +65,9 @@ void main() {
   group('tableStatusSummaryProvider logic', () {
     test('counts tables per status', () {
       final tables = [
-        makeTable(id: 't1', status: TableStatus.available),
+        makeTable(id: 't1'),
         makeTable(id: 't2', status: TableStatus.occupied),
-        makeTable(id: 't3', status: TableStatus.available),
+        makeTable(id: 't3'),
         makeTable(id: 't4', status: TableStatus.reserved),
         makeTable(id: 't5', status: TableStatus.occupied),
         makeTable(id: 't6', status: TableStatus.occupied),
@@ -92,9 +92,9 @@ void main() {
   group('filteredTables logic', () {
     test('filters by floor', () {
       final tables = [
-        makeTable(id: 't1', floor: 0),
+        makeTable(id: 't1'),
         makeTable(id: 't2', floor: 1),
-        makeTable(id: 't3', floor: 0),
+        makeTable(id: 't3'),
         makeTable(id: 't4', floor: 2),
       ];
 
@@ -107,7 +107,7 @@ void main() {
 
     test('no floor filter returns all', () {
       final tables = [
-        makeTable(id: 't1', floor: 0),
+        makeTable(id: 't1'),
         makeTable(id: 't2', floor: 1),
       ];
 

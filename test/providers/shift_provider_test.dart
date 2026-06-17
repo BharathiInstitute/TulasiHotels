@@ -43,7 +43,7 @@ void main() {
       final container = ProviderContainer();
       addTearDown(container.dispose);
 
-      final lastMonday = DateTime(2024, 7, 1); // A known Monday
+      final lastMonday = DateTime(2024, 7); // A known Monday
       container.read(shiftWeekStartProvider.notifier).state = lastMonday;
       expect(container.read(shiftWeekStartProvider), lastMonday);
     });

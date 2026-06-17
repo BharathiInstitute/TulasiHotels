@@ -19,11 +19,9 @@ void main() {
   group('StaffService Firestore operations', () {
     test('create — writes and reads back all fields', () async {
       final staff = makeStaff(
-        id: 'staff-1',
         name: 'Ravi Kumar',
         email: 'ravi@test.com',
         phone: '9876543210',
-        role: StaffRole.waiter,
         pin: '4567',
       );
 
@@ -84,7 +82,7 @@ void main() {
 
   group('verifyPin', () {
     test('returns matching active staff for correct pin', () async {
-      final staff = makeStaff(id: 's-pin', pin: '1234', isActive: true);
+      final staff = makeStaff(id: 's-pin');
       await fakeFirestore
           .collection(basePath)
           .doc(staff.id)
@@ -102,7 +100,7 @@ void main() {
     });
 
     test('returns empty for inactive staff', () async {
-      final staff = makeStaff(id: 's-inactive', pin: '1234', isActive: false);
+      final staff = makeStaff(id: 's-inactive', isActive: false);
       await fakeFirestore
           .collection(basePath)
           .doc(staff.id)
@@ -118,7 +116,7 @@ void main() {
     });
 
     test('returns empty for wrong pin', () async {
-      final staff = makeStaff(id: 's-wrong', pin: '5678', isActive: true);
+      final staff = makeStaff(id: 's-wrong', pin: '5678');
       await fakeFirestore
           .collection(basePath)
           .doc(staff.id)
@@ -140,7 +138,6 @@ void main() {
         id: 's-ep',
         email: 'test@hotel.com',
         pin: '4567',
-        isActive: true,
       );
       await fakeFirestore
           .collection(basePath)
@@ -162,7 +159,6 @@ void main() {
         id: 's-email',
         email: 'test@hotel.com',
         pin: '1111',
-        isActive: true,
       );
       await fakeFirestore
           .collection(basePath)
@@ -182,7 +178,7 @@ void main() {
 
   group('isPinTaken', () {
     test('returns true when pin is in use by another staff', () async {
-      final staff = makeStaff(id: 's-taken', pin: '1234');
+      final staff = makeStaff(id: 's-taken');
       await fakeFirestore
           .collection(basePath)
           .doc(staff.id)
@@ -227,7 +223,7 @@ void main() {
 
   group('toggleStaffActive', () {
     test('toggles from active to inactive', () async {
-      final staff = makeStaff(id: 's-toggle', isActive: true);
+      final staff = makeStaff(id: 's-toggle');
       await fakeFirestore
           .collection(basePath)
           .doc(staff.id)

@@ -19,10 +19,8 @@ void main() {
   group('FeedbackService Firestore operations', () {
     test('submitFeedback — writes and reads back all fields', () async {
       final feedback = makeFeedback(
-        id: 'fb-1',
         customerName: 'Ravi',
         foodRating: 5,
-        serviceRating: 4,
         ambianceRating: 3,
         comments: 'Great food!',
       );
@@ -60,7 +58,7 @@ void main() {
   group('submitPublicFeedback', () {
     test('writes to specific hotel UID path', () async {
       const hotelUid = 'hotel-owner-123';
-      final publicPath = 'users/$hotelUid/feedback';
+      const publicPath = 'users/$hotelUid/feedback';
       final feedback = makeFeedback(id: 'pub-1', customerName: 'Anon');
 
       await fakeFirestore
@@ -96,7 +94,6 @@ void main() {
       final fb1 = makeFeedback(
         id: 'avg-1',
         foodRating: 5,
-        serviceRating: 4,
         ambianceRating: 3,
       );
       final fb2 = makeFeedback(
@@ -139,17 +136,17 @@ void main() {
     test('returns feedback ordered by createdAt descending', () async {
       final fb1 = makeFeedback(
         id: 'r1',
-        createdAt: DateTime(2024, 1, 1),
+        createdAt: DateTime(2024),
         customerName: 'First',
       );
       final fb2 = makeFeedback(
         id: 'r2',
-        createdAt: DateTime(2024, 6, 1),
+        createdAt: DateTime(2024, 6),
         customerName: 'Second',
       );
       final fb3 = makeFeedback(
         id: 'r3',
-        createdAt: DateTime(2024, 3, 1),
+        createdAt: DateTime(2024, 3),
         customerName: 'Third',
       );
 
@@ -174,7 +171,7 @@ void main() {
 
   group('averageRating computed', () {
     test('averageRating averages all three ratings', () {
-      final fb = makeFeedback(foodRating: 5, serviceRating: 3, ambianceRating: 4);
+      final fb = makeFeedback(foodRating: 5, serviceRating: 3);
       expect(fb.averageRating, 4.0);
     });
 

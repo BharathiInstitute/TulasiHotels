@@ -52,7 +52,7 @@ void main() {
     test('starts as loading', () {
       final container = ProviderContainer(
         overrides: [
-          happyHourCouponProvider.overrideWith((_) => Future.value(null)),
+          happyHourCouponProvider.overrideWith((_) => Future.value()),
         ],
       );
       addTearDown(container.dispose);
@@ -62,7 +62,7 @@ void main() {
     test('returns AsyncValue of nullable CouponModel', () {
       final container = ProviderContainer(
         overrides: [
-          happyHourCouponProvider.overrideWith((_) => Future.value(null)),
+          happyHourCouponProvider.overrideWith((_) => Future.value()),
         ],
       );
       addTearDown(container.dispose);

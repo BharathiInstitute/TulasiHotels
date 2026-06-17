@@ -78,7 +78,7 @@ void main() {
   group('AppTypography — font weight contracts', () {
     test('heading weights are bold or semiBold', () {
       expect(FontWeight.bold, FontWeight.w700);
-      expect(FontWeight.w600.index, greaterThan(FontWeight.w500.index));
+      expect(FontWeight.w600.value, greaterThan(FontWeight.w500.value));
     });
 
     test('label weight is w500 (medium)', () {

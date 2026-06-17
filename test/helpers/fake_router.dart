@@ -16,7 +16,7 @@ GoRouter fakeRouter(
     routes: [
       GoRoute(
         path: '/',
-        builder: (_, __) => child,
+        builder: (_, _) => child,
       ),
       ...extraRoutes,
     ],

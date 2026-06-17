@@ -19,7 +19,6 @@ void main() {
   group('MessageService Firestore operations', () {
     test('sendMessage — writes and reads back all fields', () async {
       final message = makeMessage(
-        id: 'msg-1',
         senderName: 'Manager',
         content: 'Team meeting at 5 PM',
         isBroadcast: true,
@@ -97,7 +96,6 @@ void main() {
       );
       final regular = makeMessage(
         id: 'reg-1',
-        isBroadcast: false,
         content: 'Private message',
       );
 
@@ -126,12 +124,12 @@ void main() {
       final m1 = makeMessage(
         id: 'm1',
         content: 'First',
-        createdAt: DateTime(2024, 1, 1),
+        createdAt: DateTime(2024),
       );
       final m2 = makeMessage(
         id: 'm2',
         content: 'Latest',
-        createdAt: DateTime(2024, 6, 1),
+        createdAt: DateTime(2024, 6),
       );
 
       for (final m in [m1, m2]) {

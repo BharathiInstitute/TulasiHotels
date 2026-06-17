@@ -6,7 +6,7 @@ library;
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tulasihotels/models/bill_model.dart';
-import 'package:tulasihotels/models/ingredient_model.dart';
+
 
 import '../helpers/test_factories.dart';
 import '../helpers/test_factories_extended.dart';
@@ -15,12 +15,9 @@ void main() {
   group('Integration: Inventory → Billing Flow', () {
     test('Step 1: Ingredient starts with full stock', () {
       final ingredient = makeIngredient(
-        id: 'ing-1',
         name: 'Basmati Rice',
         currentStock: 50,
-        minLevel: 10,
         costPerUnit: 80,
-        unit: IngredientUnit.kg,
       );
 
       expect(ingredient.currentStock, 50);
@@ -30,7 +27,6 @@ void main() {
 
     test('Step 2: Product created from ingredient', () {
       final product = makeProduct(
-        id: 'prod-1',
         name: 'Biryani',
         price: 250,
         purchasePrice: 100,
@@ -49,7 +45,6 @@ void main() {
         id: 'ord-1',
         items: [
           makeOrderItem(
-            productId: 'prod-1',
             name: 'Biryani',
             price: 250,
             quantity: 3,
@@ -69,7 +64,6 @@ void main() {
 
     test('Step 4: OrderItem converts to CartItem for billing', () {
       final orderItem = makeOrderItem(
-        productId: 'prod-1',
         name: 'Biryani',
         price: 250,
         quantity: 3,
@@ -102,10 +96,8 @@ void main() {
       ];
 
       final bill = makeBill(
-        id: 'bill-1',
         items: items,
         total: 1050,
-        paymentMethod: PaymentMethod.cash,
         receivedAmount: 1100,
       );
 
@@ -117,7 +109,6 @@ void main() {
 
     test('Step 6: Product stock decremented after sale', () {
       final beforeSale = makeProduct(
-        id: 'prod-1',
         name: 'Biryani',
         price: 250,
         stock: 100,
@@ -132,7 +123,6 @@ void main() {
 
     test('Step 7: Heavy sales trigger low stock', () {
       final product = makeProduct(
-        id: 'prod-1',
         name: 'Biryani',
         price: 250,
         stock: 25,
@@ -147,10 +137,8 @@ void main() {
 
     test('Step 8: Ingredient stock decremented for preparation', () {
       final ingredient = makeIngredient(
-        id: 'ing-1',
         name: 'Basmati Rice',
         currentStock: 50,
-        minLevel: 10,
       );
 
       // 3 Biryanis use ~1.5 kg each = 4.5 kg
@@ -163,10 +151,8 @@ void main() {
 
     test('Step 9: Ingredient hits low stock threshold', () {
       final ingredient = makeIngredient(
-        id: 'ing-1',
         name: 'Basmati Rice',
         currentStock: 12,
-        minLevel: 10,
       );
 
       // Another big batch uses 5 kg
@@ -179,10 +165,8 @@ void main() {
 
     test('Step 10: Restock restores ingredient', () {
       final lowIngredient = makeIngredient(
-        id: 'ing-1',
         name: 'Basmati Rice',
         currentStock: 7,
-        minLevel: 10,
       );
       expect(lowIngredient.isLowStock, isTrue);
 

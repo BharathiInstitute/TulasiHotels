@@ -51,7 +51,7 @@ void main() {
     });
 
     test('update — modifies existing event', () async {
-      final event = makeEvent(id: 'ev-u1', guestCount: 50);
+      final event = makeEvent(id: 'ev-u1');
       await fakeFirestore
           .collection(basePath)
           .doc(event.id)
@@ -140,11 +140,11 @@ void main() {
   group('allEventsStream ordering', () {
     test('returns events ordered by eventDate descending', () async {
       final e1 = makeEvent(
-          id: 'e1', eventDate: DateTime(2024, 6, 1), eventName: 'June');
+          id: 'e1', eventDate: DateTime(2024, 6), eventName: 'June');
       final e2 = makeEvent(
-          id: 'e2', eventDate: DateTime(2024, 12, 1), eventName: 'December');
+          id: 'e2', eventDate: DateTime(2024, 12), eventName: 'December');
       final e3 = makeEvent(
-          id: 'e3', eventDate: DateTime(2024, 3, 1), eventName: 'March');
+          id: 'e3', eventDate: DateTime(2024, 3), eventName: 'March');
 
       for (final e in [e1, e2, e3]) {
         await fakeFirestore

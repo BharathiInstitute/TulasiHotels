@@ -25,8 +25,8 @@ void main() {
         find.bySemanticsLabel('Add to cart'),
       );
       expect(semantics.label, 'Add to cart');
-      expect(semantics.hasFlag(SemanticsFlag.isButton), isFalse);
-      expect(semantics.hasFlag(SemanticsFlag.isHeader), isFalse);
+      expect(semantics.flagsCollection.isButton, isFalse);
+      expect(semantics.flagsCollection.isHeader, isFalse);
     });
 
     testWidgets('button flag is respected', (tester) async {
@@ -41,7 +41,7 @@ void main() {
       );
 
       final semantics = tester.getSemantics(find.bySemanticsLabel('Buy now'));
-      expect(semantics.hasFlag(SemanticsFlag.isButton), isTrue);
+      expect(semantics.flagsCollection.isButton, isTrue);
     });
 
     testWidgets('header flag is respected', (tester) async {
@@ -58,7 +58,7 @@ void main() {
       final semantics = tester.getSemantics(
         find.bySemanticsLabel('Products Section'),
       );
-      expect(semantics.hasFlag(SemanticsFlag.isHeader), isTrue);
+      expect(semantics.flagsCollection.isHeader, isTrue);
     });
 
     testWidgets('image flag is respected', (tester) async {
@@ -75,7 +75,7 @@ void main() {
       final semantics = tester.getSemantics(
         find.bySemanticsLabel('Hotel logo'),
       );
-      expect(semantics.hasFlag(SemanticsFlag.isImage), isTrue);
+      expect(semantics.flagsCollection.isImage, isTrue);
     });
 
     testWidgets('hint is passed through', (tester) async {
@@ -124,7 +124,7 @@ void main() {
         find.bySemanticsLabel('Submit order'),
       );
       expect(semantics.label, 'Submit order');
-      expect(semantics.hasFlag(SemanticsFlag.isButton), isTrue);
+      expect(semantics.flagsCollection.isButton, isTrue);
     });
 
     testWidgets('hint is passed through', (tester) async {
@@ -154,8 +154,8 @@ void main() {
       final semantics = tester.getSemantics(
         find.bySemanticsLabel('Enabled btn'),
       );
-      expect(semantics.hasFlag(SemanticsFlag.hasEnabledState), isTrue);
-      expect(semantics.hasFlag(SemanticsFlag.isEnabled), isTrue);
+      expect(semantics.flagsCollection.isEnabled != Tristate.none, isTrue);
+      expect(semantics.flagsCollection.isEnabled == Tristate.isTrue, isTrue);
     });
   });
 
@@ -168,7 +168,7 @@ void main() {
       );
 
       final semantics = tester.getSemantics(find.bySemanticsLabel('Dashboard'));
-      expect(semantics.hasFlag(SemanticsFlag.isHeader), isTrue);
+      expect(semantics.flagsCollection.isHeader, isTrue);
       expect(semantics.label, 'Dashboard');
     });
 
@@ -201,7 +201,7 @@ void main() {
       final semantics = tester.getSemantics(
         find.bySemanticsLabel('Item added to cart'),
       );
-      expect(semantics.hasFlag(SemanticsFlag.isLiveRegion), isTrue);
+      expect(semantics.flagsCollection.isLiveRegion, isTrue);
     });
 
     testWidgets('does not exclude child semantics', (tester) async {

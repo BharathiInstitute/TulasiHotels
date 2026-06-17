@@ -68,7 +68,6 @@ void main() {
       final complaints = [
         makeComplaint(
           description: 'Open issue',
-          status: ComplaintStatus.open,
         ),
         makeComplaint(
           id: 'c2',

@@ -16,10 +16,7 @@ void main() {
   group('Integration: Staff Role-Based Access', () {
     test('Step 1: Waiter can access tables, orders, kitchen', () {
       final waiter = makeStaff(
-        id: 'staff-1',
         name: 'Raju',
-        role: StaffRole.waiter,
-        pin: '1234',
       );
 
       expect(StaffPermissions.canAccess(waiter, AppRoutes.tables), isTrue);
@@ -37,10 +34,7 @@ void main() {
 
     test('Step 2: Waiter cannot access billing, staff, reports', () {
       final waiter = makeStaff(
-        id: 'staff-1',
         name: 'Raju',
-        role: StaffRole.waiter,
-        pin: '1234',
       );
 
       expect(StaffPermissions.canAccess(waiter, AppRoutes.billing), isFalse);
@@ -147,10 +141,7 @@ void main() {
 
     test('Step 7: Waiter has limited CRUD actions', () {
       final waiter = makeStaff(
-        id: 'staff-1',
         name: 'Raju',
-        role: StaffRole.waiter,
-        pin: '1234',
       );
 
       // Waiter can view+update tables, but not create/delete
@@ -184,7 +175,6 @@ void main() {
       final customWaiter = makeStaff(
         id: 'staff-5',
         name: 'Custom Raju',
-        role: StaffRole.waiter,
         pin: '1111',
         permissions: {
           AppRoutes.billing: ['view', 'create'],
@@ -207,7 +197,7 @@ void main() {
 
   group('Integration: Staff route navigation', () {
     test('waiter home route is tables', () {
-      final waiter = makeStaff(role: StaffRole.waiter, pin: '1234');
+      final waiter = makeStaff();
       expect(StaffPermissions.homeRoute(waiter), AppRoutes.tables);
     });
 
@@ -227,7 +217,7 @@ void main() {
     });
 
     test('permitted routes count matches role scope', () {
-      final waiter = makeStaff(role: StaffRole.waiter, pin: '1234');
+      final waiter = makeStaff();
       final chef = makeStaff(role: StaffRole.chef, pin: '5678');
       final manager = makeStaff(role: StaffRole.manager, pin: '0000');
 
@@ -243,13 +233,13 @@ void main() {
 
   group('Integration: Child route resolution', () {
     test('order detail resolves to orders permission', () {
-      final waiter = makeStaff(role: StaffRole.waiter, pin: '1234');
+      final waiter = makeStaff();
       // Waiter can access /orders, so also /orders/:id
       expect(StaffPermissions.canAccess(waiter, AppRoutes.orderDetail), isTrue);
     });
 
     test('product detail resolves to products permission', () {
-      final waiter = makeStaff(role: StaffRole.waiter, pin: '1234');
+      final waiter = makeStaff();
       // Waiter cannot access /products, so also not /product/:id
       expect(
         StaffPermissions.canAccess(waiter, AppRoutes.productDetail),

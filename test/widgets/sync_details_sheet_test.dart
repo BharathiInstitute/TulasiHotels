@@ -65,12 +65,11 @@ void main() {
     });
 
     testWidgets('shows collection rows with display names', (tester) async {
-      final status = GlobalSyncStatus(
+      const status = GlobalSyncStatus(
         collections: {
           'products': CollectionSyncStatus(
             name: 'products',
             totalDocs: 25,
-            unsyncedDocs: 0,
           ),
           'bills': CollectionSyncStatus(
             name: 'bills',
@@ -80,7 +79,6 @@ void main() {
           'customers': CollectionSyncStatus(
             name: 'customers',
             totalDocs: 50,
-            unsyncedDocs: 0,
           ),
         },
         isOnline: true,
@@ -94,12 +92,11 @@ void main() {
     });
 
     testWidgets('shows doc counts per collection', (tester) async {
-      final status = GlobalSyncStatus(
+      const status = GlobalSyncStatus(
         collections: {
           'bills': CollectionSyncStatus(
             name: 'bills',
             totalDocs: 42,
-            unsyncedDocs: 0,
           ),
         },
         isOnline: true,
@@ -110,7 +107,7 @@ void main() {
     });
 
     testWidgets('shows unsynced count next to collection', (tester) async {
-      final status = GlobalSyncStatus(
+      const status = GlobalSyncStatus(
         collections: {
           'bills': CollectionSyncStatus(
             name: 'bills',
@@ -127,12 +124,11 @@ void main() {
 
     testWidgets('shows "All data synced" when totalUnsynced is 0',
         (tester) async {
-      final status = GlobalSyncStatus(
+      const status = GlobalSyncStatus(
         collections: {
           'bills': CollectionSyncStatus(
             name: 'bills',
             totalDocs: 10,
-            unsyncedDocs: 0,
           ),
         },
         isOnline: true,
@@ -143,7 +139,7 @@ void main() {
     });
 
     testWidgets('shows unsynced summary with plural', (tester) async {
-      final status = GlobalSyncStatus(
+      const status = GlobalSyncStatus(
         collections: {
           'bills': CollectionSyncStatus(
             name: 'bills',
@@ -164,7 +160,7 @@ void main() {
     });
 
     testWidgets('shows unsynced summary with singular', (tester) async {
-      final status = GlobalSyncStatus(
+      const status = GlobalSyncStatus(
         collections: {
           'bills': CollectionSyncStatus(
             name: 'bills',
@@ -180,12 +176,11 @@ void main() {
     });
 
     testWidgets('unknown collection uses name as-is', (tester) async {
-      final status = GlobalSyncStatus(
+      const status = GlobalSyncStatus(
         collections: {
           'myCustomColl': CollectionSyncStatus(
             name: 'myCustomColl',
             totalDocs: 5,
-            unsyncedDocs: 0,
           ),
         },
         isOnline: true,

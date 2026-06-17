@@ -50,8 +50,8 @@ void main() {
       await writeBill('b3',
           total: 700, date: '2024-01-16', createdAt: DateTime(2024, 1, 16));
 
-      final start = DateTime(2024, 1, 1);
-      final end = DateTime(2024, 2, 1);
+      final start = DateTime(2024);
+      final end = DateTime(2024, 2);
 
       final snapshot = await fakeFirestore
           .collection(billsPath)
@@ -89,8 +89,8 @@ void main() {
             {'name': 'Dosa', 'quantity': 2, 'price': 80},
           ]);
 
-      final start = DateTime(2024, 1, 1);
-      final end = DateTime(2024, 2, 1);
+      final start = DateTime(2024);
+      final end = DateTime(2024, 2);
 
       final snapshot = await fakeFirestore
           .collection(billsPath)
@@ -152,8 +152,7 @@ void main() {
       await writeBill('b-pm1',
           total: 500,
           date: '2024-01-15',
-          createdAt: DateTime(2024, 1, 15),
-          paymentMethod: 'cash');
+          createdAt: DateTime(2024, 1, 15));
       await writeBill('b-pm2',
           total: 300,
           date: '2024-01-15',
@@ -162,11 +161,10 @@ void main() {
       await writeBill('b-pm3',
           total: 200,
           date: '2024-01-15',
-          createdAt: DateTime(2024, 1, 15),
-          paymentMethod: 'cash');
+          createdAt: DateTime(2024, 1, 15));
 
-      final start = DateTime(2024, 1, 1);
-      final end = DateTime(2024, 2, 1);
+      final start = DateTime(2024);
+      final end = DateTime(2024, 2);
 
       final snapshot = await fakeFirestore
           .collection(billsPath)
@@ -190,11 +188,11 @@ void main() {
   group('orderTypeDistribution', () {
     test('counts orders by type', () async {
       final o1 = makeOrder(
-          id: 'od1', orderType: OrderType.dineIn, createdAt: DateTime(2024, 1, 15));
+          id: 'od1', createdAt: DateTime(2024, 1, 15));
       final o2 = makeOrder(
           id: 'od2', orderType: OrderType.takeaway, createdAt: DateTime(2024, 1, 15));
       final o3 = makeOrder(
-          id: 'od3', orderType: OrderType.dineIn, createdAt: DateTime(2024, 1, 16));
+          id: 'od3', createdAt: DateTime(2024, 1, 16));
 
       for (final o in [o1, o2, o3]) {
         await fakeFirestore
@@ -203,8 +201,8 @@ void main() {
             .set(o.toFirestore());
       }
 
-      final start = DateTime(2024, 1, 1);
-      final end = DateTime(2024, 2, 1);
+      final start = DateTime(2024);
+      final end = DateTime(2024, 2);
 
       final snapshot = await fakeFirestore
           .collection(ordersPath)
@@ -232,7 +230,7 @@ void main() {
       final o2 = makeOrder(
           id: 'h2', createdAt: DateTime(2024, 1, 15, 12, 45));
       final o3 = makeOrder(
-          id: 'h3', createdAt: DateTime(2024, 1, 15, 19, 0));
+          id: 'h3', createdAt: DateTime(2024, 1, 15, 19));
 
       for (final o in [o1, o2, o3]) {
         await fakeFirestore
@@ -241,8 +239,8 @@ void main() {
             .set(o.toFirestore());
       }
 
-      final start = DateTime(2024, 1, 1);
-      final end = DateTime(2024, 2, 1);
+      final start = DateTime(2024);
+      final end = DateTime(2024, 2);
 
       final snapshot = await fakeFirestore
           .collection(ordersPath)
@@ -281,8 +279,8 @@ void main() {
           createdAt: DateTime(2024, 1, 16),
           waiterName: 'Ravi');
 
-      final start = DateTime(2024, 1, 1);
-      final end = DateTime(2024, 2, 1);
+      final start = DateTime(2024);
+      final end = DateTime(2024, 2);
 
       final snapshot = await fakeFirestore
           .collection(billsPath)

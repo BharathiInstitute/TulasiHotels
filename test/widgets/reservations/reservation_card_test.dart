@@ -38,7 +38,7 @@ void main() {
     });
 
     testWidgets('shows phone number', (tester) async {
-      final res = makeReservation(phone: '9876543210');
+      final res = makeReservation();
       await tester.pumpWidget(buildCard(res));
       expect(find.textContaining('9876543210'), findsOneWidget);
     });
@@ -52,7 +52,7 @@ void main() {
     testWidgets('shows confirm/cancel buttons for pending status', (
       tester,
     ) async {
-      final res = makeReservation(status: ReservationStatus.pending);
+      final res = makeReservation();
       var confirmed = false;
       var cancelled = false;
       await tester.pumpWidget(

@@ -6,20 +6,20 @@ void main() {
   group('WebShell', () {
     test('is a ConsumerWidget', () {
       final widget = WebShell(
-        child: const SizedBox(),
         selectedIndex: 0,
         visibleIndices: const [0, 1, 2],
         onItemTapped: (_) {},
+        child: const SizedBox(),
       );
       expect(widget, isNotNull);
     });
 
     test('accepts required parameters', () {
       final widget = WebShell(
-        child: const Placeholder(),
         selectedIndex: 2,
         visibleIndices: const [0, 1, 2, 3],
         onItemTapped: (_) {},
+        child: const Placeholder(),
       );
       expect(widget, isNotNull);
     });
@@ -27,10 +27,10 @@ void main() {
     test('accepts key parameter', () {
       final widget = WebShell(
         key: const Key('web-shell'),
-        child: const SizedBox(),
         selectedIndex: 0,
         visibleIndices: const [0],
         onItemTapped: (_) {},
+        child: const SizedBox(),
       );
       expect(widget.key, const Key('web-shell'));
     });

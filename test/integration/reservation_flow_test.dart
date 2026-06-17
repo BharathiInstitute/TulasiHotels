@@ -15,12 +15,8 @@ void main() {
   group('Integration: Reservation → Table → Order', () {
     test('Step 1: Create a pending reservation', () {
       final reservation = makeReservation(
-        id: 'res-1',
         guestName: 'Priya Sharma',
-        phone: '9876543210',
-        partySize: 4,
         dateTime: DateTime(2026, 3, 15, 19, 30),
-        status: ReservationStatus.pending,
         specialRequests: 'Window seat preferred',
       );
 
@@ -33,10 +29,7 @@ void main() {
 
     test('Step 2: Confirm the reservation', () {
       final confirmed = makeReservation(
-        id: 'res-1',
         guestName: 'Priya Sharma',
-        phone: '9876543210',
-        partySize: 4,
         dateTime: DateTime(2026, 3, 15, 19, 30),
         status: ReservationStatus.confirmed,
       );
@@ -60,10 +53,7 @@ void main() {
 
     test('Step 4: Guest arrives — seat at table', () {
       final seated = makeReservation(
-        id: 'res-1',
         guestName: 'Priya Sharma',
-        phone: '9876543210',
-        partySize: 4,
         dateTime: DateTime(2026, 3, 15, 19, 30),
         status: ReservationStatus.seated,
         tableId: 'tbl-7',
@@ -85,11 +75,10 @@ void main() {
         tableId: 'tbl-7',
         tableName: 'Table 7',
         items: [
-          makeOrderItem(name: 'Paneer Tikka', price: 280, quantity: 1),
-          makeOrderItem(name: 'Dal Makhani', price: 220, quantity: 1),
+          makeOrderItem(name: 'Paneer Tikka', price: 280),
+          makeOrderItem(name: 'Dal Makhani', price: 220),
           makeOrderItem(name: 'Butter Naan', price: 60, quantity: 4),
         ],
-        status: OrderStatus.placed,
       );
 
       expect(table.isFree, isFalse);
@@ -102,12 +91,11 @@ void main() {
       final order = makeOrder(
         id: 'ord-1',
         status: OrderStatus.billed,
-        items: [makeOrderItem(name: 'Paneer Tikka', price: 280, quantity: 1)],
+        items: [makeOrderItem(name: 'Paneer Tikka', price: 280)],
       );
       final table = makeTable(
         id: 'tbl-7',
         number: 7,
-        status: TableStatus.available,
       );
 
       expect(order.isActive, isFalse);
@@ -135,7 +123,6 @@ void main() {
       final table = makeTable(
         id: 'tbl-7',
         number: 7,
-        status: TableStatus.available, // freed after cancellation
       );
 
       expect(cancelled.status, ReservationStatus.cancelled);
@@ -143,7 +130,7 @@ void main() {
     });
 
     test('table capacity must accommodate party size', () {
-      final smallTable = makeTable(number: 1, capacity: 2);
+      final smallTable = makeTable(capacity: 2);
       final bigParty = makeReservation(partySize: 6);
 
       expect(smallTable.capacity, lessThan(bigParty.partySize));
@@ -153,7 +140,7 @@ void main() {
     test('reservation duration defaults to 90 minutes', () {
       final reservation = makeReservation(
         guestName: 'Default Duration',
-        dateTime: DateTime(2026, 3, 15, 19, 0),
+        dateTime: DateTime(2026, 3, 15, 19),
       );
       expect(reservation.durationMinutes, 90);
     });

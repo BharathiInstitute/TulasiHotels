@@ -172,7 +172,7 @@ void main() {
           .set({
             'vendorId': 'v-2',
             'amount': 1000,
-            'createdAt': DateTime(2024, 3, 1).toIso8601String(),
+            'createdAt': DateTime(2024, 3).toIso8601String(),
           });
 
       final snapshot = await fakeFirestore

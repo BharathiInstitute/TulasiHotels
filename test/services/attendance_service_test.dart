@@ -20,10 +20,7 @@ void main() {
   group('AttendanceService Firestore operations', () {
     test('clockIn — writes attendance record', () async {
       final att = makeAttendance(
-        id: 'att-1',
-        staffId: 'staff-1',
         staffName: 'Ravi',
-        status: AttendanceStatus.clockedIn,
       );
 
       await fakeFirestore
@@ -47,7 +44,7 @@ void main() {
           .doc(att.id)
           .set(att.toFirestore());
 
-      final clockOut = DateTime(2024, 1, 15, 17, 0);
+      final clockOut = DateTime(2024, 1, 15, 17);
       await fakeFirestore.collection(basePath).doc('att-co').update({
         'clockOut': Timestamp.fromDate(clockOut),
         'status': AttendanceStatus.clockedOut.name,
@@ -120,7 +117,7 @@ void main() {
       );
       final outOf = makeAttendance(
         id: 'out',
-        date: DateTime(2024, 1, 1),
+        date: DateTime(2024),
       );
 
       for (final a in [inRange, outOf]) {
@@ -130,7 +127,7 @@ void main() {
             .set(a.toFirestore());
       }
 
-      final from = DateTime(2024, 6, 1);
+      final from = DateTime(2024, 6);
       final to = DateTime(2024, 6, 30);
       final snapshot = await fakeFirestore
           .collection(basePath)
@@ -148,7 +145,6 @@ void main() {
     test('filters by staffId and date range', () async {
       final match = makeAttendance(
         id: 'match',
-        staffId: 'staff-1',
         date: DateTime(2024, 6, 15),
       );
       final wrongStaff = makeAttendance(
@@ -158,8 +154,7 @@ void main() {
       );
       final wrongDate = makeAttendance(
         id: 'wrong-date',
-        staffId: 'staff-1',
-        date: DateTime(2024, 1, 1),
+        date: DateTime(2024),
       );
 
       for (final a in [match, wrongStaff, wrongDate]) {
@@ -169,7 +164,7 @@ void main() {
             .set(a.toFirestore());
       }
 
-      final from = DateTime(2024, 6, 1);
+      final from = DateTime(2024, 6);
       final to = DateTime(2024, 6, 30);
       final snapshot = await fakeFirestore
           .collection(basePath)
@@ -192,8 +187,6 @@ void main() {
 
       final att = makeAttendance(
         id: 'ci',
-        staffId: 'staff-1',
-        status: AttendanceStatus.clockedIn,
         date: startOfDay,
       );
       await fakeFirestore
@@ -219,7 +212,6 @@ void main() {
 
       final att = makeAttendance(
         id: 'co',
-        staffId: 'staff-1',
         status: AttendanceStatus.clockedOut,
         date: startOfDay,
       );
@@ -244,11 +236,10 @@ void main() {
     test('creates attendance with clockOut already set', () async {
       final att = makeAttendance(
         id: 'manual-1',
-        staffId: 'staff-1',
         staffName: 'Ravi',
         date: DateTime(2024, 6, 10),
-        clockIn: DateTime(2024, 6, 10, 9, 0),
-        clockOut: DateTime(2024, 6, 10, 17, 0),
+        clockIn: DateTime(2024, 6, 10, 9),
+        clockOut: DateTime(2024, 6, 10, 17),
         status: AttendanceStatus.clockedOut,
       );
 
@@ -270,8 +261,8 @@ void main() {
     test('updates only clockIn without touching other fields', () async {
       final att = makeAttendance(
         id: 'partial',
-        clockIn: DateTime(2024, 1, 15, 9, 0),
-        clockOut: DateTime(2024, 1, 15, 17, 0),
+        clockIn: DateTime(2024, 1, 15, 9),
+        clockOut: DateTime(2024, 1, 15, 17),
         status: AttendanceStatus.clockedOut,
       );
       await fakeFirestore
@@ -289,21 +280,21 @@ void main() {
       final parsed = AttendanceModel.fromFirestore(doc);
       expect(parsed.clockIn, newClockIn);
       // clockOut should be preserved
-      expect(parsed.clockOut, DateTime(2024, 1, 15, 17, 0));
+      expect(parsed.clockOut, DateTime(2024, 1, 15, 17));
     });
   });
 
   group('hoursWorked computed', () {
     test('returns hours when clocked out', () {
       final att = makeAttendance(
-        clockIn: DateTime(2024, 1, 15, 9, 0),
+        clockIn: DateTime(2024, 1, 15, 9),
         clockOut: DateTime(2024, 1, 15, 17, 30),
       );
       expect(att.hoursWorked, 8.5);
     });
 
     test('returns 0 when clockOut is null', () {
-      final att = makeAttendance(clockOut: null);
+      final att = makeAttendance();
       expect(att.hoursWorked, 0);
     });
   });

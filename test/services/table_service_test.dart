@@ -47,7 +47,7 @@ void main() {
     });
 
     test('update — modifies existing table', () async {
-      final table = makeTable(id: 'tbl-u1', capacity: 4);
+      final table = makeTable(id: 'tbl-u1');
       await fakeFirestore
           .collection(basePath)
           .doc(table.id)
@@ -125,7 +125,7 @@ void main() {
   group('createBulkTables', () {
     test('creates multiple tables', () async {
       for (var i = 1; i <= 5; i++) {
-        final table = makeTable(id: 'bulk-$i', number: i, capacity: 4);
+        final table = makeTable(id: 'bulk-$i', number: i);
         await fakeFirestore
             .collection(basePath)
             .doc(table.id)
@@ -183,7 +183,7 @@ void main() {
 
   group('serverTablesStream query', () {
     test('filters tables by assignedServerId', () async {
-      final t1 = makeTable(id: 'st1', number: 1, assignedServerId: 'staff-1');
+      final t1 = makeTable(id: 'st1', assignedServerId: 'staff-1');
       final t2 = makeTable(id: 'st2', number: 2, assignedServerId: 'staff-2');
       final t3 = makeTable(id: 'st3', number: 3, assignedServerId: 'staff-1');
 
@@ -208,7 +208,7 @@ void main() {
   group('tablesStream ordering', () {
     test('returns tables ordered by number', () async {
       final t1 = makeTable(id: 't1', number: 3);
-      final t2 = makeTable(id: 't2', number: 1);
+      final t2 = makeTable(id: 't2');
       final t3 = makeTable(id: 't3', number: 2);
 
       for (final t in [t1, t2, t3]) {
@@ -247,7 +247,7 @@ void main() {
 
   group('displayName computed', () {
     test('uses label when set', () {
-      final table = makeTable(label: 'VIP', number: 1);
+      final table = makeTable(label: 'VIP');
       expect(table.displayName, 'VIP');
     });
 
@@ -259,7 +259,7 @@ void main() {
 
   group('isFree and hasActiveOrder', () {
     test('isFree is true when status is available', () {
-      final table = makeTable(status: TableStatus.available);
+      final table = makeTable();
       expect(table.isFree, isTrue);
     });
 

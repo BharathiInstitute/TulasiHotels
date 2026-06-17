@@ -23,8 +23,8 @@ void main() {
         name: 'Lunch Combo',
         price: 299,
         items: [
-          makeComboItem(name: 'Rice', quantity: 1),
-          makeComboItem(name: 'Dal', quantity: 1),
+          makeComboItem(name: 'Rice'),
+          makeComboItem(name: 'Dal'),
           makeComboItem(name: 'Roti', quantity: 2),
         ],
       );
@@ -86,7 +86,7 @@ void main() {
 
   group('toggleAvailability', () {
     test('sets combo to unavailable', () async {
-      final combo = makeCombo(id: 'cb-t1', isAvailable: true);
+      final combo = makeCombo(id: 'cb-t1');
       await fakeFirestore
           .collection(basePath)
           .doc(combo.id)
@@ -122,8 +122,8 @@ void main() {
 
   group('availableCombosStream query', () {
     test('filters only available combos', () async {
-      final avail1 = makeCombo(id: 'a1', isAvailable: true, name: 'A');
-      final avail2 = makeCombo(id: 'a2', isAvailable: true, name: 'B');
+      final avail1 = makeCombo(id: 'a1', name: 'A');
+      final avail2 = makeCombo(id: 'a2', name: 'B');
       final unavail = makeCombo(id: 'u1', isAvailable: false, name: 'C');
 
       for (final c in [avail1, avail2, unavail]) {

@@ -82,7 +82,6 @@ void main() {
         final original = makeReservation(
           guestName: 'Ravi Kumar',
           phone: '9999999999',
-          partySize: 4,
           tableId: 't1',
           status: ReservationStatus.confirmed,
           specialRequests: 'Birthday cake',

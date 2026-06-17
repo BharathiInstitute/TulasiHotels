@@ -19,8 +19,6 @@ void main() {
   group('CashRegisterService Firestore operations', () {
     test('openRegister — writes and reads back all fields', () async {
       final register = makeCashRegister(
-        id: 'reg-1',
-        staffId: 'staff-1',
         staffName: 'Cashier',
         openingBalance: 2000,
       );
@@ -131,12 +129,12 @@ void main() {
     test('returns registers ordered by openedAt descending', () async {
       final r1 = makeCashRegister(
         id: 'r1',
-        openedAt: DateTime(2024, 1, 1, 8, 0),
+        openedAt: DateTime(2024, 1, 1, 8),
         staffName: 'First',
       );
       final r2 = makeCashRegister(
         id: 'r2',
-        openedAt: DateTime(2024, 6, 1, 8, 0),
+        openedAt: DateTime(2024, 6, 1, 8),
         staffName: 'Latest',
       );
 
@@ -162,7 +160,7 @@ void main() {
   group('register with multiple movements round-trip', () {
     test('multiple cash movements survive Firestore round-trip', () async {
       final movements = [
-        makeCashMovement(amount: 200, reason: 'Change', isInflow: true),
+        makeCashMovement(amount: 200, reason: 'Change'),
         makeCashMovement(amount: 50, reason: 'Petty cash', isInflow: false),
       ];
       final register = makeCashRegister(id: 'reg-multi', movements: movements);
@@ -185,7 +183,7 @@ void main() {
 
   group('isOpen getter', () {
     test('register is open when closedAt is null', () {
-      final register = makeCashRegister(closedAt: null);
+      final register = makeCashRegister();
       expect(register.isOpen, isTrue);
     });
 

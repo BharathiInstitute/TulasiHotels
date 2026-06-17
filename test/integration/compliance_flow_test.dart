@@ -13,10 +13,8 @@ void main() {
   group('Integration: License Lifecycle', () {
     test('Step 1: New license with distant expiry is OK', () {
       final license = makeLicense(
-        id: 'lic-1',
-        type: LicenseType.fssai,
         licenseNumber: 'FSSAI-2026-12345',
-        issueDate: DateTime(2026, 1, 1),
+        issueDate: DateTime(2026),
         expiryDate: DateTime.now().add(const Duration(days: 180)),
         issuingAuthority: 'FSSAI India',
       );
@@ -29,8 +27,6 @@ void main() {
 
     test('Step 2: License enters warning zone (< 90 days)', () {
       final warning = makeLicense(
-        id: 'lic-1',
-        type: LicenseType.fssai,
         expiryDate: DateTime.now().add(const Duration(days: 60)),
       );
 
@@ -42,8 +38,6 @@ void main() {
 
     test('Step 3: License enters critical zone (< 30 days)', () {
       final critical = makeLicense(
-        id: 'lic-1',
-        type: LicenseType.fssai,
         expiryDate: DateTime.now().add(const Duration(days: 15)),
       );
 
@@ -54,8 +48,6 @@ void main() {
 
     test('Step 4: License expires', () {
       final expired = makeLicense(
-        id: 'lic-1',
-        type: LicenseType.fssai,
         expiryDate: DateTime.now().subtract(const Duration(days: 5)),
       );
 
@@ -66,12 +58,9 @@ void main() {
 
     test('Step 5: Renew license — new dates reset urgency', () {
       final renewed = makeLicense(
-        id: 'lic-1',
-        type: LicenseType.fssai,
         licenseNumber: 'FSSAI-2027-67890',
         issueDate: DateTime.now(),
         expiryDate: DateTime.now().add(const Duration(days: 365)),
-        isActive: true,
       );
 
       expect(renewed.isExpired, isFalse);
@@ -81,8 +70,6 @@ void main() {
 
     test('Step 6: Deactivated license', () {
       final deactivated = makeLicense(
-        id: 'lic-1',
-        type: LicenseType.fssai,
         isActive: false,
         expiryDate: DateTime.now().add(const Duration(days: 200)),
       );
@@ -97,8 +84,6 @@ void main() {
     test('hotel tracks multiple license types simultaneously', () {
       final licenses = [
         makeLicense(
-          id: 'lic-1',
-          type: LicenseType.fssai,
           licenseNumber: 'FSSAI-001',
           expiryDate: DateTime.now().add(const Duration(days: 200)),
         ),
@@ -143,8 +128,6 @@ void main() {
 
     test('copyWith preserves ID while updating dates', () {
       final original = makeLicense(
-        id: 'lic-1',
-        type: LicenseType.fssai,
         licenseNumber: 'OLD-123',
         expiryDate: DateTime.now().subtract(const Duration(days: 5)),
       );

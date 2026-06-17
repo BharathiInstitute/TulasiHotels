@@ -21,7 +21,6 @@ void main() {
     test('create — writes and reads back all fields', () async {
       final license = makeLicense(
         id: 'lic-100',
-        type: LicenseType.fssai,
         licenseNumber: 'FSSAI-2024-001',
         issuingAuthority: 'FSSAI India',
       );
@@ -80,16 +79,16 @@ void main() {
     test('updates issue and expiry dates', () async {
       final license = makeLicense(
         id: 'lic-ren',
-        issueDate: DateTime(2023, 1, 1),
-        expiryDate: DateTime(2024, 1, 1),
+        issueDate: DateTime(2023),
+        expiryDate: DateTime(2024),
       );
       await fakeFirestore
           .collection(basePath)
           .doc(license.id)
           .set(license.toFirestore());
 
-      final newIssue = DateTime(2024, 6, 1);
-      final newExpiry = DateTime(2025, 6, 1);
+      final newIssue = DateTime(2024, 6);
+      final newExpiry = DateTime(2025, 6);
       await fakeFirestore.collection(basePath).doc('lic-ren').update({
         'issueDate': Timestamp.fromDate(newIssue),
         'expiryDate': Timestamp.fromDate(newExpiry),
@@ -111,8 +110,8 @@ void main() {
 
       await fakeFirestore.collection(basePath).doc('lic-ren2').update({
         'licenseNumber': 'NEW-002',
-        'issueDate': Timestamp.fromDate(DateTime(2024, 6, 1)),
-        'expiryDate': Timestamp.fromDate(DateTime(2025, 6, 1)),
+        'issueDate': Timestamp.fromDate(DateTime(2024, 6)),
+        'expiryDate': Timestamp.fromDate(DateTime(2025, 6)),
       });
 
       final doc =
@@ -160,9 +159,9 @@ void main() {
 
   group('licensesStream ordering', () {
     test('returns licenses ordered by expiryDate', () async {
-      final l1 = makeLicense(id: 'l1', expiryDate: DateTime(2025, 6, 1));
-      final l2 = makeLicense(id: 'l2', expiryDate: DateTime(2024, 3, 1));
-      final l3 = makeLicense(id: 'l3', expiryDate: DateTime(2025, 12, 1));
+      final l1 = makeLicense(id: 'l1', expiryDate: DateTime(2025, 6));
+      final l2 = makeLicense(id: 'l2', expiryDate: DateTime(2024, 3));
+      final l3 = makeLicense(id: 'l3', expiryDate: DateTime(2025, 12));
 
       for (final l in [l1, l2, l3]) {
         await fakeFirestore

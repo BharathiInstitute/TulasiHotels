@@ -18,10 +18,9 @@ void main() {
         tableId: 'tbl-3',
         tableName: 'Table 3',
         items: [
-          makeOrderItem(name: 'Biryani', price: 250, quantity: 2, kotNumber: 1),
-          makeOrderItem(name: 'Raita', price: 50, quantity: 2, kotNumber: 1),
+          makeOrderItem(name: 'Biryani', price: 250, quantity: 2),
+          makeOrderItem(name: 'Raita', price: 50, quantity: 2),
         ],
-        currentKotNumber: 1,
       );
       final order2 = makeOrder(
         id: 'ord-2',
@@ -29,10 +28,9 @@ void main() {
         tableId: 'tbl-3',
         tableName: 'Table 3',
         items: [
-          makeOrderItem(name: 'Naan', price: 60, quantity: 4, kotNumber: 1),
-          makeOrderItem(name: 'Dal', price: 150, quantity: 1, kotNumber: 1),
+          makeOrderItem(name: 'Naan', price: 60, quantity: 4),
+          makeOrderItem(name: 'Dal', price: 150),
         ],
-        currentKotNumber: 1,
       );
 
       expect(order1.total, 600); // 250*2 + 50*2
@@ -47,20 +45,18 @@ void main() {
         orderNumber: 101,
         tableId: 'tbl-3',
         items: [
-          makeOrderItem(name: 'Biryani', price: 250, quantity: 2, kotNumber: 1),
-          makeOrderItem(name: 'Raita', price: 50, quantity: 2, kotNumber: 1),
+          makeOrderItem(name: 'Biryani', price: 250, quantity: 2),
+          makeOrderItem(name: 'Raita', price: 50, quantity: 2),
         ],
-        currentKotNumber: 1,
       );
       final source = makeOrder(
         id: 'ord-2',
         orderNumber: 102,
         tableId: 'tbl-3',
         items: [
-          makeOrderItem(name: 'Naan', price: 60, quantity: 4, kotNumber: 1),
-          makeOrderItem(name: 'Dal', price: 150, quantity: 1, kotNumber: 1),
+          makeOrderItem(name: 'Naan', price: 60, quantity: 4),
+          makeOrderItem(name: 'Dal', price: 150),
         ],
-        currentKotNumber: 1,
       );
 
       // Merge logic (mirrors OrderService.mergeOrders)
@@ -81,8 +77,8 @@ void main() {
 
     test('Step 3: Source items get new KOT number', () {
       final sourceItems = [
-        makeOrderItem(name: 'Naan', price: 60, quantity: 4, kotNumber: 1),
-        makeOrderItem(name: 'Dal', price: 150, quantity: 1, kotNumber: 1),
+        makeOrderItem(name: 'Naan', price: 60, quantity: 4),
+        makeOrderItem(name: 'Dal', price: 150),
       ];
 
       final reTagged = sourceItems
@@ -102,7 +98,7 @@ void main() {
         status: OrderStatus.cancelled,
         items: [
           makeOrderItem(name: 'Naan', price: 60, quantity: 4),
-          makeOrderItem(name: 'Dal', price: 150, quantity: 1),
+          makeOrderItem(name: 'Dal', price: 150),
         ],
       );
 
@@ -115,11 +111,11 @@ void main() {
         id: 'ord-1',
         items: [
           // From original order (KOT 1)
-          makeOrderItem(name: 'Biryani', price: 250, quantity: 2, kotNumber: 1),
-          makeOrderItem(name: 'Raita', price: 50, quantity: 2, kotNumber: 1),
+          makeOrderItem(name: 'Biryani', price: 250, quantity: 2),
+          makeOrderItem(name: 'Raita', price: 50, quantity: 2),
           // From merged order (KOT 2)
           makeOrderItem(name: 'Naan', price: 60, quantity: 4, kotNumber: 2),
-          makeOrderItem(name: 'Dal', price: 150, quantity: 1, kotNumber: 2),
+          makeOrderItem(name: 'Dal', price: 150, kotNumber: 2),
         ],
         currentKotNumber: 2,
       );
@@ -134,10 +130,10 @@ void main() {
       final merged = makeOrder(
         id: 'ord-1',
         items: [
-          makeOrderItem(name: 'Biryani', price: 250, quantity: 2, kotNumber: 1),
-          makeOrderItem(name: 'Raita', price: 50, quantity: 2, kotNumber: 1),
+          makeOrderItem(name: 'Biryani', price: 250, quantity: 2),
+          makeOrderItem(name: 'Raita', price: 50, quantity: 2),
           makeOrderItem(name: 'Naan', price: 60, quantity: 4, kotNumber: 2),
-          makeOrderItem(name: 'Dal', price: 150, quantity: 1, kotNumber: 2),
+          makeOrderItem(name: 'Dal', price: 150, kotNumber: 2),
         ],
         currentKotNumber: 2,
       );
@@ -165,7 +161,7 @@ void main() {
       final order = makeOrder(
         id: 'ord-10',
         orderType: OrderType.takeaway,
-        items: [makeOrderItem(name: 'Biryani Parcel', price: 280, quantity: 1)],
+        items: [makeOrderItem(name: 'Biryani Parcel', price: 280)],
       );
 
       expect(order.orderType, OrderType.takeaway);

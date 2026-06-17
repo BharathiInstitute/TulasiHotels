@@ -38,9 +38,9 @@ void main() {
 
   group('filteredActiveOrders derived logic', () {
     final orders = [
-      makeOrder(id: 'o1', orderType: OrderType.dineIn),
+      makeOrder(id: 'o1'),
       makeOrder(id: 'o2', orderType: OrderType.takeaway),
-      makeOrder(id: 'o3', orderType: OrderType.dineIn),
+      makeOrder(id: 'o3'),
       makeOrder(id: 'o4', orderType: OrderType.delivery),
     ];
 
@@ -76,7 +76,7 @@ void main() {
 
     test('filter with no matches returns empty', () {
       final dineInOnly = [
-        makeOrder(id: 'o1', orderType: OrderType.dineIn),
+        makeOrder(id: 'o1'),
       ];
       const filter = OrderType.delivery;
       final filtered =

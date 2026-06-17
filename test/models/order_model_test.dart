@@ -42,7 +42,7 @@ void main() {
 
   group('OrderItem', () {
     test('total calculates price * quantity', () {
-      final item = makeOrderItem(price: 200, quantity: 3);
+      final item = makeOrderItem(quantity: 3);
       expect(item.total, 600);
     });
 
@@ -73,7 +73,7 @@ void main() {
       final item = makeOrderItem(
         itemNotes: 'Extra spicy',
         kitchenStation: 'Grill',
-        preparationStartedAt: DateTime(2024, 1, 15, 12, 0),
+        preparationStartedAt: DateTime(2024, 1, 15, 12),
       );
       final map = item.toMap();
       expect(map['productId'], 'prod-1');
@@ -124,7 +124,7 @@ void main() {
       final m = makeOrder(
         items: [
           makeOrderItem(price: 100, quantity: 2),
-          makeOrderItem(price: 200, quantity: 1),
+          makeOrderItem(),
         ],
       );
       expect(m.total, 400);
@@ -144,7 +144,7 @@ void main() {
 
     group('isActive', () {
       test('true for placed', () {
-        expect(makeOrder(status: OrderStatus.placed).isActive, isTrue);
+        expect(makeOrder().isActive, isTrue);
       });
       test('true for preparing', () {
         expect(makeOrder(status: OrderStatus.preparing).isActive, isTrue);
@@ -205,7 +205,7 @@ void main() {
         final m = makeOrder(
           items: [
             makeOrderItem(status: OrderItemStatus.ready),
-            makeOrderItem(status: OrderItemStatus.pending),
+            makeOrderItem(),
           ],
         );
         expect(m.allItemsReady, isFalse);
@@ -216,7 +216,7 @@ void main() {
       test('pendingItems returns only pending', () {
         final m = makeOrder(
           items: [
-            makeOrderItem(productId: 'p1', status: OrderItemStatus.pending),
+            makeOrderItem(productId: 'p1'),
             makeOrderItem(productId: 'p2', status: OrderItemStatus.ready),
           ],
         );
@@ -237,7 +237,7 @@ void main() {
       test('readyItems returns only ready', () {
         final m = makeOrder(
           items: [
-            makeOrderItem(status: OrderItemStatus.pending),
+            makeOrderItem(),
             makeOrderItem(status: OrderItemStatus.ready),
             makeOrderItem(status: OrderItemStatus.ready),
           ],
@@ -304,12 +304,10 @@ void main() {
             makeOrderItem(
               name: 'Raita',
               price: 50,
-              quantity: 1,
               status: OrderItemStatus.ready,
             ),
           ],
           status: OrderStatus.preparing,
-          orderType: OrderType.dineIn,
           waiterId: 'w1',
           waiterName: 'Ravi',
           isRush: true,

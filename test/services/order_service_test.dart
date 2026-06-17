@@ -23,7 +23,6 @@ void main() {
         orderNumber: 42,
         tableId: 'table-1',
         tableName: 'Table 1',
-        orderType: OrderType.dineIn,
         waiterId: 'w-1',
         waiterName: 'Ravi',
         notes: 'Extra spicy',
@@ -91,7 +90,7 @@ void main() {
 
   group('kitchenOrders query', () {
     test('filters placed and preparing only', () async {
-      final o1 = makeOrder(id: 'k1', status: OrderStatus.placed);
+      final o1 = makeOrder(id: 'k1');
       final o2 = makeOrder(id: 'k2', status: OrderStatus.preparing);
       final o3 = makeOrder(id: 'k3', status: OrderStatus.ready);
       final o4 = makeOrder(id: 'k4', status: OrderStatus.served);
@@ -117,9 +116,9 @@ void main() {
   group('tableOrders query', () {
     test('filters by tableId and active statuses', () async {
       final o1 = makeOrder(
-          id: 't1', tableId: 'table-1', status: OrderStatus.placed);
+          id: 't1', tableId: 'table-1');
       final o2 = makeOrder(
-          id: 't2', tableId: 'table-2', status: OrderStatus.placed);
+          id: 't2', tableId: 'table-2');
       final o3 = makeOrder(
           id: 't3', tableId: 'table-1', status: OrderStatus.billed);
 
@@ -147,7 +146,6 @@ void main() {
       final order = makeOrder(
         id: 'o-add',
         items: [makeOrderItem(name: 'Dosa')],
-        currentKotNumber: 1,
       );
       await fakeFirestore
           .collection(basePath)
@@ -208,7 +206,7 @@ void main() {
     test('any item preparing → order status preparing', () {
       final items = [
         makeOrderItem(name: 'A', status: OrderItemStatus.preparing),
-        makeOrderItem(name: 'B', status: OrderItemStatus.pending),
+        makeOrderItem(name: 'B'),
       ];
 
       final anyPreparing =
@@ -218,8 +216,8 @@ void main() {
 
     test('all pending → no auto-advance', () {
       final items = [
-        makeOrderItem(name: 'A', status: OrderItemStatus.pending),
-        makeOrderItem(name: 'B', status: OrderItemStatus.pending),
+        makeOrderItem(name: 'A'),
+        makeOrderItem(name: 'B'),
       ];
 
       final anyPreparing =

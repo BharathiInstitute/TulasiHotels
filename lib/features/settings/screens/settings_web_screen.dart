@@ -2417,7 +2417,7 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
                             ),
                             child: DropdownButtonFormField<SyncInterval>(
                               isExpanded: true,
-                              initialValue:
+                                initialValue:
                                   SyncSettingsService.getSyncInterval(),
                               decoration: const InputDecoration(
                                 contentPadding: EdgeInsets.symmetric(

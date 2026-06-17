@@ -51,10 +51,10 @@ void main() {
   group('Checklist Item UI', () {
     testWidgets('completed item shows check_circle icon', (tester) async {
       await tester.pumpWidget(
-        MaterialApp(
+        const MaterialApp(
           home: Scaffold(
             body: InkWell(
-              child: const Row(
+              child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(Icons.check_circle, color: Colors.green, size: 20),
@@ -75,10 +75,10 @@ void main() {
 
     testWidgets('incomplete item shows radio_button_unchecked', (tester) async {
       await tester.pumpWidget(
-        MaterialApp(
+        const MaterialApp(
           home: Scaffold(
             body: InkWell(
-              child: const Row(
+              child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(

@@ -31,7 +31,6 @@ void main() {
         makeCoupon(
           id: 'c2',
           code: 'SAVE20',
-          type: CouponType.percentage,
           value: 20,
         ),
       ];
@@ -44,7 +43,7 @@ void main() {
 
     testWidgets('shows percentage discount info', (tester) async {
       final coupons = [
-        makeCoupon(code: 'DEAL10', type: CouponType.percentage, value: 10),
+        makeCoupon(code: 'DEAL10'),
       ];
       await pumpWidget(tester, const CouponsScreen(), overrides: [
         allCouponsProvider.overrideWith((_) => Stream.value(coupons)),
@@ -54,7 +53,7 @@ void main() {
 
     testWidgets('shows active switch per coupon', (tester) async {
       final coupons = [
-        makeCoupon(code: 'ACTIVE1', isActive: true),
+        makeCoupon(code: 'ACTIVE1'),
       ];
       await pumpWidget(tester, const CouponsScreen(), overrides: [
         allCouponsProvider.overrideWith((_) => Stream.value(coupons)),
