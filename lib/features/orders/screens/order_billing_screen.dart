@@ -6,9 +6,12 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:tulasihotels/core/services/print_helper.dart';
+import 'package:tulasihotels/features/auth/providers/auth_provider.dart';
 import 'package:tulasihotels/features/billing/services/billing_service.dart';
 import 'package:tulasihotels/features/orders/screens/order_detail_screen.dart';
 import 'package:tulasihotels/features/orders/services/order_service.dart';
+import 'package:tulasihotels/features/settings/providers/printer_provider.dart';
 import 'package:tulasihotels/models/bill_model.dart';
 import 'package:tulasihotels/models/order_model.dart';
 
@@ -299,15 +302,18 @@ class _OrderBillingScreenState extends ConsumerState<OrderBillingScreen> {
       unawaited(OrderService.completeOrder(order.id));
 
       if (mounted) {
+        final printerState = ref.read(printerProvider);
+        final messenger = ScaffoldMessenger.of(context);
+
+        // Auto-print if enabled
+        if (printerState.autoPrint) {
+          unawaited(_printReceipt(bill, messenger));
+        }
+
         Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Bill #${bill.billNumber} generated — ?${bill.total.toStringAsFixed(0)}',
-            ),
-            backgroundColor: Colors.green,
-          ),
-        );
+
+        // Show success with print option
+        _showBillCompleteDialog(bill);
       }
     } catch (e) {
       if (mounted) {
@@ -320,6 +326,77 @@ class _OrderBillingScreenState extends ConsumerState<OrderBillingScreen> {
         );
       }
     }
+  }
+
+  Future<void> _printReceipt(
+    BillModel bill,
+    ScaffoldMessengerState scaffoldMessenger,
+  ) async {
+    final user = ref.read(currentUserProvider);
+    final printerState = ref.read(printerProvider);
+
+    await PrintHelper.printReceipt(
+      bill: bill,
+      printerState: printerState,
+      user: user,
+      scaffoldMessenger: scaffoldMessenger,
+      onRetry: () => _printReceipt(bill, scaffoldMessenger),
+    );
+  }
+
+  void _showBillCompleteDialog(BillModel bill) {
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.check_circle, color: Colors.green, size: 64),
+              const SizedBox(height: 16),
+              Text(
+                'Bill Generated!',
+                style: Theme.of(dialogContext).textTheme.titleLarge,
+              ),
+              const SizedBox(height: 8),
+              Text('Bill No: #${bill.billNumber}'),
+              Text(
+                '\u{20B9}${bill.total.toStringAsFixed(0)}',
+                style: Theme.of(dialogContext).textTheme.headlineSmall
+                    ?.copyWith(
+                      color: Colors.green,
+                      fontWeight: FontWeight.bold,
+                    ),
+              ),
+              const SizedBox(height: 24),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () async {
+                        final messenger = ScaffoldMessenger.of(context);
+                        Navigator.pop(dialogContext);
+                        await _printReceipt(bill, messenger);
+                      },
+                      icon: const Icon(Icons.print),
+                      label: const Text('Print'),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.pop(dialogContext),
+                  child: const Text('Done'),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 }
 

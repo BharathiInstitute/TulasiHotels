@@ -26,6 +26,7 @@ import 'package:tulasihotels/features/reports/providers/reports_provider.dart';
 
 import 'package:tulasihotels/models/bill_model.dart';
 import 'package:tulasihotels/models/customer_model.dart';
+import 'package:tulasihotels/models/user_model.dart';
 import 'package:in_app_review/in_app_review.dart';
 import 'package:tulasihotels/core/services/payment_link_service.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -244,21 +245,29 @@ class _PaymentModalState extends ConsumerState<PaymentModal> {
   /// Print receipt using the configured printer type
   Future<void> _printReceipt(
     BillModel bill,
-    ScaffoldMessengerState scaffoldMessenger,
-  ) async {
-    final user = ref.read(currentUserProvider);
-    final printerState = ref.read(printerProvider);
+    ScaffoldMessengerState scaffoldMessenger, {
+    UserModel? cachedUser,
+    PrinterState? cachedPrinterState,
+  }) async {
+    final user = cachedUser ?? ref.read(currentUserProvider);
+    final PrinterState printerState =
+        cachedPrinterState ?? ref.read(printerProvider);
 
     await PrintHelper.printReceipt(
       bill: bill,
       printerState: printerState,
       user: user,
       scaffoldMessenger: scaffoldMessenger,
-      onRetry: () => _printReceipt(bill, scaffoldMessenger),
+      onRetry: () => _printReceipt(bill, scaffoldMessenger,
+          cachedUser: user, cachedPrinterState: printerState),
     );
   }
 
   void _showBillCompleteDialog(BillModel bill) {
+    // Capture state before showing dialog (widget may be unmounted by then)
+    final user = ref.read(currentUserProvider);
+    final printerState = ref.read(printerProvider);
+
     showDialog(
       context: context,
       builder: (dialogContext) {
@@ -293,9 +302,20 @@ class _PaymentModalState extends ConsumerState<PaymentModal> {
                   Expanded(
                     child: OutlinedButton.icon(
                       onPressed: () async {
-                        final scaffoldMessenger = ScaffoldMessenger.of(context);
+                        final scaffoldMessenger = ScaffoldMessenger.of(dialogContext);
                         Navigator.pop(dialogContext);
-                        await _printReceipt(bill, scaffoldMessenger);
+                        await PrintHelper.printReceipt(
+                          bill: bill,
+                          printerState: printerState,
+                          user: user,
+                          scaffoldMessenger: scaffoldMessenger,
+                          onRetry: () => PrintHelper.printReceipt(
+                            bill: bill,
+                            printerState: printerState,
+                            user: user,
+                            scaffoldMessenger: scaffoldMessenger,
+                          ),
+                        );
                       },
                       icon: const Icon(Icons.print),
                       label: const Text('Print'),

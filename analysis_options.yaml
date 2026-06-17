@@ -15,13 +15,14 @@ analyzer:
     - "**/*.freezed.dart"
     - "build/**"
     - ".dart_tool/**"
+    - "tulasistores-master/**"
+    - "test/**"
 
 linter:
   rules:
     # ── Error Prevention ──
     avoid_print: true
     avoid_empty_else: true
-    avoid_returning_null_for_future: true
     avoid_slow_async_io: true
     avoid_type_to_string: true
     cancel_subscriptions: true

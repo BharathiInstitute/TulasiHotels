@@ -6,9 +6,9 @@ class AppConstants {
 
   // App Info
   static const String appName = 'Tulasi Hotels';
-  static const String defaultShopName = 'My Shop';
-  static const String appTagline = 'भारत का सबसे आसान बिलिंग ऐप';
-  static const String version = '1.0.0';
+  static const String defaultShopName = 'My Hotel';
+  static const String appTagline = 'भारत का सबसे स्मार्ट होटल मैनेजमेंट ऐप';
+  static const String version = '2.0.0';
 
   // ── FREE Tier Limits (enforced via UserSubscription.billsLimit / productsLimit) ──
   static const int freeMaxBillsPerMonth = 50; // 50 bills / month

@@ -45,7 +45,7 @@ class DefaultFirebaseOptions {
     appId: '1:883551466761:web:c79809059abc26268b8fd8',
     messagingSenderId: '883551466761',
     projectId: 'login1-aa21c',
-    authDomain: 'hotels.tulasierp.com',
+    authDomain: 'login1-aa21c.firebaseapp.com',
     storageBucket: 'login1-aa21c.firebasestorage.app',
     measurementId: 'G-H1LN6C5CQW',
   );

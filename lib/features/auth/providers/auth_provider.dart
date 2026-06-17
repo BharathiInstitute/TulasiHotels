@@ -264,6 +264,7 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
           'emailVerified': true,
           'phoneVerified': false,
           'authProvider': 'google',
+          'appType': 'hotels',
           'createdAt': FieldValue.serverTimestamp(),
           'subscription': {
             'plan': 'free',
@@ -280,9 +281,13 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
         });
         debugPrint('✅ Created Firestore doc for redirect user: ${user.email}');
       } else {
-        // Update Google profile data
+        // Tag existing user for Hotels app if not already tagged
         final data = doc.data()!;
+        final appType = data['appType'] as String? ?? '';
         final updates = <String, dynamic>{};
+        if (appType != 'hotels') {
+          updates['appType'] = 'hotels';
+        }
         if (!(data['emailVerified'] as bool? ?? false)) {
           updates['emailVerified'] = true;
         }
@@ -409,6 +414,7 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
           'ownerName': firebaseUser.displayName ?? '',
           'email': firebaseUser.email,
           'phone': '',
+          'appType': 'hotels',
           'isShopSetupComplete': true,
           'createdAt': FieldValue.serverTimestamp(),
           'limits': {

@@ -255,7 +255,7 @@ class AuthLayout extends StatelessWidget {
                                 Text(
                                   isAdminMode
                                       ? 'Manage users, subscriptions, and analytics'
-                                      : 'भारत का सबसे आसान बिलिंग ऐप\nSimplest billing app for Indian businesses',
+                                      : 'भारत का सबसे स्मार्ट होटल मैनेजमेंट ऐप\nSmartest hotel management for Indian businesses',
                                   style: TextStyle(
                                     fontSize: 15,
                                     color: Colors.white.withValues(alpha: 0.9),
@@ -281,10 +281,10 @@ class AuthLayout extends StatelessWidget {
                                 _buildFeatureItem(
                                   isAdminMode
                                       ? Icons.security
-                                      : Icons.receipt_long,
+                                      : Icons.restaurant_menu,
                                   isAdminMode
                                       ? 'Secure Access'
-                                      : 'GST Ready Invoices',
+                                      : 'Table & Order Management',
                                 ),
                               ],
                             ),

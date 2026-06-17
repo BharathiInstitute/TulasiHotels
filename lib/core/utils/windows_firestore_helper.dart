@@ -81,6 +81,7 @@ Stream<QuerySnapshot<Map<String, dynamic>>> _pollQuery(
     onCancel: () {
       isClosed = true;
       timer?.cancel();
+      controller.close();
     },
   );
 
@@ -124,6 +125,7 @@ Stream<DocumentSnapshot<Map<String, dynamic>>> _pollDocument(
     onCancel: () {
       isClosed = true;
       timer?.cancel();
+      controller.close();
     },
   );
 
