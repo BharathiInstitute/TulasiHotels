@@ -5,6 +5,8 @@
             "name": "tulasihotels (Flutter Chrome)",
             "request": "launch",
             "type": "dart",
+            "program": "lib/main.dart",
+            "cwd": "${workspaceFolder}",
             "flutterMode": "debug",
             "deviceId": "chrome"
         },
@@ -12,6 +14,8 @@
             "name": "tulasihotels (Flutter moto g45 5G)",
             "request": "launch",
             "type": "dart",
+            "program": "lib/main.dart",
+            "cwd": "${workspaceFolder}",
             "flutterMode": "debug"
         }
     ]
