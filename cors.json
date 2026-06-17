@@ -1,6 +1,6 @@
 [
   {
-    "origin": ["https://login1-aa21c.web.app", "https://login1-aa21c.firebaseapp.com", "https://liteapp.in"],
+    "origin": ["https://login1-aa21c.web.app", "https://login1-aa21c.firebaseapp.com", "https://liteapp.in", "http://localhost:7357", "http://localhost"],
     "method": ["GET", "HEAD", "PUT", "POST"],
     "maxAgeSeconds": 3600,
     "responseHeader": ["Content-Type", "Authorization", "Content-Length", "User-Agent", "x-goog-resumable"]

@@ -27,6 +27,7 @@ import 'package:tulasihotels/features/referral/services/referral_service.dart';
 import 'package:tulasihotels/main.dart' show appVersion, appBuildNumber;
 import 'package:tulasihotels/router/app_router.dart';
 import 'package:tulasihotels/shared/widgets/shop_logo_widget.dart';
+import 'package:tulasihotels/shared/widgets/web_safe_image.dart';
 
 /// Settings tab enum
 enum SettingsTab { general, account, hardware, billing }
@@ -167,6 +168,15 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
           );
         }
       }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Logo upload failed: $e'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
     } finally {
       if (mounted) setState(() => _isUploadingLogo = false);
     }
@@ -192,6 +202,15 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
             ),
           );
         }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Profile image upload failed: $e'),
+            backgroundColor: AppColors.error,
+          ),
+        );
       }
     } finally {
       if (mounted) setState(() => _isUploadingProfileImage = false);
@@ -517,9 +536,19 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
       );
     }
     if (logoPath != null && logoPath.isNotEmpty) {
-      // If it's a URL (Firebase Storage), use Image.network
+      // If it's a URL (Firebase Storage)
       if (logoPath.startsWith('http')) {
-        // Add cache-buster to force reload after upload
+        if (kIsWeb) {
+          return WebSafeImage(
+            url: logoPath,
+            width: 64,
+            height: 64,
+            fit: BoxFit.cover,
+            errorWidget:
+                const Icon(Icons.hotel, size: 28, color: Colors.grey),
+          );
+        }
+        // Add cache-buster for non-web (CachedNetworkImage)
         final separator = logoPath.contains('?') ? '&' : '?';
         final cacheBustedUrl =
             '$logoPath${separator}t=${DateTime.now().millisecondsSinceEpoch}';
@@ -580,6 +609,21 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
     }
 
     if (imagePath.startsWith('http')) {
+      if (kIsWeb) {
+        return ClipOval(
+          child: WebSafeImage(
+            url: imagePath,
+            width: radius * 2,
+            height: radius * 2,
+            fit: BoxFit.cover,
+            errorWidget: CircleAvatar(
+              radius: radius,
+              backgroundColor: Theme.of(context).dividerColor,
+              child: Icon(Icons.person, size: radius, color: Colors.grey),
+            ),
+          ),
+        );
+      }
       return CircleAvatar(
         radius: radius,
         backgroundImage: NetworkImage(imagePath),

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:tulasihotels/core/constants/app_constants.dart';
 import 'package:tulasihotels/features/notifications/providers/notification_provider.dart';
@@ -13,6 +14,7 @@ import 'package:tulasihotels/features/staff/providers/staff_provider.dart';
 import 'package:tulasihotels/features/staff/services/staff_permissions.dart';
 import 'package:tulasihotels/router/app_router.dart';
 import 'package:tulasihotels/shared/widgets/shop_logo_widget.dart';
+import 'package:tulasihotels/shared/widgets/web_safe_image.dart';
 import 'package:tulasihotels/shared/widgets/offline_banner.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -123,6 +125,21 @@ class _WebSidebar extends ConsumerWidget {
     }
 
     if (logoPath.startsWith('http')) {
+      if (kIsWeb) {
+        return ClipOval(
+          child: WebSafeImage(
+            url: logoPath,
+            width: radius * 2,
+            height: radius * 2,
+            fit: BoxFit.cover,
+            errorWidget: CircleAvatar(
+              radius: radius,
+              backgroundColor: isSelected ? AppColors.primary : Colors.grey,
+              child: Icon(Icons.person, size: radius, color: Colors.white),
+            ),
+          ),
+        );
+      }
       return CircleAvatar(
         radius: radius,
         backgroundImage: NetworkImage(logoPath),

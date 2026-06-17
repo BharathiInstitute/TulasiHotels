@@ -217,6 +217,22 @@ class OrderService {
     });
   }
 
+  /// Mark all items in an order as served and set order status to served
+  static Future<void> markAllItemsServed(String orderId) async {
+    final order = await getOrder(orderId);
+    if (order == null) return;
+
+    final updatedItems = order.items
+        .map((item) => item.copyWith(status: OrderItemStatus.served))
+        .toList();
+
+    await _ordersRef.doc(orderId).update({
+      'items': updatedItems.map((e) => e.toMap()).toList(),
+      'status': OrderStatus.served.name,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
   /// Complete an order (transition to billed) and free the table
   static Future<void> completeOrder(String orderId) async {
     final order = await getOrder(orderId);

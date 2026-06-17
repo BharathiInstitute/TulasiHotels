@@ -437,6 +437,15 @@ final routerProvider = Provider<GoRouter>((ref) {
                 const NoTransitionPage(child: OrdersScreen()),
           ),
           GoRoute(
+            path: AppRoutes.newOrder,
+            builder: (context, state) {
+              final tableId = state.uri.queryParameters['tableId'];
+              final tableName = state.uri.queryParameters['tableName'];
+              return NewOrderScreen(
+                  tableId: tableId, tableName: tableName);
+            },
+          ),
+          GoRoute(
             path: AppRoutes.kitchen,
             pageBuilder: (context, state) =>
                 const NoTransitionPage(child: KitchenDisplayScreen()),
@@ -564,6 +573,35 @@ final routerProvider = Provider<GoRouter>((ref) {
             pageBuilder: (context, state) =>
                 const NoTransitionPage(child: ComplaintsScreen()),
           ),
+          GoRoute(
+            path: AppRoutes.orderDetail,
+            builder: (context, state) {
+              final orderId = state.pathParameters['id']!;
+              return OrderDetailScreen(orderId: orderId);
+            },
+          ),
+          GoRoute(
+            path: AppRoutes.orderBilling,
+            builder: (context, state) {
+              final orderId = state.pathParameters['id']!;
+              return OrderBillingScreen(orderId: orderId);
+            },
+          ),
+          GoRoute(
+            path: AppRoutes.notifications,
+            builder: (context, state) => const NotificationsScreen(),
+          ),
+          GoRoute(
+            path: AppRoutes.support,
+            builder: (context, state) => const MyTicketsScreen(),
+          ),
+          GoRoute(
+            path: AppRoutes.supportChat,
+            builder: (context, state) {
+              final ticketId = state.pathParameters['id']!;
+              return TicketChatScreen(ticketId: ticketId);
+            },
+          ),
         ],
       ),
 
@@ -574,28 +612,6 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
 
       // Hotel feature routes (outside shell)
-      GoRoute(
-        path: AppRoutes.newOrder,
-        builder: (context, state) {
-          final tableId = state.uri.queryParameters['tableId'];
-          final tableName = state.uri.queryParameters['tableName'];
-          return NewOrderScreen(tableId: tableId, tableName: tableName);
-        },
-      ),
-      GoRoute(
-        path: AppRoutes.orderDetail,
-        builder: (context, state) {
-          final orderId = state.pathParameters['id']!;
-          return OrderDetailScreen(orderId: orderId);
-        },
-      ),
-      GoRoute(
-        path: AppRoutes.orderBilling,
-        builder: (context, state) {
-          final orderId = state.pathParameters['id']!;
-          return OrderBillingScreen(orderId: orderId);
-        },
-      ),
       GoRoute(
         path: AppRoutes.splitBill,
         builder: (context, state) {
@@ -716,25 +732,6 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.subscription,
         builder: (context, state) => const SubscriptionScreen(),
-      ),
-
-      // User support tickets
-      GoRoute(
-        path: AppRoutes.support,
-        builder: (context, state) => const MyTicketsScreen(),
-      ),
-      GoRoute(
-        path: AppRoutes.supportChat,
-        builder: (context, state) {
-          final ticketId = state.pathParameters['id']!;
-          return TicketChatScreen(ticketId: ticketId);
-        },
-      ),
-
-      // User notifications inbox (outside main shell)
-      GoRoute(
-        path: AppRoutes.notifications,
-        builder: (context, state) => const NotificationsScreen(),
       ),
 
       // Super Admin login (outside shell)
