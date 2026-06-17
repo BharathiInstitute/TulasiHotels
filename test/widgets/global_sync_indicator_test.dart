@@ -43,7 +43,7 @@ void main() {
 
     testWidgets('shows cloud_upload when online with unsynced items',
         (tester) async {
-      final status = GlobalSyncStatus(
+      const status = GlobalSyncStatus(
         collections: {
           'bills': CollectionSyncStatus(
             name: 'bills',
@@ -61,7 +61,7 @@ void main() {
     });
 
     testWidgets('shows badge count for unsynced items', (tester) async {
-      final status = GlobalSyncStatus(
+      const status = GlobalSyncStatus(
         collections: {
           'bills': CollectionSyncStatus(
             name: 'bills',
@@ -80,7 +80,7 @@ void main() {
 
     testWidgets('shows 9+ badge when unsynced count exceeds 9',
         (tester) async {
-      final status = GlobalSyncStatus(
+      const status = GlobalSyncStatus(
         collections: {
           'bills': CollectionSyncStatus(
             name: 'bills',
@@ -98,12 +98,11 @@ void main() {
     });
 
     testWidgets('no badge when all items synced', (tester) async {
-      final status = GlobalSyncStatus(
+      const status = GlobalSyncStatus(
         collections: {
           'bills': CollectionSyncStatus(
             name: 'bills',
             totalDocs: 10,
-            unsyncedDocs: 0,
           ),
         },
         isOnline: true,

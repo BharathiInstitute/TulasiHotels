@@ -10,13 +10,13 @@ import '../../helpers/test_factories_extended.dart';
 
 void main() {
   group('TablesScreen', () {
-    List<Override> _overrides({List<TableModel> tables = const []}) => [
+    List<Override> overrides({List<TableModel> tables = const []}) => [
       tablesStreamProvider.overrideWith((_) => Stream.value(tables)),
       selectedFloorProvider.overrideWith((ref) => null),
     ];
 
     testWidgets('shows AppBar title', (tester) async {
-      await pumpWidget(tester, const TablesScreen(), overrides: _overrides());
+      await pumpWidget(tester, const TablesScreen(), overrides: overrides());
       expect(find.text('Tables'), findsOneWidget);
     });
 
@@ -28,20 +28,20 @@ void main() {
       await pumpWidget(
         tester,
         const TablesScreen(),
-        overrides: _overrides(tables: tables),
+        overrides: overrides(tables: tables),
       );
       expect(find.text('Table 1'), findsOneWidget);
       expect(find.text('Table 2'), findsOneWidget);
     });
 
     testWidgets('shows add table button in AppBar', (tester) async {
-      await pumpWidget(tester, const TablesScreen(), overrides: _overrides());
+      await pumpWidget(tester, const TablesScreen(), overrides: overrides());
       expect(find.byIcon(Icons.add), findsWidgets);
     });
 
     testWidgets('shows status summary bar', (tester) async {
       final tables = [
-        makeTable(label: 'T1', floor: 1, status: TableStatus.available),
+        makeTable(label: 'T1', floor: 1),
         makeTable(
           id: 't2',
           label: 'T2',
@@ -52,7 +52,7 @@ void main() {
       await pumpWidget(
         tester,
         const TablesScreen(),
-        overrides: _overrides(tables: tables),
+        overrides: overrides(tables: tables),
       );
       // Status chips should be visible
       expect(find.textContaining('Available'), findsWidgets);
@@ -73,7 +73,7 @@ void main() {
     });
 
     testWidgets('shows empty state when no tables', (tester) async {
-      await pumpWidget(tester, const TablesScreen(), overrides: _overrides());
+      await pumpWidget(tester, const TablesScreen(), overrides: overrides());
       expect(find.textContaining('Add Tables'), findsOneWidget);
     });
   });

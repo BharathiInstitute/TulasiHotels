@@ -16,10 +16,7 @@ void main() {
     setUp(() {
       bills = [
         makeBill(
-          id: 'bill-1',
-          billNumber: 1,
           total: 500,
-          paymentMethod: PaymentMethod.cash,
           date: '2026-03-01',
         ),
         makeBill(
@@ -33,7 +30,6 @@ void main() {
           id: 'bill-3',
           billNumber: 3,
           total: 1200,
-          paymentMethod: PaymentMethod.cash,
           date: '2026-03-01',
         ),
         makeBill(

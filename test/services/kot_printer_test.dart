@@ -78,7 +78,7 @@ void main() {
       final order = makeOrder(
         items: [
           makeOrderItem(name: 'Idli', quantity: 3),
-          makeOrderItem(name: 'Vada', quantity: 1, productId: 'p2'),
+          makeOrderItem(name: 'Vada', productId: 'p2'),
         ],
       );
       final bytes = KotPrinter.buildKOT(order: order);

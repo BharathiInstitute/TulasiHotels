@@ -27,12 +27,12 @@ void main() {
     });
 
     test('waiter can access tables', () {
-      final staff = makeStaff(role: StaffRole.waiter);
+      final staff = makeStaff();
       expect(StaffPermissions.canAccess(staff, AppRoutes.tables), isTrue);
     });
 
     test('waiter cannot access billing', () {
-      final staff = makeStaff(role: StaffRole.waiter);
+      final staff = makeStaff();
       expect(StaffPermissions.canAccess(staff, AppRoutes.billing), isFalse);
     });
 
@@ -52,12 +52,12 @@ void main() {
     });
 
     test('child route resolves to parent — order detail inherits orders', () {
-      final staff = makeStaff(role: StaffRole.waiter);
+      final staff = makeStaff();
       expect(StaffPermissions.canAccess(staff, AppRoutes.orderDetail), isTrue);
     });
 
     test('unknown route returns false', () {
-      final staff = makeStaff(role: StaffRole.waiter);
+      final staff = makeStaff();
       expect(StaffPermissions.canAccess(staff, '/unknown-route'), isFalse);
     });
   });
@@ -76,7 +76,7 @@ void main() {
     });
 
     test('waiter has create on orders', () {
-      final staff = makeStaff(role: StaffRole.waiter);
+      final staff = makeStaff();
       expect(
         StaffPermissions.hasAction(
           staff,
@@ -88,7 +88,7 @@ void main() {
     });
 
     test('waiter does not have delete on orders', () {
-      final staff = makeStaff(role: StaffRole.waiter);
+      final staff = makeStaff();
       expect(
         StaffPermissions.hasAction(
           staff,
@@ -112,7 +112,7 @@ void main() {
     });
 
     test('returns false for route without access', () {
-      final staff = makeStaff(role: StaffRole.waiter);
+      final staff = makeStaff();
       expect(
         StaffPermissions.hasAction(
           staff,
@@ -126,7 +126,7 @@ void main() {
 
   group('permittedRoutes', () {
     test('waiter gets expected routes', () {
-      final staff = makeStaff(role: StaffRole.waiter);
+      final staff = makeStaff();
       final routes = StaffPermissions.permittedRoutes(staff);
       expect(routes, contains(AppRoutes.tables));
       expect(routes, contains(AppRoutes.orders));
@@ -180,7 +180,7 @@ void main() {
     });
 
     test('waiter → tables', () {
-      final staff = makeStaff(role: StaffRole.waiter);
+      final staff = makeStaff();
       expect(StaffPermissions.homeRoute(staff), AppRoutes.tables);
     });
 
@@ -192,7 +192,6 @@ void main() {
     test('falls back when preferred route removed by custom perms', () {
       // Waiter whose tables permission is removed
       final staff = makeStaff(
-        role: StaffRole.waiter,
         permissions: {
           AppRoutes.orders: ['view', 'create'],
           AppRoutes.attendance: ['view'],
@@ -218,7 +217,7 @@ void main() {
     });
 
     test('waiter sees limited nav items', () {
-      final staff = makeStaff(role: StaffRole.waiter);
+      final staff = makeStaff();
       final indices = StaffPermissions.visibleNavIndices(staff);
       expect(indices, contains(5)); // tables
       expect(indices, contains(6)); // orders
@@ -246,7 +245,7 @@ void main() {
     });
 
     test('delegates to canAccess for non-null staff', () {
-      final staff = makeStaff(role: StaffRole.waiter);
+      final staff = makeStaff();
       expect(StaffPermissions.canViewRoute(staff, AppRoutes.tables), isTrue);
       expect(StaffPermissions.canViewRoute(staff, AppRoutes.billing), isFalse);
     });
@@ -255,7 +254,6 @@ void main() {
   group('custom permissions override role defaults', () {
     test('waiter with custom billing access', () {
       final staff = makeStaff(
-        role: StaffRole.waiter,
         permissions: {
           AppRoutes.billing: ['view', 'create'],
           AppRoutes.tables: ['view'],

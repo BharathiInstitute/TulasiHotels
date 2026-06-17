@@ -41,7 +41,7 @@ void main() {
         makeStaff(id: 's2', name: 'Sunita Devi'),
       ];
       final attendance = [
-        makeAttendance(staffId: 'staff-1', staffName: 'Ravi Kumar'),
+        makeAttendance(staffName: 'Ravi Kumar'),
       ];
       await pumpWidget(
         tester,

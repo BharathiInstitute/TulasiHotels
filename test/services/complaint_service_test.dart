@@ -22,7 +22,6 @@ void main() {
         id: 'comp-100',
         category: ComplaintCategory.food,
         description: 'Hair in food',
-        status: ComplaintStatus.open,
         customerName: 'Ravi',
       );
 
@@ -83,7 +82,7 @@ void main() {
 
   group('active complaints query', () {
     test('filters only open and inProgress complaints', () async {
-      final open = makeComplaint(id: 'c1', status: ComplaintStatus.open);
+      final open = makeComplaint(id: 'c1');
       final investigating =
           makeComplaint(id: 'c2', status: ComplaintStatus.investigating);
       final resolved =

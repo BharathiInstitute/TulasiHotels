@@ -20,7 +20,9 @@ import 'package:retaillite/models/bill_model.dart';
 import 'package:web/web.dart' as web;
 
 /// Standard Bluetooth Serial Port Profile UUID for printers
+// ignore: unused_element
 const _serialPortServiceUuid = '000018f0-0000-1000-8000-00805f9b34fb';
+// ignore: unused_element
 const _serialPortCharUuid = '00002af1-0000-1000-8000-00805f9b34fb';
 
 /// Alternative UUIDs used by various thermal printer brands

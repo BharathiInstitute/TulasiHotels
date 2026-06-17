@@ -36,11 +36,11 @@ void main() {
                       ],
                     ),
                     actions: [
-                      TextButton(onPressed: null, child: Text('Later')),
+                      const TextButton(onPressed: null, child: Text('Later')),
                       FilledButton.icon(
                         onPressed: null,
-                        icon: Icon(Icons.download, size: 18),
-                        label: Text('Update Now'),
+                        icon: const Icon(Icons.download, size: 18),
+                        label: const Text('Update Now'),
                       ),
                     ],
                   ),
@@ -105,7 +105,6 @@ void main() {
         buildNumber: 42,
         downloadUrl: 'https://example.com/update.exe',
         changelog: 'Bug fixes',
-        forceUpdate: false,
       );
       expect(info.version, '2.1.0');
       expect(info.buildNumber, 42);

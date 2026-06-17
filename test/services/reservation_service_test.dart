@@ -25,7 +25,7 @@ void main() {
         phone: '9999999999',
         partySize: 6,
         tableId: 'table-5',
-        dateTime: DateTime(2024, 12, 25, 19, 0),
+        dateTime: DateTime(2024, 12, 25, 19),
         specialRequests: 'Window seat',
       );
 
@@ -121,7 +121,7 @@ void main() {
 
   group('isTableAvailable', () {
     test('returns empty when no conflicting reservations', () async {
-      final dateTime = DateTime(2024, 12, 25, 19, 0);
+      final dateTime = DateTime(2024, 12, 25, 19);
       final start = dateTime.subtract(const Duration(minutes: 90));
       final end = dateTime.add(const Duration(minutes: 90));
 
@@ -149,7 +149,7 @@ void main() {
           .doc(res.id)
           .set(res.toFirestore());
 
-      final checkTime = DateTime(2024, 12, 25, 19, 0);
+      final checkTime = DateTime(2024, 12, 25, 19);
       final start = checkTime.subtract(const Duration(minutes: 90));
       final end = checkTime.add(const Duration(minutes: 90));
 
@@ -169,7 +169,7 @@ void main() {
       final res = makeReservation(
         id: 'r-cancelled',
         tableId: 'table-2',
-        dateTime: DateTime(2024, 12, 25, 19, 0),
+        dateTime: DateTime(2024, 12, 25, 19),
         status: ReservationStatus.cancelled,
       );
       await fakeFirestore
@@ -177,7 +177,7 @@ void main() {
           .doc(res.id)
           .set(res.toFirestore());
 
-      final checkTime = DateTime(2024, 12, 25, 19, 0);
+      final checkTime = DateTime(2024, 12, 25, 19);
       final start = checkTime.subtract(const Duration(minutes: 90));
       final end = checkTime.add(const Duration(minutes: 90));
 
@@ -234,11 +234,11 @@ void main() {
     test('reservations sort chronologically', () async {
       final r1 = makeReservation(
         id: 'r-late',
-        dateTime: DateTime(2024, 12, 25, 21, 0),
+        dateTime: DateTime(2024, 12, 25, 21),
       );
       final r2 = makeReservation(
         id: 'r-early',
-        dateTime: DateTime(2024, 12, 25, 18, 0),
+        dateTime: DateTime(2024, 12, 25, 18),
       );
       final r3 = makeReservation(
         id: 'r-mid',

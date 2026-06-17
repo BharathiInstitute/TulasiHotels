@@ -38,13 +38,13 @@ void main() {
     });
 
     test('hoursWorked returns 0 when still clocked in', () {
-      final m = makeAttendance(clockOut: null);
+      final m = makeAttendance();
       expect(m.hoursWorked, 0);
     });
 
     test('hoursWorked calculates correctly when clocked out', () {
       final m = makeAttendance(
-        clockIn: DateTime(2024, 1, 15, 9, 0),
+        clockIn: DateTime(2024, 1, 15, 9),
         clockOut: DateTime(2024, 1, 15, 17, 30),
       );
       expect(m.hoursWorked, 8.5);
@@ -52,7 +52,7 @@ void main() {
 
     test('hoursWorked for partial hour', () {
       final m = makeAttendance(
-        clockIn: DateTime(2024, 1, 15, 9, 0),
+        clockIn: DateTime(2024, 1, 15, 9),
         clockOut: DateTime(2024, 1, 15, 9, 45),
       );
       expect(m.hoursWorked, 0.75);
@@ -60,7 +60,7 @@ void main() {
 
     test('copyWith updates clockOut and status', () {
       final m = makeAttendance();
-      final out = DateTime(2024, 1, 15, 18, 0);
+      final out = DateTime(2024, 1, 15, 18);
       final updated = m.copyWith(
         clockOut: out,
         status: AttendanceStatus.clockedOut,
@@ -72,7 +72,7 @@ void main() {
     });
 
     test('copyWith preserves values when not overridden', () {
-      final m = makeAttendance(clockOut: DateTime(2024, 1, 15, 17, 0));
+      final m = makeAttendance(clockOut: DateTime(2024, 1, 15, 17));
       final updated = m.copyWith();
       expect(updated.clockOut, m.clockOut);
       expect(updated.status, m.status);
@@ -81,7 +81,7 @@ void main() {
     group('Firestore round-trip', () {
       test('toFirestore contains all fields', () {
         final m = makeAttendance(
-          clockOut: DateTime(2024, 1, 15, 17, 0),
+          clockOut: DateTime(2024, 1, 15, 17),
           status: AttendanceStatus.clockedOut,
         );
         final map = m.toFirestore();
@@ -100,7 +100,7 @@ void main() {
       test('fromFirestore round-trip with FakeFirestore', () async {
         final firestore = FakeFirebaseFirestore();
         final original = makeAttendance(
-          clockOut: DateTime(2024, 1, 15, 17, 0),
+          clockOut: DateTime(2024, 1, 15, 17),
           status: AttendanceStatus.clockedOut,
         );
         await firestore

@@ -39,7 +39,7 @@ AttendanceModel makeAttendance({
     staffId: staffId,
     staffName: staffName,
     date: date ?? DateTime(2024, 1, 15),
-    clockIn: clockIn ?? DateTime(2024, 1, 15, 9, 0),
+    clockIn: clockIn ?? DateTime(2024, 1, 15, 9),
     clockOut: clockOut,
     status: status,
   );
@@ -55,7 +55,7 @@ CashMovement makeCashMovement({
     amount: amount,
     reason: reason,
     isInflow: isInflow,
-    timestamp: timestamp ?? DateTime(2024, 1, 15, 10, 0),
+    timestamp: timestamp ?? DateTime(2024, 1, 15, 10),
   );
 }
 
@@ -75,7 +75,7 @@ CashRegisterModel makeCashRegister({
     id: id,
     staffId: staffId,
     staffName: staffName,
-    openedAt: openedAt ?? DateTime(2024, 1, 15, 8, 0),
+    openedAt: openedAt ?? DateTime(2024, 1, 15, 8),
     closedAt: closedAt,
     openingBalance: openingBalance,
     closingBalance: closingBalance,
@@ -194,7 +194,7 @@ ServiceRecord makeServiceRecord({
   String? vendorName,
 }) {
   return ServiceRecord(
-    date: date ?? DateTime(2024, 6, 1),
+    date: date ?? DateTime(2024, 6),
     description: description,
     cost: cost,
     vendorName: vendorName,
@@ -344,8 +344,8 @@ LicenseModel makeLicense({
     id: id,
     type: type,
     licenseNumber: licenseNumber,
-    issueDate: issueDate ?? DateTime(2024, 1, 1),
-    expiryDate: expiryDate ?? DateTime(2025, 1, 1),
+    issueDate: issueDate ?? DateTime(2024),
+    expiryDate: expiryDate ?? DateTime(2025),
     issuingAuthority: issuingAuthority,
     documentUrl: documentUrl,
     isActive: isActive,
@@ -504,7 +504,7 @@ ReservationModel makeReservation({
     guestName: guestName,
     phone: phone,
     partySize: partySize,
-    dateTime: dateTime ?? DateTime(2024, 12, 25, 19, 0),
+    dateTime: dateTime ?? DateTime(2024, 12, 25, 19),
     durationMinutes: durationMinutes,
     status: status,
     specialRequests: specialRequests,
@@ -534,8 +534,8 @@ ShiftModel makeShift({
     role: role,
     shiftType: shiftType,
     date: date ?? DateTime(2024, 1, 15),
-    startTime: startTime ?? DateTime(2024, 1, 15, 6, 0),
-    endTime: endTime ?? DateTime(2024, 1, 15, 14, 0),
+    startTime: startTime ?? DateTime(2024, 1, 15, 6),
+    endTime: endTime ?? DateTime(2024, 1, 15, 14),
     notes: notes,
     isSwapRequested: isSwapRequested,
     swapWithStaffId: swapWithStaffId,

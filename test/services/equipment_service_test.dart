@@ -170,7 +170,7 @@ void main() {
     test('multiple service records survive Firestore round-trip', () async {
       final records = [
         makeServiceRecord(description: 'Install', cost: 1000),
-        makeServiceRecord(description: 'Repair', cost: 500),
+        makeServiceRecord(description: 'Repair'),
       ];
       final equipment =
           makeEquipment(id: 'eq-hist', serviceHistory: records);

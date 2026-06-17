@@ -21,7 +21,6 @@ void main() {
       final coupon = makeCoupon(
         id: 'c-1',
         code: 'SAVE20',
-        type: CouponType.percentage,
         value: 20,
         minOrderAmount: 500,
         maxDiscount: 200,
@@ -59,7 +58,7 @@ void main() {
 
   group('validateCoupon logic', () {
     test('returns coupon when valid code, active, no constraints', () async {
-      final coupon = makeCoupon(id: 'v1', code: 'VALID', isActive: true);
+      final coupon = makeCoupon(id: 'v1', code: 'VALID');
       await fakeFirestore
           .collection(basePath)
           .doc(coupon.id)
@@ -136,8 +135,8 @@ void main() {
 
   group('activeCouponsStream query', () {
     test('filters only active coupons', () async {
-      final active1 = makeCoupon(id: 'a1', isActive: true);
-      final active2 = makeCoupon(id: 'a2', isActive: true);
+      final active1 = makeCoupon(id: 'a1');
+      final active2 = makeCoupon(id: 'a2');
       final inactive = makeCoupon(id: 'i1', isActive: false);
 
       for (final c in [active1, active2, inactive]) {
@@ -160,7 +159,7 @@ void main() {
 
   group('toggleActive', () {
     test('toggles coupon from active to inactive', () async {
-      final coupon = makeCoupon(id: 't1', isActive: true);
+      final coupon = makeCoupon(id: 't1');
       await fakeFirestore
           .collection(basePath)
           .doc(coupon.id)
@@ -180,11 +179,10 @@ void main() {
       final happy = makeCoupon(
         id: 'hh1',
         isHappyHour: true,
-        isActive: true,
         happyHourStart: 14,
         happyHourEnd: 17,
       );
-      final notHappy = makeCoupon(id: 'nh1', isHappyHour: false);
+      final notHappy = makeCoupon(id: 'nh1');
 
       for (final c in [happy, notHappy]) {
         await fakeFirestore
@@ -206,13 +204,12 @@ void main() {
 
   group('calculateDiscount', () {
     test('percentage discount calculates correctly', () {
-      final coupon = makeCoupon(type: CouponType.percentage, value: 10);
+      final coupon = makeCoupon();
       expect(coupon.calculateDiscount(1000), 100);
     });
 
     test('percentage discount respects maxDiscount cap', () {
       final coupon = makeCoupon(
-        type: CouponType.percentage,
         value: 20,
         maxDiscount: 150,
       );

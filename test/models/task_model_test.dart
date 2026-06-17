@@ -104,7 +104,7 @@ void main() {
           description: 'Count all items',
           assignedToName: 'Ravi',
           priority: TaskPriority.high,
-          dueDate: DateTime(2024, 2, 1),
+          dueDate: DateTime(2024, 2),
         );
         await firestore
             .collection('tasks')

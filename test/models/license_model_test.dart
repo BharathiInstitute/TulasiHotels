@@ -34,12 +34,12 @@ void main() {
     });
 
     test('isExpired true when past expiryDate', () {
-      final m = makeLicense(expiryDate: DateTime(2020, 1, 1));
+      final m = makeLicense(expiryDate: DateTime(2020));
       expect(m.isExpired, isTrue);
     });
 
     test('isExpired false when future expiryDate', () {
-      final m = makeLicense(expiryDate: DateTime(2099, 1, 1));
+      final m = makeLicense(expiryDate: DateTime(2099));
       expect(m.isExpired, isFalse);
     });
 
@@ -59,7 +59,7 @@ void main() {
 
     group('urgency', () {
       test('returns expired when past', () {
-        final m = makeLicense(expiryDate: DateTime(2020, 1, 1));
+        final m = makeLicense(expiryDate: DateTime(2020));
         expect(m.urgency, 'expired');
       });
 
@@ -105,10 +105,9 @@ void main() {
         final original = makeLicense(
           type: LicenseType.liquor,
           licenseNumber: 'LQ-999',
-          issueDate: DateTime(2023, 1, 1),
-          expiryDate: DateTime(2025, 1, 1),
+          issueDate: DateTime(2023),
+          expiryDate: DateTime(2025),
           issuingAuthority: 'Excise Dept',
-          isActive: true,
         );
         await firestore
             .collection('licenses')

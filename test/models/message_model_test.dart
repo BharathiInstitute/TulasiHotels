@@ -57,7 +57,6 @@ void main() {
           content: 'Meeting at 5pm',
           isBroadcast: true,
           targetRole: 'chef',
-          isRead: false,
         );
         await firestore
             .collection('messages')

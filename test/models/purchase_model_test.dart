@@ -8,14 +8,14 @@ import '../helpers/test_factories_extended.dart';
 void main() {
   group('PurchaseItem', () {
     test('total calculates quantity * unitCost', () {
-      final item = makePurchaseItem(quantity: 10, unitCost: 50);
+      final item = makePurchaseItem();
       expect(item.total, 500);
     });
 
     test('toMap serialises all fields', () {
       final item = makePurchaseItem(
         batchNumber: 'B001',
-        expiryDate: DateTime(2025, 6, 1),
+        expiryDate: DateTime(2025, 6),
       );
       final map = item.toMap();
       expect(map['ingredientId'], 'ing-1');

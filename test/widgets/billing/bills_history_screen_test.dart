@@ -46,7 +46,7 @@ void main() {
 
     testWidgets('shows bill data in list', (tester) async {
       final bills = [
-        makeBill(billNumber: 1, total: 500.0),
+        makeBill(total: 500.0),
         makeBill(id: 'b2', billNumber: 2, total: 1200.0),
       ];
       await tester.pumpWidget(

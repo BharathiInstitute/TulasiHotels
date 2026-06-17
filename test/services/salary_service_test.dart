@@ -22,18 +22,15 @@ void main() {
       // Record 1: complete (has clockOut)
       final a1 = makeAttendance(
         id: 'a1',
-        staffId: 'staff-1',
         date: DateTime(2024, 1, 10),
-        clockIn: DateTime(2024, 1, 10, 9, 0),
-        clockOut: DateTime(2024, 1, 10, 17, 0),
+        clockIn: DateTime(2024, 1, 10, 9),
+        clockOut: DateTime(2024, 1, 10, 17),
       );
       // Record 2: incomplete (no clockOut)
       final a2 = makeAttendance(
         id: 'a2',
-        staffId: 'staff-1',
         date: DateTime(2024, 1, 11),
-        clockIn: DateTime(2024, 1, 11, 9, 0),
-        clockOut: null,
+        clockIn: DateTime(2024, 1, 11, 9),
       );
 
       for (final a in [a1, a2]) {
@@ -43,7 +40,7 @@ void main() {
             .set(a.toFirestore());
       }
 
-      final month = DateTime(2024, 1);
+      final month = DateTime(2024);
       final startOfMonth = DateTime(month.year, month.month);
       final endOfMonth =
           DateTime(month.year, month.month + 1, 0, 23, 59, 59);
@@ -68,8 +65,8 @@ void main() {
     test('overtime calculation: hours > 8 add to overtime', () {
       // 10h shift → 2h overtime
       final a = makeAttendance(
-        clockIn: DateTime(2024, 1, 10, 8, 0),
-        clockOut: DateTime(2024, 1, 10, 18, 0),
+        clockIn: DateTime(2024, 1, 10, 8),
+        clockOut: DateTime(2024, 1, 10, 18),
       );
       final hours = a.hoursWorked;
       expect(hours, 10.0);
@@ -79,8 +76,8 @@ void main() {
 
     test('no overtime for exactly 8 hours', () {
       final a = makeAttendance(
-        clockIn: DateTime(2024, 1, 10, 9, 0),
-        clockOut: DateTime(2024, 1, 10, 17, 0),
+        clockIn: DateTime(2024, 1, 10, 9),
+        clockOut: DateTime(2024, 1, 10, 17),
       );
       final hours = a.hoursWorked;
       expect(hours, 8.0);
@@ -89,7 +86,7 @@ void main() {
     });
 
     test('hoursWorked is 0 when clockOut is null', () {
-      final a = makeAttendance(clockOut: null);
+      final a = makeAttendance();
       expect(a.hoursWorked, 0.0);
     });
 
@@ -100,15 +97,15 @@ void main() {
       const deductions = 1000.0;
       const advances = 2000.0;
 
-      final overtimePay = overtimeHours * overtimeRate;
-      final netSalary = baseSalary + overtimePay - deductions - advances;
+      const overtimePay = overtimeHours * overtimeRate;
+      const netSalary = baseSalary + overtimePay - deductions - advances;
 
       expect(overtimePay, 1000.0);
       expect(netSalary, 18000.0);
     });
 
     test('endOfMonth calculation for January', () {
-      final month = DateTime(2024, 1); // January 2024
+      final month = DateTime(2024); // January 2024
       final endOfMonth =
           DateTime(month.year, month.month + 1, 0, 23, 59, 59);
       expect(endOfMonth.day, 31);
@@ -135,26 +132,24 @@ void main() {
       // Staff-1 in January
       final a1 = makeAttendance(
         id: 'jan-1',
-        staffId: 'staff-1',
         date: DateTime(2024, 1, 5),
-        clockIn: DateTime(2024, 1, 5, 9, 0),
-        clockOut: DateTime(2024, 1, 5, 17, 0),
+        clockIn: DateTime(2024, 1, 5, 9),
+        clockOut: DateTime(2024, 1, 5, 17),
       );
       // Staff-1 in February (should not appear)
       final a2 = makeAttendance(
         id: 'feb-1',
-        staffId: 'staff-1',
         date: DateTime(2024, 2, 5),
-        clockIn: DateTime(2024, 2, 5, 9, 0),
-        clockOut: DateTime(2024, 2, 5, 17, 0),
+        clockIn: DateTime(2024, 2, 5, 9),
+        clockOut: DateTime(2024, 2, 5, 17),
       );
       // Staff-2 in January (should not appear)
       final a3 = makeAttendance(
         id: 'jan-s2',
         staffId: 'staff-2',
         date: DateTime(2024, 1, 10),
-        clockIn: DateTime(2024, 1, 10, 9, 0),
-        clockOut: DateTime(2024, 1, 10, 17, 0),
+        clockIn: DateTime(2024, 1, 10, 9),
+        clockOut: DateTime(2024, 1, 10, 17),
       );
 
       for (final a in [a1, a2, a3]) {
@@ -164,7 +159,7 @@ void main() {
             .set(a.toFirestore());
       }
 
-      final startOfMonth = DateTime(2024, 1);
+      final startOfMonth = DateTime(2024);
       final endOfMonth = DateTime(2024, 2, 0, 23, 59, 59);
 
       final snapshot = await fakeFirestore

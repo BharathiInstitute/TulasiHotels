@@ -126,7 +126,7 @@ void main() {
 
   group('Route Guard: Staff permission redirect simulation', () {
     test('unauthenticated staff → redirected from restricted routes', () {
-      final waiter = makeStaff(role: StaffRole.waiter, pin: '1234');
+      final waiter = makeStaff();
 
       // Waiter tries to access billing → blocked
       final canAccessBilling = StaffPermissions.canAccess(
@@ -140,7 +140,7 @@ void main() {
 
     test('staff can always access attendance routes', () {
       // The router has special bypass for attendance routes
-      final waiter = makeStaff(role: StaffRole.waiter, pin: '1234');
+      final waiter = makeStaff();
       expect(StaffPermissions.canAccess(waiter, AppRoutes.attendance), isTrue);
       expect(
         StaffPermissions.canAccess(waiter, AppRoutes.myAttendance),

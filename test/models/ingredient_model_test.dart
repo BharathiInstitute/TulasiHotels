@@ -34,17 +34,17 @@ void main() {
     });
 
     test('isLowStock true when at minLevel', () {
-      final m = makeIngredient(currentStock: 10, minLevel: 10);
+      final m = makeIngredient(currentStock: 10);
       expect(m.isLowStock, isTrue);
     });
 
     test('isLowStock true when below minLevel', () {
-      final m = makeIngredient(currentStock: 5, minLevel: 10);
+      final m = makeIngredient(currentStock: 5);
       expect(m.isLowStock, isTrue);
     });
 
     test('isLowStock false when above minLevel', () {
-      final m = makeIngredient(currentStock: 100, minLevel: 10);
+      final m = makeIngredient();
       expect(m.isLowStock, isFalse);
     });
 
@@ -88,7 +88,7 @@ void main() {
         final m = makeIngredient(
           vendorId: 'v1',
           vendorName: 'Vendor A',
-          expiryDate: DateTime(2025, 6, 1),
+          expiryDate: DateTime(2025, 6),
           batchNumber: 'B001',
           maxLevel: 500,
         );
@@ -112,7 +112,7 @@ void main() {
           costPerUnit: 40,
           vendorId: 'v1',
           vendorName: 'Sweet Vendor',
-          expiryDate: DateTime(2025, 12, 1),
+          expiryDate: DateTime(2025, 12),
           batchNumber: 'B002',
         );
         await firestore

@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tulasihotels/features/reservations/providers/reservation_provider.dart';
 import 'package:tulasihotels/features/reservations/screens/reservations_screen.dart';
-import 'package:tulasihotels/models/reservation_model.dart';
+
 
 import '../../helpers/pump_app.dart';
 import '../../helpers/test_factories_extended.dart';
@@ -50,7 +50,7 @@ void main() {
     });
 
     testWidgets('shows party size in subtitle', (tester) async {
-      final items = [makeReservation(guestName: 'Test Guest', partySize: 6)];
+      final items = [makeReservation(partySize: 6)];
       await pumpWidget(
         tester,
         const ReservationsScreen(),
@@ -65,7 +65,6 @@ void main() {
       final items = [
         makeReservation(
           guestName: 'Pending Guest',
-          status: ReservationStatus.pending,
         ),
       ];
       await pumpWidget(

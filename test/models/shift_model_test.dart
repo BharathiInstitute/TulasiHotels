@@ -28,15 +28,15 @@ void main() {
 
     test('duration calculates correctly', () {
       final m = makeShift(
-        startTime: DateTime(2024, 1, 15, 6, 0),
-        endTime: DateTime(2024, 1, 15, 14, 0),
+        startTime: DateTime(2024, 1, 15, 6),
+        endTime: DateTime(2024, 1, 15, 14),
       );
       expect(m.duration, const Duration(hours: 8));
     });
 
     test('duration for partial shift', () {
       final m = makeShift(
-        startTime: DateTime(2024, 1, 15, 9, 0),
+        startTime: DateTime(2024, 1, 15, 9),
         endTime: DateTime(2024, 1, 15, 13, 30),
       );
       expect(m.duration, const Duration(hours: 4, minutes: 30));
@@ -93,7 +93,6 @@ void main() {
         final original = makeShift(
           staffName: 'Ravi',
           role: StaffRole.chef,
-          shiftType: ShiftType.morning,
           notes: 'Prep shift',
         );
         await firestore

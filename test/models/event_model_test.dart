@@ -38,12 +38,12 @@ void main() {
     });
 
     test('balanceDue calculates correctly', () {
-      final m = makeEvent(totalAmount: 25000, advancePaid: 5000);
+      final m = makeEvent();
       expect(m.balanceDue, 20000);
     });
 
     test('balanceDue is zero when fully paid', () {
-      final m = makeEvent(totalAmount: 25000, advancePaid: 25000);
+      final m = makeEvent(advancePaid: 25000);
       expect(m.balanceDue, 0);
     });
 
@@ -55,7 +55,7 @@ void main() {
     });
 
     test('isUpcoming false for past event', () {
-      final m = makeEvent(eventDate: DateTime(2020, 1, 1));
+      final m = makeEvent(eventDate: DateTime(2020));
       expect(m.isUpcoming, isFalse);
     });
 

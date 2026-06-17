@@ -21,9 +21,7 @@ void main() {
       final ingredient = makeIngredient(
         id: 'ing-100',
         name: 'Rice',
-        unit: IngredientUnit.kg,
         currentStock: 50,
-        minLevel: 10,
         costPerUnit: 60,
       );
 
@@ -123,19 +121,16 @@ void main() {
         id: 'low',
         name: 'Salt',
         currentStock: 5,
-        minLevel: 10,
       );
       final ok = makeIngredient(
         id: 'ok',
         name: 'Sugar',
         currentStock: 50,
-        minLevel: 10,
       );
       final atLevel = makeIngredient(
         id: 'at',
         name: 'Pepper',
         currentStock: 10,
-        minLevel: 10,
       );
 
       for (final i in [low, ok, atLevel]) {

@@ -38,7 +38,7 @@ void main() {
 
     testWidgets('highlights low stock items', (tester) async {
       final items = [
-        makeIngredient(name: 'Salt', currentStock: 2, minLevel: 10),
+        makeIngredient(name: 'Salt', currentStock: 2),
       ];
       await pumpWidget(tester, const IngredientsScreen(), overrides: [
         ingredientsProvider.overrideWith((_) => Stream.value(items)),

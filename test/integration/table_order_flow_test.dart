@@ -13,7 +13,7 @@ import '../helpers/test_factories_extended.dart';
 void main() {
   group('Integration: Table → Order → Kitchen → Billed', () {
     test('Step 1: New table is available', () {
-      final table = makeTable(number: 5, capacity: 4);
+      final table = makeTable(number: 5);
       expect(table.status, TableStatus.available);
       expect(table.isFree, isTrue);
       expect(table.hasActiveOrder, isFalse);
@@ -30,8 +30,6 @@ void main() {
         tableId: 'tbl-5',
         tableName: 'Table 5',
         items: items,
-        status: OrderStatus.placed,
-        orderType: OrderType.dineIn,
       );
       final table = makeTable(
         id: 'tbl-5',
@@ -59,7 +57,6 @@ void main() {
           name: 'Raita',
           price: 50,
           quantity: 2,
-          status: OrderItemStatus.pending,
         ),
       ];
       final order = makeOrder(
@@ -148,7 +145,6 @@ void main() {
       final table = makeTable(
         id: 'tbl-5',
         number: 5,
-        status: TableStatus.available,
       );
 
       expect(order.isActive, isFalse); // billed = no longer active
@@ -166,7 +162,6 @@ void main() {
       final table = makeTable(
         id: 'tbl-5',
         number: 5,
-        status: TableStatus.available,
       );
 
       expect(order.isActive, isFalse);
@@ -179,8 +174,6 @@ void main() {
       final item = makeOrderItem(
         name: 'Pizza',
         price: 350,
-        quantity: 1,
-        status: OrderItemStatus.pending,
       );
       expect(item.total, 350);
 
@@ -200,8 +193,8 @@ void main() {
 
     test('KOT number tracks item batches', () {
       final firstBatch = [
-        makeOrderItem(name: 'Biryani', price: 250, quantity: 1, kotNumber: 1),
-        makeOrderItem(name: 'Raita', price: 50, quantity: 1, kotNumber: 1),
+        makeOrderItem(name: 'Biryani', price: 250),
+        makeOrderItem(name: 'Raita', price: 50),
       ];
       final secondBatch = [
         makeOrderItem(
@@ -228,7 +221,7 @@ void main() {
         id: 'ord-4',
         isRush: true,
         isVip: true,
-        items: [makeOrderItem(name: 'Steak', price: 800, quantity: 1)],
+        items: [makeOrderItem(name: 'Steak', price: 800)],
       );
       expect(order.isRush, isTrue);
       expect(order.isVip, isTrue);
@@ -243,7 +236,6 @@ void main() {
     test('server assignment and clearing', () {
       final table = makeTable(
         id: 'tbl-1',
-        number: 1,
         assignedServerId: 'staff-1',
         assignedServerName: 'Raju',
       );

@@ -54,7 +54,7 @@ void main() {
 
     test('resolutionTime calculates correctly when resolved', () {
       final m = makeComplaint(
-        createdAt: DateTime(2024, 1, 15, 10, 0),
+        createdAt: DateTime(2024, 1, 15, 10),
         resolvedAt: DateTime(2024, 1, 15, 12, 30),
       );
       expect(m.resolutionTime, const Duration(hours: 2, minutes: 30));
@@ -65,7 +65,7 @@ void main() {
       final updated = m.copyWith(
         status: ComplaintStatus.resolved,
         resolution: 'Fixed',
-        resolvedAt: DateTime(2024, 1, 15, 14, 0),
+        resolvedAt: DateTime(2024, 1, 15, 14),
       );
       expect(updated.status, ComplaintStatus.resolved);
       expect(updated.resolution, 'Fixed');

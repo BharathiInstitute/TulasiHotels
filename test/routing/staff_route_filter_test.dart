@@ -17,7 +17,7 @@ void main() {
     late StaffModel waiter;
 
     setUp(() {
-      waiter = makeStaff(role: StaffRole.waiter, pin: '1234');
+      waiter = makeStaff();
     });
 
     test('waiter sees tables, orders, kitchen, attendance', () {
@@ -144,7 +144,7 @@ void main() {
     });
 
     test('manager has most routes of any role', () {
-      final waiter = makeStaff(role: StaffRole.waiter, pin: '1111');
+      final waiter = makeStaff(pin: '1111');
       final chef = makeStaff(role: StaffRole.chef, pin: '2222');
       final cashier = makeStaff(role: StaffRole.cashier, pin: '3333');
 
@@ -181,7 +181,6 @@ void main() {
     test('custom permissions override defaults', () {
       // Give a waiter billing access
       final customWaiter = makeStaff(
-        role: StaffRole.waiter,
         pin: '4444',
         permissions: {
           AppRoutes.billing: ['view', 'create'],
@@ -198,7 +197,6 @@ void main() {
 
     test('empty custom permissions give no access', () {
       final noAccess = makeStaff(
-        role: StaffRole.waiter,
         pin: '5555',
         permissions: {},
       );
@@ -210,7 +208,7 @@ void main() {
 
   group('Staff Route Filter: Nav indices', () {
     test('waiter visible nav indices include tables and orders', () {
-      final waiter = makeStaff(role: StaffRole.waiter, pin: '1234');
+      final waiter = makeStaff();
       final indices = StaffPermissions.visibleNavIndices(waiter);
       // Tables = index 5, Orders = index 6, Kitchen = index 7
       expect(indices, contains(5)); // tables
@@ -232,7 +230,7 @@ void main() {
     });
 
     test('nav indices are sorted', () {
-      final waiter = makeStaff(role: StaffRole.waiter, pin: '1234');
+      final waiter = makeStaff();
       final indices = StaffPermissions.visibleNavIndices(waiter);
       for (var i = 1; i < indices.length; i++) {
         expect(indices[i], greaterThanOrEqualTo(indices[i - 1]));
@@ -242,7 +240,7 @@ void main() {
 
   group('Staff Route Filter: CRUD actions', () {
     test('waiter cannot delete from tables', () {
-      final waiter = makeStaff(role: StaffRole.waiter, pin: '1234');
+      final waiter = makeStaff();
       expect(
         StaffPermissions.hasAction(
           waiter,

@@ -32,7 +32,7 @@ void main() {
       final container = ProviderContainer();
       addTearDown(container.dispose);
 
-      final past = DateTime(2024, 1, 1);
+      final past = DateTime(2024);
       container.read(reservationDateFilterProvider.notifier).state = past;
       expect(container.read(reservationDateFilterProvider), past);
     });

@@ -16,7 +16,6 @@ void main() {
     test('averageRating calculates correctly', () {
       final m = makeFeedback(
         foodRating: 5,
-        serviceRating: 4,
         ambianceRating: 3,
       );
       expect(m.averageRating, 4.0);
@@ -63,7 +62,6 @@ void main() {
           customerPhone: '9876543210',
           foodRating: 5,
           serviceRating: 3,
-          ambianceRating: 4,
           comments: 'Nice ambiance',
         );
         await firestore

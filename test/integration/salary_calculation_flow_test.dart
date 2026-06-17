@@ -14,11 +14,10 @@ void main() {
   group('Integration: Attendance → Salary Calculation', () {
     test('Step 1: Clock in records hours worked', () {
       final record = makeAttendance(
-        staffId: 'staff-1',
         staffName: 'Raju',
-        date: DateTime(2026, 3, 1),
-        clockIn: DateTime(2026, 3, 1, 9, 0),
-        clockOut: DateTime(2026, 3, 1, 17, 0),
+        date: DateTime(2026, 3),
+        clockIn: DateTime(2026, 3, 1, 9),
+        clockOut: DateTime(2026, 3, 1, 17),
       );
 
       expect(record.hoursWorked, 8.0);
@@ -26,11 +25,9 @@ void main() {
 
     test('Step 2: No clock-out means 0 hours', () {
       final record = makeAttendance(
-        staffId: 'staff-1',
         staffName: 'Raju',
-        date: DateTime(2026, 3, 1),
-        clockIn: DateTime(2026, 3, 1, 9, 0),
-        status: AttendanceStatus.clockedIn,
+        date: DateTime(2026, 3),
+        clockIn: DateTime(2026, 3, 1, 9),
         // no clockOut
       );
 
@@ -39,11 +36,10 @@ void main() {
 
     test('Step 3: Overtime is hours beyond 8', () {
       final record = makeAttendance(
-        staffId: 'staff-1',
         staffName: 'Raju',
         date: DateTime(2026, 3, 5),
-        clockIn: DateTime(2026, 3, 5, 8, 0),
-        clockOut: DateTime(2026, 3, 5, 19, 0), // 11 hours
+        clockIn: DateTime(2026, 3, 5, 8),
+        clockOut: DateTime(2026, 3, 5, 19), // 11 hours
       );
 
       final hours = record.hoursWorked;
@@ -55,22 +51,19 @@ void main() {
     test('Step 4: Monthly hours calculation from multiple records', () {
       final records = [
         makeAttendance(
-          staffId: 'staff-1',
-          date: DateTime(2026, 3, 1),
-          clockIn: DateTime(2026, 3, 1, 9, 0),
-          clockOut: DateTime(2026, 3, 1, 17, 0), // 8h
+          date: DateTime(2026, 3),
+          clockIn: DateTime(2026, 3, 1, 9),
+          clockOut: DateTime(2026, 3, 1, 17), // 8h
         ),
         makeAttendance(
-          staffId: 'staff-1',
           date: DateTime(2026, 3, 2),
-          clockIn: DateTime(2026, 3, 2, 9, 0),
-          clockOut: DateTime(2026, 3, 2, 20, 0), // 11h
+          clockIn: DateTime(2026, 3, 2, 9),
+          clockOut: DateTime(2026, 3, 2, 20), // 11h
         ),
         makeAttendance(
-          staffId: 'staff-1',
           date: DateTime(2026, 3, 3),
-          clockIn: DateTime(2026, 3, 3, 9, 0),
-          clockOut: DateTime(2026, 3, 3, 15, 0), // 6h (short day)
+          clockIn: DateTime(2026, 3, 3, 9),
+          clockOut: DateTime(2026, 3, 3, 15), // 6h (short day)
         ),
       ];
 
@@ -148,9 +141,8 @@ void main() {
 
     test('Step 7: Partial-hour tracking', () {
       final record = makeAttendance(
-        staffId: 'staff-1',
         date: DateTime(2026, 3, 10),
-        clockIn: DateTime(2026, 3, 10, 9, 0),
+        clockIn: DateTime(2026, 3, 10, 9),
         clockOut: DateTime(2026, 3, 10, 17, 30), // 8.5 hours
       );
 
@@ -161,9 +153,8 @@ void main() {
 
     test('Step 8: Absent records have no clock-out and zero hours', () {
       final absent = makeAttendance(
-        staffId: 'staff-1',
         date: DateTime(2026, 3, 15),
-        clockIn: DateTime(2026, 3, 15, 0, 0),
+        clockIn: DateTime(2026, 3, 15),
         status: AttendanceStatus.absent,
       );
 

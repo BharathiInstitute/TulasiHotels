@@ -20,7 +20,7 @@ void main() {
         'amount': 200.0,
         'reason': 'Payout',
         'isInflow': false,
-        'timestamp': Timestamp.fromDate(DateTime(2024, 3, 1)),
+        'timestamp': Timestamp.fromDate(DateTime(2024, 3)),
       };
       final m = CashMovement.fromMap(map);
       expect(m.amount, 200.0);
@@ -51,7 +51,7 @@ void main() {
     });
 
     test('isOpen returns false when closedAt is set', () {
-      final m = makeCashRegister(closedAt: DateTime(2024, 1, 15, 22, 0));
+      final m = makeCashRegister(closedAt: DateTime(2024, 1, 15, 22));
       expect(m.isOpen, isFalse);
     });
 
@@ -75,7 +75,7 @@ void main() {
       test('toFirestore serialises movements', () {
         final m = makeCashRegister(
           movements: [makeCashMovement()],
-          closedAt: DateTime(2024, 1, 15, 22, 0),
+          closedAt: DateTime(2024, 1, 15, 22),
         );
         final map = m.toFirestore();
         expect(map['staffId'], 'staff-1');
@@ -94,10 +94,9 @@ void main() {
         final firestore = FakeFirebaseFirestore();
         final original = makeCashRegister(
           movements: [makeCashMovement(amount: 300, reason: 'Sale')],
-          closedAt: DateTime(2024, 1, 15, 22, 0),
+          closedAt: DateTime(2024, 1, 15, 22),
           closingBalance: 1300,
           expectedBalance: 1300,
-          variance: 0,
         );
         await firestore
             .collection('registers')

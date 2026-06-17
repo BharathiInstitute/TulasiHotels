@@ -22,7 +22,6 @@ void main() {
       final wastage = makeWastage(
         id: 'w-1',
         ingredientName: 'Tomato',
-        quantity: 5,
         reason: WastageReason.expired,
         estimatedCost: 100,
       );
@@ -66,13 +65,11 @@ void main() {
       await fakeFirestore
           .collection('$basePath/ingredients')
           .doc('ing-1')
-          .set(makeIngredient(id: 'ing-1', currentStock: 50).toFirestore());
+          .set(makeIngredient(currentStock: 50).toFirestore());
 
       // Log wastage of 5 units
       final wastage = makeWastage(
         id: 'w-deduct',
-        ingredientId: 'ing-1',
-        quantity: 5,
       );
       await fakeFirestore
           .collection('$basePath/wastage')
@@ -97,17 +94,17 @@ void main() {
     test('returns wastage ordered by date descending', () async {
       final w1 = makeWastage(
         id: 'r1',
-        date: DateTime(2024, 1, 1),
+        date: DateTime(2024),
         ingredientName: 'First',
       );
       final w2 = makeWastage(
         id: 'r2',
-        date: DateTime(2024, 6, 1),
+        date: DateTime(2024, 6),
         ingredientName: 'Latest',
       );
       final w3 = makeWastage(
         id: 'r3',
-        date: DateTime(2024, 3, 1),
+        date: DateTime(2024, 3),
         ingredientName: 'Middle',
       );
 
@@ -139,12 +136,12 @@ void main() {
       );
       final before = makeWastage(
         id: 'before',
-        date: DateTime(2024, 5, 1),
+        date: DateTime(2024, 5),
         ingredientName: 'Before',
       );
       final after = makeWastage(
         id: 'after',
-        date: DateTime(2024, 8, 1),
+        date: DateTime(2024, 8),
         ingredientName: 'After',
       );
 
@@ -155,8 +152,8 @@ void main() {
             .set(w.toFirestore());
       }
 
-      final start = DateTime(2024, 6, 1);
-      final end = DateTime(2024, 7, 1);
+      final start = DateTime(2024, 6);
+      final end = DateTime(2024, 7);
       final snapshot = await fakeFirestore
           .collection('$basePath/wastage')
           .where('date', isGreaterThanOrEqualTo: Timestamp.fromDate(start))

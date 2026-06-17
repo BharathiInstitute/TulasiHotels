@@ -21,12 +21,10 @@ void main() {
     test('create — writes and reads back all fields', () async {
       final shift = makeShift(
         id: 'sh-1',
-        staffId: 'staff-1',
         staffName: 'Ravi',
-        shiftType: ShiftType.morning,
         date: DateTime(2024, 6, 15),
-        startTime: DateTime(2024, 6, 15, 6, 0),
-        endTime: DateTime(2024, 6, 15, 14, 0),
+        startTime: DateTime(2024, 6, 15, 6),
+        endTime: DateTime(2024, 6, 15, 14),
       );
 
       await fakeFirestore
@@ -94,7 +92,7 @@ void main() {
   group('weekShiftsStream', () {
     test('filters shifts within date range', () async {
       final inRange = makeShift(id: 'in', date: DateTime(2024, 6, 12));
-      final before = makeShift(id: 'before', date: DateTime(2024, 6, 1));
+      final before = makeShift(id: 'before', date: DateTime(2024, 6));
       final after = makeShift(id: 'after', date: DateTime(2024, 6, 25));
 
       for (final s in [inRange, before, after]) {
@@ -116,9 +114,9 @@ void main() {
 
   group('staffShiftsStream', () {
     test('filters shifts by staffId', () async {
-      final s1 = makeShift(id: 'ss-1', staffId: 'staff-1');
+      final s1 = makeShift(id: 'ss-1');
       final s2 = makeShift(id: 'ss-2', staffId: 'staff-2');
-      final s3 = makeShift(id: 'ss-3', staffId: 'staff-1');
+      final s3 = makeShift(id: 'ss-3');
 
       for (final s in [s1, s2, s3]) {
         await fakeFirestore.collection(basePath).doc(s.id).set(s.toFirestore());
@@ -226,8 +224,8 @@ void main() {
   group('duration computed getter', () {
     test('calculates duration from start to end time', () {
       final shift = makeShift(
-        startTime: DateTime(2024, 1, 15, 6, 0),
-        endTime: DateTime(2024, 1, 15, 14, 0),
+        startTime: DateTime(2024, 1, 15, 6),
+        endTime: DateTime(2024, 1, 15, 14),
       );
       expect(shift.duration, const Duration(hours: 8));
     });

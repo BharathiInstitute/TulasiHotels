@@ -1,6 +1,8 @@
 /// Store-side support tickets list screen
 library;
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -149,7 +151,7 @@ class MyTicketsScreen extends ConsumerWidget {
                 );
 
                 if (ticketId != null && context.mounted) {
-                  await context.push('/support/$ticketId');
+                  unawaited(context.push('/support/$ticketId'));
                 }
               },
               child: const Text('Submit'),

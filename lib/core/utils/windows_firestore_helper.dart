@@ -47,6 +47,7 @@ Stream<QuerySnapshot<Map<String, dynamic>>> _pollQuery(
   Query<Map<String, dynamic>> query,
   Duration interval,
 ) {
+  // ignore: close_sinks
   late StreamController<QuerySnapshot<Map<String, dynamic>>> controller;
   Timer? timer;
   bool isClosed = false;
@@ -93,6 +94,7 @@ Stream<DocumentSnapshot<Map<String, dynamic>>> _pollDocument(
   DocumentReference<Map<String, dynamic>> docRef,
   Duration interval,
 ) {
+  // ignore: close_sinks
   late StreamController<DocumentSnapshot<Map<String, dynamic>>> controller;
   Timer? timer;
   bool isClosed = false;

@@ -19,9 +19,7 @@ void main() {
   group('TaskService Firestore operations', () {
     test('create — writes and reads back all fields', () async {
       final task = makeTask(
-        id: 'task-1',
         title: 'Clean kitchen',
-        assignedToId: 'staff-1',
         assignedToName: 'Ravi',
         priority: TaskPriority.high,
       );
@@ -111,7 +109,7 @@ void main() {
 
   group('activeTasksStream query', () {
     test('filters pending and inProgress tasks', () async {
-      final pending = makeTask(id: 't1', status: TaskStatus.pending);
+      final pending = makeTask(id: 't1');
       final inProgress = makeTask(id: 't2', status: TaskStatus.inProgress);
       final completed = makeTask(id: 't3', status: TaskStatus.completed);
       for (final t in [pending, inProgress, completed]) {
@@ -131,7 +129,7 @@ void main() {
 
   group('staffTasksStream query', () {
     test('filters tasks by assignedToId', () async {
-      final staff1Task = makeTask(id: 's1t', assignedToId: 'staff-1');
+      final staff1Task = makeTask(id: 's1t');
       final staff2Task = makeTask(id: 's2t', assignedToId: 'staff-2');
 
       for (final t in [staff1Task, staff2Task]) {
@@ -153,7 +151,7 @@ void main() {
       final tasks = [
         makeTask(id: 't-low', priority: TaskPriority.low),
         makeTask(id: 't-high', priority: TaskPriority.high),
-        makeTask(id: 't-med', priority: TaskPriority.medium),
+        makeTask(id: 't-med'),
         makeTask(id: 't-high2', priority: TaskPriority.high),
       ];
 

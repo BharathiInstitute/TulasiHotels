@@ -51,7 +51,7 @@ void main() {
     });
 
     test('conversionRate is 0 when totalUsers is 0', () {
-      const stats = AdminStats(totalUsers: 0, proUsers: 5);
+      const stats = AdminStats(proUsers: 5);
       expect(stats.conversionRate, 0);
     });
 

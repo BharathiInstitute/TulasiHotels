@@ -61,9 +61,9 @@ void main() {
 
   group('filteredStaff derived logic', () {
     final staffList = [
-      makeStaff(id: 's1', name: 'Ravi Kumar', role: StaffRole.waiter, phone: '1111'),
+      makeStaff(id: 's1', name: 'Ravi Kumar', phone: '1111'),
       makeStaff(id: 's2', name: 'Amit Shah', role: StaffRole.chef, phone: '2222'),
-      makeStaff(id: 's3', name: 'Priya Sharma', role: StaffRole.waiter, phone: '3333'),
+      makeStaff(id: 's3', name: 'Priya Sharma', phone: '3333'),
       makeStaff(id: 's4', name: 'Kumar Patel', role: StaffRole.cashier, phone: '4444'),
       makeStaff(id: 's5', name: 'Deepa Nair', role: StaffRole.manager, phone: '5555'),
     ];

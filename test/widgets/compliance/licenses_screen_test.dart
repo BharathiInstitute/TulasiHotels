@@ -28,7 +28,6 @@ void main() {
     testWidgets('shows license number in list', (tester) async {
       final licenses = [
         makeLicense(
-          type: LicenseType.fssai,
           licenseNumber: 'FSSAI-9876',
         ),
       ];

@@ -17,7 +17,7 @@ void main() {
 
     test('fromMap deserialises correctly', () {
       final map = {
-        'date': Timestamp.fromDate(DateTime(2024, 3, 1)),
+        'date': Timestamp.fromDate(DateTime(2024, 3)),
         'description': 'Oil change',
         'cost': 200.0,
         'vendorName': 'Vendor A',
@@ -100,7 +100,7 @@ void main() {
         final original = makeEquipment(
           brand: 'Bosch',
           purchaseCost: 50000,
-          warrantyUntil: DateTime(2026, 1, 1),
+          warrantyUntil: DateTime(2026),
           serviceHistory: [
             makeServiceRecord(description: 'Filter check', cost: 300),
           ],
