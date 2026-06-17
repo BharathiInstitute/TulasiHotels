@@ -1188,6 +1188,41 @@ class _HardwareSettingsScreenState
     );
   }
 
+  Future<void> _editSerialPrinterName(BuildContext context) async {
+    final controller = TextEditingController(
+      text: WebSerialPrinterService.connectedPortName,
+    );
+    final result = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Printer Name'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: const InputDecoration(
+            hintText: 'Enter printer name',
+            border: OutlineInputBorder(),
+          ),
+          onSubmitted: (value) => Navigator.of(ctx).pop(value),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(controller.text),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+    if (result != null && result.trim().isNotEmpty && mounted) {
+      await WebSerialPrinterService.setCustomName(result);
+      setState(() {});
+    }
+  }
+
   // ─── Web Serial Section ───
   Widget _buildWebSerialSection(ThemeData theme) {
     final isConnected = WebSerialPrinterService.isConnected;
@@ -1212,9 +1247,24 @@ class _HardwareSettingsScreenState
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            isConnected ? portName : 'USB Serial Printer',
-                            style: const TextStyle(fontWeight: FontWeight.w600),
+                          GestureDetector(
+                            onTap: isConnected
+                                ? () => _editSerialPrinterName(context)
+                                : null,
+                            child: Row(
+                              children: [
+                                Flexible(
+                                  child: Text(
+                                    isConnected ? portName : 'USB Serial Printer',
+                                    style: const TextStyle(fontWeight: FontWeight.w600),
+                                  ),
+                                ),
+                                if (isConnected) ...[
+                                  const SizedBox(width: 4),
+                                  const Icon(Icons.edit, size: 14, color: AppColors.textMuted),
+                                ],
+                              ],
+                            ),
                           ),
                           Text(
                             isConnected

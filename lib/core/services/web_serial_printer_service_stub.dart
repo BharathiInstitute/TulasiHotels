@@ -18,6 +18,7 @@ class WebSerialPrinterService {
 
   static Future<bool> connect({int baudRate = 9600}) async => false;
   static void disconnect() {}
+  static Future<void> setCustomName(String name) async {}
   static Future<bool> sendBytes(List<int> bytes) async => false;
 
   static Future<bool> printReceipt({

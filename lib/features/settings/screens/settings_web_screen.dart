@@ -10,6 +10,7 @@ import 'package:go_router/go_router.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:tulasihotels/core/constants/app_constants.dart';
 import 'package:tulasihotels/core/services/cloud_function_helper.dart';
+import 'package:tulasihotels/core/services/thermal_printer_service.dart';
 import 'package:tulasihotels/core/services/web_bluetooth_printer_service.dart';
 import 'package:tulasihotels/core/services/web_serial_printer_service.dart';
 import 'package:tulasihotels/features/auth/providers/auth_provider.dart';
@@ -53,6 +54,10 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
   String _selectedCurrency = 'INR';
   String _selectedTimezone = 'Asia/Kolkata';
 
+  // Windows printer state
+  List<String> _availablePrinters = [];
+  bool _isLoadingPrinters = false;
+
   String _referralCode = '';
   int _referralCount = 0;
   UserSubscription _subscription = UserSubscription();
@@ -73,6 +78,7 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
     _upiController = TextEditingController(text: user?.upiId ?? '');
     _selectedCurrency = user?.currency ?? 'INR';
     _selectedTimezone = user?.timezone ?? 'Asia/Kolkata';
+    _loadAvailablePrinters();
     _termsController = TextEditingController(
       text:
           user?.settings.receiptFooter ??
@@ -301,6 +307,35 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
     }
   }
 
+  Future<void> _loadAvailablePrinters() async {
+    if (kIsWeb) return;
+    setState(() => _isLoadingPrinters = true);
+    try {
+      if (!kIsWeb && Platform.isWindows) {
+        final printers = await UsbPrinterService.getWindowsPrinters();
+        if (mounted) setState(() => _availablePrinters = printers);
+      }
+    } catch (_) {}
+    if (mounted) setState(() => _isLoadingPrinters = false);
+  }
+
+  Future<void> _selectPrinter(String? printerName) async {
+    if (printerName == null) return;
+    if (printerName == 'None') {
+      await ref.read(printerProvider.notifier).disconnectPrinter();
+    } else {
+      if (!kIsWeb && Platform.isWindows) {
+        await UsbPrinterService.saveUsbPrinter(printerName);
+        await ref
+            .read(printerProvider.notifier)
+            .connectPrinter('USB: $printerName', printerName);
+        await ref
+            .read(printerProvider.notifier)
+            .setPrinterType(PrinterTypeOption.usb);
+      }
+    }
+  }
+
   Future<void> _handleTestPrint() async {
     final printerState = ref.read(printerProvider);
     final messenger = ScaffoldMessenger.of(context);
@@ -312,6 +347,24 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
             content: Text('System printer: Print dialog opens when you print a receipt.'),
           ),
         );
+        break;
+      case PrinterTypeOption.usb:
+        if (!kIsWeb && Platform.isWindows) {
+          final usbName = UsbPrinterService.getSavedPrinterName();
+          if (usbName.isEmpty) {
+            messenger.showSnackBar(
+              const SnackBar(content: Text('No printer selected')),
+            );
+            return;
+          }
+          final success = await UsbPrinterService.printTestPage(usbName);
+          messenger.showSnackBar(
+            SnackBar(
+              content: Text(success ? 'Test print sent!' : 'Print failed'),
+              backgroundColor: success ? AppColors.success : AppColors.error,
+            ),
+          );
+        }
         break;
       case PrinterTypeOption.webBluetooth:
         if (!WebBluetoothPrinterService.isConnected) {
@@ -1781,7 +1834,8 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
     final printerState = ref.watch(printerProvider);
     final isWebBtConnected = WebBluetoothPrinterService.isConnected;
     final isWebSerialConnected = WebSerialPrinterService.isConnected;
-    final isAnyConnected = isWebBtConnected || isWebSerialConnected;
+    final isUsbSelected = !kIsWeb && Platform.isWindows && UsbPrinterService.getSavedPrinterName().isNotEmpty;
+    final isAnyConnected = isWebBtConnected || isWebSerialConnected || isUsbSelected;
 
     return _responsiveColumns(
       [
@@ -1830,8 +1884,14 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
                     ? 'Web Bluetooth'
                     : printerState.printerType == PrinterTypeOption.webSerial
                         ? 'Web Serial (USB)'
-                        : 'System Printer',
-                ['System Printer', 'Web Bluetooth', 'Web Serial (USB)'],
+                        : printerState.printerType == PrinterTypeOption.usb
+                            ? 'USB (Windows)'
+                            : 'System Printer',
+                [
+                  'System Printer',
+                  if (kIsWeb) ...['Web Bluetooth', 'Web Serial (USB)'],
+                  if (!kIsWeb && Platform.isWindows) 'USB (Windows)',
+                ],
                 onChanged: (val) {
                   if (val == 'Web Bluetooth') {
                     ref.read(printerProvider.notifier).setPrinterType(
@@ -1841,6 +1901,11 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
                     ref.read(printerProvider.notifier).setPrinterType(
                       PrinterTypeOption.webSerial,
                     );
+                  } else if (val == 'USB (Windows)') {
+                    ref.read(printerProvider.notifier).setPrinterType(
+                      PrinterTypeOption.usb,
+                    );
+                    _loadAvailablePrinters();
                   } else {
                     ref.read(printerProvider.notifier).setPrinterType(
                       PrinterTypeOption.system,
@@ -1923,19 +1988,32 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
                 Row(
                   children: [
                     Expanded(
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).cardColor,
-                          borderRadius: BorderRadius.circular(8),
-                          boxShadow: AppShadows.small,
-                        ),
-                        child: Text(
-                          isWebSerialConnected
-                              ? WebSerialPrinterService.connectedPortName
-                              : 'No port connected',
-                          style: TextStyle(
-                            color: isWebSerialConnected ? null : AppColors.textMuted,
+                      child: GestureDetector(
+                        onTap: isWebSerialConnected
+                            ? () => _editPrinterName(context)
+                            : null,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                          decoration: BoxDecoration(
+                            color: Theme.of(context).cardColor,
+                            borderRadius: BorderRadius.circular(8),
+                            boxShadow: AppShadows.small,
+                          ),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  isWebSerialConnected
+                                      ? WebSerialPrinterService.connectedPortName
+                                      : 'No port connected',
+                                  style: TextStyle(
+                                    color: isWebSerialConnected ? null : AppColors.textMuted,
+                                  ),
+                                ),
+                              ),
+                              if (isWebSerialConnected)
+                                const Icon(Icons.edit, size: 16, color: AppColors.textMuted),
+                            ],
                           ),
                         ),
                       ),
@@ -2005,7 +2083,34 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
                 const SizedBox(height: 16),
               ],
 
-              // Paper Width
+              // Windows USB printer dropdown
+              if (!kIsWeb && Platform.isWindows) ...[
+                _buildFieldLabel('Select Printer'),
+                const SizedBox(height: 4),
+                if (_isLoadingPrinters)
+                  const Padding(
+                    padding: EdgeInsets.all(12),
+                    child: Center(
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  )
+                else
+                  _buildDropdown(
+                    printerState.printerName ?? 'None',
+                    [
+                      'None',
+                      ..._availablePrinters,
+                      if (printerState.printerName != null &&
+                          printerState.printerName != 'None' &&
+                          !_availablePrinters.contains(printerState.printerName))
+                        printerState.printerName!,
+                    ],
+                    onChanged: _selectPrinter,
+                  ),
+                const SizedBox(height: 16),
+              ],
+
+              // Paper Width & Density
               _responsiveFields([
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -2035,13 +2140,17 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
                     _buildFieldLabel('Density'),
                     const SizedBox(height: 8),
                     Slider(
-                      value: 0.7,
-                      onChanged: null,
+                      value: printerState.printDensity.toDouble(),
+                      max: 2,
+                      divisions: 2,
+                      onChanged: (v) => ref
+                          .read(printerProvider.notifier)
+                          .setPrintDensity(v.round()),
                       activeColor: AppColors.primary,
                     ),
-                    const Text(
-                      'Coming soon',
-                      style: TextStyle(
+                    Text(
+                      ['Light', 'Normal', 'Dark'][printerState.printDensity],
+                      style: const TextStyle(
                         fontSize: 11,
                         color: AppColors.textMuted,
                       ),
@@ -2784,6 +2893,41 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
     if (scale <= 0.90) return 'Small';
     if (scale <= 1.05) return 'Compact';
     return 'Large';
+  }
+
+  Future<void> _editPrinterName(BuildContext context) async {
+    final controller = TextEditingController(
+      text: WebSerialPrinterService.connectedPortName,
+    );
+    final result = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Printer Name'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: const InputDecoration(
+            hintText: 'Enter printer name',
+            border: OutlineInputBorder(),
+          ),
+          onSubmitted: (value) => Navigator.of(ctx).pop(value),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(controller.text),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+    if (result != null && result.trim().isNotEmpty && mounted) {
+      await WebSerialPrinterService.setCustomName(result);
+      setState(() {});
+    }
   }
 
   Widget _buildFieldLabel(String label, {bool required = false}) {
