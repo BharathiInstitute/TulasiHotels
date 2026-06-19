@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My Account — Tulasi Hotels</title>
+  <meta name="description" content="View your Tulasi Hotels subscription plan, usage limits, and account details.">
+  <link rel="icon" type="image/png" sizes="32x32" href="../../favicon.png?v=3">
+  <link rel="apple-touch-icon" href="../../assets/images/app_icon.png?v=3">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../css/styles.css?v=5">
+  <style>
+    .account-hero {
+      background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-accent) 100%);
+      padding: 3rem 0 4rem;
+      text-align: center;
+      color: white;
+    }
+    .account-hero h1 { color: white; margin-bottom: 0.5rem; }
+    .account-hero p { color: rgba(255,255,255,0.85); }
+
+    .account-container { max-width: 700px; margin: -2rem auto 3rem; padding: 0 1.5rem; }
+
+    .account-card {
+      background: white;
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-lg);
+      padding: 2rem;
+      margin-bottom: 1.5rem;
+    }
+
+    /* Profile section */
+    .profile-section { display: flex; align-items: center; gap: 1.25rem; margin-bottom: 1.5rem; }
+    .profile-avatar {
+      width: 64px; height: 64px; border-radius: 50%;
+      background: var(--color-primary);
+      display: flex; align-items: center; justify-content: center;
+      color: white; font-size: 1.5rem; font-weight: 700;
+      flex-shrink: 0;
+    }
+    .profile-avatar img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
+    .profile-info h2 { font-size: 1.25rem; margin: 0; }
+    .profile-info p { margin: 0.25rem 0 0; color: var(--color-text-light); font-size: 0.875rem; }
+    .profile-actions { display: flex; gap: 0.75rem; }
+
+    /* Subscription badge */
+    .sub-header { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.25rem; }
+    .sub-badge {
+      display: inline-flex; align-items: center; gap: 0.375rem;
+      background: var(--color-primary-50); color: var(--color-primary-dark);
+      padding: 0.375rem 0.75rem; border-radius: var(--radius-full);
+      font-weight: 700; font-size: 0.875rem;
+    }
+    .sub-status {
+      display: inline-flex; align-items: center; gap: 0.375rem;
+      font-size: 0.8125rem; font-weight: 600;
+    }
+    .sub-status.active { color: var(--color-success); }
+    .sub-status.expired { color: var(--color-error); }
+    .sub-status::before {
+      content: ''; width: 8px; height: 8px; border-radius: 50%;
+      background: currentColor;
+    }
+
+    /* Stats grid */
+    .stats-grid {
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 1rem; margin-top: 1rem;
+    }
+    .stat-card {
+      background: var(--color-bg-alt);
+      border-radius: var(--radius-md);
+      padding: 1rem 1.25rem;
+    }
+    .stat-card .label { font-size: 0.6875rem; font-weight: 700; color: var(--color-primary-dark); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.375rem; }
+    .stat-card .value { font-size: 1.25rem; font-weight: 700; color: var(--color-text); }
+    .stat-bar { height: 4px; background: #E5E7EB; border-radius: 2px; margin-top: 0.5rem; overflow: hidden; }
+    .stat-bar-fill { height: 100%; background: var(--color-primary); border-radius: 2px; transition: width 0.3s; }
+
+    /* Login form */
+    .login-card { max-width: 480px; margin: 0 auto; }
+    .login-card h1 { text-align: center; margin-bottom: 0.5rem; font-size: 1.5rem; }
+    .login-card .subtitle { text-align: center; color: var(--color-text-light); margin-bottom: 1.5rem; font-size: 0.9375rem; }
+
+    .login-divider {
+      display: flex; align-items: center; gap: 1rem;
+      margin: 1.25rem 0; color: var(--color-text-light); font-size: 0.8125rem;
+    }
+    .login-divider::before, .login-divider::after {
+      content: ''; flex: 1; height: 1px; background: var(--color-border);
+    }
+
+    .form-group { margin-bottom: 1rem; }
+    .form-input {
+      width: 100%; padding: 0.75rem 1rem; border: 1px solid var(--color-border);
+      border-radius: var(--radius-md); font-size: 0.9375rem; font-family: inherit;
+      transition: border-color 0.2s; box-sizing: border-box;
+    }
+    .form-input:focus { outline: none; border-color: var(--color-primary); box-shadow: 0 0 0 3px rgba(16,185,129,0.1); }
+    .input-wrapper { position: relative; }
+    .input-wrapper .toggle-pw {
+      position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+      background: none; border: none; cursor: pointer; font-size: 1.1rem; padding: 0.25rem;
+    }
+
+    .btn-google {
+      width: 100%; display: flex; align-items: center; justify-content: center; gap: 0.75rem;
+      padding: 0.75rem; border: 1px solid var(--color-border); border-radius: var(--radius-md);
+      background: white; font-size: 0.9375rem; font-weight: 500; cursor: pointer;
+      transition: background 0.2s, box-shadow 0.2s; font-family: inherit;
+    }
+    .btn-google:hover { background: var(--color-bg-alt); box-shadow: var(--shadow-sm); }
+    .btn-google img { width: 20px; height: 20px; }
+
+    .btn-signin {
+      width: 100%; padding: 0.875rem; border: none; border-radius: var(--radius-md);
+      background: var(--color-primary); color: white; font-size: 1rem; font-weight: 600;
+      cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 0.5rem;
+      transition: background 0.2s; font-family: inherit;
+    }
+    .btn-signin:hover { background: var(--color-primary-dark); }
+    .btn-signin:disabled { opacity: 0.6; cursor: not-allowed; }
+
+    .forgot-link { display: block; text-align: right; margin: 0.5rem 0 1.25rem; font-size: 0.8125rem; color: var(--color-primary); text-decoration: none; font-weight: 600; }
+    .forgot-link:hover { text-decoration: underline; }
+
+    .login-footer { text-align: center; margin-top: 1.25rem; font-size: 0.875rem; color: var(--color-text-light); }
+    .login-footer a { color: var(--color-primary); font-weight: 600; text-decoration: none; }
+    .login-footer a:hover { text-decoration: underline; }
+
+    .error-msg { background: #FEF2F2; color: #DC2626; padding: 0.75rem 1rem; border-radius: var(--radius-md); font-size: 0.8125rem; margin-bottom: 1rem; display: none; }
+
+    .upgrade-banner {
+      background: linear-gradient(135deg, var(--color-primary-50) 0%, #D1FAE5 100%);
+      border: 1px solid var(--color-primary-100);
+      border-radius: var(--radius-md);
+      padding: 1rem 1.25rem;
+      margin-top: 1.25rem;
+      display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+    }
+    .upgrade-banner p { margin: 0; font-size: 0.875rem; font-weight: 500; }
+
+    .section-label {
+      font-size: 0.6875rem; font-weight: 700; color: var(--color-text-light);
+      text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.75rem;
+    }
+
+    @media (max-width: 600px) {
+      .profile-section { flex-direction: column; text-align: center; }
+      .profile-actions { justify-content: center; }
+      .stats-grid { grid-template-columns: 1fr; }
+      .upgrade-banner { flex-direction: column; text-align: center; }
+    }
+  </style>
+</head>
+
+<body>
+
+  <a href="#main" class="sr-only">Skip to main content</a>
+
+  <!-- NAVBAR -->
+  <nav class="navbar" role="navigation" aria-label="Main navigation">
+    <div class="navbar-inner">
+      <a href="../../index.html" class="navbar-logo">
+        <img src="../../assets/images/app_icon.png?v=3" alt="Tulasi Hotels" width="32" height="32">
+        Tulasi Hotels
+      </a>
+      <ul class="navbar-links">
+        <li><a href="../../index.html">Home</a></li>
+        <li><a href="features.html">Features</a></li>
+        <li><a href="screenshots.html">Screenshots</a></li>
+        <li><a href="pricing.html">Pricing</a></li>
+        <li><a href="about.html">About</a></li>
+        <li><a href="support.html">Support</a></li>
+      </ul>
+      <div class="navbar-cta">
+        <a href="/app/" class="btn btn-ghost btn-sm">Open App</a>
+        <a href="account.html" class="btn btn-ghost btn-sm" id="nav-account-btn">My Account</a>
+        <a href="download.html" class="btn btn-primary btn-sm">Download Now</a>
+      </div>
+      <button class="navbar-toggle" aria-label="Toggle menu"><span></span><span></span><span></span></button>
+    </div>
+    <div class="navbar-mobile">
+      <a href="../../index.html">Home</a>
+      <a href="features.html">Features</a>
+      <a href="screenshots.html">Screenshots</a>
+      <a href="pricing.html">Pricing</a>
+      <a href="about.html">About</a>
+      <a href="support.html">Support</a>
+      <a href="account.html">My Account</a>
+      <a href="download.html" style="color: var(--color-primary); font-weight: 700;">Download Now</a>
+    </div>
+  </nav>
+
+  <main id="main">
+
+    <!-- LOGIN VIEW (shown when not signed in) -->
+    <div id="login-view" style="display:none;">
+      <section class="account-hero">
+        <div class="container">
+          <h1>My Account</h1>
+          <p>Sign in to view your subscription and account details.</p>
+        </div>
+      </section>
+
+      <div class="account-container">
+        <div class="account-card login-card">
+          <h1>Sign in to view your account</h1>
+          <p class="subtitle">Sign in with your Tulasi Hotels account to see your subscription details.</p>
+
+          <div id="login-error" class="error-msg"></div>
+
+          <!-- Google Sign In -->
+          <button class="btn-google" onclick="signInWithGoogle()">
+            <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google">
+            Continue with Google
+          </button>
+
+          <div class="login-divider">OR</div>
+
+          <!-- Email Sign In -->
+          <form onsubmit="signInWithEmail(event)">
+            <div class="form-group">
+              <div class="input-wrapper">
+                <input type="email" id="login-email" class="form-input" placeholder="Email address" required>
+              </div>
+            </div>
+            <div class="form-group">
+              <div class="input-wrapper">
+                <input type="password" id="login-password" class="form-input" placeholder="Password" required>
+                <button type="button" class="toggle-pw" onclick="togglePw()">👁</button>
+              </div>
+            </div>
+            <a href="#" class="forgot-link" onclick="sendPasswordReset(event)">Forgot Password?</a>
+            <button type="submit" class="btn-signin" id="signin-btn">🔐 Sign In</button>
+          </form>
+
+          <div class="login-footer">
+            Don't have an account? <a href="/app/">Create Free Account →</a>
+            <br><small style="color:var(--color-text-light);">You'll be taken to the app to set up your hotel.</small>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ACCOUNT VIEW (shown when signed in) -->
+    <div id="account-view" style="display:none;">
+      <section class="account-hero">
+        <div class="container">
+          <h1>My Account</h1>
+          <p>View your subscription plan and account details.</p>
+        </div>
+      </section>
+
+      <div class="account-container">
+        <!-- Profile Card -->
+        <div class="account-card">
+          <div class="profile-section">
+            <div class="profile-avatar" id="profile-avatar">J</div>
+            <div class="profile-info">
+              <h2 id="profile-name">Loading...</h2>
+              <p id="profile-email">...</p>
+            </div>
+          </div>
+          <div class="profile-actions">
+            <a href="/app/" class="btn btn-primary btn-sm">Open App →</a>
+            <button class="btn btn-ghost btn-sm" onclick="signOut()">Sign Out</button>
+          </div>
+        </div>
+
+        <!-- Subscription Card -->
+        <div class="account-card">
+          <div class="section-label">SUBSCRIPTION</div>
+          <div class="sub-header">
+            <span class="sub-badge" id="sub-plan-badge">🆓 Free</span>
+            <span class="sub-status active" id="sub-status">Active</span>
+          </div>
+
+          <div class="stats-grid">
+            <div class="stat-card">
+              <div class="label">BILLS / MONTH</div>
+              <div class="value" id="stat-bills">0 / 50</div>
+              <div class="stat-bar"><div class="stat-bar-fill" id="bar-bills" style="width:0%"></div></div>
+            </div>
+            <div class="stat-card">
+              <div class="label">PRODUCTS</div>
+              <div class="value" id="stat-products">0 / 50</div>
+              <div class="stat-bar"><div class="stat-bar-fill" id="bar-products" style="width:0%"></div></div>
+            </div>
+            <div class="stat-card">
+              <div class="label">CUSTOMERS</div>
+              <div class="value" id="stat-customers">0 / 100</div>
+              <div class="stat-bar"><div class="stat-bar-fill" id="bar-customers" style="width:0%"></div></div>
+            </div>
+            <div class="stat-card">
+              <div class="label">EXPIRES</div>
+              <div class="value" id="stat-expires">—</div>
+              <div class="stat-bar"><div class="stat-bar-fill" id="bar-expires" style="width:100%;background:var(--color-primary)"></div></div>
+            </div>
+          </div>
+
+          <!-- Upgrade banner (shown for free/starter) -->
+          <div class="upgrade-banner" id="upgrade-banner" style="display:none;">
+            <p>🚀 Upgrade to unlock more features and higher limits.</p>
+            <a href="pricing.html" class="btn btn-primary btn-sm">Upgrade Plan</a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- FOOTER -->
+  <footer class="site-footer">
+    <div class="container">
+      <div class="footer-grid">
+        <div class="footer-brand">
+          <a href="../../index.html" class="footer-logo">
+            <img src="../../assets/images/app_icon.png?v=3" alt="Tulasi Hotels" width="28" height="28">
+            Tulasi Hotels
+          </a>
+          <p>India's Smartest Hotel Management Platform</p>
+        </div>
+        <div class="footer-links">
+          <h4>Product</h4>
+          <a href="features.html">Features</a>
+          <a href="pricing.html">Pricing</a>
+          <a href="download.html">Download</a>
+        </div>
+        <div class="footer-links">
+          <h4>Company</h4>
+          <a href="about.html">About</a>
+          <a href="privacy.html">Privacy</a>
+          <a href="terms.html">Terms</a>
+        </div>
+        <div class="footer-links">
+          <h4>Support</h4>
+          <a href="support.html">Help Center</a>
+          <a href="support.html#faq">FAQ</a>
+          <a href="mailto:support@tulasierp.com">Email Us</a>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <p>&copy; 2024–2026 Tulasi Hotels. All rights reserved.</p>
+      </div>
+    </div>
+  </footer>
+
+  <script src="../js/main.js?v=4" defer></script>
+
+  <!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
+  <script>
+    // ─── Firebase Init ───
+    var firebaseConfig = {
+      apiKey: "AIzaSyDVGeqG6auSmAyFMBUVMnLcv5GNR8fvUUo",
+      authDomain: "login1-aa21c.firebaseapp.com",
+      projectId: "login1-aa21c",
+      storageBucket: "login1-aa21c.appspot.com",
+      messagingSenderId: "1075407732576",
+      appId: "1:1075407732576:web:96ef24dd36f56c9c7f5d47"
+    };
+    firebase.initializeApp(firebaseConfig);
+    var auth = firebase.auth();
+    var db = firebase.firestore();
+
+    // ─── Auth State ───
+    auth.onAuthStateChanged(function(user) {
+      if (user) {
+        showAccountView(user);
+      } else {
+        showLoginView();
+      }
+    });
+
+    function showLoginView() {
+      document.getElementById('login-view').style.display = 'block';
+      document.getElementById('account-view').style.display = 'none';
+    }
+
+    function showAccountView(user) {
+      document.getElementById('login-view').style.display = 'none';
+      document.getElementById('account-view').style.display = 'block';
+
+      // Profile info
+      var name = user.displayName || user.email.split('@')[0];
+      var initial = name.charAt(0).toUpperCase();
+      document.getElementById('profile-name').textContent = name;
+      document.getElementById('profile-email').textContent = user.email;
+
+      var avatarEl = document.getElementById('profile-avatar');
+      if (user.photoURL) {
+        avatarEl.innerHTML = '<img src="' + user.photoURL + '" alt="' + name + '">';
+      } else {
+        avatarEl.textContent = initial;
+      }
+
+      // Update nav button to show user name
+      var navBtn = document.getElementById('nav-account-btn');
+      if (navBtn) {
+        navBtn.textContent = name.split(' ')[0];
+        navBtn.style.background = 'var(--color-primary)';
+        navBtn.style.color = 'white';
+        navBtn.style.borderRadius = '20px';
+        navBtn.style.padding = '0.375rem 0.875rem';
+      }
+
+      // Load subscription data from Firestore
+      loadSubscription(user.uid);
+    }
+
+    async function loadSubscription(uid) {
+      try {
+        var doc = await db.collection('users').doc(uid).get();
+        if (!doc.exists) {
+          updateSubscriptionUI('free', 'active', null, { billsLimit: 50, productsLimit: 50, customersLimit: 100 }, {});
+          return;
+        }
+        var data = doc.data();
+        var sub = data.subscription || {};
+        var limits = data.limits || {};
+        var usage = data.usage || {};
+
+        var plan = sub.plan || 'free';
+        var status = sub.status || 'active';
+        var expiresAt = sub.expiresAt ? sub.expiresAt.toDate() : null;
+
+        // Check if expired
+        if (expiresAt && expiresAt < new Date()) {
+          status = 'expired';
+        }
+
+        updateSubscriptionUI(plan, status, expiresAt, limits, usage);
+      } catch (err) {
+        console.error('Failed to load subscription:', err);
+      }
+    }
+
+    function updateSubscriptionUI(plan, status, expiresAt, limits, usage) {
+      // Plan badge
+      var badge = document.getElementById('sub-plan-badge');
+      var icons = { free: '🆓', starter: '⭐', pro: '🚀', business: '🏢' };
+      var names = { free: 'Free', starter: 'Starter', pro: 'Pro', business: 'Business' };
+      badge.textContent = (icons[plan] || '🆓') + ' ' + (names[plan] || 'Free');
+
+      // Status
+      var statusEl = document.getElementById('sub-status');
+      statusEl.textContent = status === 'active' ? 'Active' : 'Expired';
+      statusEl.className = 'sub-status ' + (status === 'active' ? 'active' : 'expired');
+
+      // Limits
+      var billsLimit = limits.billsLimit || 50;
+      var productsLimit = limits.productsLimit || 50;
+      var customersLimit = limits.customersLimit || 100;
+
+      var billsUsed = usage.billsThisMonth || 0;
+      var productsUsed = usage.productsCount || 0;
+      var customersUsed = usage.customersCount || 0;
+
+      var inf = '∞';
+      document.getElementById('stat-bills').textContent = billsUsed + ' / ' + (billsLimit >= 999999 ? inf : billsLimit);
+      document.getElementById('stat-products').textContent = productsUsed + ' / ' + (productsLimit >= 999999 ? inf : productsLimit);
+      document.getElementById('stat-customers').textContent = customersUsed + ' / ' + (customersLimit >= 999999 ? inf : customersLimit);
+
+      // Progress bars
+      var billsPct = billsLimit >= 999999 ? 2 : Math.min((billsUsed / billsLimit) * 100, 100);
+      var productsPct = productsLimit >= 999999 ? 2 : Math.min((productsUsed / productsLimit) * 100, 100);
+      var customersPct = customersLimit >= 999999 ? 2 : Math.min((customersUsed / customersLimit) * 100, 100);
+      document.getElementById('bar-bills').style.width = billsPct + '%';
+      document.getElementById('bar-products').style.width = productsPct + '%';
+      document.getElementById('bar-customers').style.width = customersPct + '%';
+
+      // Expires
+      if (expiresAt) {
+        var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+        document.getElementById('stat-expires').textContent =
+          expiresAt.getDate() + ' ' + months[expiresAt.getMonth()] + ' ' + expiresAt.getFullYear();
+      } else {
+        document.getElementById('stat-expires').textContent = plan === 'free' ? 'Never' : '—';
+      }
+
+      // Upgrade banner
+      var banner = document.getElementById('upgrade-banner');
+      if (plan === 'free' || plan === 'starter') {
+        banner.style.display = 'flex';
+      } else {
+        banner.style.display = 'none';
+      }
+    }
+
+    // ─── Sign In Methods ───
+    async function signInWithGoogle() {
+      try {
+        document.getElementById('login-error').style.display = 'none';
+        var provider = new firebase.auth.GoogleAuthProvider();
+        await auth.signInWithPopup(provider);
+      } catch (err) {
+        showError(err.message || 'Google sign-in failed.');
+      }
+    }
+
+    async function signInWithEmail(e) {
+      e.preventDefault();
+      var email = document.getElementById('login-email').value.trim();
+      var password = document.getElementById('login-password').value;
+      var btn = document.getElementById('signin-btn');
+      document.getElementById('login-error').style.display = 'none';
+
+      if (!email || !password) { showError('Enter both email and password.'); return; }
+
+      btn.disabled = true;
+      btn.textContent = 'Signing in...';
+      try {
+        await auth.signInWithEmailAndPassword(email, password);
+      } catch (err) {
+        var msg = 'Sign-in failed.';
+        if (err.code === 'auth/user-not-found') msg = 'No account with this email. Register in the app first.';
+        else if (err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') msg = 'Wrong password.';
+        else if (err.code === 'auth/too-many-requests') msg = 'Too many attempts. Please wait a moment.';
+        showError(msg);
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = '🔐 Sign In';
+      }
+    }
+
+    function showError(msg) {
+      var el = document.getElementById('login-error');
+      el.textContent = msg;
+      el.style.display = 'block';
+      el.style.background = '#FEF2F2';
+      el.style.color = '#DC2626';
+    }
+
+    function togglePw() {
+      var input = document.getElementById('login-password');
+      if (input.type === 'password') { input.type = 'text'; }
+      else { input.type = 'password'; }
+    }
+
+    async function sendPasswordReset(e) {
+      e.preventDefault();
+      var email = document.getElementById('login-email').value.trim();
+      if (!email) { showError('Enter your email first, then click Forgot Password.'); return; }
+      try {
+        await auth.sendPasswordResetEmail(email);
+        var el = document.getElementById('login-error');
+        el.textContent = '✅ Reset email sent! Check your inbox.';
+        el.style.display = 'block';
+        el.style.background = '#ECFDF5';
+        el.style.color = '#059669';
+      } catch (err) {
+        showError(err.code === 'auth/user-not-found' ? 'No account with this email.' : 'Failed to send reset email.');
+      }
+    }
+
+    async function signOut() {
+      await auth.signOut();
+      window.location.reload();
+    }
+  </script>
+
+</body>
+</html>

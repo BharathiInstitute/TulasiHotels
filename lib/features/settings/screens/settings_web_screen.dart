@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:tulasihotels/core/constants/app_constants.dart';
 import 'package:tulasihotels/core/services/cloud_function_helper.dart';
@@ -57,6 +58,10 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
   // Windows printer state
   List<String> _availablePrinters = [];
   bool _isLoadingPrinters = false;
+
+  // Native Bluetooth state (Android/iOS)
+  bool _btScanning = false;
+  List<PrinterDevice> _btDevices = [];
 
   String _referralCode = '';
   int _referralCount = 0;
@@ -397,9 +402,95 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
         );
         break;
       default:
+        // Native Bluetooth test print
+        if (printerState.printerType == PrinterTypeOption.bluetooth) {
+          final connected = await ThermalPrinterService.isConnected;
+          if (!connected) {
+            messenger.showSnackBar(
+              const SnackBar(content: Text('No Bluetooth printer connected. Tap "Scan Printers" first.')),
+            );
+            return;
+          }
+          final success = await ThermalPrinterService.printTestPage();
+          messenger.showSnackBar(
+            SnackBar(
+              content: Text(success ? 'Test print sent!' : 'Print failed'),
+              backgroundColor: success ? AppColors.success : AppColors.error,
+            ),
+          );
+          return;
+        }
         messenger.showSnackBar(
-          const SnackBar(content: Text('This printer type is not available on web.')),
+          const SnackBar(content: Text('This printer type is not available.')),
         );
+    }
+  }
+
+  // ─── Native Bluetooth Methods (Android/iOS) ───
+
+  Future<void> _scanNativeBluetooth() async {
+    setState(() {
+      _btScanning = true;
+      _btDevices = [];
+    });
+    try {
+      final devices = await ThermalPrinterService.getPairedDevices();
+      if (mounted) {
+        setState(() {
+          _btDevices = devices;
+          _btScanning = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _btScanning = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Scan failed: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _connectNativeBluetooth(PrinterDevice device) async {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Connecting to ${device.name}...')),
+    );
+
+    final success = await ThermalPrinterService.connect(device);
+    if (success) {
+      await ThermalPrinterService.savePrinter(device);
+      await ref
+          .read(printerProvider.notifier)
+          .connectPrinter(device.name, device.address);
+      if (mounted) {
+        setState(() {});
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Connected to ${device.name}'),
+            backgroundColor: AppColors.success,
+          ),
+        );
+      }
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to connect'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _disconnectNativeBluetooth() async {
+    await ThermalPrinterService.disconnect();
+    await ref.read(printerProvider.notifier).disconnectPrinter();
+    if (mounted) {
+      setState(() {});
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Printer disconnected')),
+      );
     }
   }
 
@@ -1835,7 +1926,9 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
     final isWebBtConnected = WebBluetoothPrinterService.isConnected;
     final isWebSerialConnected = WebSerialPrinterService.isConnected;
     final isUsbSelected = !kIsWeb && Platform.isWindows && UsbPrinterService.getSavedPrinterName().isNotEmpty;
-    final isAnyConnected = isWebBtConnected || isWebSerialConnected || isUsbSelected;
+    final isMobileNative = !kIsWeb && (Platform.isAndroid || Platform.isIOS);
+    final isBtConnected = isMobileNative && printerState.printerType == PrinterTypeOption.bluetooth && printerState.isConnected;
+    final isAnyConnected = isWebBtConnected || isWebSerialConnected || isUsbSelected || isBtConnected;
 
     return _responsiveColumns(
       [
@@ -1880,20 +1973,27 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
               // Printer type selection
               _buildFieldLabel('Printer Type'),
               _buildDropdown(
-                printerState.printerType == PrinterTypeOption.webBluetooth
-                    ? 'Web Bluetooth'
-                    : printerState.printerType == PrinterTypeOption.webSerial
-                        ? 'Web Serial (USB)'
-                        : printerState.printerType == PrinterTypeOption.usb
-                            ? 'USB (Windows)'
-                            : 'System Printer',
+                printerState.printerType == PrinterTypeOption.bluetooth
+                    ? 'Bluetooth'
+                    : printerState.printerType == PrinterTypeOption.webBluetooth
+                        ? 'Web Bluetooth'
+                        : printerState.printerType == PrinterTypeOption.webSerial
+                            ? 'Web Serial (USB)'
+                            : printerState.printerType == PrinterTypeOption.usb
+                                ? 'USB (Windows)'
+                                : 'System Printer',
                 [
-                  'System Printer',
+                  if (!isMobileNative) 'System Printer',
+                  if (isMobileNative) 'Bluetooth',
                   if (kIsWeb) ...['Web Bluetooth', 'Web Serial (USB)'],
                   if (!kIsWeb && Platform.isWindows) 'USB (Windows)',
                 ],
                 onChanged: (val) {
-                  if (val == 'Web Bluetooth') {
+                  if (val == 'Bluetooth') {
+                    ref.read(printerProvider.notifier).setPrinterType(
+                      PrinterTypeOption.bluetooth,
+                    );
+                  } else if (val == 'Web Bluetooth') {
                     ref.read(printerProvider.notifier).setPrinterType(
                       PrinterTypeOption.webBluetooth,
                     );
@@ -1977,6 +2077,119 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
                       style: TextButton.styleFrom(foregroundColor: AppColors.error),
                     ),
                   ),
+                ],
+                const SizedBox(height: 16),
+              ],
+
+              // Native Bluetooth section (Android/iOS)
+              if (printerState.printerType == PrinterTypeOption.bluetooth && isMobileNative) ...[
+                _buildFieldLabel('Bluetooth Thermal Printer'),
+                const SizedBox(height: 8),
+
+                // Instructions when not connected
+                if (!printerState.isConnected)
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    margin: const EdgeInsets.only(bottom: 12),
+                    decoration: BoxDecoration(
+                      color: AppColors.info.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('1. Pair your printer in phone Bluetooth settings', style: TextStyle(fontSize: 13)),
+                        SizedBox(height: 4),
+                        Text('2. Tap Scan Printers below', style: TextStyle(fontSize: 13)),
+                        SizedBox(height: 4),
+                        Text('3. Tap Connect next to your printer', style: TextStyle(fontSize: 13)),
+                        SizedBox(height: 4),
+                        Text('4. Use Test Print to verify', style: TextStyle(fontSize: 13)),
+                      ],
+                    ),
+                  ),
+
+                // Open App Settings for permissions
+                if (!printerState.isConnected)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: OutlinedButton.icon(
+                      onPressed: () => openAppSettings(),
+                      icon: const Icon(Icons.settings, size: 18),
+                      label: const Text('Open App Settings (permissions)'),
+                    ),
+                  ),
+
+                // Connected printer info
+                if (printerState.isConnected)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                    margin: const EdgeInsets.only(bottom: 12),
+                    decoration: BoxDecoration(
+                      color: AppColors.success.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.check_circle, color: AppColors.success, size: 18),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Connected: ${printerState.printerName ?? 'Unknown'}',
+                            style: const TextStyle(
+                              color: AppColors.success,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                // Scan / Disconnect buttons
+                Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: _btScanning ? null : _scanNativeBluetooth,
+                        icon: _btScanning
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : const Icon(Icons.search, size: 18),
+                        label: Text(_btScanning ? 'Scanning...' : 'Scan Printers'),
+                      ),
+                    ),
+                    if (printerState.isConnected) ...[
+                      const SizedBox(width: 12),
+                      TextButton.icon(
+                        onPressed: _disconnectNativeBluetooth,
+                        icon: const Icon(Icons.link_off, size: 16),
+                        label: const Text('Disconnect'),
+                        style: TextButton.styleFrom(foregroundColor: AppColors.error),
+                      ),
+                    ],
+                  ],
+                ),
+
+                // Scanned devices list
+                if (_btDevices.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  ...(_btDevices.map(
+                    (device) => Card(
+                      child: ListTile(
+                        leading: const Icon(Icons.print),
+                        title: Text(device.name),
+                        subtitle: Text(device.address, style: const TextStyle(fontSize: 11)),
+                        trailing: ElevatedButton(
+                          onPressed: () => _connectNativeBluetooth(device),
+                          child: const Text('Connect'),
+                        ),
+                      ),
+                    ),
+                  )),
                 ],
                 const SizedBox(height: 16),
               ],

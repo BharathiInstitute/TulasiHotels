@@ -164,7 +164,7 @@ Future<void> _initializeApp() async {
     // Flush any crashes captured before Firebase was available
     unawaited(ErrorLoggingService.flushPreFirebaseCrashes());
 
-    // Detect if previous session crashed (heartbeat check)
+      // Detect if previous session crashed (heartbeat check)
     unawaited(ErrorLoggingService.markAppStarted());
 
     // Initialize Remote Config with defaults

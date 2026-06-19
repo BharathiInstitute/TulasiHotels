@@ -8,6 +8,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:tulasihotels/core/design/app_colors.dart';
 import 'package:tulasihotels/core/services/sunmi_printer_service.dart';
 import 'package:tulasihotels/core/services/thermal_printer_service.dart';
@@ -565,10 +566,15 @@ class _HardwareSettingsScreenState
 
   // ─── Printer Type Card ───
   Widget _buildPrinterTypeCard(ThemeData theme, PrinterState printerState) {
+    final isAndroid = !kIsWeb && Platform.isAndroid;
+    final isIOS = !kIsWeb && Platform.isIOS;
+    final isMobile = isAndroid || isIOS;
+
+    // On Android/iOS native, only show Bluetooth — other types are not useful
+    final showSystem = !isMobile;
     final showBluetooth = !kIsWeb && (Platform.isAndroid || Platform.isIOS);
-    const showWifi = !kIsWeb;
+    final showWifi = !kIsWeb && !isMobile;
     final showUsb = !kIsWeb && Platform.isWindows;
-    final showSunmi = !kIsWeb && Platform.isAndroid;
     const showWebBluetooth = kIsWeb;
     const showWebSerial = kIsWeb;
 
@@ -586,14 +592,15 @@ class _HardwareSettingsScreenState
             ),
             const SizedBox(height: 12),
 
-            _buildPrinterTypeOption(
-              theme,
-              PrinterTypeOption.system,
-              printerState.printerType,
-              Icons.computer,
-            ),
+            if (showSystem)
+              _buildPrinterTypeOption(
+                theme,
+                PrinterTypeOption.system,
+                printerState.printerType,
+                Icons.computer,
+              ),
             if (showBluetooth) ...[
-              const SizedBox(height: 8),
+              if (showSystem) const SizedBox(height: 8),
               _buildPrinterTypeOption(
                 theme,
                 PrinterTypeOption.bluetooth,
@@ -617,15 +624,6 @@ class _HardwareSettingsScreenState
                 PrinterTypeOption.usb,
                 printerState.printerType,
                 Icons.usb,
-              ),
-            ],
-            if (showSunmi) ...[
-              const SizedBox(height: 8),
-              _buildPrinterTypeOption(
-                theme,
-                PrinterTypeOption.sunmi,
-                printerState.printerType,
-                Icons.point_of_sale,
               ),
             ],
             if (showWebBluetooth) ...[
@@ -728,57 +726,127 @@ class _HardwareSettingsScreenState
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Connection status
+                // Header with connection indicator
                 Row(
                   children: [
                     Icon(
-                      Icons.bluetooth,
-                      color: printerState.isConnected
-                          ? AppColors.success
-                          : Colors.grey,
+                      Icons.print,
+                      color: theme.colorScheme.primary,
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            printerState.printerName ?? 'No Printer',
-                            style: const TextStyle(fontWeight: FontWeight.w600),
-                          ),
-                          Text(
-                            printerState.isConnected
-                                ? 'Connected'
-                                : 'Not connected',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: printerState.isConnected
-                                  ? AppColors.success
-                                  : Colors.grey,
-                            ),
-                          ),
-                        ],
+                    const SizedBox(width: 8),
+                    const Expanded(
+                      child: Text(
+                        'Bluetooth Thermal Printer',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
                       ),
                     ),
-                    Container(
-                      width: 12,
-                      height: 12,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: printerState.isConnected
-                            ? AppColors.success
-                            : Colors.grey,
+                    if (printerState.isConnected) ...[
+                      Container(
+                        width: 10,
+                        height: 10,
+                        decoration: const BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: AppColors.success,
+                        ),
                       ),
-                    ),
+                      const SizedBox(width: 6),
+                      const Text(
+                        'Connected',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppColors.success,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
                   ],
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
 
-                // Scan / Disconnect buttons
+                // Instructions
+                if (!printerState.isConnected)
+                  Padding(
+                    padding: const EdgeInsets.only(left: 4, bottom: 12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '1. Pair your printer in phone Bluetooth\n    settings',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '2. Tap Scan Printers below',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '3. Tap Connect next to your printer',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '4. Use Test Print to verify',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                // Open App Settings button (for permissions)
+                if (!printerState.isConnected)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: OutlinedButton.icon(
+                      onPressed: () => openAppSettings(),
+                      icon: const Icon(Icons.settings, size: 18),
+                      label: const Text('Open App Settings (permissions)'),
+                    ),
+                  ),
+
+                // Connected printer name
+                if (printerState.isConnected)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.check_circle,
+                          color: AppColors.success,
+                          size: 18,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Connected: ${printerState.printerName ?? 'Unknown'}',
+                          style: const TextStyle(
+                            color: AppColors.success,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                // Scan / Disconnect / Test Print buttons
                 Row(
                   children: [
                     Expanded(
-                      child: OutlinedButton.icon(
+                      child: FilledButton.icon(
                         onPressed: _isScanning ? null : _scanBluetoothPrinters,
                         icon: _isScanning
                             ? const SizedBox(
@@ -786,6 +854,7 @@ class _HardwareSettingsScreenState
                                 height: 16,
                                 child: CircularProgressIndicator(
                                   strokeWidth: 2,
+                                  color: Colors.white,
                                 ),
                               )
                             : const Icon(Icons.search),
@@ -795,10 +864,10 @@ class _HardwareSettingsScreenState
                       ),
                     ),
                     if (printerState.isConnected) ...[
-                      const SizedBox(width: 12),
+                      const SizedBox(width: 8),
                       OutlinedButton.icon(
                         onPressed: _disconnectPrinter,
-                        icon: const Icon(Icons.link_off),
+                        icon: const Icon(Icons.link_off, size: 18),
                         label: const Text('Disconnect'),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: AppColors.error,
@@ -807,6 +876,19 @@ class _HardwareSettingsScreenState
                     ],
                   ],
                 ),
+
+                // Test Print button (separate for visibility)
+                if (printerState.isConnected) ...[
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: _testPrint,
+                      icon: const Icon(Icons.print, size: 18),
+                      label: const Text('Test Print'),
+                    ),
+                  ),
+                ],
 
                 // Scanned devices list
                 if (_scannedDevices.isNotEmpty) ...[
@@ -1404,6 +1486,60 @@ class _HardwareSettingsScreenState
               ],
             ),
             const SizedBox(height: 16),
+
+            // Density slider
+            if (printerState.printerType.isThermal) ...[
+              const Row(
+                children: [
+                  SizedBox(width: 4),
+                  Icon(Icons.contrast, size: 20),
+                  SizedBox(width: 12),
+                  Text('Density'),
+                ],
+              ),
+              Slider(
+                value: printerState.printDensity.toDouble(),
+                max: 2,
+                divisions: 2,
+                label: ['Light', 'Normal', 'Dark'][printerState.printDensity],
+                onChanged: (v) {
+                  ref
+                      .read(printerProvider.notifier)
+                      .setPrintDensity(v.round());
+                },
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Light',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: theme.colorScheme.outline,
+                      ),
+                    ),
+                    Text(
+                      ['Light', 'Normal', 'Dark'][printerState.printDensity],
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: theme.colorScheme.primary,
+                      ),
+                    ),
+                    Text(
+                      'Dark',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: theme.colorScheme.outline,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 8),
+            ],
 
             // Test Print button
             SizedBox(

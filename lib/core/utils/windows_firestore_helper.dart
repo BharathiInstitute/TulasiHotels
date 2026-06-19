@@ -55,12 +55,13 @@ Stream<QuerySnapshot<Map<String, dynamic>>> _pollQuery(
   Future<void> fetch() async {
     if (isClosed) return;
     try {
-      final snapshot = await query.get(const GetOptions(source: Source.cache));
+      // Fetch from server first to get latest data
+      final snapshot = await query.get(const GetOptions(source: Source.server));
       if (!isClosed) controller.add(snapshot);
     } catch (e) {
-      // Try server if cache fails
+      // Fall back to cache if offline
       try {
-        final snapshot = await query.get();
+        final snapshot = await query.get(const GetOptions(source: Source.cache));
         if (!isClosed) controller.add(snapshot);
       } catch (e2) {
         debugPrint('⚠️ Windows Firestore poll error: $e2');
@@ -102,11 +103,13 @@ Stream<DocumentSnapshot<Map<String, dynamic>>> _pollDocument(
   Future<void> fetch() async {
     if (isClosed) return;
     try {
-      final snapshot = await docRef.get(const GetOptions(source: Source.cache));
+      // Fetch from server first to get latest data
+      final snapshot = await docRef.get(const GetOptions(source: Source.server));
       if (!isClosed) controller.add(snapshot);
     } catch (e) {
+      // Fall back to cache if offline
       try {
-        final snapshot = await docRef.get();
+        final snapshot = await docRef.get(const GetOptions(source: Source.cache));
         if (!isClosed) controller.add(snapshot);
       } catch (e2) {
         debugPrint('⚠️ Windows Firestore doc poll error: $e2');

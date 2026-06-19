@@ -231,6 +231,15 @@ class PrinterNotifier extends StateNotifier<PrinterState> {
         printerType != PrinterTypeOption.webSerial) {
       printerType = PrinterTypeOption.webBluetooth;
     }
+    // On Android/iOS native, only Bluetooth and Sunmi are usable.
+    // Force Bluetooth for any other saved type (system, usb, wifi, web*).
+    if (!kIsWeb &&
+        (defaultTargetPlatform == TargetPlatform.android ||
+            defaultTargetPlatform == TargetPlatform.iOS) &&
+        printerType != PrinterTypeOption.bluetooth &&
+        printerType != PrinterTypeOption.sunmi) {
+      printerType = PrinterTypeOption.bluetooth;
+    }
     final printDensity = PrinterStorage.getPrintDensity();
 
     if (savedPrinter != null) {
@@ -330,6 +339,14 @@ class PrinterNotifier extends StateNotifier<PrinterState> {
   }
 
   Future<void> setPrinterType(PrinterTypeOption type) async {
+    // On Android/iOS native, only allow Bluetooth or Sunmi
+    if (!kIsWeb &&
+        (defaultTargetPlatform == TargetPlatform.android ||
+            defaultTargetPlatform == TargetPlatform.iOS) &&
+        type != PrinterTypeOption.bluetooth &&
+        type != PrinterTypeOption.sunmi) {
+      type = PrinterTypeOption.bluetooth;
+    }
     await PrinterStorage.savePrinterType(type.name);
     state = state.copyWith(printerType: type);
   }
