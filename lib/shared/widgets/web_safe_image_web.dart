@@ -37,7 +37,6 @@ Widget buildWebImage({
           ..style.display = 'block';
         return img;
       },
-      isVisible: true,
     );
   }
 

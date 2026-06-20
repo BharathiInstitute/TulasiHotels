@@ -53,19 +53,31 @@ exports.sendOrderReadySMS = exports.sendDailySummaryWhatsApp = exports.sendReser
 const functions = __importStar(require("firebase-functions"));
 const admin = __importStar(require("firebase-admin"));
 const crypto = __importStar(require("crypto"));
-const nodemailer = __importStar(require("nodemailer"));
 admin.initializeApp();
 // ─── Email Config (Brevo) ───
-const getEmailTransporter = () => {
-    return nodemailer.createTransport({
-        host: "smtp-relay.brevo.com",
-        port: 587,
-        secure: false,
-        auth: {
-            user: process.env.BREVO_SMTP_USER || process.env.BREVO_EMAIL || "",
-            pass: process.env.BREVO_API_KEY || "",
+// Uses Brevo HTTP API v3 for transactional emails (more reliable than SMTP)
+const sendBrevoEmail = async (to, subject, htmlContent) => {
+    const apiKey = process.env.BREVO_API_KEY || "";
+    const senderEmail = process.env.BREVO_EMAIL || "support@hotels.tulasierp.com";
+    const response = await fetch("https://api.brevo.com/v3/smtp/email", {
+        method: "POST",
+        headers: {
+            "accept": "application/json",
+            "api-key": apiKey,
+            "content-type": "application/json",
         },
+        body: JSON.stringify({
+            sender: { name: "Tulasi Hotels", email: senderEmail },
+            to: [{ email: to }],
+            subject: subject,
+            htmlContent: htmlContent,
+        }),
     });
+    if (!response.ok) {
+        const errorBody = await response.text();
+        throw new Error(`Brevo API error ${response.status}: ${errorBody}`);
+    }
+    return await response.json();
 };
 // ─── Razorpay Config ───
 // Set in functions/.env file (auto-loaded by Firebase)
@@ -371,7 +383,12 @@ exports.razorpayWebhook = functions
  */
 exports.sendRegistrationOTP = functions
     .region("asia-south1")
-    .runWith({ timeoutSeconds: 30, memory: "256MB", maxInstances: 10 })
+    .runWith({
+    timeoutSeconds: 30,
+    memory: "256MB",
+    maxInstances: 10,
+    secrets: ["BREVO_API_KEY"],
+})
     .https.onCall(async (data) => {
     var _a, _b, _c, _d;
     const email = (_b = (_a = data.email) === null || _a === void 0 ? void 0 : _a.trim()) === null || _b === void 0 ? void 0 : _b.toLowerCase();
@@ -404,30 +421,25 @@ exports.sendRegistrationOTP = functions
         expiresAt: new Date(Date.now() + 10 * 60 * 1000),
         attempts: 0,
     });
-    // Send email via Brevo
+    // Send email via Brevo HTTP API
     try {
-        const transporter = getEmailTransporter();
-        await transporter.sendMail({
-            from: `"Tulasi Stores" <${process.env.BREVO_EMAIL}>`,
-            to: email,
-            subject: "Your Verification Code - Tulasi Stores",
-            html: `
-                    <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 480px; margin: 0 auto; padding: 32px; background: #f8faf8; border-radius: 12px;">
-                        <div style="text-align: center; margin-bottom: 24px;">
-                            <h2 style="color: #059669; margin: 0;">Tulasi Stores</h2>
-                            <p style="color: #6b7280; font-size: 14px; margin-top: 4px;">Email Verification</p>
-                        </div>
-                        <div style="background: white; border-radius: 8px; padding: 24px; text-align: center; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
-                            <p style="color: #374151; font-size: 15px; margin-bottom: 16px;">Your verification code is:</p>
-                            <div style="font-size: 36px; font-weight: bold; letter-spacing: 8px; color: #059669; background: #ecfdf5; padding: 16px; border-radius: 8px; margin: 16px 0;">
-                                ${otp}
-                            </div>
-                            <p style="color: #9ca3af; font-size: 13px; margin-top: 16px;">This code expires in <strong>10 minutes</strong></p>
-                        </div>
-                        <p style="color: #9ca3af; font-size: 12px; text-align: center; margin-top: 16px;">If you didn't request this, please ignore this email.</p>
+        const htmlContent = `
+                <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 480px; margin: 0 auto; padding: 32px; background: #f8faf8; border-radius: 12px;">
+                    <div style="text-align: center; margin-bottom: 24px;">
+                        <h2 style="color: #059669; margin: 0;">Tulasi Hotels</h2>
+                        <p style="color: #6b7280; font-size: 14px; margin-top: 4px;">Email Verification</p>
                     </div>
-                `,
-        });
+                    <div style="background: white; border-radius: 8px; padding: 24px; text-align: center; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                        <p style="color: #374151; font-size: 15px; margin-bottom: 16px;">Your verification code is:</p>
+                        <div style="font-size: 36px; font-weight: bold; letter-spacing: 8px; color: #059669; background: #ecfdf5; padding: 16px; border-radius: 8px; margin: 16px 0;">
+                            ${otp}
+                        </div>
+                        <p style="color: #9ca3af; font-size: 13px; margin-top: 16px;">This code expires in <strong>10 minutes</strong></p>
+                    </div>
+                    <p style="color: #9ca3af; font-size: 12px; text-align: center; margin-top: 16px;">If you didn't request this, please ignore this email.</p>
+                </div>
+            `;
+        await sendBrevoEmail(email, "Your Verification Code - Tulasi Hotels", htmlContent);
         console.log(`📧 Registration OTP sent to ${email}`);
         return { success: true };
     }

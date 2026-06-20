@@ -205,6 +205,12 @@ class PermissionConfig {
       label: 'Complaints',
       category: complianceCategory,
     ),
+    // Management
+    ScreenDef(
+      route: AppRoutes.members,
+      label: 'Members',
+      category: staffCategory,
+    ),
   ];
 
   /// Default permission templates per role (for quick setup)

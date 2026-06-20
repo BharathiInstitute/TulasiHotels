@@ -10,6 +10,8 @@ import 'package:tulasihotels/core/utils/color_utils.dart';
 import 'package:tulasihotels/features/auth/providers/auth_provider.dart';
 import 'package:tulasihotels/features/staff/providers/staff_provider.dart';
 import 'package:tulasihotels/features/staff/services/staff_permissions.dart';
+import 'package:tulasihotels/features/admin/providers/current_member_provider.dart';
+import 'package:tulasihotels/features/admin/services/member_permission_guard.dart';
 import 'package:tulasihotels/features/staff/widgets/staff_clock_widget.dart';
 import 'package:tulasihotels/shared/widgets/logout_dialog.dart';
 import 'package:tulasihotels/shared/widgets/offline_banner.dart';
@@ -83,10 +85,15 @@ class _AppShellState extends ConsumerState<AppShell> {
     ];
   }
 
-  /// Get visible nav indices based on logged-in staff role
+  /// Get visible nav indices based on logged-in staff role or member permissions
   List<int> _getVisibleIndices() {
     final staff = ref.watch(loggedInStaffProvider);
-    return StaffPermissions.visibleNavIndices(staff);
+    if (staff != null) {
+      return StaffPermissions.visibleNavIndices(staff);
+    }
+    // No staff logged in → check member permissions
+    final member = ref.watch(currentMemberProvider).valueOrNull;
+    return MemberPermissionGuard.visibleNavIndices(member);
   }
 
   @override
@@ -403,10 +410,14 @@ class _AppShellState extends ConsumerState<AppShell> {
   /// Build "More Features" sections for the drawer (Inventory, Hospitality, Reports, Compliance)
   List<Widget> _buildMoreFeaturesSections(BuildContext context, WidgetRef ref) {
     final staff = ref.watch(loggedInStaffProvider);
+    final member = ref.watch(currentMemberProvider).valueOrNull;
     final currentPath = GoRouterState.of(context).matchedLocation;
 
     Widget? routeItem(IconData icon, String label, String route) {
       if (!StaffPermissions.canViewRoute(staff, route)) return null;
+      if (staff == null && !MemberPermissionGuard.canViewRoute(member, route)) {
+        return null;
+      }
       final isActive = currentPath.startsWith(route);
       return _DrawerNavItem(
         icon: icon,
@@ -443,12 +454,18 @@ class _AppShellState extends ConsumerState<AppShell> {
       routeItem(Icons.report_problem, 'Complaints', AppRoutes.complaints),
     ].whereType<Widget>().toList();
 
+    final managementItems = [
+      routeItem(Icons.group, 'Users', AppRoutes.members),
+      routeItem(Icons.security, 'Permissions', AppRoutes.permissionsOverview),
+    ].whereType<Widget>().toList();
+
     final sections = <Widget>[];
 
     if (inventoryItems.isNotEmpty ||
         hospitalityItems.isNotEmpty ||
         reportsItems.isNotEmpty ||
-        complianceItems.isNotEmpty) {
+        complianceItems.isNotEmpty ||
+        managementItems.isNotEmpty) {
       sections.add(const Divider(height: 16));
       sections.add(
         Padding(
@@ -481,6 +498,11 @@ class _AppShellState extends ConsumerState<AppShell> {
     if (complianceItems.isNotEmpty) {
       sections.add(
         _DrawerSection(title: 'Compliance', children: complianceItems),
+      );
+    }
+    if (managementItems.isNotEmpty) {
+      sections.add(
+        _DrawerSection(title: 'Admin', children: managementItems),
       );
     }
 

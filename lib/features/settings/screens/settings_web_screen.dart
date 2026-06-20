@@ -15,6 +15,7 @@ import 'package:tulasihotels/core/services/thermal_printer_service.dart';
 import 'package:tulasihotels/core/services/web_bluetooth_printer_service.dart';
 import 'package:tulasihotels/core/services/web_serial_printer_service.dart';
 import 'package:tulasihotels/features/auth/providers/auth_provider.dart';
+import 'package:tulasihotels/features/auth/providers/phone_auth_provider.dart';
 import 'package:tulasihotels/features/settings/providers/settings_provider.dart';
 import 'package:tulasihotels/features/settings/providers/theme_settings_provider.dart';
 import 'package:tulasihotels/models/theme_settings_model.dart';
@@ -634,7 +635,6 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
             url: logoPath,
             width: 64,
             height: 64,
-            fit: BoxFit.cover,
             errorWidget:
                 const Icon(Icons.hotel, size: 28, color: Colors.grey),
           );
@@ -706,7 +706,6 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
             url: imagePath,
             width: radius * 2,
             height: radius * 2,
-            fit: BoxFit.cover,
             errorWidget: CircleAvatar(
               radius: radius,
               backgroundColor: Theme.of(context).dividerColor,
@@ -1716,6 +1715,9 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
               value: user?.phone ?? '—',
               isVerified: user?.phoneVerified ?? false,
               verifiedAt: user?.phoneVerifiedAt,
+              onVerify: (user?.phoneVerified ?? false)
+                  ? null
+                  : _showPhoneVerificationDialog,
             ),
             const Divider(height: 24),
 
@@ -1725,6 +1727,9 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
               label: 'Email Address',
               value: user?.email ?? '—',
               isVerified: user?.emailVerified ?? false,
+              onVerify: (user?.emailVerified ?? false)
+                  ? null
+                  : _showEmailVerificationDialog,
             ),
           ],
         ),
@@ -3382,6 +3387,7 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
     required String value,
     required bool isVerified,
     DateTime? verifiedAt,
+    VoidCallback? onVerify,
   }) {
     return Row(
       children: [
@@ -3413,40 +3419,359 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
             ],
           ),
         ),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-          decoration: BoxDecoration(
-            color: isVerified
-                ? AppColors.success.withAlpha(25)
-                : AppColors.error.withAlpha(25),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
+        InkWell(
+          onTap: (!isVerified && onVerify != null) ? onVerify : null,
+          borderRadius: BorderRadius.circular(20),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
               color: isVerified
-                  ? AppColors.success.withAlpha(80)
-                  : AppColors.error.withAlpha(80),
-            ),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                isVerified ? Icons.check_circle : Icons.cancel,
-                size: 14,
-                color: isVerified ? AppColors.success : AppColors.error,
+                  ? AppColors.success.withAlpha(25)
+                  : AppColors.error.withAlpha(25),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: isVerified
+                    ? AppColors.success.withAlpha(80)
+                    : AppColors.error.withAlpha(80),
               ),
-              const SizedBox(width: 4),
-              Text(
-                isVerified ? 'Verified' : 'Not Verified',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  isVerified ? Icons.check_circle : Icons.cancel,
+                  size: 14,
                   color: isVerified ? AppColors.success : AppColors.error,
                 ),
-              ),
-            ],
+                const SizedBox(width: 4),
+                Text(
+                  isVerified ? 'Verified' : 'Not Verified',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: isVerified ? AppColors.success : AppColors.error,
+                  ),
+                ),
+                if (!isVerified && onVerify != null) ...[
+                  const SizedBox(width: 4),
+                  Icon(
+                    Icons.arrow_forward_ios,
+                    size: 10,
+                    color: AppColors.error,
+                  ),
+                ],
+              ],
+            ),
           ),
         ),
       ],
+    );
+  }
+
+  /// Show email OTP verification dialog
+  void _showEmailVerificationDialog() {
+    final otpController = TextEditingController();
+    bool otpSent = false;
+    bool isSending = false;
+    bool isVerifying = false;
+    int resendCountdown = 0;
+    Timer? resendTimer;
+    String? error;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (ctx, setDialogState) {
+            void startResendTimer() {
+              resendCountdown = 60;
+              resendTimer?.cancel();
+              resendTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+                setDialogState(() {
+                  resendCountdown--;
+                  if (resendCountdown <= 0) timer.cancel();
+                });
+              });
+            }
+
+            Future<void> sendOtp() async {
+              final email = ref.read(currentUserProvider)?.email;
+              if (email == null || email.isEmpty) {
+                setDialogState(() => error = 'No email address found');
+                return;
+              }
+              setDialogState(() { isSending = true; error = null; });
+              final success = await ref
+                  .read(authNotifierProvider.notifier)
+                  .sendRegistrationOTP(email);
+              setDialogState(() {
+                isSending = false;
+                if (success) {
+                  otpSent = true;
+                  startResendTimer();
+                } else {
+                  error = ref.read(authNotifierProvider).error ??
+                      'Failed to send OTP. Please try again.';
+                  ref.read(authNotifierProvider.notifier).clearError();
+                }
+              });
+            }
+
+            Future<void> verifyOtp() async {
+              final otp = otpController.text.trim();
+              if (otp.length != 6) {
+                setDialogState(() => error = 'Please enter the 6-digit code');
+                return;
+              }
+              final email = ref.read(currentUserProvider)?.email;
+              if (email == null || email.isEmpty) return;
+              setDialogState(() { isVerifying = true; error = null; });
+              final success = await ref
+                  .read(authNotifierProvider.notifier)
+                  .verifyRegistrationOTP(email, otp);
+              if (success) {
+                await ref.read(authNotifierProvider.notifier).markEmailVerified();
+                resendTimer?.cancel();
+                if (ctx.mounted) Navigator.of(ctx).pop();
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Email verified successfully!')),
+                  );
+                }
+              } else {
+                setDialogState(() {
+                  isVerifying = false;
+                  error = ref.read(authNotifierProvider).error ?? 'Invalid OTP code';
+                  ref.read(authNotifierProvider.notifier).clearError();
+                });
+              }
+            }
+
+            return AlertDialog(
+              title: const Text('Verify Email'),
+              content: SizedBox(
+                width: 360,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      'We will send a 6-digit OTP to:\n${ref.read(currentUserProvider)?.email ?? ""}',
+                      style: TextStyle(
+                        color: Theme.of(ctx).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    if (!otpSent) ...[
+                      FilledButton(
+                        onPressed: isSending ? null : () => sendOtp(),
+                        child: isSending
+                            ? const SizedBox(
+                                height: 18, width: 18,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : const Text('Send OTP'),
+                      ),
+                    ] else ...[
+                      TextField(
+                        controller: otpController,
+                        keyboardType: TextInputType.number,
+                        maxLength: 6,
+                        decoration: const InputDecoration(
+                          labelText: 'Enter 6-digit OTP',
+                          border: OutlineInputBorder(),
+                          counterText: '',
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      FilledButton(
+                        onPressed: isVerifying ? null : () => verifyOtp(),
+                        child: isVerifying
+                            ? const SizedBox(
+                                height: 18, width: 18,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : const Text('Verify OTP'),
+                      ),
+                      const SizedBox(height: 8),
+                      TextButton(
+                        onPressed: resendCountdown > 0 ? null : () => sendOtp(),
+                        child: Text(
+                          resendCountdown > 0
+                              ? 'Resend in ${resendCountdown}s'
+                              : 'Resend OTP',
+                        ),
+                      ),
+                    ],
+                    if (error != null) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        error!,
+                        style: TextStyle(color: AppColors.error, fontSize: 13),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    resendTimer?.cancel();
+                    Navigator.of(ctx).pop();
+                  },
+                  child: const Text('Cancel'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  /// Show phone OTP verification dialog
+  void _showPhoneVerificationDialog() {
+    final phoneController = TextEditingController(
+      text: ref.read(currentUserProvider)?.phone ?? '',
+    );
+    final otpController = TextEditingController();
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return Consumer(
+          builder: (ctx, dialogRef, _) {
+            final phoneState = dialogRef.watch(phoneAuthProvider);
+            final isCodeSent = phoneState.status == PhoneAuthStatus.codeSent;
+            final isSending = phoneState.status == PhoneAuthStatus.sending;
+            final isVerifying = phoneState.status == PhoneAuthStatus.verifying;
+            final isVerified = phoneState.status == PhoneAuthStatus.verified;
+
+            // Auto-close on successful verification
+            if (isVerified) {
+              WidgetsBinding.instance.addPostFrameCallback((_) async {
+                final phone = phoneController.text.trim();
+                await ref
+                    .read(authNotifierProvider.notifier)
+                    .updatePhoneVerified(phone: phone);
+                if (ctx.mounted) Navigator.of(ctx).pop();
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Phone verified successfully!')),
+                  );
+                }
+              });
+            }
+
+            return AlertDialog(
+              title: const Text('Verify Phone'),
+              content: SizedBox(
+                width: 360,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (!isCodeSent && !isVerifying && !isVerified) ...[
+                      TextField(
+                        controller: phoneController,
+                        keyboardType: TextInputType.phone,
+                        decoration: const InputDecoration(
+                          labelText: 'Phone Number',
+                          hintText: '10-digit mobile number',
+                          border: OutlineInputBorder(),
+                          prefixText: '+91 ',
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      FilledButton(
+                        onPressed: isSending
+                            ? null
+                            : () {
+                                final phone = phoneController.text.trim();
+                                if (phone.isEmpty) return;
+                                dialogRef
+                                    .read(phoneAuthProvider.notifier)
+                                    .sendOtp(phone);
+                              },
+                        child: isSending
+                            ? const SizedBox(
+                                height: 18, width: 18,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : const Text('Send OTP'),
+                      ),
+                    ] else if (isCodeSent || isVerifying) ...[
+                      Text(
+                        'OTP sent to ${phoneState.phoneNumber}',
+                        style: TextStyle(
+                          color: Theme.of(ctx).colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      TextField(
+                        controller: otpController,
+                        keyboardType: TextInputType.number,
+                        maxLength: 6,
+                        decoration: const InputDecoration(
+                          labelText: 'Enter 6-digit OTP',
+                          border: OutlineInputBorder(),
+                          counterText: '',
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      FilledButton(
+                        onPressed: isVerifying
+                            ? null
+                            : () {
+                                final otp = otpController.text.trim();
+                                if (otp.length != 6) return;
+                                dialogRef
+                                    .read(phoneAuthProvider.notifier)
+                                    .verifyOtp(otp);
+                              },
+                        child: isVerifying
+                            ? const SizedBox(
+                                height: 18, width: 18,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : const Text('Verify OTP'),
+                      ),
+                      const SizedBox(height: 8),
+                      TextButton(
+                        onPressed: phoneState.canResend
+                            ? () => dialogRef
+                                .read(phoneAuthProvider.notifier)
+                                .resendOtp()
+                            : null,
+                        child: Text(
+                          phoneState.resendCountdown > 0
+                              ? 'Resend in ${phoneState.resendCountdown}s'
+                              : 'Resend OTP',
+                        ),
+                      ),
+                    ],
+                    if (phoneState.error != null) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        phoneState.error!,
+                        style: TextStyle(color: AppColors.error, fontSize: 13),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(),
+                  child: const Text('Cancel'),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
   }
 

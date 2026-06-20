@@ -44,7 +44,6 @@ class ShopLogoWidget extends StatelessWidget {
           url: logoPath!,
           width: size,
           height: size,
-          fit: BoxFit.cover,
           errorWidget: _buildFallbackIcon(),
         );
       }

@@ -82,6 +82,14 @@ import 'package:tulasihotels/features/customer/screens/customer_reservation_scre
 import 'package:tulasihotels/features/customer/screens/order_status_screen.dart';
 import 'package:tulasihotels/features/feedback/screens/feedback_dashboard_screen.dart';
 import 'package:tulasihotels/features/staff/screens/salary_screen.dart';
+import 'package:tulasihotels/features/admin/screens/members_screen.dart';
+import 'package:tulasihotels/features/admin/screens/member_permissions_screen.dart';
+import 'package:tulasihotels/features/admin/screens/permissions_overview_screen.dart';
+import 'package:tulasihotels/features/admin/models/store_member.dart';
+import 'package:tulasihotels/features/admin/providers/current_member_provider.dart';
+import 'package:tulasihotels/features/admin/services/member_permission_guard.dart';
+import 'package:tulasihotels/features/hotels/screens/hotel_selector_screen.dart';
+import 'package:tulasihotels/features/hotels/providers/hotel_provider.dart';
 import 'package:tulasihotels/features/reports/screens/menu_performance_screen.dart';
 import 'package:tulasihotels/features/reports/screens/weekly_report_screen.dart';
 import 'package:tulasihotels/features/reports/screens/pnl_report_screen.dart';
@@ -127,6 +135,14 @@ class AppRoutes {
   static const String staffLogin = '/staff-login';
   static const String attendance = '/attendance';
   static const String myAttendance = '/my-attendance';
+
+  // Store member management (multi-user)
+  static const String members = '/members';
+  static const String memberPermissions = '/members/permissions';
+  static const String permissionsOverview = '/permissions';
+
+  // Multi-hotel
+  static const String hotelSelector = '/hotels';
 
   // New feature routes
   static const String combos = '/combos';
@@ -220,7 +236,7 @@ String _getRestoredInitialLocation() {
     debugPrint('🔄 Restoring initial location from SharedPreferences: $saved');
     return saved;
   }
-  return AppRoutes.billing;
+  return AppRoutes.hotelSelector;
 }
 
 /// Router provider
@@ -277,7 +293,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         }
         // If the restored target is a super-admin route, only allow if admin
         if (destination.startsWith('/super-admin') && !isSuperAdminUser) {
-          return AppRoutes.billing;
+          return AppRoutes.hotelSelector;
         }
         return destination;
       }
@@ -333,8 +349,22 @@ final routerProvider = Provider<GoRouter>((ref) {
 
       // Logged in and setup complete (or super admin)
       if (isAuthRoute || isShopSetupRoute) {
-        // Redirect auth routes to billing
-        return AppRoutes.billing;
+        // Redirect auth routes to hotel selector
+        return AppRoutes.hotelSelector;
+      }
+
+      // ── Hotel selection guard ──
+      // If no hotel is selected yet, redirect to hotel selector
+      // (except when already on the selector or doing staff login)
+      final isHotelSelectorRoute = currentPath == AppRoutes.hotelSelector;
+      final hasHotel = ref.read(currentHotelIdProvider) != null;
+      if (!hasHotel && !isHotelSelectorRoute && !isSuperAdminRoute) {
+        // Clear persisted route so next load goes to hotel selector
+        OfflineStorageService.prefs?.setString(_lastRouteKey, AppRoutes.hotelSelector);
+        return AppRoutes.hotelSelector;
+      }
+      if (isHotelSelectorRoute && hasHotel) {
+        return null; // Allow revisiting selector even with hotel selected
       }
 
       // ── Staff role-based permission check ──
@@ -348,6 +378,19 @@ final routerProvider = Provider<GoRouter>((ref) {
         if (!isStaffLoginRoute && !isAttendanceRoute) {
           if (!StaffPermissions.canAccess(loggedInStaff, currentPath)) {
             return StaffPermissions.homeRoute(loggedInStaff);
+          }
+        }
+      }
+
+      // ── Member permission check (multi-user store access) ──
+      // If no staff is logged in, check member-level permissions
+      if (loggedInStaff == null) {
+        final memberAsync = ref.read(currentMemberProvider);
+        final member = memberAsync.valueOrNull;
+        // Only enforce if member doc exists and user is NOT the owner
+        if (member != null && !member.isOwner) {
+          if (!MemberPermissionGuard.canAccess(member, currentPath)) {
+            return MemberPermissionGuard.homeRoute(member);
           }
         }
       }
@@ -395,6 +438,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.shopSetup,
         builder: (context, state) => const ShopSetupScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.hotelSelector,
+        builder: (context, state) => const HotelSelectorScreen(),
       ),
 
       // Main app shell with tabs
@@ -464,6 +511,29 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: AppRoutes.myAttendance,
             pageBuilder: (context, state) =>
                 const NoTransitionPage(child: MyAttendanceScreen()),
+          ),
+
+          // ── Store Members ──
+          GoRoute(
+            path: AppRoutes.members,
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: MembersScreen()),
+          ),
+          GoRoute(
+            path: AppRoutes.memberPermissions,
+            builder: (context, state) {
+              final member = state.extra as StoreMember?;
+              if (member == null) {
+                // Safety: redirect to members list if accessed without data
+                return const MembersScreen();
+              }
+              return MemberPermissionsScreen(member: member);
+            },
+          ),
+          GoRoute(
+            path: AppRoutes.permissionsOverview,
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: PermissionsOverviewScreen()),
           ),
 
           // ── Inventory ──

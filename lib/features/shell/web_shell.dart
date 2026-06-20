@@ -12,6 +12,8 @@ import 'package:tulasihotels/features/auth/providers/auth_provider.dart';
 import 'package:tulasihotels/features/auth/widgets/demo_mode_banner.dart';
 import 'package:tulasihotels/features/staff/providers/staff_provider.dart';
 import 'package:tulasihotels/features/staff/services/staff_permissions.dart';
+import 'package:tulasihotels/features/admin/providers/current_member_provider.dart';
+import 'package:tulasihotels/features/admin/services/member_permission_guard.dart';
 import 'package:tulasihotels/router/app_router.dart';
 import 'package:tulasihotels/shared/widgets/shop_logo_widget.dart';
 import 'package:tulasihotels/shared/widgets/web_safe_image.dart';
@@ -131,7 +133,6 @@ class _WebSidebar extends ConsumerWidget {
             url: logoPath,
             width: radius * 2,
             height: radius * 2,
-            fit: BoxFit.cover,
             errorWidget: CircleAvatar(
               radius: radius,
               backgroundColor: isSelected ? AppColors.primary : Colors.grey,
@@ -243,13 +244,14 @@ class _WebSidebar extends ConsumerWidget {
               padding: EdgeInsets.symmetric(horizontal: isCollapsed ? 8 : 16),
               children: [
                 for (final idx in visibleIndices)
-                  _SidebarItem(
-                    icon: _navItems[idx]!.$1,
-                    label: _navItems[idx]!.$2,
-                    isSelected: selectedIndex == idx,
-                    isCollapsed: isCollapsed,
-                    onTap: () => onItemTapped(idx),
-                  ),
+                  if (_navItems[idx] case final item?)
+                    _SidebarItem(
+                      icon: item.$1,
+                      label: item.$2,
+                      isSelected: selectedIndex == idx,
+                      isCollapsed: isCollapsed,
+                      onTap: () => onItemTapped(idx),
+                    ),
 
                 // More features — direct route links (permission-filtered)
                 if (!isCollapsed) ...[
@@ -257,12 +259,16 @@ class _WebSidebar extends ConsumerWidget {
                   Builder(
                     builder: (context) {
                       final staff = ref.watch(loggedInStaffProvider);
+                      final member = ref.watch(currentMemberProvider).valueOrNull;
                       Widget? routeItem(
                         IconData icon,
                         String label,
                         String route,
                       ) {
                         if (!StaffPermissions.canViewRoute(staff, route)) {
+                          return null;
+                        }
+                        if (staff == null && !MemberPermissionGuard.canViewRoute(member, route)) {
                           return null;
                         }
                         return _SidebarRouteItem(
@@ -276,68 +282,24 @@ class _WebSidebar extends ConsumerWidget {
 
                       // Build sections, omit empty ones
                       final inventoryItems = [
-                        routeItem(
-                          Icons.egg,
-                          'Ingredients',
-                          AppRoutes.ingredients,
-                        ),
-                        routeItem(
-                          Icons.local_shipping,
-                          'Vendors',
-                          AppRoutes.vendors,
-                        ),
-                        routeItem(
-                          Icons.delete_sweep,
-                          'Wastage',
-                          AppRoutes.wastage,
-                        ),
+                        routeItem(Icons.egg, 'Ingredients', AppRoutes.ingredients),
+                        routeItem(Icons.local_shipping, 'Vendors', AppRoutes.vendors),
+                        routeItem(Icons.delete_sweep, 'Wastage', AppRoutes.wastage),
                       ].whereType<Widget>().toList();
                       final hospitalityItems = [
-                        routeItem(
-                          Icons.event_seat,
-                          'Reservations',
-                          AppRoutes.reservations,
-                        ),
-                        routeItem(
-                          Icons.local_offer,
-                          'Coupons',
-                          AppRoutes.coupons,
-                        ),
-                        routeItem(
-                          Icons.celebration,
-                          'Events',
-                          AppRoutes.events,
-                        ),
-                        routeItem(
-                          Icons.feedback,
-                          'Feedback',
-                          AppRoutes.feedbackDashboard,
-                        ),
+                        routeItem(Icons.event_seat, 'Reservations', AppRoutes.reservations),
+                        routeItem(Icons.local_offer, 'Coupons', AppRoutes.coupons),
+                        routeItem(Icons.celebration, 'Events', AppRoutes.events),
+                        routeItem(Icons.feedback, 'Feedback', AppRoutes.feedbackDashboard),
                       ].whereType<Widget>().toList();
                       final reportsItems = [
-                        routeItem(
-                          Icons.bar_chart,
-                          'Advanced Reports',
-                          AppRoutes.advancedReports,
-                        ),
-                        routeItem(
-                          Icons.description,
-                          'GST Export',
-                          AppRoutes.gstExport,
-                        ),
+                        routeItem(Icons.bar_chart, 'Advanced Reports', AppRoutes.advancedReports),
+                        routeItem(Icons.description, 'GST Export', AppRoutes.gstExport),
                       ].whereType<Widget>().toList();
                       final complianceItems = [
-                        routeItem(
-                          Icons.build,
-                          'Equipment',
-                          AppRoutes.equipment,
-                        ),
+                        routeItem(Icons.build, 'Equipment', AppRoutes.equipment),
                         routeItem(Icons.badge, 'Licenses', AppRoutes.licenses),
-                        routeItem(
-                          Icons.report_problem,
-                          'Complaints',
-                          AppRoutes.complaints,
-                        ),
+                        routeItem(Icons.report_problem, 'Complaints', AppRoutes.complaints),
                       ].whereType<Widget>().toList();
                       return Column(
                         children: [
@@ -481,6 +443,73 @@ class _WebSidebar extends ConsumerWidget {
                 ),
               ],
             ),
+          ),
+
+          // ── Admin section — FIXED (always visible, never scrolls away) ──
+          Builder(
+            builder: (context) {
+              final staff = ref.watch(loggedInStaffProvider);
+              final member = ref.watch(currentMemberProvider).valueOrNull;
+
+              bool canSee(String route) {
+                if (!StaffPermissions.canViewRoute(staff, route)) return false;
+                if (staff == null &&
+                    !MemberPermissionGuard.canViewRoute(member, route)) {
+                  return false;
+                }
+                return true;
+              }
+
+              final showUsers = canSee(AppRoutes.members);
+              final showPerms = canSee(AppRoutes.permissionsOverview);
+              if (!showUsers && !showPerms) return const SizedBox.shrink();
+
+              final hPad = isCollapsed ? 8.0 : 16.0;
+              return Container(
+                padding: EdgeInsets.symmetric(horizontal: hPad, vertical: 4),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Divider(height: 12),
+                    if (!isCollapsed)
+                      Padding(
+                        padding: const EdgeInsets.only(left: 12, bottom: 4),
+                        child: Text(
+                          'ADMIN',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 1.2,
+                            color: Theme.of(context)
+                                .colorScheme
+                                .onSurfaceVariant
+                                .withValues(alpha: 0.6),
+                          ),
+                        ),
+                      ),
+                    if (showUsers)
+                      _SidebarItem(
+                        icon: Icons.group_outlined,
+                        label: 'Users',
+                        isSelected: currentPath.startsWith(AppRoutes.members),
+                        isCollapsed: isCollapsed,
+                        onTap: () =>
+                            GoRouter.of(context).push(AppRoutes.members),
+                      ),
+                    if (showPerms)
+                      _SidebarItem(
+                        icon: Icons.admin_panel_settings_outlined,
+                        label: 'Permissions',
+                        isSelected: currentPath
+                            .startsWith(AppRoutes.permissionsOverview),
+                        isCollapsed: isCollapsed,
+                        onTap: () => GoRouter.of(context)
+                            .push(AppRoutes.permissionsOverview),
+                      ),
+                  ],
+                ),
+              );
+            },
           ),
 
           // Sync indicator — always visible in sidebar

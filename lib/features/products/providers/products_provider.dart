@@ -14,6 +14,7 @@ import 'package:tulasihotels/core/services/demo_data_service.dart';
 import 'package:tulasihotels/core/services/sync_status_service.dart';
 import 'package:tulasihotels/core/utils/windows_firestore_helper.dart';
 import 'package:tulasihotels/features/auth/providers/auth_provider.dart';
+import 'package:tulasihotels/features/hotels/providers/hotel_provider.dart';
 import 'package:tulasihotels/models/product_model.dart';
 
 /// Firestore instance (Firebase singletons — safe as top-level)
@@ -21,10 +22,10 @@ final _firestore = FirebaseFirestore.instance;
 final _auth = FirebaseAuth.instance;
 
 /// Get user's products collection path.
-/// Throws if no user is signed in to prevent accidental writes to a
-/// global 'products' collection.
-String get _productsPath {
-  final uid = _auth.currentUser?.uid;
+/// Uses [storeId] if provided (for multi-hotel support),
+/// otherwise falls back to the current user's UID.
+String _productsPath([String? storeId]) {
+  final uid = storeId ?? _auth.currentUser?.uid;
   if (uid == null) {
     throw StateError('Cannot access products: no user signed in');
   }
@@ -45,13 +46,16 @@ final productsProvider = StreamProvider.autoDispose<List<ProductModel>>((ref) {
     return Stream.value(DemoDataService.getProducts().toList());
   }
 
+  // Use the selected hotel ID (owner's UID) for multi-hotel support
+  final storeId = ref.watch(currentHotelIdProvider) ?? _auth.currentUser?.uid;
+
   // Firebase mode: stream from Firestore
   // Safety cap at 2000 products to prevent massive reads if a user
   // accidentally imports a huge inventory
   debugPrint('📦 productsProvider: Listening to Firestore products...');
   return safeSnapshots(
     _firestore
-        .collection(_productsPath)
+        .collection(_productsPath(storeId))
         .orderBy('name')
         .limit(AppConstants.queryLimitProducts),
   ).map((snapshot) {
@@ -89,7 +93,7 @@ Future<(List<ProductModel>, DocumentSnapshot?)> fetchProductsPage({
   DocumentSnapshot? startAfter,
 }) async {
   var query = _firestore
-      .collection(_productsPath)
+      .collection(_productsPath())
       .orderBy('name')
       .limit(pageSize);
   if (startAfter != null) query = query.startAfterDocument(startAfter);
@@ -122,7 +126,7 @@ final productByIdProvider = StreamProvider.autoDispose
 
       try {
         return _firestore
-            .collection(_productsPath)
+            .collection(_productsPath())
             .doc(id)
             .snapshots()
             .map((doc) => doc.exists ? ProductModel.fromFirestore(doc) : null);
@@ -156,7 +160,7 @@ class ProductsService {
 
   ProductsService({required bool isDemoMode})
     : _isDemoMode = isDemoMode,
-      _collection = isDemoMode ? null : _firestore.collection(_productsPath);
+      _collection = isDemoMode ? null : _firestore.collection(_productsPath());
 
   /// Add new product
   Future<String> addProduct(ProductModel product) async {
