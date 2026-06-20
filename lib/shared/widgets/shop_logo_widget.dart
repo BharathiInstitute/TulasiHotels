@@ -3,6 +3,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:tulasihotels/core/design/design_system.dart';
+import 'package:tulasihotels/shared/widgets/web_safe_image.dart';
 
 /// A reusable widget that displays the hotel logo from a path (HTTP URL or local file),
 /// falling back to a hotel icon if no logo is set.
@@ -38,6 +39,15 @@ class ShopLogoWidget extends StatelessWidget {
 
   Widget _buildLogoImage() {
     if (logoPath!.startsWith('http')) {
+      if (kIsWeb) {
+        return WebSafeImage(
+          url: logoPath!,
+          width: size,
+          height: size,
+          fit: BoxFit.cover,
+          errorWidget: _buildFallbackIcon(),
+        );
+      }
       return CachedNetworkImage(
         imageUrl: logoPath!,
         width: size,

@@ -168,21 +168,20 @@ class OrderDetailScreen extends ConsumerWidget {
                   const SizedBox(height: 16),
                   Row(
                     children: [
-                      if (order.status == OrderStatus.ready ||
-                          order.allItemsReady)
+                      if (order.status != OrderStatus.served &&
+                          (order.status == OrderStatus.ready ||
+                              order.allItemsReady))
                         Expanded(
                           child: FilledButton.icon(
                             onPressed: () {
-                              OrderService.updateOrderStatus(
-                                orderId,
-                                OrderStatus.served,
-                              );
+                              OrderService.markAllItemsServed(orderId);
                             },
                             icon: const Icon(Icons.room_service),
                             label: const Text('Mark Served'),
                           ),
                         ),
-                      if (order.allItemsServed) ...[
+                      if (order.allItemsServed ||
+                          order.status == OrderStatus.served) ...[
                         const SizedBox(width: 8),
                         Expanded(
                           child: FilledButton.icon(

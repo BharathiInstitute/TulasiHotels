@@ -31,7 +31,7 @@ class ImageService {
   static Future<String?> pickAndUploadLogo() async {
     try {
       final uid = FirebaseAuth.instance.currentUser?.uid;
-      if (uid == null) return null;
+      if (uid == null) throw Exception('Not signed in');
 
       // Use file_picker which works on all platforms
       final result = await FilePicker.platform.pickFiles(
@@ -46,7 +46,7 @@ class ImageService {
       if (bytes == null && !kIsWeb && file.path != null) {
         bytes = await File(file.path!).readAsBytes();
       }
-      if (bytes == null) return null;
+      if (bytes == null) throw Exception('Could not read image file');
 
       // Reject files larger than 15 MB to avoid memory issues
       if (bytes.length > ImageSizes.maxFileSizeBytes) {
@@ -86,7 +86,7 @@ class ImageService {
       return downloadUrl;
     } catch (e) {
       debugPrint('Error picking/uploading logo: $e');
-      return null;
+      rethrow;
     }
   }
 
@@ -218,7 +218,7 @@ class ImageService {
       return downloadUrl;
     } catch (e) {
       debugPrint('Error picking/uploading profile image: $e');
-      return null;
+      rethrow;
     }
   }
 
