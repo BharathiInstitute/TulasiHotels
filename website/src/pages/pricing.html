@@ -2,7 +2,7 @@
 <html lang="en">
 
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8">`n  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">`n  <meta http-equiv="Pragma" content="no-cache">`n  <meta http-equiv="Expires" content="0">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Pricing — Tulasi Hotels | Free to Start, Scales With You</title>
   <meta name="description"
@@ -16,7 +16,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="../css/styles.css?v=5">
+  <link rel="stylesheet" href="../css/styles.css?v=6">
   <style>
     .pricing-toggle { display: flex; align-items: center; justify-content: center; gap: 0.75rem; margin-bottom: 2.5rem; }
     .pricing-toggle-label { font-size: 0.9375rem; color: var(--color-text-light); font-weight: 500; cursor: pointer; transition: color 0.2s; }
@@ -46,6 +46,7 @@
       .comparison-table th, .comparison-table td { padding: 0.625rem 0.5rem; }
     }
   </style>
+<!-- deploy: 2026-06-19 17:31:45 -->
 </head>
 
 <body>
@@ -69,7 +70,7 @@
       </ul>
       <div class="navbar-cta">
         <a href="/app/" class="btn btn-ghost btn-sm">Open App</a>
-        <a href="account.html" class="btn btn-ghost btn-sm">My Account</a>
+        <a href="account.html" class="btn btn-account btn-sm" id="nav-account-link">My Account</a>
         <a href="download.html" class="btn btn-primary btn-sm">Download Now</a>
       </div>
       <button class="navbar-toggle" aria-label="Toggle menu"><span></span><span></span><span></span></button>
@@ -448,6 +449,7 @@
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-functions-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
   <!-- Razorpay Checkout.js -->
   <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
 
@@ -511,6 +513,7 @@
     };
     firebase.initializeApp(firebaseConfig);
     var auth = firebase.auth();
+    var db = firebase.firestore();
     var functions = firebase.app().functions('asia-south1');
 
     // ─── Razorpay Key (live or test) ───
@@ -518,12 +521,24 @@
 
     // ─── State ───
     var currentUser = null;
+    var userPhone = '';
     var pendingPlan = null;
     var isAnnual = false;
+    var pendingOrder = null; // { orderId, plan, cycle } — for UPI fallback check
 
     // ─── Auth State ───
     auth.onAuthStateChanged(function(user) {
       currentUser = user;
+      if (user) {
+        // Fetch phone from Firestore user profile
+        db.collection('users').doc(user.uid).get().then(function(doc) {
+          if (doc.exists && doc.data().phone) {
+            userPhone = doc.data().phone;
+          } else if (doc.exists && doc.data().phoneNumber) {
+            userPhone = doc.data().phoneNumber;
+          }
+        }).catch(function() {});
+      }
       if (user && pendingPlan) {
         var plan = pendingPlan;
         pendingPlan = null;
@@ -729,8 +744,11 @@
       }
     }
 
+    var paymentPollInterval = null;
+
     function openRazorpayCheckout(orderId, amount, plan, cycle) {
       var isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+      pendingOrder = { orderId: orderId, plan: plan, cycle: cycle };
       var options = {
         key: RAZORPAY_KEY,
         amount: amount * 100,
@@ -740,31 +758,70 @@
         description: (plan === 'starter' ? 'Starter' : plan === 'pro' ? 'Pro' : 'Business') + ' Plan (' + (cycle === 'annual' ? 'Annual' : 'Monthly') + ')',
         prefill: {
           email: currentUser.email || '',
-          contact: currentUser.phoneNumber || '',
+          contact: userPhone || currentUser.phoneNumber || '',
           name: currentUser.displayName || '',
         },
         theme: { color: '#F97316' },
         modal: {
           confirm_close: true,
-          ondismiss: function () { /* user closed checkout */ },
+          ondismiss: function () {
+            stopPaymentPolling();
+            if (pendingOrder) {
+              checkPendingPayment();
+            }
+          },
         },
         handler: function (response) {
+          stopPaymentPolling();
+          pendingOrder = null;
           verifyAndActivate(plan, cycle, response.razorpay_payment_id, response.razorpay_order_id, response.razorpay_signature);
         },
       };
 
-      if (isMobile) {
-        options.method = { upi: true, card: true, netbanking: true, wallet: false, emi: false, paylater: false };
-      } else {
-        options.method = { upi: true, card: false, netbanking: false, wallet: false, emi: false, paylater: false };
-      }
+      // Allow all payment methods on all platforms
+      options.method = { upi: true, card: true, netbanking: true, wallet: false, emi: false, paylater: false };
 
       var rzp = new Razorpay(options);
       rzp.on('payment.failed', function (response) {
+        stopPaymentPolling();
+        pendingOrder = null;
         console.error('Payment failed:', response.error);
         showPaymentError(response.error.description || 'Payment failed. Please try again.');
       });
       rzp.open();
+
+      // Start background polling to detect UPI payment completion
+      startPaymentPolling(orderId, plan, cycle, rzp);
+    }
+
+    function startPaymentPolling(orderId, plan, cycle, rzpInstance) {
+      var pollCount = 0;
+      paymentPollInterval = setInterval(async function () {
+        pollCount++;
+        if (pollCount > 60) { // Stop after 5 minutes (60 * 5s)
+          stopPaymentPolling();
+          return;
+        }
+        try {
+          var checkFn = functions.httpsCallable('checkOrderStatus');
+          var result = await checkFn({ orderId: orderId, plan: plan, cycle: cycle });
+          if (result.data.success) {
+            stopPaymentPolling();
+            pendingOrder = null;
+            try { rzpInstance.close(); } catch(e) {}
+            showPaymentSuccess(plan);
+          }
+        } catch (err) {
+          // Silently continue polling
+        }
+      }, 5000);
+    }
+
+    function stopPaymentPolling() {
+      if (paymentPollInterval) {
+        clearInterval(paymentPollInterval);
+        paymentPollInterval = null;
+      }
     }
 
     async function verifyAndActivate(plan, cycle, paymentId, orderId, signature) {
@@ -782,6 +839,35 @@
       } catch (err) {
         console.error('Verification error:', err);
         showPaymentError('Payment received. Plan will activate automatically within a few minutes.');
+      }
+    }
+
+    // ─── UPI Fallback: Check if payment completed after modal dismiss ───
+    async function checkPendingPayment() {
+      if (!pendingOrder) return;
+      var order = pendingOrder;
+      pendingOrder = null;
+
+      showPaymentOverlay('Checking payment status...', 'Verifying if your UPI payment was received.');
+
+      // Wait a moment for Razorpay to process
+      await new Promise(function(r) { setTimeout(r, 3000); });
+
+      try {
+        var checkFn = functions.httpsCallable('checkOrderStatus');
+        var result = await checkFn({ orderId: order.orderId, plan: order.plan, cycle: order.cycle });
+        if (result.data.success) {
+          showPaymentSuccess(order.plan);
+        } else {
+          closePaymentOverlay();
+          // Payment not yet detected — might still be processing
+          if (result.data.status === 'attempted' || result.data.status === 'created') {
+            showPaymentError('Payment not yet received. If you have paid, it will activate within 5 minutes via our webhook.');
+          }
+        }
+      } catch (err) {
+        console.error('Check payment status error:', err);
+        closePaymentOverlay();
       }
     }
   </script>
