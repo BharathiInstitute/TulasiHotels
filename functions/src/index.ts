@@ -3200,6 +3200,81 @@ export const createOrder = functions
     });
 
 /**
+ * checkOrderStatus — Checks if a Razorpay order has been paid.
+ * Used as fallback when UPI QR payment completes but checkout modal doesn't detect it.
+ */
+export const checkOrderStatus = functions
+    .region("asia-south1")
+    .runWith({ timeoutSeconds: 30, memory: "256MB", maxInstances: 50 })
+    .https.onCall(async (data: { orderId: string; plan: string; cycle: string }, context) => {
+        if (!context.auth) {
+            throw new functions.https.HttpsError("unauthenticated", "Login required");
+        }
+
+        const { orderId, plan, cycle } = data;
+        if (!orderId || !plan || !cycle) {
+            throw new functions.https.HttpsError("invalid-argument", "Missing required fields");
+        }
+
+        const userId = context.auth.uid;
+        const razorpayConfig = getRazorpayConfig();
+        const auth = Buffer.from(`${razorpayConfig.keyId}:${razorpayConfig.keySecret}`).toString("base64");
+
+        // Check order status with Razorpay
+        const orderRes = await fetch(
+            `https://api.razorpay.com/v1/orders/${orderId}`,
+            { headers: { Authorization: `Basic ${auth}` } }
+        );
+        if (!orderRes.ok) {
+            throw new functions.https.HttpsError("not-found", "Order not found");
+        }
+        const order = await orderRes.json() as { status: string; amount_paid: number };
+
+        if (order.status !== "paid") {
+            return { success: false, status: order.status };
+        }
+
+        // Order is paid — find the payment
+        const paymentsRes = await fetch(
+            `https://api.razorpay.com/v1/orders/${orderId}/payments`,
+            { headers: { Authorization: `Basic ${auth}` } }
+        );
+        if (!paymentsRes.ok) {
+            throw new functions.https.HttpsError("internal", "Could not fetch payments");
+        }
+        const payments = await paymentsRes.json() as { items: Array<{ id: string; status: string }> };
+        const capturedPayment = payments.items.find((p) => p.status === "captured");
+
+        if (!capturedPayment) {
+            return { success: false, status: "payment_not_captured" };
+        }
+
+        // Activate subscription
+        const daysToAdd = cycle === "annual" ? 365 : 30;
+        const expiresAt = new Date();
+        expiresAt.setDate(expiresAt.getDate() + daysToAdd);
+
+        const billsLimit = plan === "starter" ? 300 : plan === "pro" ? 500 : 999999;
+        const productsLimit = plan === "starter" ? 100 : 999999;
+        const customersLimit = plan === "starter" ? 200 : 999999;
+
+        const db = admin.firestore();
+        await db.collection("users").doc(userId).update({
+            "subscription.plan": plan,
+            "subscription.status": "active",
+            "subscription.startedAt": admin.firestore.FieldValue.serverTimestamp(),
+            "subscription.expiresAt": admin.firestore.Timestamp.fromDate(expiresAt),
+            "subscription.razorpayOrderId": orderId,
+            "subscription.razorpayPaymentId": capturedPayment.id,
+            "limits.billsLimit": billsLimit,
+            "limits.productsLimit": productsLimit,
+            "limits.customersLimit": customersLimit,
+        });
+
+        return { success: true, paymentId: capturedPayment.id };
+    });
+
+/**
  * verifyPayment — Verifies Razorpay payment signature and activates subscription.
  * Called from the website pricing page after successful Razorpay checkout.
  */

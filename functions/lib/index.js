@@ -48,8 +48,8 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.sendReservationReminder = exports.sendFeedbackRequest = exports.sendOrderConfirmation = exports.verifyPayment = exports.createOrder = exports.createPaymentToken = exports.razorpayReconciliation = exports.onStockUpdate = exports.onNewOrderKitchenAlert = exports.onWastageLogged = exports.onComplaintCreated = exports.equipmentServiceReminder = exports.licenseExpiryReminder = exports.onNewReservation = exports.onNewFeedback = exports.onLowIngredientStock = exports.onOrderReady = exports.onCustomerOrderCreated = exports.onRushOrderCreated = exports.seedUserUsage = exports.scheduledFirestoreBackup = exports.sendNotificationToPlan = exports.sendNotificationToAll = exports.getSubscriptionLimits = exports.seedAdmins = exports.onCustomerDeleted = exports.onCustomerCreated = exports.onProductDeleted = exports.onProductCreated = exports.onBillCreated = exports.processReferralReward = exports.redeemReferralCode = exports.onSubscriptionWrite = exports.generateMonthlyReport = exports.exchangeIdToken = exports.sendDailySalesSummary = exports.checkChurnedUsers = exports.checkSubscriptionExpiry = exports.activateSubscription = exports.checkLowStock = exports.cleanupOldNotifications = exports.sendPushNotification = exports.onNewUserSignup = exports.generateDesktopToken = exports.deleteUserAccount = exports.onUserDeleted = exports.verifyRegistrationOTP = exports.sendRegistrationOTP = exports.razorpayWebhook = exports.createPaymentLink = void 0;
-exports.sendOrderReadySMS = exports.sendDailySummaryWhatsApp = void 0;
+exports.sendFeedbackRequest = exports.sendOrderConfirmation = exports.verifyPayment = exports.checkOrderStatus = exports.createOrder = exports.createPaymentToken = exports.razorpayReconciliation = exports.onStockUpdate = exports.onNewOrderKitchenAlert = exports.onWastageLogged = exports.onComplaintCreated = exports.equipmentServiceReminder = exports.licenseExpiryReminder = exports.onNewReservation = exports.onNewFeedback = exports.onLowIngredientStock = exports.onOrderReady = exports.onCustomerOrderCreated = exports.onRushOrderCreated = exports.seedUserUsage = exports.scheduledFirestoreBackup = exports.sendNotificationToPlan = exports.sendNotificationToAll = exports.getSubscriptionLimits = exports.seedAdmins = exports.onCustomerDeleted = exports.onCustomerCreated = exports.onProductDeleted = exports.onProductCreated = exports.onBillCreated = exports.processReferralReward = exports.redeemReferralCode = exports.onSubscriptionWrite = exports.generateMonthlyReport = exports.exchangeIdToken = exports.sendDailySalesSummary = exports.checkChurnedUsers = exports.checkSubscriptionExpiry = exports.activateSubscription = exports.checkLowStock = exports.cleanupOldNotifications = exports.sendPushNotification = exports.onNewUserSignup = exports.generateDesktopToken = exports.deleteUserAccount = exports.onUserDeleted = exports.verifyRegistrationOTP = exports.sendRegistrationOTP = exports.razorpayWebhook = exports.createPaymentLink = void 0;
+exports.sendOrderReadySMS = exports.sendDailySummaryWhatsApp = exports.sendReservationReminder = void 0;
 const functions = __importStar(require("firebase-functions"));
 const admin = __importStar(require("firebase-admin"));
 const crypto = __importStar(require("crypto"));
@@ -2789,6 +2789,64 @@ exports.createOrder = functions
         console.error("createOrder error:", err);
         throw new functions.https.HttpsError("internal", "Order creation failed");
     }
+});
+/**
+ * checkOrderStatus — Checks if a Razorpay order has been paid.
+ * Used as fallback when UPI QR payment completes but checkout modal doesn't detect it.
+ */
+exports.checkOrderStatus = functions
+    .region("asia-south1")
+    .runWith({ timeoutSeconds: 30, memory: "256MB", maxInstances: 50 })
+    .https.onCall(async (data, context) => {
+    if (!context.auth) {
+        throw new functions.https.HttpsError("unauthenticated", "Login required");
+    }
+    const { orderId, plan, cycle } = data;
+    if (!orderId || !plan || !cycle) {
+        throw new functions.https.HttpsError("invalid-argument", "Missing required fields");
+    }
+    const userId = context.auth.uid;
+    const razorpayConfig = getRazorpayConfig();
+    const auth = Buffer.from(`${razorpayConfig.keyId}:${razorpayConfig.keySecret}`).toString("base64");
+    // Check order status with Razorpay
+    const orderRes = await fetch(`https://api.razorpay.com/v1/orders/${orderId}`, { headers: { Authorization: `Basic ${auth}` } });
+    if (!orderRes.ok) {
+        throw new functions.https.HttpsError("not-found", "Order not found");
+    }
+    const order = await orderRes.json();
+    if (order.status !== "paid") {
+        return { success: false, status: order.status };
+    }
+    // Order is paid — find the payment
+    const paymentsRes = await fetch(`https://api.razorpay.com/v1/orders/${orderId}/payments`, { headers: { Authorization: `Basic ${auth}` } });
+    if (!paymentsRes.ok) {
+        throw new functions.https.HttpsError("internal", "Could not fetch payments");
+    }
+    const payments = await paymentsRes.json();
+    const capturedPayment = payments.items.find((p) => p.status === "captured");
+    if (!capturedPayment) {
+        return { success: false, status: "payment_not_captured" };
+    }
+    // Activate subscription
+    const daysToAdd = cycle === "annual" ? 365 : 30;
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + daysToAdd);
+    const billsLimit = plan === "starter" ? 300 : plan === "pro" ? 500 : 999999;
+    const productsLimit = plan === "starter" ? 100 : 999999;
+    const customersLimit = plan === "starter" ? 200 : 999999;
+    const db = admin.firestore();
+    await db.collection("users").doc(userId).update({
+        "subscription.plan": plan,
+        "subscription.status": "active",
+        "subscription.startedAt": admin.firestore.FieldValue.serverTimestamp(),
+        "subscription.expiresAt": admin.firestore.Timestamp.fromDate(expiresAt),
+        "subscription.razorpayOrderId": orderId,
+        "subscription.razorpayPaymentId": capturedPayment.id,
+        "limits.billsLimit": billsLimit,
+        "limits.productsLimit": productsLimit,
+        "limits.customersLimit": customersLimit,
+    });
+    return { success: true, paymentId: capturedPayment.id };
 });
 /**
  * verifyPayment — Verifies Razorpay payment signature and activates subscription.
