@@ -10,28 +10,59 @@ class CartState {
   final List<CartItem> items;
   final String? customerId;
   final String? customerName;
+  final String? couponId;
+  final String? couponCode;
+  final double couponDiscount;
 
-  const CartState({this.items = const [], this.customerId, this.customerName});
+  const CartState({
+    this.items = const [],
+    this.customerId,
+    this.customerName,
+    this.couponId,
+    this.couponCode,
+    this.couponDiscount = 0,
+  });
 
-  double get total => items.fold(0, (sum, item) => sum + item.total);
+  double get subtotal => items.fold(0, (sum, item) => sum + item.total);
+  double get total => (subtotal - couponDiscount).clamp(0, double.infinity);
   int get itemCount => items.fold(0, (sum, item) => sum + item.quantity);
   bool get isEmpty => items.isEmpty;
   bool get isNotEmpty => items.isNotEmpty;
+  bool get hasCoupon => couponId != null;
 
   CartState copyWith({
     List<CartItem>? items,
     String? customerId,
     String? customerName,
+    String? couponId,
+    String? couponCode,
+    double? couponDiscount,
   }) {
     return CartState(
       items: items ?? this.items,
       customerId: customerId ?? this.customerId,
       customerName: customerName ?? this.customerName,
+      couponId: couponId ?? this.couponId,
+      couponCode: couponCode ?? this.couponCode,
+      couponDiscount: couponDiscount ?? this.couponDiscount,
     );
   }
 
   CartState clearCustomer() {
-    return CartState(items: items);
+    return CartState(
+      items: items,
+      couponId: couponId,
+      couponCode: couponCode,
+      couponDiscount: couponDiscount,
+    );
+  }
+
+  CartState clearCoupon() {
+    return CartState(
+      items: items,
+      customerId: customerId,
+      customerName: customerName,
+    );
   }
 }
 
@@ -116,6 +147,24 @@ class CartNotifier extends StateNotifier<CartState> {
   /// Clear customer
   void clearCustomer() {
     state = state.clearCustomer();
+  }
+
+  /// Apply a validated coupon
+  void applyCoupon({
+    required String couponId,
+    required String couponCode,
+    required double discount,
+  }) {
+    state = state.copyWith(
+      couponId: couponId,
+      couponCode: couponCode,
+      couponDiscount: discount,
+    );
+  }
+
+  /// Remove applied coupon
+  void removeCoupon() {
+    state = state.clearCoupon();
   }
 
   /// Clear entire cart

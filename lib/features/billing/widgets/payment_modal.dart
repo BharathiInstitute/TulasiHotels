@@ -32,6 +32,7 @@ import 'package:tulasihotels/core/services/payment_link_service.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:tulasihotels/shared/widgets/onboarding_checklist.dart';
 import 'package:tulasihotels/features/billing/providers/billing_provider.dart';
+import 'package:tulasihotels/features/coupons/services/coupon_service.dart';
 import 'package:tulasihotels/shared/widgets/app_button.dart';
 
 class PaymentModal extends ConsumerStatefulWidget {
@@ -44,12 +45,16 @@ class PaymentModal extends ConsumerStatefulWidget {
 class _PaymentModalState extends ConsumerState<PaymentModal> {
   PaymentMethod _selectedMethod = PaymentMethod.cash;
   final _udharAmountController = TextEditingController();
+  final _couponController = TextEditingController();
   bool _isLoading = false;
+  bool _isValidatingCoupon = false;
+  String? _couponError;
   CustomerModel? _selectedCustomer;
 
   @override
   void dispose() {
     _udharAmountController.dispose();
+    _couponController.dispose();
     super.dispose();
   }
 
@@ -76,6 +81,35 @@ class _PaymentModalState extends ConsumerState<PaymentModal> {
       }
     } catch (_) {
       // Review request is best-effort — never block billing flow
+    }
+  }
+
+  Future<void> _applyCoupon() async {
+    final code = _couponController.text.trim();
+    if (code.isEmpty) return;
+    final cart = ref.read(cartProvider);
+    setState(() {
+      _isValidatingCoupon = true;
+      _couponError = null;
+    });
+    try {
+      final coupon = await CouponService.validateCoupon(code, cart.subtotal);
+      if (!mounted) return;
+      if (coupon == null) {
+        setState(() => _couponError = 'Invalid or expired coupon');
+      } else {
+        final discount = coupon.calculateDiscount(cart.subtotal);
+        ref.read(cartProvider.notifier).applyCoupon(
+          couponId: coupon.id,
+          couponCode: coupon.code,
+          discount: discount,
+        );
+        setState(() => _couponError = null);
+      }
+    } catch (e) {
+      if (mounted) setState(() => _couponError = 'Could not validate coupon');
+    } finally {
+      if (mounted) setState(() => _isValidatingCoupon = false);
     }
   }
 
@@ -140,17 +174,23 @@ class _PaymentModalState extends ConsumerState<PaymentModal> {
       final dateStr =
           '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
 
+      final subtotal = cart.subtotal;
+      final couponDiscount = cart.couponDiscount;
+      final billTotal = cart.total; // already clamps to 0
+
       bill = BillModel(
         id: generateSafeId('bill'),
         billNumber: await OfflineStorageService.getNextBillNumber(),
         items: cart.items,
-        total: cart.total,
+        total: billTotal,
         paymentMethod: _selectedMethod,
         customerId: _selectedCustomer?.id ?? cart.customerId,
         customerName: _selectedCustomer?.name ?? cart.customerName,
-        receivedAmount: cart.total,
+        receivedAmount: billTotal,
         createdAt: now,
         date: dateStr,
+        subtotal: subtotal,
+        discount: couponDiscount,
       );
 
       // Save bill to local storage for Reports
@@ -167,6 +207,12 @@ class _PaymentModalState extends ConsumerState<PaymentModal> {
 
       // Mark onboarding "first bill" step as done
       unawaited(markOnboardingBillDone());
+
+      // Increment coupon usage if a coupon was applied
+      final couponId = cart.couponId;
+      if (couponId != null) {
+        unawaited(CouponService.applyCoupon(couponId));
+      }
 
       // Request Play Store review after the 3rd bill
       unawaited(_maybeRequestReview());
@@ -632,19 +678,75 @@ class _PaymentModalState extends ConsumerState<PaymentModal> {
                   color: AppColors.primary.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Text('Total: '),
-                    Text(
-                      cart.total.asCurrency,
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.primary,
+                child: cart.hasCoupon
+                    ? Column(
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text('Subtotal:'),
+                              Text(
+                                cart.subtotal.asCurrency,
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.w500),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Row(children: [
+                                const Icon(Icons.local_offer,
+                                    size: 14, color: AppColors.success),
+                                const SizedBox(width: 4),
+                                Text(
+                                  cart.couponCode ?? '',
+                                  style: const TextStyle(
+                                      fontSize: 12, color: AppColors.success),
+                                ),
+                              ]),
+                              Text(
+                                '-${cart.couponDiscount.asCurrency}',
+                                style: const TextStyle(
+                                    color: AppColors.success,
+                                    fontWeight: FontWeight.w500),
+                              ),
+                            ],
+                          ),
+                          const Divider(height: 8),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Text('Total: '),
+                              Text(
+                                cart.total.asCurrency,
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .titleLarge
+                                    ?.copyWith(
+                                      fontWeight: FontWeight.bold,
+                                      color: AppColors.primary,
+                                    ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      )
+                    : Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Text('Total: '),
+                          Text(
+                            cart.total.asCurrency,
+                            style:
+                                Theme.of(context).textTheme.titleLarge?.copyWith(
+                                      fontWeight: FontWeight.bold,
+                                      color: AppColors.primary,
+                                    ),
+                          ),
+                        ],
                       ),
-                    ),
-                  ],
-                ),
               ),
               const SizedBox(height: 12),
 
@@ -880,6 +982,84 @@ class _PaymentModalState extends ConsumerState<PaymentModal> {
                 ],
                 const SizedBox(height: 12),
               ],
+
+              // Coupon / Discount code
+              const SizedBox(height: 4),
+              if (cart.hasCoupon) ...[
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: AppColors.success.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                        color: AppColors.success.withValues(alpha: 0.3)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.local_offer,
+                          size: 16, color: AppColors.success),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          '${cart.couponCode} applied — saving ${cart.couponDiscount.asCurrency}',
+                          style: const TextStyle(
+                              fontSize: 13, color: AppColors.success),
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close,
+                            size: 16, color: AppColors.success),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        onPressed: () {
+                          ref.read(cartProvider.notifier).removeCoupon();
+                          _couponController.clear();
+                          setState(() => _couponError = null);
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ] else ...[
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _couponController,
+                        textCapitalization: TextCapitalization.characters,
+                        decoration: InputDecoration(
+                          hintText: 'Coupon code',
+                          isDense: true,
+                          prefixIcon: const Icon(Icons.local_offer, size: 18),
+                          errorText: _couponError,
+                          border: const OutlineInputBorder(),
+                          contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 10),
+                        ),
+                        onSubmitted: (_) => _applyCoupon(),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    SizedBox(
+                      height: 44,
+                      child: OutlinedButton(
+                        onPressed:
+                            _isValidatingCoupon ? null : _applyCoupon,
+                        child: _isValidatingCoupon
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                    strokeWidth: 2),
+                              )
+                            : const Text('Apply'),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+              const SizedBox(height: 12),
 
               // Complete button
               AppButton(
