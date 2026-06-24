@@ -15,11 +15,12 @@ service cloud.firestore {
     
     // Helper function to check if user is a super admin
     // Uses dynamic admins collection — no redeploy needed to add/remove admins
-    // Falls back to primary owner email for bootstrapping when collection is empty
+    // Falls back to primary owner emails for bootstrapping when collection is empty
     function isAdmin() {
       return request.auth != null && (
         exists(/databases/$(database)/documents/admins/$(request.auth.token.email))
         || request.auth.token.email == 'kehsaram001@gmail.com'
+        || request.auth.token.email == 'bharathiinstitute1@gmail.com'
       );
     }
 
@@ -105,8 +106,10 @@ service cloud.firestore {
     // USER DOCUMENTS
     // ===================
     match /users/{userId} {
-      // Users can read their own doc; members of the store can read it too; admins can read all
-      allow read: if isAuthenticated() && (isOwner(userId) || isMember(userId) || isAdmin());
+      // Single document reads: owner, members, or admins
+      allow get: if isAuthenticated() && (isOwner(userId) || isMember(userId) || isAdmin());
+      // Collection queries (list): only owner of that doc or admins can list
+      allow list: if isAuthenticated() && isAdmin();
       
       // Owner can write to their own store doc
       allow write: if isAuthenticated() && isOwner(userId) && isReasonableSize();
@@ -520,6 +523,15 @@ service cloud.firestore {
       }
 
       // ===================
+      // VENDOR SETTLEMENTS (unified purchase + payment history)
+      // ===================
+      match /vendorSettlements/{settlementId} {
+        allow read: if isAuthenticated() && (isOwner(userId) || isAdmin());
+        allow create: if isAuthenticated() && isOwner(userId) && isReasonableSize();
+        allow delete: if isAuthenticated() && isOwner(userId);
+      }
+
+      // ===================
       // MEMBERS (sub-collection for multi-user store access)
       // Owner/manager can manage members; any active member can read all members
       // ===================
@@ -572,6 +584,12 @@ service cloud.firestore {
     }
     
     match /screen_performance/{docId} {
+      allow create: if isAuthenticated() && request.resource.size() < 10000;
+      allow read: if isAdmin();
+      allow update, delete: if isAdmin();
+    }
+    
+    match /network_metrics/{docId} {
       allow create: if isAuthenticated() && request.resource.size() < 10000;
       allow read: if isAdmin();
       allow update, delete: if isAdmin();
@@ -631,8 +649,9 @@ service cloud.firestore {
     // USER USAGE TRACKING (per-user backend cost tracking)
     // ===================
     match /user_usage/{userId} {
-      // Users can read their own usage doc; admins can read all
-      allow read: if isAuthenticated() && (isOwner(userId) || isAdmin());
+      // Users can read their own usage doc; admins can list/read all
+      allow get: if isAuthenticated() && (isOwner(userId) || isAdmin());
+      allow list: if isAuthenticated() && isAdmin();
       // Users can write their own usage doc (for client-side tracking)
       // Admins can write any usage doc (for seeding / corrections)
       allow write: if isAuthenticated() && (isOwner(userId) || isAdmin());
@@ -653,9 +672,10 @@ service cloud.firestore {
     // SUPPORT TICKETS
     // ===================
     match /support_tickets/{ticketId} {
-      // Users can read their own tickets, admins can read all
-      allow read: if isAuthenticated() && 
+      // Users can read their own tickets, admins can read/list all
+      allow get: if isAuthenticated() && 
         (resource.data.storeId == request.auth.uid || isAdmin());
+      allow list: if isAuthenticated() && isAdmin();
       // Users can create tickets (storeId must match their uid)
       allow create: if isAuthenticated() 
         && request.resource.data.storeId == request.auth.uid
