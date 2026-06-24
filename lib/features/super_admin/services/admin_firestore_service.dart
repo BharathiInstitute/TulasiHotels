@@ -105,7 +105,7 @@ class AdminFirestoreService {
       return users;
     } catch (e) {
       debugPrint('❌ AdminFirestore: Failed to get users: $e');
-      return [];
+      rethrow;
     }
   }
 

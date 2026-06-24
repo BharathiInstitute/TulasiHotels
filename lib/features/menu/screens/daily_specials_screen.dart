@@ -57,8 +57,7 @@ class DailySpecialsScreen extends ConsumerWidget {
   }
 
   void _toggleSpecial(WidgetRef ref, ProductModel product, bool isSpecial) {
-    // Uses product service to update
-    // This would call ProductService.updateProduct
-    // but for now we just mark the field
+    final updated = product.copyWith(isSpecial: isSpecial);
+    ref.read(productsServiceProvider).updateProduct(updated);
   }
 }
