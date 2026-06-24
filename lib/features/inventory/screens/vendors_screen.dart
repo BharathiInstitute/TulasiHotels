@@ -515,6 +515,13 @@ class _PaymentHistoryTab extends StatelessWidget {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
         }
+        if (snapshot.hasError) {
+          return Center(
+            child: Text('Error loading history:\n${snapshot.error}',
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Colors.red, fontSize: 12)),
+          );
+        }
         final entries = snapshot.data ?? [];
         if (entries.isEmpty) {
           return const Center(
@@ -581,6 +588,13 @@ class _PurchasesTab extends StatelessWidget {
     return StreamBuilder<List<Map<String, dynamic>>>(
       stream: VendorSettlementService.settlementHistoryStream(vendorId),
       builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return Center(
+            child: Text('Error: ${snapshot.error}',
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Colors.red, fontSize: 12)),
+          );
+        }
         final all = snapshot.data ?? [];
         final purchases = all.where((e) => e['type'] == 'purchase').toList();
         if (purchases.isEmpty) {

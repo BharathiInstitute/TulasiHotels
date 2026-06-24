@@ -1,6 +1,21 @@
 {
     "indexes": [
         {
+            "__comment": "vendorSettlements: query by vendorId + sort by createdAt",
+            "collectionGroup": "vendorSettlements",
+            "queryScope": "COLLECTION",
+            "fields": [
+                {
+                    "fieldPath": "vendorId",
+                    "order": "ASCENDING"
+                },
+                {
+                    "fieldPath": "createdAt",
+                    "order": "DESCENDING"
+                }
+            ]
+        },
+        {
             "__comment": "bills: date range queries with orderBy - LEGACY (date field)",
             "collectionGroup": "bills",
             "queryScope": "COLLECTION",
