@@ -62,7 +62,7 @@ class VendorsScreen extends ConsumerWidget {
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
                       Text(
-                        'â‚¹${vendor.balance.abs().toStringAsFixed(0)}',
+                        '₹${vendor.balance.abs().toStringAsFixed(0)}',
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           color: balanceColor,
@@ -294,7 +294,7 @@ class _VendorDetailSheetState extends State<_VendorDetailSheet>
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Text(
-                      'â‚¹${vendor.balance.abs().toStringAsFixed(0)}',
+                      '₹${vendor.balance.abs().toStringAsFixed(0)}',
                       style: TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
@@ -384,9 +384,9 @@ class _VendorDetailSheetState extends State<_VendorDetailSheet>
               keyboardType:
                   const TextInputType.numberWithOptions(decimal: true),
               decoration: const InputDecoration(
-                labelText: 'Amount (â‚¹)',
+                labelText: 'Amount (₹)',
                 border: OutlineInputBorder(),
-                prefixText: 'â‚¹ ',
+                prefixText: '₹ ',
               ),
               autofocus: true,
             ),
@@ -420,7 +420,7 @@ class _VendorDetailSheetState extends State<_VendorDetailSheet>
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     content: Text(
-                        'Purchase of â‚¹${amount.toStringAsFixed(0)} recorded'),
+                        'Purchase of ₹${amount.toStringAsFixed(0)} recorded'),
                   ),
                 );
               }
@@ -453,9 +453,9 @@ class _VendorDetailSheetState extends State<_VendorDetailSheet>
               keyboardType:
                   const TextInputType.numberWithOptions(decimal: true),
               decoration: const InputDecoration(
-                labelText: 'Amount (â‚¹)',
+                labelText: 'Amount (₹)',
                 border: OutlineInputBorder(),
-                prefixText: 'â‚¹ ',
+                prefixText: '₹ ',
               ),
               autofocus: true,
             ),
@@ -488,7 +488,7 @@ class _VendorDetailSheetState extends State<_VendorDetailSheet>
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     content: Text(
-                        'Payment of â‚¹${amount.toStringAsFixed(0)} recorded'),
+                        'Payment of ₹${amount.toStringAsFixed(0)} recorded'),
                   ),
                 );
               }
@@ -559,7 +559,7 @@ class _PaymentHistoryTab extends StatelessWidget {
                 '${_formatDate(date)}${note != null ? ' â€¢ $note' : ''}',
               ),
               trailing: Text(
-                '${isPurchase ? '+' : '-'}â‚¹${amount.toStringAsFixed(0)}',
+                '${isPurchase ? '+' : '-'}₹${amount.toStringAsFixed(0)}',
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
                   color: isPurchase ? Colors.orange : Colors.green,
@@ -610,7 +610,7 @@ class _PurchasesTab extends StatelessWidget {
             final date = e['createdAt'] as DateTime? ?? DateTime.now();
             return ListTile(
               leading: const Icon(Icons.shopping_cart_outlined),
-              title: Text('â‚¹${amount.toStringAsFixed(0)}'),
+              title: Text('₹${amount.toStringAsFixed(0)}'),
               subtitle: Text(
                   '${date.day}/${date.month}/${date.year}${note != null ? ' â€¢ $note' : ''}'),
             );
