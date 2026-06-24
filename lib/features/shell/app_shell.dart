@@ -40,9 +40,8 @@ class _AppShellState extends ConsumerState<AppShell> {
   static const _bottomNavIndices = [
     0,
     2,
-    6,
     5,
-  ]; // Walk-in, Menu, Orders, Tables
+  ]; // Walk-in, Menu, Tables
 
   int _getSelectedIndex(BuildContext context) {
     final location = GoRouterState.of(context).matchedLocation;
@@ -52,12 +51,11 @@ class _AppShellState extends ConsumerState<AppShell> {
     if (location.startsWith('/dashboard')) return 3;
     if (location.startsWith('/bills')) return 4;
     if (location.startsWith('/tables')) return 5;
-    if (location.startsWith('/orders')) return 6;
-    if (location.startsWith('/kitchen')) return 7;
-    if (location.startsWith('/staff')) return 8;
+    if (location.startsWith('/kitchen')) return 6;
+    if (location.startsWith('/staff')) return 7;
     if (location.startsWith('/attendance') ||
         location.startsWith('/my-attendance')) {
-      return 9;
+      return 8;
     }
     if (location.startsWith('/settings')) return 10;
     return 0;
@@ -69,7 +67,7 @@ class _AppShellState extends ConsumerState<AppShell> {
     }
   }
 
-  /// Get routes list — staff sees /my-attendance at index 9, owner sees /attendance
+  /// Get routes list — staff sees /my-attendance at index 8, owner sees /attendance
   static List<String> _getRoutes(bool isStaff) {
     return [
       AppRoutes.billing, // 0
@@ -78,10 +76,9 @@ class _AppShellState extends ConsumerState<AppShell> {
       AppRoutes.dashboard, // 3
       AppRoutes.bills, // 4
       AppRoutes.tables, // 5
-      AppRoutes.orders, // 6
-      AppRoutes.kitchen, // 7
-      AppRoutes.staff, // 8
-      isStaff ? AppRoutes.myAttendance : AppRoutes.attendance, // 9
+      AppRoutes.kitchen, // 6
+      AppRoutes.staff, // 7
+      isStaff ? AppRoutes.myAttendance : AppRoutes.attendance, // 8
     ];
   }
 
@@ -293,21 +290,16 @@ class _AppShellState extends ConsumerState<AppShell> {
             label: 'Tables',
           ),
           6: (
-            icon: Icons.restaurant_menu_outlined,
-            activeIcon: Icons.restaurant_menu,
-            label: 'Orders',
-          ),
-          7: (
             icon: Icons.kitchen_outlined,
             activeIcon: Icons.kitchen,
             label: 'Kitchen',
           ),
-          8: (
+          7: (
             icon: Icons.badge_outlined,
             activeIcon: Icons.badge,
             label: 'Staff',
           ),
-          9: (
+          8: (
             icon: Icons.access_time_outlined,
             activeIcon: Icons.access_time_filled,
             label: 'Attendance',
@@ -430,6 +422,11 @@ class _AppShellState extends ConsumerState<AppShell> {
       );
     }
 
+    final menuItems = [
+      routeItem(Icons.star, 'Daily Specials', AppRoutes.dailySpecials),
+      routeItem(Icons.lunch_dining, 'Combos', AppRoutes.combos),
+    ].whereType<Widget>().toList();
+
     final inventoryItems = [
       routeItem(Icons.egg, 'Ingredients', AppRoutes.ingredients),
       routeItem(Icons.local_shipping, 'Vendors', AppRoutes.vendors),
@@ -465,7 +462,8 @@ class _AppShellState extends ConsumerState<AppShell> {
         hospitalityItems.isNotEmpty ||
         reportsItems.isNotEmpty ||
         complianceItems.isNotEmpty ||
-        managementItems.isNotEmpty) {
+        managementItems.isNotEmpty ||
+        menuItems.isNotEmpty) {
       sections.add(const Divider(height: 16));
       sections.add(
         Padding(
@@ -482,6 +480,11 @@ class _AppShellState extends ConsumerState<AppShell> {
       );
     }
 
+    if (menuItems.isNotEmpty) {
+      sections.add(
+        _DrawerSection(title: 'Menu', children: menuItems),
+      );
+    }
     if (inventoryItems.isNotEmpty) {
       sections.add(
         _DrawerSection(title: 'Inventory', children: inventoryItems),
@@ -766,21 +769,16 @@ class _AppShellState extends ConsumerState<AppShell> {
         label: 'Tables',
       ),
       6: const BottomNavigationBarItem(
-        icon: Icon(Icons.restaurant_menu_outlined),
-        activeIcon: Icon(Icons.restaurant_menu),
-        label: 'Orders',
-      ),
-      7: const BottomNavigationBarItem(
         icon: Icon(Icons.kitchen_outlined),
         activeIcon: Icon(Icons.kitchen),
         label: 'Kitchen',
       ),
-      8: const BottomNavigationBarItem(
+      7: const BottomNavigationBarItem(
         icon: Icon(Icons.badge_outlined),
         activeIcon: Icon(Icons.badge),
         label: 'Staff',
       ),
-      9: const BottomNavigationBarItem(
+      8: const BottomNavigationBarItem(
         icon: Icon(Icons.access_time_outlined),
         activeIcon: Icon(Icons.access_time_filled),
         label: 'Attendance',
@@ -857,10 +855,9 @@ class _AppShellState extends ConsumerState<AppShell> {
       3: (icon: Icons.dashboard, label: l10n.dashboard),
       4: (icon: Icons.receipt, label: 'Bills'),
       5: (icon: Icons.table_restaurant, label: 'Tables'),
-      6: (icon: Icons.restaurant_menu, label: 'Orders'),
-      7: (icon: Icons.kitchen, label: 'Kitchen'),
-      8: (icon: Icons.badge, label: 'Staff'),
-      9: (icon: Icons.access_time_filled, label: 'Attendance'),
+      6: (icon: Icons.kitchen, label: 'Kitchen'),
+      7: (icon: Icons.badge, label: 'Staff'),
+      8: (icon: Icons.access_time_filled, label: 'Attendance'),
     };
 
     return Container(

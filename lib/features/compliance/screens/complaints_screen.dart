@@ -19,7 +19,7 @@ class _ComplaintsScreenState extends ConsumerState<ComplaintsScreen> {
   final _descCtrl = TextEditingController();
   final _customerCtrl = TextEditingController();
   ComplaintCategory _category = ComplaintCategory.food;
-  bool _showAll = false;
+  bool _showAll = true;
 
   @override
   void dispose() {
@@ -39,9 +39,9 @@ class _ComplaintsScreenState extends ConsumerState<ComplaintsScreen> {
         title: const Text('Complaints'),
         actions: [
           FilterChip(
-            label: Text(_showAll ? 'All' : 'Active'),
-            selected: _showAll,
-            onSelected: (v) => setState(() => _showAll = v),
+            label: Text(_showAll ? 'All' : 'Active Only'),
+            selected: !_showAll,
+            onSelected: (v) => setState(() => _showAll = !v),
           ),
           const SizedBox(width: 8),
         ],
@@ -82,26 +82,66 @@ class _ComplaintsScreenState extends ConsumerState<ComplaintsScreen> {
                     overflow: TextOverflow.ellipsis,
                   ),
                   isThreeLine: false,
-                  trailing: PopupMenuButton<ComplaintStatus>(
-                    initialValue: c.status,
-                    child: Chip(
-                      label: Text(
-                        c.status.displayName,
-                        style: TextStyle(color: statusColor, fontSize: 10),
-                      ),
-                      backgroundColor: statusColor.withValues(alpha: 0.1),
-                      side: BorderSide.none,
-                    ),
-                    onSelected: (newStatus) async {
-                      await ComplaintService.updateStatus(c.id, newStatus);
-                    },
-                    itemBuilder: (ctx) => ComplaintStatus.values
-                        .map((s) => PopupMenuItem(
-                              value: s,
-                              child: Text(s.displayName),
-                            ))
-                        .toList(),
-                  ),
+                  trailing: c.status == ComplaintStatus.resolved
+                      ? Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Chip(
+                              label: Text(
+                                'Resolved',
+                                style: TextStyle(color: Colors.green, fontSize: 10),
+                              ),
+                              backgroundColor: Colors.green.withValues(alpha: 0.1),
+                              side: BorderSide.none,
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.delete_outline),
+                              onPressed: () async {
+                            final confirm = await showDialog<bool>(
+                              context: context,
+                              builder: (ctx) => AlertDialog(
+                                title: const Text('Delete Complaint'),
+                                content: const Text('Are you sure you want to delete this complaint?'),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () => Navigator.pop(ctx, false),
+                                    child: const Text('Cancel'),
+                                  ),
+                                  FilledButton(
+                                    onPressed: () => Navigator.pop(ctx, true),
+                                    child: const Text('Delete'),
+                                  ),
+                                ],
+                              ),
+                            );
+                            if (confirm == true) {
+                              await ComplaintService.deleteComplaint(c.id);
+                            }
+                          },
+                        ),
+                          ],
+                        )
+                      : PopupMenuButton<ComplaintStatus>(
+                          initialValue: c.status,
+                          child: Chip(
+                            label: Text(
+                              c.status.displayName,
+                              style: TextStyle(color: statusColor, fontSize: 10),
+                            ),
+                            backgroundColor: statusColor.withValues(alpha: 0.1),
+                            side: BorderSide.none,
+                          ),
+                          onSelected: (newStatus) async {
+                            await ComplaintService.updateStatus(c.id, newStatus);
+                          },
+                          itemBuilder: (ctx) => ComplaintStatus.values
+                              .where((s) => s != ComplaintStatus.closed)
+                              .map((s) => PopupMenuItem(
+                                    value: s,
+                                    child: Text(s.displayName),
+                                  ))
+                              .toList(),
+                        ),
                 ),
               );
             },

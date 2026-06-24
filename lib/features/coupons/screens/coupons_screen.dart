@@ -35,22 +35,51 @@ class CouponsScreen extends ConsumerWidget {
             itemBuilder: (context, index) {
               final coupon = coupons[index];
               return Card(
-                child: ListTile(
-                  leading: CircleAvatar(
-                    child: Text(
-                      coupon.type == CouponType.percentage ? '%' : '₹',
-                    ),
-                  ),
-                  title: Text(coupon.code),
-                  subtitle: Text(
-                    '${coupon.type == CouponType.percentage ? '${coupon.value}% off' : '₹${coupon.value} off'}'
-                    ' • Used ${coupon.usedCount}/${coupon.maxUses ?? '∞'}'
-                    '${coupon.isHappyHour ? ' • Happy Hour' : ''}',
-                  ),
-                  trailing: Switch(
-                    value: coupon.isActive,
-                    onChanged: (val) =>
-                        CouponService.toggleActive(coupon.id, val),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 12, vertical: 8),
+                  child: Row(
+                    children: [
+                      CircleAvatar(
+                        child: Text(
+                          coupon.type == CouponType.percentage ? '%' : '₹',
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              coupon.code,
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .titleMedium,
+                            ),
+                            Text(
+                              '${coupon.type == CouponType.percentage ? '${coupon.value}% off' : '₹${coupon.value} off'}'
+                              ' • Used ${coupon.usedCount}/${coupon.maxUses ?? '∞'}'
+                              '${coupon.isHappyHour ? ' • Happy Hour' : ''}',
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodySmall,
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.edit_outlined),
+                        tooltip: 'Edit',
+                        onPressed: () =>
+                            _showCouponForm(context, existing: coupon),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.delete_outline),
+                        tooltip: 'Delete',
+                        color: Theme.of(context).colorScheme.error,
+                        onPressed: () => _confirmDelete(context, coupon),
+                      ),
+                    ],
                   ),
                 ),
               );
@@ -61,10 +90,41 @@ class CouponsScreen extends ConsumerWidget {
     );
   }
 
-  void _showCouponForm(BuildContext context) {
-    final codeCtrl = TextEditingController();
-    final valueCtrl = TextEditingController();
-    var type = CouponType.percentage;
+  Future<void> _confirmDelete(BuildContext context, CouponModel coupon) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Coupon'),
+        content: Text(
+          'Delete "${coupon.code}"? This cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
+            ),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) {
+      await CouponService.deleteCoupon(coupon.id);
+    }
+  }
+
+  void _showCouponForm(BuildContext context, {CouponModel? existing}) {
+    final codeCtrl =
+        TextEditingController(text: existing?.code ?? '');
+    final valueCtrl =
+        TextEditingController(text: existing?.value.toString() ?? '');
+    var type = existing?.type ?? CouponType.percentage;
+    final isEditing = existing != null;
 
     showModalBottomSheet(
       context: context,
@@ -83,8 +143,10 @@ class CouponsScreen extends ConsumerWidget {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Text('New Coupon',
-                      style: Theme.of(context).textTheme.headlineSmall),
+                  Text(
+                    isEditing ? 'Edit Coupon' : 'New Coupon',
+                    style: Theme.of(context).textTheme.headlineSmall,
+                  ),
                   const SizedBox(height: 16),
                   TextField(
                     controller: codeCtrl,
@@ -127,17 +189,38 @@ class CouponsScreen extends ConsumerWidget {
                   FilledButton(
                     onPressed: () {
                       if (codeCtrl.text.isEmpty) return;
-                      final coupon = CouponModel(
-                        id: generateSafeId('coupon'),
-                        code: codeCtrl.text.trim().toUpperCase(),
-                        type: type,
-                        value: double.tryParse(valueCtrl.text) ?? 0,
-                        createdAt: DateTime.now(),
-                      );
-                      CouponService.createCoupon(coupon);
+                      if (isEditing) {
+                        final updated = CouponModel(
+                          id: existing.id,
+                          code: codeCtrl.text.trim().toUpperCase(),
+                          type: type,
+                          value: double.tryParse(valueCtrl.text) ?? 0,
+                          minOrderAmount: existing.minOrderAmount,
+                          maxDiscount: existing.maxDiscount,
+                          validFrom: existing.validFrom,
+                          validUntil: existing.validUntil,
+                          maxUses: existing.maxUses,
+                          usedCount: existing.usedCount,
+                          isActive: existing.isActive,
+                          isHappyHour: existing.isHappyHour,
+                          happyHourStart: existing.happyHourStart,
+                          happyHourEnd: existing.happyHourEnd,
+                          createdAt: existing.createdAt,
+                        );
+                        CouponService.updateCoupon(updated);
+                      } else {
+                        final coupon = CouponModel(
+                          id: generateSafeId('coupon'),
+                          code: codeCtrl.text.trim().toUpperCase(),
+                          type: type,
+                          value: double.tryParse(valueCtrl.text) ?? 0,
+                          createdAt: DateTime.now(),
+                        );
+                        CouponService.createCoupon(coupon);
+                      }
                       Navigator.of(context).pop();
                     },
-                    child: const Text('Create Coupon'),
+                    child: Text(isEditing ? 'Save Changes' : 'Create Coupon'),
                   ),
                   const SizedBox(height: 16),
                 ],

@@ -12,6 +12,8 @@ import 'package:tulasihotels/features/khata/providers/khata_provider.dart';
 import 'package:tulasihotels/features/khata/providers/khata_stats_provider.dart';
 import 'package:tulasihotels/features/khata/widgets/add_customer_modal.dart';
 import 'package:tulasihotels/features/products/providers/products_provider.dart';
+import 'package:tulasihotels/features/menu/providers/combo_provider.dart';
+import 'package:tulasihotels/models/combo_model.dart';
 import 'package:tulasihotels/models/customer_model.dart';
 import 'package:tulasihotels/models/product_model.dart';
 import 'package:tulasihotels/shared/widgets/loading_states.dart';
@@ -28,6 +30,9 @@ import 'package:tulasihotels/features/notifications/services/notification_firest
 import 'package:tulasihotels/features/notifications/models/notification_model.dart';
 import 'package:tulasihotels/core/services/payment_link_service.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:tulasihotels/features/coupons/providers/coupon_provider.dart';
+import 'package:tulasihotels/features/coupons/services/coupon_service.dart';
+import 'package:tulasihotels/models/coupon_model.dart';
 
 part 'pos_web_widgets.dart';
 
@@ -426,16 +431,6 @@ class _PosWebScreenState extends ConsumerState<PosWebScreen> {
               ),
             ),
             const SizedBox(width: 8),
-            // Barcode scanner
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Theme.of(context).cardColor,
-                borderRadius: BorderRadius.circular(8),
-                boxShadow: AppShadows.small,
-              ),
-              child: const Icon(Icons.qr_code_scanner, size: 20),
-            ),
           ],
         ),
       ),
@@ -495,7 +490,133 @@ class _PosWebScreenState extends ConsumerState<PosWebScreen> {
           onChanged: (value) =>
               setState(() => _searchQuery = value.toLowerCase()),
         ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: () => _showSpecialsSheet(context),
+                icon: const Icon(Icons.star, size: 18),
+                label: const Text('Specials'),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: () => _showCombosSheet(context),
+                icon: const Icon(Icons.lunch_dining, size: 18),
+                label: const Text('Combos'),
+              ),
+            ),
+          ],
+        ),
       ],
+    );
+  }
+
+  void _showSpecialsSheet(BuildContext context) {
+    final productsAsync = ref.read(productsProvider);
+    final specials = productsAsync.valueOrNull
+            ?.where((p) => p.isSpecial && p.isAvailable)
+            .toList() ??
+        [];
+
+    showModalBottomSheet(
+      context: context,
+      builder: (ctx) {
+        if (specials.isEmpty) {
+          return const SizedBox(
+            height: 200,
+            child: Center(child: Text('No specials available')),
+          );
+        }
+        return ListView.builder(
+          padding: const EdgeInsets.all(8),
+          itemCount: specials.length,
+          itemBuilder: (ctx, index) {
+            final product = specials[index];
+            return ListTile(
+              leading: CircleAvatar(
+                child: Text(
+                  product.dietaryTag.emoji.isNotEmpty
+                      ? product.dietaryTag.emoji
+                      : '⭐',
+                ),
+              ),
+              title: Text(product.name),
+              subtitle: Text('₹${product.price.toStringAsFixed(0)}'),
+              trailing: const Icon(Icons.add_circle_outline),
+              onTap: () {
+                ref.read(cartProvider.notifier).addProduct(product);
+                Navigator.pop(ctx);
+              },
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _showCombosSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      builder: (ctx) {
+        return Consumer(
+          builder: (context, ref, _) {
+            final combosAsync = ref.watch(availableCombosProvider);
+            return combosAsync.when(
+              loading: () => const SizedBox(
+                height: 200,
+                child: Center(child: CircularProgressIndicator()),
+              ),
+              error: (e, _) => SizedBox(
+                height: 200,
+                child: Center(child: Text('Error: $e')),
+              ),
+              data: (combos) {
+                if (combos.isEmpty) {
+                  return const SizedBox(
+                    height: 200,
+                    child: Center(child: Text('No combos available')),
+                  );
+                }
+                return ListView.builder(
+                  padding: const EdgeInsets.all(8),
+                  itemCount: combos.length,
+                  itemBuilder: (context, index) {
+                    final combo = combos[index];
+                    return ListTile(
+                      leading: CircleAvatar(
+                        child: Text(
+                          combo.dietaryTag.emoji.isNotEmpty
+                              ? combo.dietaryTag.emoji
+                              : '🍽️',
+                        ),
+                      ),
+                      title: Text(combo.name),
+                      subtitle: Text(
+                        '${combo.items.length} items • ₹${combo.price.toStringAsFixed(0)}',
+                      ),
+                      trailing: const Icon(Icons.add_circle_outline),
+                      onTap: () {
+                        final cartItem = CartItem(
+                          productId: combo.id,
+                          name: combo.name,
+                          price: combo.price,
+                          quantity: 1,
+                          unit: 'combo',
+                        );
+                        ref.read(cartProvider.notifier).addCartItem(cartItem);
+                        Navigator.pop(context);
+                      },
+                    );
+                  },
+                );
+              },
+            );
+          },
+        );
+      },
     );
   }
 

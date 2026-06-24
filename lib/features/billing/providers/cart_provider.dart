@@ -131,6 +131,22 @@ class CartNotifier extends StateNotifier<CartState> {
     updateQuantity(productId, state.items[idx].quantity - 1);
   }
 
+  /// Add a raw CartItem (e.g. combo)
+  void addCartItem(CartItem item) {
+    final existingIndex = state.items.indexWhere(
+      (i) => i.productId == item.productId,
+    );
+    if (existingIndex >= 0) {
+      final updatedItems = [...state.items];
+      final existing = updatedItems[existingIndex];
+      final newQty = (existing.quantity + item.quantity).clamp(1, _maxQuantity);
+      updatedItems[existingIndex] = existing.copyWith(quantity: newQty);
+      state = state.copyWith(items: updatedItems);
+    } else {
+      state = state.copyWith(items: [...state.items, item]);
+    }
+  }
+
   /// Remove item from cart
   void removeItem(String productId) {
     final updatedItems = state.items

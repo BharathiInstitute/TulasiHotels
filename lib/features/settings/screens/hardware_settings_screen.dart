@@ -380,43 +380,6 @@ class _HardwareSettingsScreenState
           _buildReceiptSettingsCard(theme, printerState),
           const SizedBox(height: 24),
 
-          // Barcode Scanner Section
-          _buildSectionHeader(theme, 'Barcode Scanner'),
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  TextField(
-                    controller: _barcodePrefixController,
-                    decoration: const InputDecoration(
-                      labelText: 'Barcode Prefix',
-                      hintText: 'Optional prefix',
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: _barcodeSuffixController,
-                    decoration: const InputDecoration(
-                      labelText: 'Barcode Suffix',
-                      hintText: 'Optional suffix',
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Add prefix/suffix to barcode input for scanner compatibility',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: theme.colorScheme.outline,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 24),
-
           // Sync Section
           _buildSectionHeader(theme, l10n.sync),
           Card(

@@ -9,6 +9,7 @@ import 'package:tulasihotels/features/auth/providers/auth_provider.dart';
 import 'package:tulasihotels/features/hotels/models/hotel_info.dart';
 import 'package:tulasihotels/features/hotels/providers/hotel_provider.dart';
 import 'package:tulasihotels/features/hotels/services/hotel_service.dart';
+import 'package:tulasihotels/core/services/offline_storage_service.dart';
 import 'package:tulasihotels/router/app_router.dart';
 
 class HotelSelectorScreen extends ConsumerStatefulWidget {
@@ -231,13 +232,15 @@ class _HotelSelectorScreenState extends ConsumerState<HotelSelectorScreen> {
   }
 
   void _openHotel(BuildContext context, HotelInfo hotel) {
-    // Set the current hotel and navigate to billing
+    // Set the current hotel and persist for page refresh
     ref.read(currentHotelIdProvider.notifier).state = hotel.id;
+    OfflineStorageService.prefs?.setString('last_hotel_id', hotel.id);
     context.go(AppRoutes.billing);
   }
 
   Future<void> _logout(BuildContext context) async {
     ref.read(currentHotelIdProvider.notifier).state = null;
+    OfflineStorageService.prefs?.remove('last_hotel_id');
     await ref.read(authNotifierProvider.notifier).signOut();
   }
 }

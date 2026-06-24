@@ -30,8 +30,8 @@ class DailySpecialsScreen extends ConsumerWidget {
             itemBuilder: (context, index) {
               final product = products[index];
               return Card(
-                child: SwitchListTile(
-                  secondary: CircleAvatar(
+                child: ListTile(
+                  leading: CircleAvatar(
                     child: Text(
                       product.dietaryTag.emoji.isNotEmpty
                           ? product.dietaryTag.emoji
@@ -42,11 +42,21 @@ class DailySpecialsScreen extends ConsumerWidget {
                   subtitle: Text(
                     '₹${product.price.toStringAsFixed(0)} • ${product.category ?? "No category"}',
                   ),
-                  value: product.isSpecial,
-                  onChanged: (val) {
-                    // Update via Firestore
-                    _toggleSpecial(ref, product, val);
-                  },
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Switch(
+                        value: product.isSpecial,
+                        onChanged: (val) {
+                          _toggleSpecial(ref, product, val);
+                        },
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.delete_outline),
+                        onPressed: () => _deleteProduct(context, ref, product),
+                      ),
+                    ],
+                  ),
                 ),
               );
             },
@@ -59,5 +69,28 @@ class DailySpecialsScreen extends ConsumerWidget {
   void _toggleSpecial(WidgetRef ref, ProductModel product, bool isSpecial) {
     final updated = product.copyWith(isSpecial: isSpecial);
     ref.read(productsServiceProvider).updateProduct(updated);
+  }
+
+  void _deleteProduct(BuildContext context, WidgetRef ref, ProductModel product) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete Item'),
+        content: Text('Are you sure you want to delete "${product.name}"?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () {
+              ref.read(productsServiceProvider).deleteProduct(product.id);
+              Navigator.pop(ctx);
+            },
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
   }
 }

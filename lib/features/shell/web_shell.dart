@@ -54,12 +54,25 @@ class WebShell extends ConsumerWidget {
           Expanded(
             child: Row(
               children: [
-                // Sidebar
-                _WebSidebar(
-                  selectedIndex: selectedIndex,
-                  visibleIndices: visibleIndices,
-                  onItemTapped: onItemTapped,
-                  currentPath: location,
+                // Sidebar with edge collapse button
+                Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    _WebSidebar(
+                      selectedIndex: selectedIndex,
+                      visibleIndices: visibleIndices,
+                      onItemTapped: onItemTapped,
+                      currentPath: location,
+                    ),
+                    Positioned(
+                      right: -12,
+                      top: 0,
+                      bottom: 0,
+                      child: Center(
+                        child: _SidebarCollapseButton(),
+                      ),
+                    ),
+                  ],
                 ),
 
                 // Main Content Area
@@ -108,7 +121,6 @@ class _WebSidebar extends ConsumerWidget {
     3: (Icons.dashboard_outlined, 'Dashboard'),
     4: (Icons.receipt_outlined, 'Bills'),
     5: (Icons.table_restaurant_outlined, 'Tables'),
-    6: (Icons.restaurant_menu_outlined, 'Orders'),
     7: (Icons.kitchen_outlined, 'Kitchen'),
     8: (Icons.badge_outlined, 'Staff'),
     9: (Icons.access_time_outlined, 'Attendance'),
@@ -201,41 +213,6 @@ class _WebSidebar extends ConsumerWidget {
                   ),
           ),
 
-          // Collapse / Expand toggle button
-          Container(
-            alignment: isCollapsed ? Alignment.center : Alignment.centerRight,
-            padding: EdgeInsets.symmetric(
-              horizontal: isCollapsed ? 0 : 16,
-              vertical: 4,
-            ),
-            child: InkWell(
-              onTap: () {
-                ref.read(sidebarCollapsedProvider.notifier).state =
-                    !isCollapsed;
-              },
-              borderRadius: BorderRadius.circular(6),
-              child: Tooltip(
-                message: isCollapsed ? 'Expand sidebar' : 'Collapse sidebar',
-                child: Container(
-                  padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.onSurfaceVariant.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Icon(
-                    isCollapsed
-                        ? Icons.chevron_right_rounded
-                        : Icons.chevron_left_rounded,
-                    size: 18,
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ),
-            ),
-          ),
-
           const SizedBox(height: 8),
 
           // Navigation Links
@@ -281,6 +258,10 @@ class _WebSidebar extends ConsumerWidget {
                       }
 
                       // Build sections, omit empty ones
+                      final menuItems = [
+                        routeItem(Icons.star, 'Daily Specials', AppRoutes.dailySpecials),
+                        routeItem(Icons.lunch_dining, 'Combos', AppRoutes.combos),
+                      ].whereType<Widget>().toList();
                       final inventoryItems = [
                         routeItem(Icons.egg, 'Ingredients', AppRoutes.ingredients),
                         routeItem(Icons.local_shipping, 'Vendors', AppRoutes.vendors),
@@ -303,6 +284,12 @@ class _WebSidebar extends ConsumerWidget {
                       ].whereType<Widget>().toList();
                       return Column(
                         children: [
+                          if (menuItems.isNotEmpty)
+                            _SidebarSection(
+                              title: 'Menu',
+                              isCollapsed: isCollapsed,
+                              children: menuItems,
+                            ),
                           if (inventoryItems.isNotEmpty)
                             _SidebarSection(
                               title: 'Inventory',
@@ -441,81 +428,71 @@ class _WebSidebar extends ConsumerWidget {
                   isCollapsed: isCollapsed,
                   onTap: () => GoRouter.of(context).push('/support'),
                 ),
+
+                // ── Admin section (scrollable with other items) ──
+                Builder(
+                  builder: (context) {
+                    final staff = ref.watch(loggedInStaffProvider);
+                    final member = ref.watch(currentMemberProvider).valueOrNull;
+
+                    bool canSee(String route) {
+                      if (!StaffPermissions.canViewRoute(staff, route)) return false;
+                      if (staff == null &&
+                          !MemberPermissionGuard.canViewRoute(member, route)) {
+                        return false;
+                      }
+                      return true;
+                    }
+
+                    final showUsers = canSee(AppRoutes.members);
+                    final showPerms = canSee(AppRoutes.permissionsOverview);
+                    if (!showUsers && !showPerms) return const SizedBox.shrink();
+
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Divider(height: 12),
+                        if (!isCollapsed)
+                          Padding(
+                            padding: const EdgeInsets.only(left: 12, bottom: 4),
+                            child: Text(
+                              'ADMIN',
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 1.2,
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .onSurfaceVariant
+                                    .withValues(alpha: 0.6),
+                              ),
+                            ),
+                          ),
+                        if (showUsers)
+                          _SidebarItem(
+                            icon: Icons.group_outlined,
+                            label: 'Users',
+                            isSelected: currentPath.startsWith(AppRoutes.members),
+                            isCollapsed: isCollapsed,
+                            onTap: () =>
+                                GoRouter.of(context).push(AppRoutes.members),
+                          ),
+                        if (showPerms)
+                          _SidebarItem(
+                            icon: Icons.admin_panel_settings_outlined,
+                            label: 'Permissions',
+                            isSelected: currentPath
+                                .startsWith(AppRoutes.permissionsOverview),
+                            isCollapsed: isCollapsed,
+                            onTap: () => GoRouter.of(context)
+                                .push(AppRoutes.permissionsOverview),
+                          ),
+                      ],
+                    );
+                  },
+                ),
               ],
             ),
-          ),
-
-          // ── Admin section — FIXED (always visible, never scrolls away) ──
-          Builder(
-            builder: (context) {
-              final staff = ref.watch(loggedInStaffProvider);
-              final member = ref.watch(currentMemberProvider).valueOrNull;
-
-              bool canSee(String route) {
-                if (!StaffPermissions.canViewRoute(staff, route)) return false;
-                if (staff == null &&
-                    !MemberPermissionGuard.canViewRoute(member, route)) {
-                  return false;
-                }
-                return true;
-              }
-
-              final showUsers = canSee(AppRoutes.members);
-              final showPerms = canSee(AppRoutes.permissionsOverview);
-              if (!showUsers && !showPerms) return const SizedBox.shrink();
-
-              final hPad = isCollapsed ? 8.0 : 16.0;
-              return Container(
-                padding: EdgeInsets.symmetric(horizontal: hPad, vertical: 4),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Divider(height: 12),
-                    if (!isCollapsed)
-                      Padding(
-                        padding: const EdgeInsets.only(left: 12, bottom: 4),
-                        child: Text(
-                          'ADMIN',
-                          style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 1.2,
-                            color: Theme.of(context)
-                                .colorScheme
-                                .onSurfaceVariant
-                                .withValues(alpha: 0.6),
-                          ),
-                        ),
-                      ),
-                    if (showUsers)
-                      _SidebarItem(
-                        icon: Icons.group_outlined,
-                        label: 'Users',
-                        isSelected: currentPath.startsWith(AppRoutes.members),
-                        isCollapsed: isCollapsed,
-                        onTap: () =>
-                            GoRouter.of(context).push(AppRoutes.members),
-                      ),
-                    if (showPerms)
-                      _SidebarItem(
-                        icon: Icons.admin_panel_settings_outlined,
-                        label: 'Permissions',
-                        isSelected: currentPath
-                            .startsWith(AppRoutes.permissionsOverview),
-                        isCollapsed: isCollapsed,
-                        onTap: () => GoRouter.of(context)
-                            .push(AppRoutes.permissionsOverview),
-                      ),
-                  ],
-                ),
-              );
-            },
-          ),
-
-          // Sync indicator — always visible in sidebar
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 8),
-            child: GlobalSyncIndicator(),
           ),
 
           // Staff mode banner (when a staff member is logged in)
@@ -620,7 +597,7 @@ class _WebSidebar extends ConsumerWidget {
                 ? Tooltip(
                     message: 'Settings',
                     child: Container(
-                      padding: const EdgeInsets.all(12),
+                      padding: const EdgeInsets.all(10),
                       margin: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
                         color: isSettings
@@ -631,18 +608,25 @@ class _WebSidebar extends ConsumerWidget {
                             ? Border.all(color: AppColors.primary, width: 1.5)
                             : null,
                       ),
-                      child: Icon(
-                        Icons.settings_outlined,
-                        size: 22,
-                        color: isSettings
-                            ? AppColors.primary
-                            : Theme.of(context).colorScheme.onSurfaceVariant,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const GlobalSyncIndicator(),
+                          const SizedBox(height: 4),
+                          Icon(
+                            Icons.settings_outlined,
+                            size: 18,
+                            color: isSettings
+                                ? AppColors.primary
+                                : Theme.of(context).colorScheme.onSurfaceVariant,
+                          ),
+                        ],
                       ),
                     ),
                   )
                 : Container(
-                    padding: const EdgeInsets.all(16),
-                    margin: const EdgeInsets.all(16),
+                    padding: const EdgeInsets.all(12),
+                    margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     decoration: BoxDecoration(
                       color: isSettings
                           ? AppColors.primary.withValues(alpha: 0.1)
@@ -656,10 +640,10 @@ class _WebSidebar extends ConsumerWidget {
                       children: [
                         _buildProfileAvatar(
                           user?.profileImagePath,
-                          16,
+                          14,
                           isSettings,
                         ),
-                        const SizedBox(width: 12),
+                        const SizedBox(width: 10),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -668,7 +652,7 @@ class _WebSidebar extends ConsumerWidget {
                               Text(
                                 user?.ownerName ?? 'User',
                                 style: TextStyle(
-                                  fontSize: 14,
+                                  fontSize: 13,
                                   fontWeight: FontWeight.w600,
                                   color: Theme.of(
                                     context,
@@ -679,7 +663,7 @@ class _WebSidebar extends ConsumerWidget {
                               Text(
                                 'Owner',
                                 style: TextStyle(
-                                  fontSize: 12,
+                                  fontSize: 11,
                                   color: Theme.of(
                                     context,
                                   ).colorScheme.onSurfaceVariant,
@@ -689,12 +673,19 @@ class _WebSidebar extends ConsumerWidget {
                             ],
                           ),
                         ),
-                        Icon(
-                          Icons.settings_outlined,
-                          size: 18,
-                          color: isSettings
-                              ? AppColors.primary
-                              : Theme.of(context).colorScheme.outline,
+                        Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const GlobalSyncIndicator(),
+                            const SizedBox(height: 2),
+                            Icon(
+                              Icons.settings_outlined,
+                              size: 16,
+                              color: isSettings
+                                  ? AppColors.primary
+                                  : Theme.of(context).colorScheme.outline,
+                            ),
+                          ],
                         ),
                       ],
                     ),
@@ -782,7 +773,7 @@ class _SidebarItem extends StatelessWidget {
                     ),
                     child: Icon(
                       icon,
-                      size: 22,
+                      size: 18,
                       color: isSelected
                           ? AppColors.primary
                           : Theme.of(context).colorScheme.onSurfaceVariant,
@@ -792,7 +783,7 @@ class _SidebarItem extends StatelessWidget {
                     children: [
                       Icon(
                         icon,
-                        size: 20,
+                        size: 18,
                         color: isSelected
                             ? AppColors.primary
                             : Theme.of(context).colorScheme.onSurfaceVariant,
@@ -821,6 +812,52 @@ class _SidebarItem extends StatelessWidget {
       return Tooltip(message: label, child: item);
     }
     return item;
+  }
+}
+
+class _SidebarCollapseButton extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final userToggle = ref.watch(sidebarCollapsedProvider);
+    final autoCollapsed = MediaQuery.of(context).size.width < 800;
+    final isCollapsed = userToggle ?? autoCollapsed;
+
+    return GestureDetector(
+      onTap: () {
+        ref.read(sidebarCollapsedProvider.notifier).state = !isCollapsed;
+      },
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: Tooltip(
+          message: isCollapsed ? 'Expand sidebar' : 'Collapse sidebar',
+          child: Container(
+            width: 24,
+            height: 24,
+            decoration: BoxDecoration(
+              color: Theme.of(context).cardColor,
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: Theme.of(context).dividerColor,
+                width: 1,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.1),
+                  blurRadius: 4,
+                ),
+              ],
+            ),
+            child: Icon(
+              isCollapsed
+                  ? Icons.chevron_right_rounded
+                  : Icons.chevron_left_rounded,
+              size: 14,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 

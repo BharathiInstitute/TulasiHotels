@@ -21,7 +21,7 @@ class ComplaintService {
   /// Stream active complaints
   static Stream<List<ComplaintModel>> activeComplaintsStream() {
     return _complaintsRef
-        .where('status', whereIn: ['open', 'inProgress'])
+        .where('status', whereIn: ['open', 'investigating'])
         .orderBy('createdAt', descending: true)
         .snapshots()
         .map(

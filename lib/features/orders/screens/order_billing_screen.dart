@@ -12,7 +12,10 @@ import 'package:tulasihotels/features/billing/services/billing_service.dart';
 import 'package:tulasihotels/features/orders/screens/order_detail_screen.dart';
 import 'package:tulasihotels/features/orders/services/order_service.dart';
 import 'package:tulasihotels/features/settings/providers/printer_provider.dart';
+import 'package:tulasihotels/features/coupons/providers/coupon_provider.dart';
+import 'package:tulasihotels/features/coupons/services/coupon_service.dart';
 import 'package:tulasihotels/models/bill_model.dart';
+import 'package:tulasihotels/models/coupon_model.dart';
 import 'package:tulasihotels/models/order_model.dart';
 
 class OrderBillingScreen extends ConsumerStatefulWidget {
@@ -26,14 +29,14 @@ class OrderBillingScreen extends ConsumerStatefulWidget {
 
 class _OrderBillingScreenState extends ConsumerState<OrderBillingScreen> {
   PaymentMethod _paymentMethod = PaymentMethod.cash;
-  double _discount = 0;
+  CouponModel? _selectedCoupon;
+  double _couponDiscount = 0;
   double _serviceChargePercent = 0;
   bool _isProcessing = false;
-  final _discountController = TextEditingController();
+  bool _isValidatingCoupon = false;
 
   @override
   void dispose() {
-    _discountController.dispose();
     super.dispose();
   }
 
@@ -53,7 +56,7 @@ class _OrderBillingScreenState extends ConsumerState<OrderBillingScreen> {
 
         final subtotal = order.total;
         final serviceCharge = subtotal * _serviceChargePercent / 100;
-        final total = subtotal - _discount + serviceCharge;
+        final total = subtotal - _couponDiscount + serviceCharge;
 
         return Scaffold(
           appBar: AppBar(
@@ -118,34 +121,91 @@ class _OrderBillingScreenState extends ConsumerState<OrderBillingScreen> {
                           style: theme.textTheme.titleMedium),
                       const SizedBox(height: 12),
 
-                      // Discount
-                      Row(
-                        children: [
-                          const Expanded(
-                            flex: 2,
-                            child: Text('Discount (?)'),
-                          ),
-                          Expanded(
-                            child: TextField(
-                              controller: _discountController,
-                              keyboardType:
-                                  const TextInputType.numberWithOptions(
-                                      decimal: true),
-                              decoration: const InputDecoration(
-                                isDense: true,
-                                border: OutlineInputBorder(),
-                                hintText: '0',
+                      // Coupon
+                      ref.watch(allCouponsProvider).when(
+                        loading: () => const LinearProgressIndicator(),
+                        error: (_, __) => const Text('Could not load coupons'),
+                        data: (coupons) {
+                          final activeCoupons = coupons
+                              .where((c) => c.isActive)
+                              .toList();
+                          return Row(
+                            children: [
+                              const Expanded(
+                                flex: 2,
+                                child: Text('Coupon'),
                               ),
-                              onChanged: (v) {
-                                final val =
-                                    double.tryParse(v) ?? 0;
-                                setState(() {
-                                  _discount = val.clamp(0, subtotal);
-                                });
-                              },
-                            ),
-                          ),
-                        ],
+                              Expanded(
+                                child: _isValidatingCoupon
+                                    ? const Center(
+                                        child: SizedBox(
+                                          width: 20,
+                                          height: 20,
+                                          child: CircularProgressIndicator(
+                                              strokeWidth: 2),
+                                        ),
+                                      )
+                                    : DropdownButtonFormField<CouponModel?>(
+                                        value: _selectedCoupon,
+                                        decoration: const InputDecoration(
+                                          isDense: true,
+                                          border: OutlineInputBorder(),
+                                        ),
+                                        hint: const Text('None'),
+                                        isExpanded: true,
+                                        items: [
+                                          const DropdownMenuItem<CouponModel?>(
+                                            value: null,
+                                            child: Text('None'),
+                                          ),
+                                          ...activeCoupons.map(
+                                            (c) => DropdownMenuItem<CouponModel?>(
+                                              value: c,
+                                              child: Text(
+                                                '${c.code} · ${c.type == CouponType.percentage ? '${c.value.toStringAsFixed(0)}%' : '₹${c.value.toStringAsFixed(0)}'}',
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                        onChanged: (coupon) async {
+                                          if (coupon == null) {
+                                            setState(() {
+                                              _selectedCoupon = null;
+                                              _couponDiscount = 0;
+                                            });
+                                            return;
+                                          }
+                                          setState(() => _isValidatingCoupon = true);
+                                          final validated = await CouponService
+                                              .validateCoupon(
+                                                  coupon.code, subtotal);
+                                          if (mounted) {
+                                            setState(() {
+                                              _isValidatingCoupon = false;
+                                              if (validated != null) {
+                                                _selectedCoupon = coupon;
+                                                _couponDiscount = validated
+                                                    .calculateDiscount(subtotal);
+                                              } else {
+                                                _selectedCoupon = null;
+                                                _couponDiscount = 0;
+                                              }
+                                            });
+                                            if (validated == null) {
+                                              ScaffoldMessenger.of(context)
+                                                  .showSnackBar(const SnackBar(
+                                                content: Text(
+                                                    'Coupon is invalid or expired'),
+                                              ));
+                                            }
+                                          }
+                                        },
+                                      ),
+                              ),
+                            ],
+                          );
+                        },
                       ),
                       const SizedBox(height: 12),
 
@@ -229,8 +289,8 @@ class _OrderBillingScreenState extends ConsumerState<OrderBillingScreen> {
                   child: Column(
                     children: [
                       _SummaryRow('Subtotal', subtotal),
-                      if (_discount > 0)
-                        _SummaryRow('Discount', -_discount),
+                      if (_couponDiscount > 0)
+                        _SummaryRow('Coupon (${_selectedCoupon?.code})', -_couponDiscount),
                       if (serviceCharge > 0)
                         _SummaryRow(
                             'Service Charge (${_serviceChargePercent.toStringAsFixed(0)}%)',
@@ -294,9 +354,14 @@ class _OrderBillingScreenState extends ConsumerState<OrderBillingScreen> {
       final bill = await BillingService.createBillFromOrder(
         order: order,
         paymentMethod: _paymentMethod,
-        discount: _discount,
+        discount: _couponDiscount,
         serviceChargePercent: _serviceChargePercent,
       );
+
+      // Mark coupon as used
+      if (_selectedCoupon != null) {
+        unawaited(CouponService.applyCoupon(_selectedCoupon!.id));
+      }
 
       // Mark order as billed and free the table
       unawaited(OrderService.completeOrder(order.id));

@@ -2433,60 +2433,6 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
           ),
         ),
         const SizedBox(height: 24),
-
-        // Barcode Scanner
-        _SectionCard(
-          icon: Icons.qr_code_scanner,
-          iconColor: AppColors.warning,
-          title: 'Barcode Scanner',
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _responsiveFields([
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildFieldLabel('Prefix'),
-                    _buildTextField(value: 'None'),
-                  ],
-                ),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildFieldLabel('Suffix'),
-                    _buildTextField(value: 'Enter (Return)'),
-                  ],
-                ),
-              ]),
-              const SizedBox(height: 20),
-              const Text(
-                'TEST CONFIGURATION',
-                style: TextStyle(
-                  fontSize: 11,
-                  color: AppColors.textMuted,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                decoration: InputDecoration(
-                  hintText: 'Scan an item here to test...',
-                  suffixIcon: IconButton(
-                    icon: const Icon(Icons.refresh),
-                    onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Scan test reset - ready for new scan'),
-                        duration: Duration(seconds: 2),
-                      ),
-                    ),
-                  ),
-                  filled: true,
-                  fillColor: Theme.of(context).scaffoldBackgroundColor,
-                ),
-              ),
-            ],
-          ),
-        ),
       ],
       [
         // Cloud Synchronization

@@ -223,6 +223,48 @@ class _WebCartSectionState extends ConsumerState<_WebCartSection> {
   CustomerModel? _selectedCustomer;
   PaymentMethod _selectedPayment = PaymentMethod.cash;
   bool _isLoading = false;
+  bool _isApplyingCoupon = false;
+
+  Future<void> _showCouponPicker() async {
+    final coupons = await ref.read(activeCouponsProvider.future);
+    if (!mounted) return;
+    if (coupons.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No active coupons available')),
+      );
+      return;
+    }
+    final cart = ref.read(cartProvider);
+    if (cart.hasCoupon) {
+      ref.read(cartProvider.notifier).removeCoupon();
+      return;
+    }
+    final selected = await showModalBottomSheet<CouponModel>(
+      context: context,
+      builder: (ctx) => _CouponPickerSheet(coupons: coupons),
+    );
+    if (selected == null || !mounted) return;
+    setState(() => _isApplyingCoupon = true);
+    try {
+      final validated = await CouponService.validateCoupon(
+        selected.code, cart.subtotal,
+      );
+      if (!mounted) return;
+      if (validated == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Coupon is invalid or expired')),
+        );
+      } else {
+        ref.read(cartProvider.notifier).applyCoupon(
+          couponId: validated.id,
+          couponCode: validated.code,
+          discount: validated.calculateDiscount(cart.subtotal),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isApplyingCoupon = false);
+    }
+  }
 
   double get _udharAmount {
     return double.tryParse(_udharAmountController.text) ?? 0;
@@ -1025,10 +1067,44 @@ class _WebCartSectionState extends ConsumerState<_WebCartSection> {
                     value: Formatters.currency(cart.total * taxRate / 100),
                   ),
                 if (gstEnabled) const SizedBox(height: 8),
-                const _SummaryRow(
-                  label: 'Discount',
-                  value: '-?0.00',
-                  isGreen: true,
+                // Coupon row
+                Row(
+                  children: [
+                    Expanded(
+                      child: cart.hasCoupon
+                          ? _SummaryRow(
+                              label: 'Coupon (${cart.couponCode})',
+                              value: '-${Formatters.currency(cart.couponDiscount)}',
+                              isGreen: true,
+                            )
+                          : Text(
+                              'Apply Coupon',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                    ),
+                    _isApplyingCoupon
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : IconButton(
+                            icon: Icon(
+                              cart.hasCoupon
+                                  ? Icons.cancel_outlined
+                                  : Icons.local_offer_outlined,
+                              size: 20,
+                              color: cart.hasCoupon
+                                  ? Colors.red
+                                  : Theme.of(context).colorScheme.primary,
+                            ),
+                            tooltip: cart.hasCoupon ? 'Remove coupon' : 'Apply coupon',
+                            onPressed: _showCouponPicker,
+                          ),
+                  ],
                 ),
                 const Padding(
                   padding: EdgeInsets.symmetric(vertical: 12),
@@ -1296,6 +1372,52 @@ class _WebCartSectionState extends ConsumerState<_WebCartSection> {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _CouponPickerSheet extends StatelessWidget {
+  final List<CouponModel> coupons;
+  const _CouponPickerSheet({required this.coupons});
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+            child: Text(
+              'Select Coupon',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+          const Divider(height: 1),
+          ListView.builder(
+            shrinkWrap: true,
+            itemCount: coupons.length,
+            itemBuilder: (context, index) {
+              final c = coupons[index];
+              final label = c.type == CouponType.percentage
+                  ? '${c.value.toStringAsFixed(0)}% off'
+                  : '₹${c.value.toStringAsFixed(0)} off';
+              return ListTile(
+                leading: CircleAvatar(
+                  child: Text(c.type == CouponType.percentage ? '%' : '₹'),
+                ),
+                title: Text(c.code, style: const TextStyle(fontWeight: FontWeight.bold)),
+                subtitle: Text('$label • Used ${c.usedCount}/${c.maxUses ?? '∞'}'),
+                onTap: () => Navigator.pop(context, c),
+              );
+            },
+          ),
+          const SizedBox(height: 8),
+        ],
+      ),
     );
   }
 }

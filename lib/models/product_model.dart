@@ -105,6 +105,7 @@ class ProductModel {
   // GST / compliance fields
   final String? hsnCode;
   final double? gstRate;
+  final double? discount;
 
   // Seasonal fields
   final DateTime? seasonStart;
@@ -139,6 +140,7 @@ class ProductModel {
     this.comboId,
     this.hsnCode,
     this.gstRate,
+    this.discount,
     this.seasonStart,
     this.seasonEnd,
     this.seasonTag,
@@ -197,6 +199,7 @@ class ProductModel {
       comboId: data['comboId'] as String?,
       hsnCode: data['hsnCode'] as String?,
       gstRate: (data['gstRate'] as num?)?.toDouble(),
+      discount: (data['discount'] as num?)?.toDouble(),
       seasonStart: (data['seasonStart'] as Timestamp?)?.toDate(),
       seasonEnd: (data['seasonEnd'] as Timestamp?)?.toDate(),
       seasonTag: data['seasonTag'] as String?,
@@ -231,6 +234,7 @@ class ProductModel {
       'comboId': comboId,
       'hsnCode': hsnCode,
       'gstRate': gstRate,
+      'discount': discount,
       'seasonStart': seasonStart != null ? Timestamp.fromDate(seasonStart!) : null,
       'seasonEnd': seasonEnd != null ? Timestamp.fromDate(seasonEnd!) : null,
       'seasonTag': seasonTag,
@@ -262,6 +266,7 @@ class ProductModel {
     Object? comboId = _sentinel,
     Object? hsnCode = _sentinel,
     Object? gstRate = _sentinel,
+    Object? discount = _sentinel,
     Object? seasonStart = _sentinel,
     Object? seasonEnd = _sentinel,
     Object? seasonTag = _sentinel,
@@ -315,6 +320,8 @@ class ProductModel {
           hsnCode == _sentinel ? this.hsnCode : hsnCode as String?,
       gstRate:
           gstRate == _sentinel ? this.gstRate : gstRate as double?,
+      discount:
+          discount == _sentinel ? this.discount : discount as double?,
       seasonStart: seasonStart == _sentinel
           ? this.seasonStart
           : seasonStart as DateTime?,

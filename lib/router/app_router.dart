@@ -357,7 +357,17 @@ final routerProvider = Provider<GoRouter>((ref) {
       // If no hotel is selected yet, redirect to hotel selector
       // (except when already on the selector or doing staff login)
       final isHotelSelectorRoute = currentPath == AppRoutes.hotelSelector;
-      final hasHotel = ref.read(currentHotelIdProvider) != null;
+      var hasHotel = ref.read(currentHotelIdProvider) != null;
+
+      // Restore persisted hotel ID after page refresh
+      if (!hasHotel) {
+        final savedHotelId = OfflineStorageService.prefs?.getString('last_hotel_id');
+        if (savedHotelId != null && savedHotelId.isNotEmpty) {
+          ref.read(currentHotelIdProvider.notifier).state = savedHotelId;
+          hasHotel = true;
+        }
+      }
+
       if (!hasHotel && !isHotelSelectorRoute && !isSuperAdminRoute) {
         // Clear persisted route so next load goes to hotel selector
         OfflineStorageService.prefs?.setString(_lastRouteKey, AppRoutes.hotelSelector);
@@ -543,6 +553,16 @@ final routerProvider = Provider<GoRouter>((ref) {
                 const NoTransitionPage(child: IngredientsScreen()),
           ),
           GoRoute(
+            path: AppRoutes.combos,
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: ComboBuilderScreen()),
+          ),
+          GoRoute(
+            path: AppRoutes.dailySpecials,
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: DailySpecialsScreen()),
+          ),
+          GoRoute(
             path: AppRoutes.vendors,
             pageBuilder: (context, state) =>
                 const NoTransitionPage(child: VendorsScreen()),
@@ -691,14 +711,6 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
 
       // New feature routes (outside shell)
-      GoRoute(
-        path: AppRoutes.combos,
-        builder: (context, state) => const ComboBuilderScreen(),
-      ),
-      GoRoute(
-        path: AppRoutes.dailySpecials,
-        builder: (context, state) => const DailySpecialsScreen(),
-      ),
       GoRoute(
         path: AppRoutes.tableLayout,
         builder: (context, state) => const TableLayoutEditor(),

@@ -48,8 +48,22 @@ class IngredientsScreen extends ConsumerWidget {
                     'Stock: ${ing.currentStock.toStringAsFixed(1)} ${ing.unit.shortName}'
                     '${ing.isLowStock ? " ⚠️ LOW" : ""}',
                   ),
-                  trailing: Text(
-                    '₹${ing.costPerUnit.toStringAsFixed(1)}/${ing.unit.shortName}',
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        '₹${ing.costPerUnit.toStringAsFixed(1)}/${ing.unit.shortName}',
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.edit_outlined),
+                        tooltip: 'Update Stock',
+                        onPressed: () => _showUpdateStockDialog(context, ing),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.delete_outline),
+                        onPressed: () => _deleteIngredient(context, ing),
+                      ),
+                    ],
                   ),
                 ),
               );
@@ -152,6 +166,78 @@ class IngredientsScreen extends ConsumerWidget {
           },
         );
       },
+    );
+  }
+
+  void _showUpdateStockDialog(BuildContext context, IngredientModel ingredient) {
+    final stockCtrl = TextEditingController(
+      text: ingredient.currentStock.toStringAsFixed(1),
+    );
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Update Stock — ${ingredient.name}'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Current: ${ingredient.currentStock.toStringAsFixed(1)} ${ingredient.unit.shortName}',
+              style: Theme.of(ctx).textTheme.bodySmall,
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: stockCtrl,
+              autofocus: true,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              decoration: InputDecoration(
+                labelText: 'New Stock (${ingredient.unit.shortName})',
+                border: const OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () {
+              final newStock = double.tryParse(stockCtrl.text);
+              if (newStock == null) return;
+              IngredientService.updateIngredient(
+                ingredient.copyWith(currentStock: newStock),
+              );
+              Navigator.pop(ctx);
+            },
+            child: const Text('Update'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _deleteIngredient(BuildContext context, IngredientModel ingredient) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete Ingredient'),
+        content: Text('Are you sure you want to delete "${ingredient.name}"?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () {
+              IngredientService.deleteIngredient(ingredient.id);
+              Navigator.pop(ctx);
+            },
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
     );
   }
 }

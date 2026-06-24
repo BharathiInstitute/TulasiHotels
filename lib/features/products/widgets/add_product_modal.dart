@@ -36,16 +36,12 @@ class _AddProductModalState extends ConsumerState<AddProductModal> {
   late final TextEditingController _stockController;
   late final TextEditingController _lowStockController;
   late final TextEditingController _barcodeController;
-  late final TextEditingController _categoryController;
   late final TextEditingController _descEnController;
   late final TextEditingController _descHiController;
   late final TextEditingController _descTeController;
-  late final TextEditingController _priceTakeawayController;
-  late final TextEditingController _priceDeliveryController;
-  late final TextEditingController _kitchenStationController;
-  late final TextEditingController _hsnCodeController;
   late final TextEditingController _gstRateController;
-  late ProductUnit _selectedUnit;
+  late final TextEditingController _discountController;
+  String? _selectedCategory;
   DietaryTag? _dietaryTag;
   SpiceLevel? _spiceLevel;
   List<String> _allergens = [];
@@ -72,24 +68,16 @@ class _AddProductModalState extends ConsumerState<AddProductModal> {
       text: p?.lowStockAlert.toString() ?? '5',
     );
     _barcodeController = TextEditingController(text: p?.barcode ?? '');
-    _categoryController = TextEditingController(text: p?.category ?? '');
+    _selectedCategory = p?.category;
     _descEnController = TextEditingController(text: p?.descriptionEn ?? '');
     _descHiController = TextEditingController(text: p?.descriptionHi ?? '');
     _descTeController = TextEditingController(text: p?.descriptionTe ?? '');
-    _priceTakeawayController = TextEditingController(
-      text: p?.priceTakeaway?.toString() ?? '',
-    );
-    _priceDeliveryController = TextEditingController(
-      text: p?.priceDelivery?.toString() ?? '',
-    );
-    _kitchenStationController = TextEditingController(
-      text: p?.kitchenStation ?? '',
-    );
-    _hsnCodeController = TextEditingController(text: p?.hsnCode ?? '');
     _gstRateController = TextEditingController(
       text: p?.gstRate?.toString() ?? '',
     );
-    _selectedUnit = p?.unit ?? ProductUnit.piece;
+    _discountController = TextEditingController(
+      text: p?.discount?.toString() ?? '',
+    );
     _dietaryTag = p?.dietaryTag;
     _spiceLevel = p?.spiceLevel;
     _allergens = List<String>.from(p?.allergens ?? []);
@@ -105,16 +93,42 @@ class _AddProductModalState extends ConsumerState<AddProductModal> {
     _stockController.dispose();
     _lowStockController.dispose();
     _barcodeController.dispose();
-    _categoryController.dispose();
     _descEnController.dispose();
     _descHiController.dispose();
     _descTeController.dispose();
-    _priceTakeawayController.dispose();
-    _priceDeliveryController.dispose();
-    _kitchenStationController.dispose();
-    _hsnCodeController.dispose();
     _gstRateController.dispose();
+    _discountController.dispose();
     super.dispose();
+  }
+
+  Future<void> _showAddCategoryDialog() async {
+    final controller = TextEditingController();
+    final result = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Add Category'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          textCapitalization: TextCapitalization.words,
+          decoration: const InputDecoration(hintText: 'e.g., Main Course'),
+          onSubmitted: (v) => Navigator.pop(context, v.trim()),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, controller.text.trim()),
+            child: const Text('Add'),
+          ),
+        ],
+      ),
+    );
+    if (result != null && result.isNotEmpty) {
+      setState(() => _selectedCategory = result);
+    }
   }
 
   /// Scan barcode and lookup product info from API
@@ -174,13 +188,13 @@ class _AddProductModalState extends ConsumerState<AddProductModal> {
             : double.tryParse(_purchasePriceController.text),
         stock: int.tryParse(_stockController.text) ?? 0,
         lowStockAlert: int.tryParse(_lowStockController.text) ?? 5,
-        unit: _selectedUnit,
+        unit: ProductUnit.piece,
         barcode: _barcodeController.text.trim().isEmpty
             ? null
             : _barcodeController.text.trim(),
-        category: _categoryController.text.trim().isEmpty
+        category: (_selectedCategory ?? '').trim().isEmpty
             ? null
-            : _categoryController.text.trim(),
+            : _selectedCategory!.trim(),
         imageUrl: _imageUrl,
         isAvailable: _isAvailable,
         dietaryTag: _dietaryTag ?? DietaryTag.none,
@@ -195,21 +209,12 @@ class _AddProductModalState extends ConsumerState<AddProductModal> {
         descriptionTe: _descTeController.text.trim().isEmpty
             ? null
             : _descTeController.text.trim(),
-        priceTakeaway: _priceTakeawayController.text.isEmpty
-            ? null
-            : double.tryParse(_priceTakeawayController.text),
-        priceDelivery: _priceDeliveryController.text.isEmpty
-            ? null
-            : double.tryParse(_priceDeliveryController.text),
-        kitchenStation: _kitchenStationController.text.trim().isEmpty
-            ? null
-            : _kitchenStationController.text.trim(),
-        hsnCode: _hsnCodeController.text.trim().isEmpty
-            ? null
-            : _hsnCodeController.text.trim(),
         gstRate: _gstRateController.text.isEmpty
             ? null
             : double.tryParse(_gstRateController.text),
+        discount: _discountController.text.isEmpty
+            ? null
+            : double.tryParse(_discountController.text),
         createdAt: widget.product?.createdAt ?? DateTime.now(),
       );
 
@@ -391,14 +396,66 @@ class _AddProductModalState extends ConsumerState<AddProductModal> {
                     ),
                     SizedBox(height: fieldSpacing),
 
-                    // Category
-                    AppTextField(
-                      label: 'Category',
-                      hint: 'e.g., Starters, Main Course, Beverages',
-                      controller: _categoryController,
-                      textInputAction: TextInputAction.next,
-                      prefixIcon: const Icon(Icons.category_outlined),
-                    ),
+                    // Category dropdown
+                    Builder(builder: (context) {
+                      final existingCategories = (ref
+                                  .watch(productsProvider)
+                                  .valueOrNull ??
+                              [])
+                          .map((p) => p.category)
+                          .whereType<String>()
+                          .where((c) => c.isNotEmpty)
+                          .toSet()
+                          .toList()
+                        ..sort();
+                      // Ensure current value is in the list
+                      final currentCat = _selectedCategory;
+                      if (currentCat != null &&
+                          currentCat.isNotEmpty &&
+                          !existingCategories.contains(currentCat)) {
+                        existingCategories.add(currentCat);
+                      }
+                      return DropdownButtonFormField<String>(
+                        value: (currentCat != null && currentCat.isNotEmpty)
+                            ? currentCat
+                            : null,
+                        decoration: InputDecoration(
+                          labelText: 'Category',
+                          prefixIcon:
+                              const Icon(Icons.category_outlined),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                        hint: const Text('Select category'),
+                        isExpanded: true,
+                        items: [
+                          ...existingCategories.map(
+                            (cat) => DropdownMenuItem(
+                              value: cat,
+                              child: Text(cat),
+                            ),
+                          ),
+                          const DropdownMenuItem<String>(
+                            value: '__add_new__',
+                            child: Row(
+                              children: [
+                                Icon(Icons.add, size: 18),
+                                SizedBox(width: 8),
+                                Text('Add new category'),
+                              ],
+                            ),
+                          ),
+                        ],
+                        onChanged: (value) {
+                          if (value == '__add_new__') {
+                            _showAddCategoryDialog();
+                          } else {
+                            setState(() => _selectedCategory = value);
+                          }
+                        },
+                      );
+                    }),
                     SizedBox(height: fieldSpacing),
 
                     // Availability toggle
@@ -537,68 +594,26 @@ class _AddProductModalState extends ConsumerState<AddProductModal> {
                     ),
                     SizedBox(height: fieldSpacing),
 
-                    // Multi-price fields (collapsible)
-                    ExpansionTile(
-                      title: const Text('Alternate Prices'),
-                      tilePadding: EdgeInsets.zero,
-                      childrenPadding: EdgeInsets.zero,
+                    // GST & Discount
+                    Row(
                       children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: CurrencyTextField(
-                                label: 'Takeaway Price',
-                                controller: _priceTakeawayController,
-                              ),
-                            ),
-                            SizedBox(width: isMobile ? 8 : 12),
-                            Expanded(
-                              child: CurrencyTextField(
-                                label: 'Delivery Price',
-                                controller: _priceDeliveryController,
-                              ),
-                            ),
-                          ],
+                        Expanded(
+                          child: AppTextField(
+                            label: 'GST (%)',
+                            hint: '5',
+                            controller: _gstRateController,
+                            keyboardType: TextInputType.number,
+                          ),
                         ),
-                        SizedBox(height: fieldSpacing),
-                      ],
-                    ),
-                    SizedBox(height: fieldSpacing),
-
-                    // Kitchen station & GST (collapsible)
-                    ExpansionTile(
-                      title: const Text('Kitchen & Tax'),
-                      tilePadding: EdgeInsets.zero,
-                      childrenPadding: EdgeInsets.zero,
-                      children: [
-                        AppTextField(
-                          label: 'Kitchen Station',
-                          hint: 'e.g., Main Kitchen, Tandoor, Bar',
-                          controller: _kitchenStationController,
-                          prefixIcon: const Icon(Icons.kitchen),
+                        SizedBox(width: isMobile ? 8 : 12),
+                        Expanded(
+                          child: AppTextField(
+                            label: 'Discount (%)',
+                            hint: '0',
+                            controller: _discountController,
+                            keyboardType: TextInputType.number,
+                          ),
                         ),
-                        SizedBox(height: fieldSpacing),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: AppTextField(
-                                label: 'HSN Code',
-                                hint: '9963',
-                                controller: _hsnCodeController,
-                              ),
-                            ),
-                            SizedBox(width: isMobile ? 8 : 12),
-                            Expanded(
-                              child: AppTextField(
-                                label: 'GST Rate (%)',
-                                hint: '5',
-                                controller: _gstRateController,
-                                keyboardType: TextInputType.number,
-                              ),
-                            ),
-                          ],
-                        ),
-                        SizedBox(height: fieldSpacing),
                       ],
                     ),
                     SizedBox(height: fieldSpacing),
@@ -631,113 +646,6 @@ class _AddProductModalState extends ConsumerState<AddProductModal> {
                         ),
                       ],
                     ),
-                    SizedBox(height: fieldSpacing),
-
-                    // Unit selection
-                    Text(
-                      'Unit',
-                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        fontSize: isMobile ? 12 : 14,
-                      ),
-                    ),
-                    SizedBox(height: isMobile ? 4 : 8),
-                    Wrap(
-                      spacing: isMobile ? 4 : 8,
-                      runSpacing: isMobile ? 4 : 8,
-                      children: ProductUnit.values.map((unit) {
-                        final isSelected = _selectedUnit == unit;
-                        return ChoiceChip(
-                          label: Text(
-                            unit.displayName,
-                            style: TextStyle(fontSize: isMobile ? 11 : 14),
-                          ),
-                          selected: isSelected,
-                          visualDensity: isMobile
-                              ? VisualDensity.compact
-                              : null,
-                          padding: isMobile
-                              ? const EdgeInsets.symmetric(horizontal: 4)
-                              : null,
-                          onSelected: (selected) {
-                            if (selected) {
-                              setState(() => _selectedUnit = unit);
-                            }
-                          },
-                        );
-                      }).toList(),
-                    ),
-                    SizedBox(height: fieldSpacing),
-
-                    // Barcode
-                    AppTextField(
-                      label: 'Barcode (Optional)',
-                      hint: 'Scan or enter barcode',
-                      controller: _barcodeController,
-                      prefixIcon: const Icon(Icons.qr_code),
-                      suffixIcon: _isLookingUp
-                          ? const Padding(
-                              padding: EdgeInsets.all(12),
-                              child: SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                ),
-                              ),
-                            )
-                          : IconButton(
-                              icon: const Icon(Icons.qr_code_scanner),
-                              onPressed: _scanAndLookupBarcode,
-                            ),
-                    ),
-
-                    // Show looked up product info
-                    if (_lookedUpProduct != null) ...[
-                      SizedBox(height: isMobile ? 6 : 8),
-                      Container(
-                        padding: EdgeInsets.all(isMobile ? 8 : 12),
-                        decoration: BoxDecoration(
-                          color: AppColors.success.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color: AppColors.success.withValues(alpha: 0.3),
-                          ),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.check_circle,
-                              color: AppColors.success,
-                              size: isMobile ? 16 : 20,
-                            ),
-                            SizedBox(width: isMobile ? 6 : 8),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Found: ${_lookedUpProduct!.displayName}',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: isMobile ? 12 : 14,
-                                    ),
-                                  ),
-                                  if (_lookedUpProduct!.brand != null)
-                                    Text(
-                                      'Brand: ${_lookedUpProduct!.brand}',
-                                      style: TextStyle(
-                                        fontSize: isMobile ? 10 : 12,
-                                        color: Colors.grey[600],
-                                      ),
-                                    ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
                     SizedBox(height: fieldSpacing),
 
                     // Product Image

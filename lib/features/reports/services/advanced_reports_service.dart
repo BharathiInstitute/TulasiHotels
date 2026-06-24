@@ -159,4 +159,18 @@ class AdvancedReportsService {
       ..sort((a, b) => (b['totalRevenue'] as double)
           .compareTo(a['totalRevenue'] as double));
   }
+
+  /// Get raw bills in a date range (for export)
+  static Future<List<BillModel>> getBillsInRange(
+      DateTime start, DateTime end) async {
+    final snapshot = await _firestore
+        .collection('$_basePath/bills')
+        .where('createdAt',
+            isGreaterThanOrEqualTo: Timestamp.fromDate(start))
+        .where('createdAt', isLessThan: Timestamp.fromDate(end))
+        .orderBy('createdAt', descending: true)
+        .get();
+
+    return snapshot.docs.map((doc) => BillModel.fromFirestore(doc)).toList();
+  }
 }
