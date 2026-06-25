@@ -72,10 +72,12 @@ class _ComplaintsScreenState extends ConsumerState<ComplaintsScreen> {
 
               return Card(
                 child: ListTile(
-                  leading: CircleAvatar(
-                    child: Text(c.category.emoji),
+                  leading: CircleAvatar(child: Text(c.category.emoji)),
+                  title: Text(
+                    c.description,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  title: Text(c.description, maxLines: 1, overflow: TextOverflow.ellipsis),
                   subtitle: Text(
                     '${c.category.displayName} • ${c.customerName ?? "Anonymous"}',
                     maxLines: 2,
@@ -87,38 +89,47 @@ class _ComplaintsScreenState extends ConsumerState<ComplaintsScreen> {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Chip(
-                              label: Text(
+                              label: const Text(
                                 'Resolved',
-                                style: TextStyle(color: Colors.green, fontSize: 10),
+                                style: TextStyle(
+                                  color: Colors.green,
+                                  fontSize: 10,
+                                ),
                               ),
-                              backgroundColor: Colors.green.withValues(alpha: 0.1),
+                              backgroundColor: Colors.green.withValues(
+                                alpha: 0.1,
+                              ),
                               side: BorderSide.none,
                             ),
                             IconButton(
                               icon: const Icon(Icons.delete_outline),
                               onPressed: () async {
-                            final confirm = await showDialog<bool>(
-                              context: context,
-                              builder: (ctx) => AlertDialog(
-                                title: const Text('Delete Complaint'),
-                                content: const Text('Are you sure you want to delete this complaint?'),
-                                actions: [
-                                  TextButton(
-                                    onPressed: () => Navigator.pop(ctx, false),
-                                    child: const Text('Cancel'),
+                                final confirm = await showDialog<bool>(
+                                  context: context,
+                                  builder: (ctx) => AlertDialog(
+                                    title: const Text('Delete Complaint'),
+                                    content: const Text(
+                                      'Are you sure you want to delete this complaint?',
+                                    ),
+                                    actions: [
+                                      TextButton(
+                                        onPressed: () =>
+                                            Navigator.pop(ctx, false),
+                                        child: const Text('Cancel'),
+                                      ),
+                                      FilledButton(
+                                        onPressed: () =>
+                                            Navigator.pop(ctx, true),
+                                        child: const Text('Delete'),
+                                      ),
+                                    ],
                                   ),
-                                  FilledButton(
-                                    onPressed: () => Navigator.pop(ctx, true),
-                                    child: const Text('Delete'),
-                                  ),
-                                ],
-                              ),
-                            );
-                            if (confirm == true) {
-                              await ComplaintService.deleteComplaint(c.id);
-                            }
-                          },
-                        ),
+                                );
+                                if (confirm == true) {
+                                  await ComplaintService.deleteComplaint(c.id);
+                                }
+                              },
+                            ),
                           ],
                         )
                       : PopupMenuButton<ComplaintStatus>(
@@ -126,20 +137,28 @@ class _ComplaintsScreenState extends ConsumerState<ComplaintsScreen> {
                           child: Chip(
                             label: Text(
                               c.status.displayName,
-                              style: TextStyle(color: statusColor, fontSize: 10),
+                              style: TextStyle(
+                                color: statusColor,
+                                fontSize: 10,
+                              ),
                             ),
                             backgroundColor: statusColor.withValues(alpha: 0.1),
                             side: BorderSide.none,
                           ),
                           onSelected: (newStatus) async {
-                            await ComplaintService.updateStatus(c.id, newStatus);
+                            await ComplaintService.updateStatus(
+                              c.id,
+                              newStatus,
+                            );
                           },
                           itemBuilder: (ctx) => ComplaintStatus.values
                               .where((s) => s != ComplaintStatus.closed)
-                              .map((s) => PopupMenuItem(
-                                    value: s,
-                                    child: Text(s.displayName),
-                                  ))
+                              .map(
+                                (s) => PopupMenuItem(
+                                  value: s,
+                                  child: Text(s.displayName),
+                                ),
+                              )
                               .toList(),
                         ),
                 ),
@@ -162,7 +181,10 @@ class _ComplaintsScreenState extends ConsumerState<ComplaintsScreen> {
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setSheetState) => Padding(
           padding: EdgeInsets.fromLTRB(
-            16, 16, 16, MediaQuery.of(ctx).viewInsets.bottom + 16,
+            16,
+            16,
+            16,
+            MediaQuery.of(ctx).viewInsets.bottom + 16,
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -176,10 +198,12 @@ class _ComplaintsScreenState extends ConsumerState<ComplaintsScreen> {
                   border: OutlineInputBorder(),
                 ),
                 items: ComplaintCategory.values
-                    .map((c) => DropdownMenuItem(
-                          value: c,
-                          child: Text('${c.emoji} ${c.displayName}'),
-                        ))
+                    .map(
+                      (c) => DropdownMenuItem(
+                        value: c,
+                        child: Text('${c.emoji} ${c.displayName}'),
+                      ),
+                    )
                     .toList(),
                 onChanged: (v) => setSheetState(() => _category = v!),
               ),
@@ -223,7 +247,9 @@ class _ComplaintsScreenState extends ConsumerState<ComplaintsScreen> {
       id: generateSafeId('complaint'),
       description: desc,
       category: _category,
-      customerName: _customerCtrl.text.trim().isEmpty ? null : _customerCtrl.text.trim(),
+      customerName: _customerCtrl.text.trim().isEmpty
+          ? null
+          : _customerCtrl.text.trim(),
       createdAt: DateTime.now(),
     );
 

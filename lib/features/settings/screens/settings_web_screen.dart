@@ -369,7 +369,9 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
       case PrinterTypeOption.system:
         messenger.showSnackBar(
           const SnackBar(
-            content: Text('System printer: Print dialog opens when you print a receipt.'),
+            content: Text(
+              'System printer: Print dialog opens when you print a receipt.',
+            ),
           ),
         );
         break;
@@ -394,7 +396,11 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
       case PrinterTypeOption.webBluetooth:
         if (!WebBluetoothPrinterService.isConnected) {
           messenger.showSnackBar(
-            const SnackBar(content: Text('No Bluetooth printer connected. Tap "Select Printer" first.')),
+            const SnackBar(
+              content: Text(
+                'No Bluetooth printer connected. Tap "Select Printer" first.',
+              ),
+            ),
           );
           return;
         }
@@ -409,7 +415,11 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
       case PrinterTypeOption.webSerial:
         if (!WebSerialPrinterService.isConnected) {
           messenger.showSnackBar(
-            const SnackBar(content: Text('No USB serial port connected. Tap "Select Port" first.')),
+            const SnackBar(
+              content: Text(
+                'No USB serial port connected. Tap "Select Port" first.',
+              ),
+            ),
           );
           return;
         }
@@ -427,7 +437,11 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
           final connected = await ThermalPrinterService.isConnected;
           if (!connected) {
             messenger.showSnackBar(
-              const SnackBar(content: Text('No Bluetooth printer connected. Tap "Scan Printers" first.')),
+              const SnackBar(
+                content: Text(
+                  'No Bluetooth printer connected. Tap "Scan Printers" first.',
+                ),
+              ),
             );
             return;
           }
@@ -464,17 +478,17 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
     } catch (e) {
       if (mounted) {
         setState(() => _btScanning = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Scan failed: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Scan failed: $e')));
       }
     }
   }
 
   Future<void> _connectNativeBluetooth(PrinterDevice device) async {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Connecting to ${device.name}...')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('Connecting to ${device.name}...')));
 
     final success = await ThermalPrinterService.connect(device);
     if (success) {
@@ -508,9 +522,9 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
     await ref.read(printerProvider.notifier).disconnectPrinter();
     if (mounted) {
       setState(() {});
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Printer disconnected')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Printer disconnected')));
     }
   }
 
@@ -635,8 +649,7 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
             url: logoPath,
             width: 64,
             height: 64,
-            errorWidget:
-                const Icon(Icons.hotel, size: 28, color: Colors.grey),
+            errorWidget: const Icon(Icons.hotel, size: 28, color: Colors.grey),
           );
         }
         // Add cache-buster for non-web (CachedNetworkImage)
@@ -1974,10 +1987,20 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
     final printerState = ref.watch(printerProvider);
     final isWebBtConnected = WebBluetoothPrinterService.isConnected;
     final isWebSerialConnected = WebSerialPrinterService.isConnected;
-    final isUsbSelected = !kIsWeb && Platform.isWindows && UsbPrinterService.getSavedPrinterName().isNotEmpty;
+    final isUsbSelected =
+        !kIsWeb &&
+        Platform.isWindows &&
+        UsbPrinterService.getSavedPrinterName().isNotEmpty;
     final isMobileNative = !kIsWeb && (Platform.isAndroid || Platform.isIOS);
-    final isBtConnected = isMobileNative && printerState.printerType == PrinterTypeOption.bluetooth && printerState.isConnected;
-    final isAnyConnected = isWebBtConnected || isWebSerialConnected || isUsbSelected || isBtConnected;
+    final isBtConnected =
+        isMobileNative &&
+        printerState.printerType == PrinterTypeOption.bluetooth &&
+        printerState.isConnected;
+    final isAnyConnected =
+        isWebBtConnected ||
+        isWebSerialConnected ||
+        isUsbSelected ||
+        isBtConnected;
 
     return _responsiveColumns(
       [
@@ -2000,7 +2023,9 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
                   width: 8,
                   height: 8,
                   decoration: BoxDecoration(
-                    color: isAnyConnected ? AppColors.success : AppColors.textMuted,
+                    color: isAnyConnected
+                        ? AppColors.success
+                        : AppColors.textMuted,
                     shape: BoxShape.circle,
                   ),
                 ),
@@ -2008,7 +2033,9 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
                 Text(
                   isAnyConnected ? 'Connected' : 'Not Connected',
                   style: TextStyle(
-                    color: isAnyConnected ? AppColors.success : AppColors.textMuted,
+                    color: isAnyConnected
+                        ? AppColors.success
+                        : AppColors.textMuted,
                     fontSize: 12,
                     fontWeight: FontWeight.w500,
                   ),
@@ -2025,12 +2052,12 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
                 printerState.printerType == PrinterTypeOption.bluetooth
                     ? 'Bluetooth'
                     : printerState.printerType == PrinterTypeOption.webBluetooth
-                        ? 'Web Bluetooth'
-                        : printerState.printerType == PrinterTypeOption.webSerial
-                            ? 'Web Serial (USB)'
-                            : printerState.printerType == PrinterTypeOption.usb
-                                ? 'USB (Windows)'
-                                : 'System Printer',
+                    ? 'Web Bluetooth'
+                    : printerState.printerType == PrinterTypeOption.webSerial
+                    ? 'Web Serial (USB)'
+                    : printerState.printerType == PrinterTypeOption.usb
+                    ? 'USB (Windows)'
+                    : 'System Printer',
                 [
                   if (!isMobileNative) 'System Printer',
                   if (isMobileNative) 'Bluetooth',
@@ -2039,26 +2066,26 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
                 ],
                 onChanged: (val) {
                   if (val == 'Bluetooth') {
-                    ref.read(printerProvider.notifier).setPrinterType(
-                      PrinterTypeOption.bluetooth,
-                    );
+                    ref
+                        .read(printerProvider.notifier)
+                        .setPrinterType(PrinterTypeOption.bluetooth);
                   } else if (val == 'Web Bluetooth') {
-                    ref.read(printerProvider.notifier).setPrinterType(
-                      PrinterTypeOption.webBluetooth,
-                    );
+                    ref
+                        .read(printerProvider.notifier)
+                        .setPrinterType(PrinterTypeOption.webBluetooth);
                   } else if (val == 'Web Serial (USB)') {
-                    ref.read(printerProvider.notifier).setPrinterType(
-                      PrinterTypeOption.webSerial,
-                    );
+                    ref
+                        .read(printerProvider.notifier)
+                        .setPrinterType(PrinterTypeOption.webSerial);
                   } else if (val == 'USB (Windows)') {
-                    ref.read(printerProvider.notifier).setPrinterType(
-                      PrinterTypeOption.usb,
-                    );
+                    ref
+                        .read(printerProvider.notifier)
+                        .setPrinterType(PrinterTypeOption.usb);
                     _loadAvailablePrinters();
                   } else {
-                    ref.read(printerProvider.notifier).setPrinterType(
-                      PrinterTypeOption.system,
-                    );
+                    ref
+                        .read(printerProvider.notifier)
+                        .setPrinterType(PrinterTypeOption.system);
                   }
                   setState(() {});
                 },
@@ -2066,14 +2093,18 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
               const SizedBox(height: 16),
 
               // Connection section for Web Bluetooth
-              if (printerState.printerType == PrinterTypeOption.webBluetooth) ...[
+              if (printerState.printerType ==
+                  PrinterTypeOption.webBluetooth) ...[
                 _buildFieldLabel('Bluetooth Printer'),
                 const SizedBox(height: 8),
                 Row(
                   children: [
                     Expanded(
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 12,
+                        ),
                         decoration: BoxDecoration(
                           color: Theme.of(context).cardColor,
                           borderRadius: BorderRadius.circular(8),
@@ -2084,7 +2115,9 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
                               ? WebBluetoothPrinterService.connectedDeviceName
                               : 'No printer connected',
                           style: TextStyle(
-                            color: isWebBtConnected ? null : AppColors.textMuted,
+                            color: isWebBtConnected
+                                ? null
+                                : AppColors.textMuted,
                           ),
                         ),
                       ),
@@ -2092,7 +2125,8 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
                     const SizedBox(width: 12),
                     ElevatedButton.icon(
                       onPressed: () async {
-                        final success = await WebBluetoothPrinterService.connect();
+                        final success =
+                            await WebBluetoothPrinterService.connect();
                         if (mounted) {
                           setState(() {});
                           ScaffoldMessenger.of(context).showSnackBar(
@@ -2102,13 +2136,17 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
                                     ? 'Connected to ${WebBluetoothPrinterService.connectedDeviceName}'
                                     : 'Connection failed or cancelled',
                               ),
-                              backgroundColor: success ? AppColors.success : AppColors.error,
+                              backgroundColor: success
+                                  ? AppColors.success
+                                  : AppColors.error,
                             ),
                           );
                         }
                       },
                       icon: const Icon(Icons.bluetooth_searching, size: 18),
-                      label: Text(isWebBtConnected ? 'Reconnect' : 'Select Printer'),
+                      label: Text(
+                        isWebBtConnected ? 'Reconnect' : 'Select Printer',
+                      ),
                     ),
                   ],
                 ),
@@ -2123,7 +2161,9 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
                       },
                       icon: const Icon(Icons.link_off, size: 16),
                       label: const Text('Disconnect'),
-                      style: TextButton.styleFrom(foregroundColor: AppColors.error),
+                      style: TextButton.styleFrom(
+                        foregroundColor: AppColors.error,
+                      ),
                     ),
                   ),
                 ],
@@ -2131,7 +2171,8 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
               ],
 
               // Native Bluetooth section (Android/iOS)
-              if (printerState.printerType == PrinterTypeOption.bluetooth && isMobileNative) ...[
+              if (printerState.printerType == PrinterTypeOption.bluetooth &&
+                  isMobileNative) ...[
                 _buildFieldLabel('Bluetooth Thermal Printer'),
                 const SizedBox(height: 8),
 
@@ -2147,13 +2188,25 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
                     child: const Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('1. Pair your printer in phone Bluetooth settings', style: TextStyle(fontSize: 13)),
+                        Text(
+                          '1. Pair your printer in phone Bluetooth settings',
+                          style: TextStyle(fontSize: 13),
+                        ),
                         SizedBox(height: 4),
-                        Text('2. Tap Scan Printers below', style: TextStyle(fontSize: 13)),
+                        Text(
+                          '2. Tap Scan Printers below',
+                          style: TextStyle(fontSize: 13),
+                        ),
                         SizedBox(height: 4),
-                        Text('3. Tap Connect next to your printer', style: TextStyle(fontSize: 13)),
+                        Text(
+                          '3. Tap Connect next to your printer',
+                          style: TextStyle(fontSize: 13),
+                        ),
                         SizedBox(height: 4),
-                        Text('4. Use Test Print to verify', style: TextStyle(fontSize: 13)),
+                        Text(
+                          '4. Use Test Print to verify',
+                          style: TextStyle(fontSize: 13),
+                        ),
                       ],
                     ),
                   ),
@@ -2172,7 +2225,10 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
                 // Connected printer info
                 if (printerState.isConnected)
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 12,
+                    ),
                     margin: const EdgeInsets.only(bottom: 12),
                     decoration: BoxDecoration(
                       color: AppColors.success.withValues(alpha: 0.1),
@@ -2180,7 +2236,11 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
                     ),
                     child: Row(
                       children: [
-                        const Icon(Icons.check_circle, color: AppColors.success, size: 18),
+                        const Icon(
+                          Icons.check_circle,
+                          color: AppColors.success,
+                          size: 18,
+                        ),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
@@ -2205,10 +2265,14 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
                             ? const SizedBox(
                                 width: 16,
                                 height: 16,
-                                child: CircularProgressIndicator(strokeWidth: 2),
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
                               )
                             : const Icon(Icons.search, size: 18),
-                        label: Text(_btScanning ? 'Scanning...' : 'Scan Printers'),
+                        label: Text(
+                          _btScanning ? 'Scanning...' : 'Scan Printers',
+                        ),
                       ),
                     ),
                     if (printerState.isConnected) ...[
@@ -2217,7 +2281,9 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
                         onPressed: _disconnectNativeBluetooth,
                         icon: const Icon(Icons.link_off, size: 16),
                         label: const Text('Disconnect'),
-                        style: TextButton.styleFrom(foregroundColor: AppColors.error),
+                        style: TextButton.styleFrom(
+                          foregroundColor: AppColors.error,
+                        ),
                       ),
                     ],
                   ],
@@ -2231,7 +2297,10 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
                       child: ListTile(
                         leading: const Icon(Icons.print),
                         title: Text(device.name),
-                        subtitle: Text(device.address, style: const TextStyle(fontSize: 11)),
+                        subtitle: Text(
+                          device.address,
+                          style: const TextStyle(fontSize: 11),
+                        ),
                         trailing: ElevatedButton(
                           onPressed: () => _connectNativeBluetooth(device),
                           child: const Text('Connect'),
@@ -2255,7 +2324,10 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
                             ? () => _editPrinterName(context)
                             : null,
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 12,
+                          ),
                           decoration: BoxDecoration(
                             color: Theme.of(context).cardColor,
                             borderRadius: BorderRadius.circular(8),
@@ -2266,15 +2338,22 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
                               Expanded(
                                 child: Text(
                                   isWebSerialConnected
-                                      ? WebSerialPrinterService.connectedPortName
+                                      ? WebSerialPrinterService
+                                            .connectedPortName
                                       : 'No port connected',
                                   style: TextStyle(
-                                    color: isWebSerialConnected ? null : AppColors.textMuted,
+                                    color: isWebSerialConnected
+                                        ? null
+                                        : AppColors.textMuted,
                                   ),
                                 ),
                               ),
                               if (isWebSerialConnected)
-                                const Icon(Icons.edit, size: 16, color: AppColors.textMuted),
+                                const Icon(
+                                  Icons.edit,
+                                  size: 16,
+                                  color: AppColors.textMuted,
+                                ),
                             ],
                           ),
                         ),
@@ -2293,13 +2372,17 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
                                     ? 'Connected to ${WebSerialPrinterService.connectedPortName}'
                                     : 'Connection failed or cancelled',
                               ),
-                              backgroundColor: success ? AppColors.success : AppColors.error,
+                              backgroundColor: success
+                                  ? AppColors.success
+                                  : AppColors.error,
                             ),
                           );
                         }
                       },
                       icon: const Icon(Icons.usb, size: 18),
-                      label: Text(isWebSerialConnected ? 'Reconnect' : 'Select Port'),
+                      label: Text(
+                        isWebSerialConnected ? 'Reconnect' : 'Select Port',
+                      ),
                     ),
                   ],
                 ),
@@ -2314,7 +2397,9 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
                       },
                       icon: const Icon(Icons.link_off, size: 16),
                       label: const Text('Disconnect'),
-                      style: TextButton.styleFrom(foregroundColor: AppColors.error),
+                      style: TextButton.styleFrom(
+                        foregroundColor: AppColors.error,
+                      ),
                     ),
                   ),
                 ],
@@ -2357,18 +2442,14 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
                     ),
                   )
                 else
-                  _buildDropdown(
-                    printerState.printerName ?? 'None',
-                    [
-                      'None',
-                      ..._availablePrinters,
-                      if (printerState.printerName != null &&
-                          printerState.printerName != 'None' &&
-                          !_availablePrinters.contains(printerState.printerName))
-                        printerState.printerName!,
-                    ],
-                    onChanged: _selectPrinter,
-                  ),
+                  _buildDropdown(printerState.printerName ?? 'None', [
+                    'None',
+                    ..._availablePrinters,
+                    if (printerState.printerName != null &&
+                        printerState.printerName != 'None' &&
+                        !_availablePrinters.contains(printerState.printerName))
+                      printerState.printerName!,
+                  ], onChanged: _selectPrinter),
                 const SizedBox(height: 16),
               ],
 
@@ -2384,13 +2465,17 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
                         _buildToggleChip(
                           '58mm',
                           printerState.paperSizeIndex == 0,
-                          onTap: () => ref.read(printerProvider.notifier).setPaperSize(0),
+                          onTap: () => ref
+                              .read(printerProvider.notifier)
+                              .setPaperSize(0),
                         ),
                         const SizedBox(width: 8),
                         _buildToggleChip(
                           '80mm',
                           printerState.paperSizeIndex == 1,
-                          onTap: () => ref.read(printerProvider.notifier).setPaperSize(1),
+                          onTap: () => ref
+                              .read(printerProvider.notifier)
+                              .setPaperSize(1),
                         ),
                       ],
                     ),
@@ -2625,7 +2710,7 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
                             ),
                             child: DropdownButtonFormField<SyncInterval>(
                               isExpanded: true,
-                                initialValue:
+                              initialValue:
                                   SyncSettingsService.getSyncInterval(),
                               decoration: const InputDecoration(
                                 contentPadding: EdgeInsets.symmetric(
@@ -3400,7 +3485,7 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
                 ),
                 if (!isVerified && onVerify != null) ...[
                   const SizedBox(width: 4),
-                  Icon(
+                  const Icon(
                     Icons.arrow_forward_ios,
                     size: 10,
                     color: AppColors.error,
@@ -3447,7 +3532,10 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
                 setDialogState(() => error = 'No email address found');
                 return;
               }
-              setDialogState(() { isSending = true; error = null; });
+              setDialogState(() {
+                isSending = true;
+                error = null;
+              });
               final success = await ref
                   .read(authNotifierProvider.notifier)
                   .sendRegistrationOTP(email);
@@ -3457,7 +3545,8 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
                   otpSent = true;
                   startResendTimer();
                 } else {
-                  error = ref.read(authNotifierProvider).error ??
+                  error =
+                      ref.read(authNotifierProvider).error ??
                       'Failed to send OTP. Please try again.';
                   ref.read(authNotifierProvider.notifier).clearError();
                 }
@@ -3472,23 +3561,32 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
               }
               final email = ref.read(currentUserProvider)?.email;
               if (email == null || email.isEmpty) return;
-              setDialogState(() { isVerifying = true; error = null; });
+              setDialogState(() {
+                isVerifying = true;
+                error = null;
+              });
               final success = await ref
                   .read(authNotifierProvider.notifier)
                   .verifyRegistrationOTP(email, otp);
               if (success) {
-                await ref.read(authNotifierProvider.notifier).markEmailVerified();
+                await ref
+                    .read(authNotifierProvider.notifier)
+                    .markEmailVerified();
                 resendTimer?.cancel();
                 if (ctx.mounted) Navigator.of(ctx).pop();
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Email verified successfully!')),
+                    const SnackBar(
+                      content: Text('Email verified successfully!'),
+                    ),
                   );
                 }
               } else {
                 setDialogState(() {
                   isVerifying = false;
-                  error = ref.read(authNotifierProvider).error ?? 'Invalid OTP code';
+                  error =
+                      ref.read(authNotifierProvider).error ??
+                      'Invalid OTP code';
                   ref.read(authNotifierProvider.notifier).clearError();
                 });
               }
@@ -3514,8 +3612,11 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
                         onPressed: isSending ? null : () => sendOtp(),
                         child: isSending
                             ? const SizedBox(
-                                height: 18, width: 18,
-                                child: CircularProgressIndicator(strokeWidth: 2),
+                                height: 18,
+                                width: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
                               )
                             : const Text('Send OTP'),
                       ),
@@ -3535,8 +3636,11 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
                         onPressed: isVerifying ? null : () => verifyOtp(),
                         child: isVerifying
                             ? const SizedBox(
-                                height: 18, width: 18,
-                                child: CircularProgressIndicator(strokeWidth: 2),
+                                height: 18,
+                                width: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
                               )
                             : const Text('Verify OTP'),
                       ),
@@ -3554,7 +3658,10 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
                       const SizedBox(height: 8),
                       Text(
                         error!,
-                        style: TextStyle(color: AppColors.error, fontSize: 13),
+                        style: const TextStyle(
+                          color: AppColors.error,
+                          fontSize: 13,
+                        ),
                       ),
                     ],
                   ],
@@ -3605,7 +3712,9 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
                 if (ctx.mounted) Navigator.of(ctx).pop();
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Phone verified successfully!')),
+                    const SnackBar(
+                      content: Text('Phone verified successfully!'),
+                    ),
                   );
                 }
               });
@@ -3643,8 +3752,11 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
                               },
                         child: isSending
                             ? const SizedBox(
-                                height: 18, width: 18,
-                                child: CircularProgressIndicator(strokeWidth: 2),
+                                height: 18,
+                                width: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
                               )
                             : const Text('Send OTP'),
                       ),
@@ -3679,8 +3791,11 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
                               },
                         child: isVerifying
                             ? const SizedBox(
-                                height: 18, width: 18,
-                                child: CircularProgressIndicator(strokeWidth: 2),
+                                height: 18,
+                                width: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
                               )
                             : const Text('Verify OTP'),
                       ),
@@ -3688,8 +3803,8 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
                       TextButton(
                         onPressed: phoneState.canResend
                             ? () => dialogRef
-                                .read(phoneAuthProvider.notifier)
-                                .resendOtp()
+                                  .read(phoneAuthProvider.notifier)
+                                  .resendOtp()
                             : null,
                         child: Text(
                           phoneState.resendCountdown > 0
@@ -3702,7 +3817,10 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
                       const SizedBox(height: 8),
                       Text(
                         phoneState.error!,
-                        style: TextStyle(color: AppColors.error, fontSize: 13),
+                        style: const TextStyle(
+                          color: AppColors.error,
+                          fontSize: 13,
+                        ),
                       ),
                     ],
                   ],
@@ -3721,7 +3839,11 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
     );
   }
 
-  Widget _buildToggleChip(String label, bool isSelected, {VoidCallback? onTap}) {
+  Widget _buildToggleChip(
+    String label,
+    bool isSelected, {
+    VoidCallback? onTap,
+  }) {
     final chip = Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(

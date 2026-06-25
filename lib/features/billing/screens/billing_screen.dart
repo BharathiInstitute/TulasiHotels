@@ -14,7 +14,6 @@ import 'package:tulasihotels/features/billing/widgets/payment_modal.dart';
 import 'package:tulasihotels/features/billing/screens/pos_web_screen.dart';
 import 'package:tulasihotels/features/products/providers/products_provider.dart';
 import 'package:tulasihotels/features/menu/providers/combo_provider.dart';
-import 'package:tulasihotels/models/combo_model.dart';
 import 'package:tulasihotels/l10n/app_localizations.dart';
 import 'package:tulasihotels/models/bill_model.dart';
 import 'package:tulasihotels/models/product_model.dart';
@@ -90,7 +89,8 @@ class _BillingScreenState extends ConsumerState<BillingScreen> {
     );
     if (selected == null || !mounted) return;
     final validated = await CouponService.validateCoupon(
-      selected.code, cart.subtotal,
+      selected.code,
+      cart.subtotal,
     );
     if (!mounted) return;
     if (validated == null) {
@@ -98,11 +98,13 @@ class _BillingScreenState extends ConsumerState<BillingScreen> {
         const SnackBar(content: Text('Coupon is invalid or expired')),
       );
     } else {
-      ref.read(cartProvider.notifier).applyCoupon(
-        couponId: validated.id,
-        couponCode: validated.code,
-        discount: validated.calculateDiscount(cart.subtotal),
-      );
+      ref
+          .read(cartProvider.notifier)
+          .applyCoupon(
+            couponId: validated.id,
+            couponCode: validated.code,
+            discount: validated.calculateDiscount(cart.subtotal),
+          );
     }
   }
 
@@ -252,7 +254,9 @@ class _BillingScreenState extends ConsumerState<BillingScreen> {
                             fontSize: 12,
                             color: cart.hasCoupon
                                 ? Theme.of(context).colorScheme.primary
-                                : Theme.of(context).colorScheme.onSurfaceVariant,
+                                : Theme.of(
+                                    context,
+                                  ).colorScheme.onSurfaceVariant,
                             fontWeight: cart.hasCoupon
                                 ? FontWeight.w600
                                 : FontWeight.normal,
@@ -286,7 +290,9 @@ class _BillingScreenState extends ConsumerState<BillingScreen> {
                           Text(
                             l10n.total,
                             style: TextStyle(
-                              color: Theme.of(context).colorScheme.onSurfaceVariant,
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onSurfaceVariant,
                             ),
                           ),
                           Text(
@@ -306,8 +312,9 @@ class _BillingScreenState extends ConsumerState<BillingScreen> {
                           _showPaymentModal();
                         },
                         style: ElevatedButton.styleFrom(
-                          backgroundColor:
-                              Theme.of(context).colorScheme.primary,
+                          backgroundColor: Theme.of(
+                            context,
+                          ).colorScheme.primary,
                           foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(
                             horizontal: 24,
@@ -427,6 +434,7 @@ class _BillingScreenState extends ConsumerState<BillingScreen> {
     );
   }
 
+  // ignore: unused_element
   Future<void> _scanBarcode() async {
     final l10n = context.l10n;
     final code = await BarcodeScannerService.scanBarcode(context);
@@ -780,17 +788,25 @@ class _BillingScreenState extends ConsumerState<BillingScreen> {
                     children: [
                       Container(
                         width: double.infinity,
-                        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.surfaceContainerHighest,
                         child: product.imageUrl != null
                             ? CachedNetworkImage(
                                 imageUrl: product.imageUrl!,
                                 fit: BoxFit.cover,
                                 errorWidget: (_, url, error) => const Center(
-                                  child: Icon(Icons.broken_image_outlined, size: 40),
+                                  child: Icon(
+                                    Icons.broken_image_outlined,
+                                    size: 40,
+                                  ),
                                 ),
                               )
                             : const Center(
-                                child: Icon(Icons.inventory_2_outlined, size: 40),
+                                child: Icon(
+                                  Icons.inventory_2_outlined,
+                                  size: 40,
+                                ),
                               ),
                       ),
                       // Dietary badge
@@ -803,9 +819,13 @@ class _BillingScreenState extends ConsumerState<BillingScreen> {
                             height: 16,
                             decoration: BoxDecoration(
                               border: Border.all(
-                                color: product.dietaryTag == DietaryTag.veg || product.dietaryTag == DietaryTag.jain
+                                color:
+                                    product.dietaryTag == DietaryTag.veg ||
+                                        product.dietaryTag == DietaryTag.jain
                                     ? Colors.green
-                                    : (product.dietaryTag == DietaryTag.egg ? Colors.orange : Colors.red),
+                                    : (product.dietaryTag == DietaryTag.egg
+                                          ? Colors.orange
+                                          : Colors.red),
                                 width: 1.5,
                               ),
                               borderRadius: BorderRadius.circular(3),
@@ -815,9 +835,13 @@ class _BillingScreenState extends ConsumerState<BillingScreen> {
                               child: Icon(
                                 Icons.circle,
                                 size: 8,
-                                color: product.dietaryTag == DietaryTag.veg || product.dietaryTag == DietaryTag.jain
+                                color:
+                                    product.dietaryTag == DietaryTag.veg ||
+                                        product.dietaryTag == DietaryTag.jain
                                     ? Colors.green
-                                    : (product.dietaryTag == DietaryTag.egg ? Colors.orange : Colors.red),
+                                    : (product.dietaryTag == DietaryTag.egg
+                                          ? Colors.orange
+                                          : Colors.red),
                               ),
                             ),
                           ),
@@ -922,7 +946,9 @@ class _BillingScreenState extends ConsumerState<BillingScreen> {
         child: Card(
           clipBehavior: Clip.antiAlias,
           elevation: 1,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
           child: InkWell(
             onTap: () => ref.read(cartProvider.notifier).addProduct(product),
             child: Column(
@@ -935,17 +961,25 @@ class _BillingScreenState extends ConsumerState<BillingScreen> {
                     children: [
                       Container(
                         width: double.infinity,
-                        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.surfaceContainerHighest,
                         child: product.imageUrl != null
                             ? CachedNetworkImage(
                                 imageUrl: product.imageUrl!,
                                 fit: BoxFit.cover,
                                 errorWidget: (_, url, error) => const Center(
-                                  child: Icon(Icons.broken_image_outlined, size: 32),
+                                  child: Icon(
+                                    Icons.broken_image_outlined,
+                                    size: 32,
+                                  ),
                                 ),
                               )
                             : const Center(
-                                child: Icon(Icons.inventory_2_outlined, size: 32),
+                                child: Icon(
+                                  Icons.inventory_2_outlined,
+                                  size: 32,
+                                ),
                               ),
                       ),
                       // Dietary badge (top-left)
@@ -958,9 +992,13 @@ class _BillingScreenState extends ConsumerState<BillingScreen> {
                             height: 14,
                             decoration: BoxDecoration(
                               border: Border.all(
-                                color: product.dietaryTag == DietaryTag.veg || product.dietaryTag == DietaryTag.jain
+                                color:
+                                    product.dietaryTag == DietaryTag.veg ||
+                                        product.dietaryTag == DietaryTag.jain
                                     ? Colors.green
-                                    : (product.dietaryTag == DietaryTag.egg ? Colors.orange : Colors.red),
+                                    : (product.dietaryTag == DietaryTag.egg
+                                          ? Colors.orange
+                                          : Colors.red),
                                 width: 1.5,
                               ),
                               borderRadius: BorderRadius.circular(2),
@@ -970,9 +1008,13 @@ class _BillingScreenState extends ConsumerState<BillingScreen> {
                               child: Icon(
                                 Icons.circle,
                                 size: 7,
-                                color: product.dietaryTag == DietaryTag.veg || product.dietaryTag == DietaryTag.jain
+                                color:
+                                    product.dietaryTag == DietaryTag.veg ||
+                                        product.dietaryTag == DietaryTag.jain
                                     ? Colors.green
-                                    : (product.dietaryTag == DietaryTag.egg ? Colors.orange : Colors.red),
+                                    : (product.dietaryTag == DietaryTag.egg
+                                          ? Colors.orange
+                                          : Colors.red),
                               ),
                             ),
                           ),
@@ -1063,15 +1105,15 @@ class _BillingScreenState extends ConsumerState<BillingScreen> {
               hintText: l10n.searchProducts,
               prefixIcon: const Icon(Icons.search),
               suffixIcon: _searchQuery.isNotEmpty
-                    ? IconButton(
-                        icon: const Icon(Icons.clear),
-                        onPressed: () {
-                          _searchController.clear();
-                          setState(() => _searchQuery = '');
-                          FocusScope.of(context).unfocus();
-                        },
-                      )
-                    : null,
+                  ? IconButton(
+                      icon: const Icon(Icons.clear),
+                      onPressed: () {
+                        _searchController.clear();
+                        setState(() => _searchQuery = '');
+                        FocusScope.of(context).unfocus();
+                      },
+                    )
+                  : null,
             ),
             onChanged: (value) {
               setState(() => _searchQuery = value.toLowerCase());
@@ -1104,7 +1146,8 @@ class _BillingScreenState extends ConsumerState<BillingScreen> {
 
   void _showSpecialsSheet(BuildContext context) {
     final productsAsync = ref.read(productsProvider);
-    final specials = productsAsync.valueOrNull
+    final specials =
+        productsAsync.valueOrNull
             ?.where((p) => p.isSpecial && p.isAvailable)
             .toList() ??
         [];
@@ -1357,9 +1400,9 @@ class _CouponPickerSheet extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
             child: Text(
               'Select Coupon',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
             ),
           ),
           const Divider(height: 1),

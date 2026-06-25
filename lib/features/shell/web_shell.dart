@@ -68,9 +68,7 @@ class WebShell extends ConsumerWidget {
                       right: -12,
                       top: 0,
                       bottom: 0,
-                      child: Center(
-                        child: _SidebarCollapseButton(),
-                      ),
+                      child: Center(child: _SidebarCollapseButton()),
                     ),
                   ],
                 ),
@@ -236,7 +234,9 @@ class _WebSidebar extends ConsumerWidget {
                   Builder(
                     builder: (context) {
                       final staff = ref.watch(loggedInStaffProvider);
-                      final member = ref.watch(currentMemberProvider).valueOrNull;
+                      final member = ref
+                          .watch(currentMemberProvider)
+                          .valueOrNull;
                       Widget? routeItem(
                         IconData icon,
                         String label,
@@ -245,7 +245,11 @@ class _WebSidebar extends ConsumerWidget {
                         if (!StaffPermissions.canViewRoute(staff, route)) {
                           return null;
                         }
-                        if (staff == null && !MemberPermissionGuard.canViewRoute(member, route)) {
+                        if (staff == null &&
+                            !MemberPermissionGuard.canViewRoute(
+                              member,
+                              route,
+                            )) {
                           return null;
                         }
                         return _SidebarRouteItem(
@@ -259,28 +263,80 @@ class _WebSidebar extends ConsumerWidget {
 
                       // Build sections, omit empty ones
                       final menuItems = [
-                        routeItem(Icons.star, 'Daily Specials', AppRoutes.dailySpecials),
-                        routeItem(Icons.lunch_dining, 'Combos', AppRoutes.combos),
+                        routeItem(
+                          Icons.star,
+                          'Daily Specials',
+                          AppRoutes.dailySpecials,
+                        ),
+                        routeItem(
+                          Icons.lunch_dining,
+                          'Combos',
+                          AppRoutes.combos,
+                        ),
                       ].whereType<Widget>().toList();
                       final inventoryItems = [
-                        routeItem(Icons.egg, 'Ingredients', AppRoutes.ingredients),
-                        routeItem(Icons.local_shipping, 'Vendors', AppRoutes.vendors),
-                        routeItem(Icons.delete_sweep, 'Wastage', AppRoutes.wastage),
+                        routeItem(
+                          Icons.egg,
+                          'Ingredients',
+                          AppRoutes.ingredients,
+                        ),
+                        routeItem(
+                          Icons.local_shipping,
+                          'Vendors',
+                          AppRoutes.vendors,
+                        ),
+                        routeItem(
+                          Icons.delete_sweep,
+                          'Wastage',
+                          AppRoutes.wastage,
+                        ),
                       ].whereType<Widget>().toList();
                       final hospitalityItems = [
-                        routeItem(Icons.event_seat, 'Reservations', AppRoutes.reservations),
-                        routeItem(Icons.local_offer, 'Coupons', AppRoutes.coupons),
-                        routeItem(Icons.celebration, 'Events', AppRoutes.events),
-                        routeItem(Icons.feedback, 'Feedback', AppRoutes.feedbackDashboard),
+                        routeItem(
+                          Icons.event_seat,
+                          'Reservations',
+                          AppRoutes.reservations,
+                        ),
+                        routeItem(
+                          Icons.local_offer,
+                          'Coupons',
+                          AppRoutes.coupons,
+                        ),
+                        routeItem(
+                          Icons.celebration,
+                          'Events',
+                          AppRoutes.events,
+                        ),
+                        routeItem(
+                          Icons.feedback,
+                          'Feedback',
+                          AppRoutes.feedbackDashboard,
+                        ),
                       ].whereType<Widget>().toList();
                       final reportsItems = [
-                        routeItem(Icons.bar_chart, 'Advanced Reports', AppRoutes.advancedReports),
-                        routeItem(Icons.description, 'GST Export', AppRoutes.gstExport),
+                        routeItem(
+                          Icons.bar_chart,
+                          'Advanced Reports',
+                          AppRoutes.advancedReports,
+                        ),
+                        routeItem(
+                          Icons.description,
+                          'GST Export',
+                          AppRoutes.gstExport,
+                        ),
                       ].whereType<Widget>().toList();
                       final complianceItems = [
-                        routeItem(Icons.build, 'Equipment', AppRoutes.equipment),
+                        routeItem(
+                          Icons.build,
+                          'Equipment',
+                          AppRoutes.equipment,
+                        ),
                         routeItem(Icons.badge, 'Licenses', AppRoutes.licenses),
-                        routeItem(Icons.report_problem, 'Complaints', AppRoutes.complaints),
+                        routeItem(
+                          Icons.report_problem,
+                          'Complaints',
+                          AppRoutes.complaints,
+                        ),
                       ].whereType<Widget>().toList();
                       return Column(
                         children: [
@@ -436,7 +492,8 @@ class _WebSidebar extends ConsumerWidget {
                     final member = ref.watch(currentMemberProvider).valueOrNull;
 
                     bool canSee(String route) {
-                      if (!StaffPermissions.canViewRoute(staff, route)) return false;
+                      if (!StaffPermissions.canViewRoute(staff, route))
+                        return false;
                       if (staff == null &&
                           !MemberPermissionGuard.canViewRoute(member, route)) {
                         return false;
@@ -446,7 +503,8 @@ class _WebSidebar extends ConsumerWidget {
 
                     final showUsers = canSee(AppRoutes.members);
                     final showPerms = canSee(AppRoutes.permissionsOverview);
-                    if (!showUsers && !showPerms) return const SizedBox.shrink();
+                    if (!showUsers && !showPerms)
+                      return const SizedBox.shrink();
 
                     return Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -472,7 +530,9 @@ class _WebSidebar extends ConsumerWidget {
                           _SidebarItem(
                             icon: Icons.group_outlined,
                             label: 'Users',
-                            isSelected: currentPath.startsWith(AppRoutes.members),
+                            isSelected: currentPath.startsWith(
+                              AppRoutes.members,
+                            ),
                             isCollapsed: isCollapsed,
                             onTap: () =>
                                 GoRouter.of(context).push(AppRoutes.members),
@@ -481,11 +541,13 @@ class _WebSidebar extends ConsumerWidget {
                           _SidebarItem(
                             icon: Icons.admin_panel_settings_outlined,
                             label: 'Permissions',
-                            isSelected: currentPath
-                                .startsWith(AppRoutes.permissionsOverview),
+                            isSelected: currentPath.startsWith(
+                              AppRoutes.permissionsOverview,
+                            ),
                             isCollapsed: isCollapsed,
-                            onTap: () => GoRouter.of(context)
-                                .push(AppRoutes.permissionsOverview),
+                            onTap: () => GoRouter.of(
+                              context,
+                            ).push(AppRoutes.permissionsOverview),
                           ),
                       ],
                     );
@@ -618,7 +680,9 @@ class _WebSidebar extends ConsumerWidget {
                             size: 18,
                             color: isSettings
                                 ? AppColors.primary
-                                : Theme.of(context).colorScheme.onSurfaceVariant,
+                                : Theme.of(
+                                    context,
+                                  ).colorScheme.onSurfaceVariant,
                           ),
                         ],
                       ),
@@ -626,7 +690,10 @@ class _WebSidebar extends ConsumerWidget {
                   )
                 : Container(
                     padding: const EdgeInsets.all(12),
-                    margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    margin: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
                     decoration: BoxDecoration(
                       color: isSettings
                           ? AppColors.primary.withValues(alpha: 0.1)
@@ -836,10 +903,7 @@ class _SidebarCollapseButton extends ConsumerWidget {
             decoration: BoxDecoration(
               color: Theme.of(context).cardColor,
               shape: BoxShape.circle,
-              border: Border.all(
-                color: Theme.of(context).dividerColor,
-                width: 1,
-              ),
+              border: Border.all(color: Theme.of(context).dividerColor),
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withValues(alpha: 0.1),

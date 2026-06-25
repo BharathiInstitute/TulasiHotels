@@ -13,7 +13,6 @@ import 'package:tulasihotels/features/khata/providers/khata_stats_provider.dart'
 import 'package:tulasihotels/features/khata/widgets/add_customer_modal.dart';
 import 'package:tulasihotels/features/products/providers/products_provider.dart';
 import 'package:tulasihotels/features/menu/providers/combo_provider.dart';
-import 'package:tulasihotels/models/combo_model.dart';
 import 'package:tulasihotels/models/customer_model.dart';
 import 'package:tulasihotels/models/product_model.dart';
 import 'package:tulasihotels/shared/widgets/loading_states.dart';
@@ -516,7 +515,8 @@ class _PosWebScreenState extends ConsumerState<PosWebScreen> {
 
   void _showSpecialsSheet(BuildContext context) {
     final productsAsync = ref.read(productsProvider);
-    final specials = productsAsync.valueOrNull
+    final specials =
+        productsAsync.valueOrNull
             ?.where((p) => p.isSpecial && p.isAvailable)
             .toList() ??
         [];

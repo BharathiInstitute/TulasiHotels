@@ -59,7 +59,8 @@ class _HotelSelectorScreenState extends ConsumerState<HotelSelectorScreen> {
                     radius: 22,
                     backgroundColor: theme.colorScheme.primaryContainer,
                     child: Text(
-                      (user?.displayName ?? user?.email ?? 'U')[0].toUpperCase(),
+                      (user?.displayName ?? user?.email ?? 'U')[0]
+                          .toUpperCase(),
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
@@ -216,15 +217,15 @@ class _HotelSelectorScreenState extends ConsumerState<HotelSelectorScreen> {
       try {
         await HotelService.createHotel(name: name);
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Hotel "$name" created')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('Hotel "$name" created')));
         }
       } catch (e) {
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error: $e')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('Error: $e')));
         }
       }
     }
@@ -240,7 +241,7 @@ class _HotelSelectorScreenState extends ConsumerState<HotelSelectorScreen> {
 
   Future<void> _logout(BuildContext context) async {
     ref.read(currentHotelIdProvider.notifier).state = null;
-    OfflineStorageService.prefs?.remove('last_hotel_id');
+    await OfflineStorageService.prefs?.remove('last_hotel_id');
     await ref.read(authNotifierProvider.notifier).signOut();
   }
 }
@@ -303,16 +304,10 @@ class _HotelCard extends StatelessWidget {
                       _Badge(
                         icon: Icons.circle,
                         iconSize: 8,
-                        iconColor: hotel.isOwner
-                            ? Colors.green
-                            : Colors.blue,
+                        iconColor: hotel.isOwner ? Colors.green : Colors.blue,
                         label: hotel.role,
                       ),
-                      _Badge(
-                        icon: Icons.tag,
-                        iconSize: 12,
-                        label: hotel.slug,
-                      ),
+                      _Badge(icon: Icons.tag, iconSize: 12, label: hotel.slug),
                       _Badge(
                         icon: Icons.check_circle_outline,
                         iconSize: 12,
@@ -328,10 +323,7 @@ class _HotelCard extends StatelessWidget {
             ),
 
             // Open button
-            FilledButton.tonal(
-              onPressed: onOpen,
-              child: const Text('Open'),
-            ),
+            FilledButton.tonal(onPressed: onOpen, child: const Text('Open')),
           ],
         ),
       ),

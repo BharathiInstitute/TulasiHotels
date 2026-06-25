@@ -1,7 +1,6 @@
 /// Advanced reports / unified analytics dashboard screen
 library;
 
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:csv/csv.dart';
@@ -97,7 +96,7 @@ class _AdvancedReportsScreenState extends ConsumerState<AdvancedReportsScreen> {
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              separatorBuilder: (_, __) => const SizedBox(width: 8),
+              separatorBuilder: (_, _) => const SizedBox(width: 8),
               itemCount: _ReportTab.values.length,
               itemBuilder: (context, index) {
                 final tab = _ReportTab.values[index];
@@ -117,8 +116,8 @@ class _AdvancedReportsScreenState extends ConsumerState<AdvancedReportsScreen> {
           Expanded(
             child: _selectedTab == _ReportTab.overview
                 ? (_loading
-                    ? const Center(child: CircularProgressIndicator())
-                    : _buildReportContent(theme))
+                      ? const Center(child: CircularProgressIndicator())
+                      : _buildReportContent(theme))
                 : _buildSelectedReport(),
           ),
         ],
@@ -305,8 +304,7 @@ class _AdvancedReportsScreenState extends ConsumerState<AdvancedReportsScreen> {
         ],
 
         // Waiter performance
-        if (_waiterPerformance != null &&
-            _waiterPerformance!.isNotEmpty) ...[
+        if (_waiterPerformance != null && _waiterPerformance!.isNotEmpty) ...[
           Text('Waiter Performance', style: theme.textTheme.titleLarge),
           const SizedBox(height: 8),
           Card(
@@ -330,7 +328,8 @@ class _AdvancedReportsScreenState extends ConsumerState<AdvancedReportsScreen> {
 
   Widget _buildSummaryCards(ThemeData theme) {
     final totalRevenue = _dailyRevenue?.values.fold(0.0, (a, b) => a + b) ?? 0;
-    final totalOrders = _orderTypeDistribution?.values.fold(0, (a, b) => a + b) ?? 0;
+    final totalOrders =
+        _orderTypeDistribution?.values.fold(0, (a, b) => a + b) ?? 0;
     final topProduct = _topProducts?.isNotEmpty == true
         ? (_topProducts!.first['name'] as String?) ?? '-'
         : '-';
@@ -346,9 +345,12 @@ class _AdvancedReportsScreenState extends ConsumerState<AdvancedReportsScreen> {
                 children: [
                   Text('Total Revenue', style: theme.textTheme.labelMedium),
                   const SizedBox(height: 4),
-                  Text('₹${totalRevenue.toStringAsFixed(0)}',
-                      style: theme.textTheme.headlineSmall
-                          ?.copyWith(fontWeight: FontWeight.bold)),
+                  Text(
+                    '₹${totalRevenue.toStringAsFixed(0)}',
+                    style: theme.textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -364,9 +366,12 @@ class _AdvancedReportsScreenState extends ConsumerState<AdvancedReportsScreen> {
                 children: [
                   Text('Total Orders', style: theme.textTheme.labelMedium),
                   const SizedBox(height: 4),
-                  Text('$totalOrders',
-                      style: theme.textTheme.headlineSmall
-                          ?.copyWith(fontWeight: FontWeight.bold)),
+                  Text(
+                    '$totalOrders',
+                    style: theme.textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -382,10 +387,13 @@ class _AdvancedReportsScreenState extends ConsumerState<AdvancedReportsScreen> {
                 children: [
                   Text('Top Seller', style: theme.textTheme.labelMedium),
                   const SizedBox(height: 4),
-                  Text(topProduct,
-                      style: theme.textTheme.titleMedium
-                          ?.copyWith(fontWeight: FontWeight.bold),
-                      overflow: TextOverflow.ellipsis),
+                  Text(
+                    topProduct,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ],
               ),
             ),
@@ -518,10 +526,9 @@ class _AdvancedReportsScreenState extends ConsumerState<AdvancedReportsScreen> {
         await file.writeAsString(csvContent);
 
         if (mounted) {
-          await Share.shareXFiles(
-            [XFile(file.path)],
-            subject: '$tabName Report',
-          );
+          await Share.shareXFiles([
+            XFile(file.path),
+          ], subject: '$tabName Report');
         }
       }
     } catch (e) {
@@ -531,9 +538,9 @@ class _AdvancedReportsScreenState extends ConsumerState<AdvancedReportsScreen> {
 
   void _showExportError(String message) {
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(message)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
     }
   }
 

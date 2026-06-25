@@ -47,8 +47,10 @@ class _AddProductModalState extends ConsumerState<AddProductModal> {
   List<String> _allergens = [];
   bool _isAvailable = true;
   bool _isLoading = false;
+  // ignore: unused_field
   bool _isLookingUp = false;
   bool _isUploadingImage = false;
+  // ignore: unused_field
   BarcodeProduct? _lookedUpProduct;
   String? _imageUrl;
 
@@ -132,6 +134,7 @@ class _AddProductModalState extends ConsumerState<AddProductModal> {
   }
 
   /// Scan barcode and lookup product info from API
+  // ignore: unused_element
   Future<void> _scanAndLookupBarcode() async {
     final code = await BarcodeScannerService.scanBarcode(context);
     if (code == null || !mounted) return;
@@ -188,7 +191,6 @@ class _AddProductModalState extends ConsumerState<AddProductModal> {
             : double.tryParse(_purchasePriceController.text),
         stock: int.tryParse(_stockController.text) ?? 0,
         lowStockAlert: int.tryParse(_lowStockController.text) ?? 5,
-        unit: ProductUnit.piece,
         barcode: _barcodeController.text.trim().isEmpty
             ? null
             : _barcodeController.text.trim(),
@@ -397,65 +399,65 @@ class _AddProductModalState extends ConsumerState<AddProductModal> {
                     SizedBox(height: fieldSpacing),
 
                     // Category dropdown
-                    Builder(builder: (context) {
-                      final existingCategories = (ref
-                                  .watch(productsProvider)
-                                  .valueOrNull ??
-                              [])
-                          .map((p) => p.category)
-                          .whereType<String>()
-                          .where((c) => c.isNotEmpty)
-                          .toSet()
-                          .toList()
-                        ..sort();
-                      // Ensure current value is in the list
-                      final currentCat = _selectedCategory;
-                      if (currentCat != null &&
-                          currentCat.isNotEmpty &&
-                          !existingCategories.contains(currentCat)) {
-                        existingCategories.add(currentCat);
-                      }
-                      return DropdownButtonFormField<String>(
-                        value: (currentCat != null && currentCat.isNotEmpty)
-                            ? currentCat
-                            : null,
-                        decoration: InputDecoration(
-                          labelText: 'Category',
-                          prefixIcon:
-                              const Icon(Icons.category_outlined),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                        ),
-                        hint: const Text('Select category'),
-                        isExpanded: true,
-                        items: [
-                          ...existingCategories.map(
-                            (cat) => DropdownMenuItem(
-                              value: cat,
-                              child: Text(cat),
+                    Builder(
+                      builder: (context) {
+                        final existingCategories =
+                            (ref.watch(productsProvider).valueOrNull ?? [])
+                                .map((p) => p.category)
+                                .whereType<String>()
+                                .where((c) => c.isNotEmpty)
+                                .toSet()
+                                .toList()
+                              ..sort();
+                        // Ensure current value is in the list
+                        final currentCat = _selectedCategory;
+                        if (currentCat != null &&
+                            currentCat.isNotEmpty &&
+                            !existingCategories.contains(currentCat)) {
+                          existingCategories.add(currentCat);
+                        }
+                        return DropdownButtonFormField<String>(
+                          initialValue:
+                              (currentCat != null && currentCat.isNotEmpty)
+                              ? currentCat
+                              : null,
+                          decoration: InputDecoration(
+                            labelText: 'Category',
+                            prefixIcon: const Icon(Icons.category_outlined),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
                             ),
                           ),
-                          const DropdownMenuItem<String>(
-                            value: '__add_new__',
-                            child: Row(
-                              children: [
-                                Icon(Icons.add, size: 18),
-                                SizedBox(width: 8),
-                                Text('Add new category'),
-                              ],
+                          hint: const Text('Select category'),
+                          isExpanded: true,
+                          items: [
+                            ...existingCategories.map(
+                              (cat) => DropdownMenuItem(
+                                value: cat,
+                                child: Text(cat),
+                              ),
                             ),
-                          ),
-                        ],
-                        onChanged: (value) {
-                          if (value == '__add_new__') {
-                            _showAddCategoryDialog();
-                          } else {
-                            setState(() => _selectedCategory = value);
-                          }
-                        },
-                      );
-                    }),
+                            const DropdownMenuItem<String>(
+                              value: '__add_new__',
+                              child: Row(
+                                children: [
+                                  Icon(Icons.add, size: 18),
+                                  SizedBox(width: 8),
+                                  Text('Add new category'),
+                                ],
+                              ),
+                            ),
+                          ],
+                          onChanged: (value) {
+                            if (value == '__add_new__') {
+                              _showAddCategoryDialog();
+                            } else {
+                              setState(() => _selectedCategory = value);
+                            }
+                          },
+                        );
+                      },
+                    ),
                     SizedBox(height: fieldSpacing),
 
                     // Availability toggle
@@ -477,14 +479,19 @@ class _AddProductModalState extends ConsumerState<AddProductModal> {
                             decoration: const InputDecoration(
                               labelText: 'Diet Type',
                               border: OutlineInputBorder(),
-                              contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              contentPadding: EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 8,
+                              ),
                             ),
                             items: [
                               const DropdownMenuItem(child: Text('None')),
-                              ...DietaryTag.values.map((t) => DropdownMenuItem(
-                                    value: t,
-                                    child: Text('${t.emoji} ${t.displayName}'),
-                                  )),
+                              ...DietaryTag.values.map(
+                                (t) => DropdownMenuItem(
+                                  value: t,
+                                  child: Text('${t.emoji} ${t.displayName}'),
+                                ),
+                              ),
                             ],
                             onChanged: (v) => setState(() => _dietaryTag = v),
                           ),
@@ -496,14 +503,19 @@ class _AddProductModalState extends ConsumerState<AddProductModal> {
                             decoration: const InputDecoration(
                               labelText: 'Spice Level',
                               border: OutlineInputBorder(),
-                              contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              contentPadding: EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 8,
+                              ),
                             ),
                             items: [
                               const DropdownMenuItem(child: Text('None')),
-                              ...SpiceLevel.values.map((s) => DropdownMenuItem(
-                                    value: s,
-                                    child: Text('${s.emoji} ${s.displayName}'),
-                                  )),
+                              ...SpiceLevel.values.map(
+                                (s) => DropdownMenuItem(
+                                  value: s,
+                                  child: Text('${s.emoji} ${s.displayName}'),
+                                ),
+                              ),
                             ],
                             onChanged: (v) => setState(() => _spiceLevel = v),
                           ),
@@ -524,26 +536,36 @@ class _AddProductModalState extends ConsumerState<AddProductModal> {
                     Wrap(
                       spacing: 6,
                       runSpacing: 4,
-                      children: [
-                        'Gluten', 'Dairy', 'Nuts', 'Eggs', 'Soy',
-                        'Shellfish', 'Fish', 'Sesame',
-                      ].map((allergen) {
-                        final selected = _allergens.contains(allergen);
-                        return FilterChip(
-                          label: Text(allergen, style: TextStyle(fontSize: isMobile ? 11 : 13)),
-                          selected: selected,
-                          visualDensity: VisualDensity.compact,
-                          onSelected: (v) {
-                            setState(() {
-                              if (v) {
-                                _allergens.add(allergen);
-                              } else {
-                                _allergens.remove(allergen);
-                              }
-                            });
-                          },
-                        );
-                      }).toList(),
+                      children:
+                          [
+                            'Gluten',
+                            'Dairy',
+                            'Nuts',
+                            'Eggs',
+                            'Soy',
+                            'Shellfish',
+                            'Fish',
+                            'Sesame',
+                          ].map((allergen) {
+                            final selected = _allergens.contains(allergen);
+                            return FilterChip(
+                              label: Text(
+                                allergen,
+                                style: TextStyle(fontSize: isMobile ? 11 : 13),
+                              ),
+                              selected: selected,
+                              visualDensity: VisualDensity.compact,
+                              onSelected: (v) {
+                                setState(() {
+                                  if (v) {
+                                    _allergens.add(allergen);
+                                  } else {
+                                    _allergens.remove(allergen);
+                                  }
+                                });
+                              },
+                            );
+                          }).toList(),
                     ),
                     SizedBox(height: fieldSpacing),
 
