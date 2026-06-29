@@ -1,19 +1,14 @@
-/// Shift scheduling service
+﻿/// Shift scheduling service
 library;
 
+import 'package:tulasihotels/core/services/active_store_manager.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:tulasihotels/models/shift_model.dart';
 
 class ShiftService {
   static final _firestore = FirebaseFirestore.instance;
-  static final _auth = FirebaseAuth.instance;
 
-  static String get _basePath {
-    final uid = _auth.currentUser?.uid;
-    if (uid == null) return '';
-    return 'users/$uid';
-  }
+  static String get _basePath => ActiveStoreManager.basePath;
 
   static CollectionReference<Map<String, dynamic>> get _shiftsRef =>
       _firestore.collection('$_basePath/shifts');
@@ -94,7 +89,7 @@ class ShiftService {
     });
   }
 
-  /// Approve a shift swap — swap the staffId/staffName between the two shifts
+  /// Approve a shift swap â€” swap the staffId/staffName between the two shifts
   static Future<void> approveSwap(String shiftId) async {
     final doc = await _shiftsRef.doc(shiftId).get();
     if (!doc.exists) return;

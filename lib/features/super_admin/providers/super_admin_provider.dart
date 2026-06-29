@@ -17,45 +17,57 @@ const List<String> superAdminEmails = [
   'kehsihba@gmail.com',
 ];
 
-/// Admin emails from Firestore (live list)
+/// Admin emails from Firestore (live list).
+/// Watches authNotifierProvider so it re-evaluates after sign-in/sign-out.
+/// Before sign-in the read would fail (not authenticated), so we return
+/// just the primary owner until the user is logged in.
 final adminEmailsProvider = FutureProvider<List<String>>((ref) async {
+  final authState = ref.watch(authNotifierProvider);
+  if (!authState.isLoggedIn) {
+    return [AdminFirestoreService.primaryOwnerEmail];
+  }
   return AdminFirestoreService.getAdminEmails();
 });
 
-/// Check if current user is a super admin
-/// Uses hardcoded list for quick sync check (used by router),
-/// but also validates against Firestore async list.
+/// Check if current user is a super admin.
+/// Fast path: hardcoded list (no Firestore needed).
+/// Slow path: Firestore list for dynamically-added admins.
 final isSuperAdminProvider = Provider<bool>((ref) {
   final authState = ref.watch(authNotifierProvider);
-  final user = authState.user;
 
-  if (user == null || user.email == null) return false;
+  // Use UserModel email first, fall back to Firebase Auth email
+  // (handles case where _loadUserProfile failed but firebaseUser is set)
+  final email = authState.user?.email ?? authState.firebaseUser?.email;
 
-  final normalizedEmail = user.email!.toLowerCase().trim();
+  if (email == null) return false;
 
-  // Primary: check Firestore-based admin list (if loaded)
+  final normalizedEmail = email.toLowerCase().trim();
+
+  // Fast path: hardcoded list — always works, no Firestore needed
+  if (superAdminEmails.contains(normalizedEmail)) return true;
+
+  // Slow path: check Firestore for dynamically-added admins
   final firestoreEmails = ref.watch(adminEmailsProvider);
-  final isInFirestore = firestoreEmails.whenOrNull(
-    data: (emails) =>
-        emails.map((e) => e.toLowerCase().trim()).contains(normalizedEmail),
-  );
-  if (isInFirestore != null) return isInFirestore;
-
-  // Fallback: hardcoded list (for offline / first load)
-  return superAdminEmails.contains(normalizedEmail);
+  return firestoreEmails.whenOrNull(
+        data: (emails) =>
+            emails.map((e) => e.toLowerCase().trim()).contains(normalizedEmail),
+      ) ??
+      false;
 });
 
 /// Check if current user is the primary owner (kehsaram001@gmail.com)
 final isPrimaryOwnerProvider = Provider<bool>((ref) {
   final authState = ref.watch(authNotifierProvider);
-  final user = authState.user;
-  if (user == null || user.email == null) return false;
-  return user.email!.toLowerCase().trim() ==
-      AdminFirestoreService.primaryOwnerEmail;
+  final email = authState.user?.email ?? authState.firebaseUser?.email;
+  if (email == null) return false;
+  return email.toLowerCase().trim() == AdminFirestoreService.primaryOwnerEmail;
 });
 
-/// Seed gate — all admin providers depend on this
+/// Seed gate — all admin providers depend on this.
+/// Only runs for super admins to avoid permission-denied for regular users.
 final _adminSeedProvider = FutureProvider<void>((ref) async {
+  final isSuperAdmin = ref.watch(isSuperAdminProvider);
+  if (!isSuperAdmin) return;
   await AdminFirestoreService.ensureAdminSeeded();
 });
 
@@ -152,4 +164,11 @@ final platformStatsProvider = FutureProvider<Map<String, int>>((ref) async {
 /// Feature usage stats provider
 final featureUsageProvider = FutureProvider<Map<String, double>>((ref) async {
   return AdminFirestoreService.getFeatureUsageStats();
+});
+
+/// NPS survey results provider
+final npsResultsProvider = FutureProvider<List<Map<String, dynamic>>>((
+  ref,
+) async {
+  return AdminFirestoreService.getNpsResults();
 });

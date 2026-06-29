@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:io' show Platform;
-
 import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -164,7 +163,7 @@ Future<void> _initializeApp() async {
     // Flush any crashes captured before Firebase was available
     unawaited(ErrorLoggingService.flushPreFirebaseCrashes());
 
-        // Detect if previous session crashed (heartbeat check)
+    // Detect if previous session crashed (heartbeat check)
     unawaited(ErrorLoggingService.markAppStarted());
 
     // Initialize Remote Config with defaults

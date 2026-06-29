@@ -1,21 +1,17 @@
-/// Attendance service — Firestore CRUD for staff attendance tracking
+﻿/// Attendance service — Firestore CRUD for staff attendance tracking
 library;
 
+import 'package:tulasihotels/core/services/active_store_manager.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:tulasihotels/core/utils/id_generator.dart';
+import 'package:tulasihotels/features/staff/services/location_service.dart';
 import 'package:tulasihotels/models/attendance_model.dart';
 
 class AttendanceService {
   static final _firestore = FirebaseFirestore.instance;
-  static final _auth = FirebaseAuth.instance;
 
-  static String get _basePath {
-    final uid = _auth.currentUser?.uid;
-    if (uid == null) return '';
-    return 'users/$uid';
-  }
+  static String get _basePath => ActiveStoreManager.basePath;
 
   static CollectionReference<Map<String, dynamic>> get _attendanceRef =>
       _firestore.collection('$_basePath/attendance');
@@ -32,10 +28,11 @@ class AttendanceService {
         .orderBy('date')
         .snapshots()
         .map(
-          (snapshot) => snapshot.docs
-              .map((doc) => AttendanceModel.fromFirestore(doc))
-              .toList()
-            ..sort((a, b) => b.clockIn.compareTo(a.clockIn)),
+          (snapshot) =>
+              snapshot.docs
+                  .map((doc) => AttendanceModel.fromFirestore(doc))
+                  .toList()
+                ..sort((a, b) => b.clockIn.compareTo(a.clockIn)),
         );
   }
 
@@ -75,36 +72,70 @@ class AttendanceService {
         );
   }
 
-  /// Clock in a staff member
+  /// Clock in a staff member (with optional geo-tag)
   static Future<AttendanceModel> clockIn({
     required String staffId,
     required String staffName,
+    ClockSource source = ClockSource.staff,
+    bool captureLocation = true,
   }) async {
     final now = DateTime.now();
     final id = generateSafeId('att');
+
+    // Capture GPS location (non-blocking — fails gracefully)
+    LocationResult? location;
+    if (captureLocation) {
+      location = await LocationService.captureLocation();
+    }
+
     final attendance = AttendanceModel(
       id: id,
       staffId: staffId,
       staffName: staffName,
       date: DateTime(now.year, now.month, now.day),
       clockIn: now,
+      clockInLat: location?.latitude,
+      clockInLng: location?.longitude,
+      clockInAddress: location?.address,
+      clockInInside: location?.isInsideGeofence,
+      clockInSource: source,
     );
 
     await _attendanceRef.doc(id).set(attendance.toFirestore());
-    debugPrint('Clock in: $staffName at $now');
+    debugPrint(
+      'Clock in: $staffName at $now (${location?.address ?? "no location"})',
+    );
     return attendance;
   }
 
-  /// Clock out a staff member
+  /// Clock out a staff member (with optional geo-tag)
   ///
   /// If [recordId] is provided, updates that record directly (preferred).
   /// Otherwise falls back to querying for the open record.
-  static Future<void> clockOut(String staffId, {String? recordId}) async {
+  static Future<void> clockOut(
+    String staffId, {
+    String? recordId,
+    ClockSource source = ClockSource.staff,
+    bool captureLocation = true,
+  }) async {
+    // Capture GPS location
+    LocationResult? location;
+    if (captureLocation) {
+      location = await LocationService.captureLocation();
+    }
+
+    final updates = <String, dynamic>{
+      'clockOut': Timestamp.fromDate(DateTime.now()),
+      'status': AttendanceStatus.clockedOut.name,
+      'clockOutSource': source.name,
+      if (location != null) 'clockOutLat': location.latitude,
+      if (location != null) 'clockOutLng': location.longitude,
+      if (location?.address != null) 'clockOutAddress': location!.address,
+      if (location != null) 'clockOutInside': location.isInsideGeofence,
+    };
+
     if (recordId != null) {
-      await _attendanceRef.doc(recordId).update({
-        'clockOut': Timestamp.fromDate(DateTime.now()),
-        'status': AttendanceStatus.clockedOut.name,
-      });
+      await _attendanceRef.doc(recordId).update(updates);
       debugPrint('Clock out: $staffId (direct)');
       return;
     }
@@ -123,10 +154,7 @@ class AttendanceService {
     if (snapshot.docs.isEmpty) return;
 
     final docId = snapshot.docs.first.id;
-    await _attendanceRef.doc(docId).update({
-      'clockOut': Timestamp.fromDate(DateTime.now()),
-      'status': AttendanceStatus.clockedOut.name,
-    });
+    await _attendanceRef.doc(docId).update(updates);
     debugPrint('Clock out: $staffId');
   }
 
@@ -145,7 +173,7 @@ class AttendanceService {
     return snapshot.docs.isNotEmpty;
   }
 
-  // ── Owner manual corrections ──────────────────────────────────
+  // â”€â”€ Owner manual corrections â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   /// Add a manual attendance record (owner use)
   static Future<void> addManualRecord({
@@ -154,6 +182,8 @@ class AttendanceService {
     required DateTime date,
     required DateTime clockIn,
     required DateTime clockOut,
+    String? editedBy,
+    String? editNote,
   }) async {
     final id = generateSafeId('att');
     final attendance = AttendanceModel(
@@ -164,6 +194,11 @@ class AttendanceService {
       clockIn: clockIn,
       clockOut: clockOut,
       status: AttendanceStatus.clockedOut,
+      clockInSource: ClockSource.manual,
+      clockOutSource: ClockSource.manual,
+      editedBy: editedBy,
+      editedAt: DateTime.now(),
+      editNote: editNote,
     );
     await _attendanceRef.doc(id).set(attendance.toFirestore());
     debugPrint('Manual record added for $staffName on $date');
@@ -175,14 +210,21 @@ class AttendanceService {
     DateTime? clockIn,
     DateTime? clockOut,
     AttendanceStatus? status,
+    String? editedBy,
+    String? editNote,
   }) async {
     final updates = <String, dynamic>{};
     if (clockIn != null) updates['clockIn'] = Timestamp.fromDate(clockIn);
     if (clockOut != null) updates['clockOut'] = Timestamp.fromDate(clockOut);
     if (status != null) updates['status'] = status.name;
+    if (editedBy != null) {
+      updates['editedBy'] = editedBy;
+      updates['editedAt'] = Timestamp.fromDate(DateTime.now());
+    }
+    if (editNote != null) updates['editNote'] = editNote;
     if (updates.isEmpty) return;
     await _attendanceRef.doc(recordId).update(updates);
-    debugPrint('Record $recordId updated');
+    debugPrint('Record $recordId updated by $editedBy');
   }
 
   /// Delete an attendance record (owner correction)

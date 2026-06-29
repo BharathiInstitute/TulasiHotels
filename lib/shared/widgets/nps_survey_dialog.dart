@@ -17,8 +17,9 @@ class NpsSurveyDialog {
     if (accountCreatedAt == null) return;
 
     // Don't show if account is less than 7 days old
+    // TESTING: set to 0 to bypass age check (change back to 7 for production)
     final accountAge = DateTime.now().difference(accountCreatedAt);
-    if (accountAge.inDays < 7) return;
+    if (accountAge.inDays < 0) return;
 
     // Check if user has already completed a recent survey
     try {
@@ -62,7 +63,7 @@ class NpsSurveyDialog {
             mainAxisSize: MainAxisSize.min,
             children: [
               const Text(
-                'On a scale of 0-10, how likely are you to recommend Tulasi Hotels to a friend or colleague?',
+                'On a scale of 0-10, how likely are you to recommend Tulasi Restaurants to a friend or colleague?',
               ),
               const SizedBox(height: 16),
               Wrap(

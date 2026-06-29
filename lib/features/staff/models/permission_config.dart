@@ -236,10 +236,6 @@ class PermissionConfig {
             PermissionAction.create.key,
             PermissionAction.update.key,
           ],
-          AppRoutes.attendance: [
-            PermissionAction.view.key,
-            PermissionAction.create.key,
-          ],
           AppRoutes.myAttendance: [PermissionAction.view.key],
           AppRoutes.cashRegister: _allActions,
         };
@@ -255,10 +251,6 @@ class PermissionConfig {
             PermissionAction.update.key,
           ],
           AppRoutes.kitchen: [PermissionAction.view.key],
-          AppRoutes.attendance: [
-            PermissionAction.view.key,
-            PermissionAction.create.key,
-          ],
           AppRoutes.myAttendance: [PermissionAction.view.key],
           AppRoutes.reservations: [PermissionAction.view.key],
           AppRoutes.feedback: [PermissionAction.view.key],
@@ -272,10 +264,6 @@ class PermissionConfig {
           AppRoutes.orders: [
             PermissionAction.view.key,
             PermissionAction.update.key,
-          ],
-          AppRoutes.attendance: [
-            PermissionAction.view.key,
-            PermissionAction.create.key,
           ],
           AppRoutes.myAttendance: [PermissionAction.view.key],
           AppRoutes.ingredients: [PermissionAction.view.key],

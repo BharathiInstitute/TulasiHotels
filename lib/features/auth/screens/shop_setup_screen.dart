@@ -96,7 +96,7 @@ class _ShopSetupScreenState extends ConsumerState<ShopSetupScreen> {
       ref
           .read(phoneAuthProvider.notifier)
           .setError(
-            'This phone number is already registered with another hotel. Please use a different number.',
+            'This phone number is already registered with another restaurant. Please use a different number.',
           );
       return;
     }
@@ -186,7 +186,9 @@ class _ShopSetupScreenState extends ConsumerState<ShopSetupScreen> {
       } else if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Failed to save hotel details. Please try again.'),
+            content: Text(
+              'Failed to save restaurant details. Please try again.',
+            ),
             backgroundColor: Colors.red,
           ),
         );
@@ -229,8 +231,8 @@ class _ShopSetupScreenState extends ConsumerState<ShopSetupScreen> {
     }
 
     return AuthLayout(
-      title: 'Set Up Your Hotel',
-      subtitle: 'Enter your hotel details to get started',
+      title: 'Set Up Your Restaurant',
+      subtitle: 'Enter your restaurant details to get started',
       onBack: () {
         ref.read(authNotifierProvider.notifier).signOut();
       },
@@ -282,7 +284,7 @@ class _ShopSetupScreenState extends ConsumerState<ShopSetupScreen> {
               controller: _shopNameController,
               decoration: InputDecoration(
                 labelText: l10n.shopName,
-                hintText: 'Enter your hotel name',
+                hintText: 'Enter your restaurant name',
                 prefixIcon: const Icon(
                   Icons.hotel_outlined,
                   color: AppColors.textSecondary,
@@ -586,7 +588,7 @@ class _ShopSetupScreenState extends ConsumerState<ShopSetupScreen> {
               controller: _addressController,
               decoration: InputDecoration(
                 labelText: '${l10n.address} (Optional)',
-                hintText: 'Enter your hotel address',
+                hintText: 'Enter your restaurant address',
                 prefixIcon: const Icon(
                   Icons.location_on_outlined,
                   color: AppColors.textSecondary,

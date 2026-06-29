@@ -749,42 +749,23 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
     List<Widget> rightChildren, {
     double spacing = 24,
   }) {
-    if (_isMobileView) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          ...leftChildren,
-          SizedBox(height: spacing),
-          ...rightChildren,
-        ],
-      );
-    }
-    return Row(
+    // Always single column — sections stack vertically
+    return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Expanded(child: Column(children: leftChildren)),
-        SizedBox(width: spacing),
-        Expanded(child: Column(children: rightChildren)),
+        ...leftChildren,
+        SizedBox(height: spacing),
+        ...rightChildren,
       ],
     );
   }
 
-  /// Side-by-side fields on desktop, stacked on mobile
+  /// Stacked fields (always single column)
   Widget _responsiveFields(List<Widget> children, {double spacing = 16}) {
-    if (_isMobileView) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children:
-            children.expand((w) => [w, SizedBox(height: spacing)]).toList()
-              ..removeLast(),
-      );
-    }
-    return Row(
-      children:
-          children
-              .expand((w) => [Expanded(child: w), SizedBox(width: spacing)])
-              .toList()
-            ..removeLast(),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: children.expand((w) => [w, SizedBox(height: spacing)]).toList()
+        ..removeLast(),
     );
   }
 
@@ -1301,7 +1282,7 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
                 ],
               ),
               const SizedBox(height: 20),
-              _buildFieldLabel('Hotel Name', required: true),
+              _buildFieldLabel('Restaurant Name', required: true),
               _buildTextField(controller: _shopNameController),
               const SizedBox(height: 16),
               _responsiveFields([
@@ -1961,23 +1942,14 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
 
     final rightChildren = <Widget>[];
 
-    if (_isMobileView) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          ...leftChildren,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        ...leftChildren,
+        if (rightChildren.isNotEmpty) ...[
           const SizedBox(height: 24),
           ...rightChildren,
         ],
-      );
-    }
-
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(child: Column(children: leftChildren)),
-        const SizedBox(width: 24),
-        SizedBox(width: 320, child: Column(children: rightChildren)),
       ],
     );
   }
@@ -2863,7 +2835,7 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
                                 ),
                               ),
                               Text(
-                                "If your hardware isn't connecting, try restarting the Tulasi Hotels app or re-pairing your Bluetooth device.",
+                                'If your hardware isn\'t connecting, try restarting the Tulasi Restaurants app or re-pairing your Bluetooth device.',
                                 style: TextStyle(
                                   fontSize: 12,
                                   color: AppColors.textSecondary,
@@ -2931,7 +2903,7 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _buildFieldLabel('Hotel Name'),
+                        _buildFieldLabel('Restaurant Name'),
                         _buildTextField(controller: _shopNameController),
                       ],
                     ),
@@ -3397,7 +3369,7 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
             const Text('Simple POS for Small Retailers'),
             const SizedBox(height: 16),
             const Text(
-              '© 2026 Tulasi Hotels',
+              '© 2026 Tulasi Restaurants',
               style: TextStyle(color: Colors.grey),
             ),
           ],

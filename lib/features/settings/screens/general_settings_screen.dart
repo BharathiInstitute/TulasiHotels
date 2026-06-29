@@ -69,14 +69,14 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
         padding: const EdgeInsets.all(16),
         children: [
           // Shop Profile Section
-          _buildSectionHeader(theme, 'Hotel Profile'),
+          _buildSectionHeader(theme, 'Restaurant Profile'),
           Card(
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
                 children: [
                   _buildTextField(
-                    'Hotel Name',
+                    'Restaurant Name',
                     _shopNameController,
                     required: true,
                   ),

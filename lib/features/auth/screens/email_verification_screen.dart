@@ -123,7 +123,7 @@ class _EmailVerificationScreenState
 
     return AuthLayout(
       title: 'Verify Your Email',
-      subtitle: 'Please verify your email before setting up your hotel',
+      subtitle: 'Please verify your email before setting up your restaurant',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [

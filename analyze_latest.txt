@@ -1,0 +1,32 @@
+﻿Analyzing TulasiHotels...                                       
+
+warning - Unused import: 'package:tulasihotels/models/combo_model.dart' - lib\features\billing\screens\billing_screen.dart:17:8 - unused_import
+warning - The declaration '_scanBarcode' isn't referenced - lib\features\billing\screens\billing_screen.dart:430:16 - unused_element
+warning - Unused import: 'package:tulasihotels/models/combo_model.dart' - lib\features\billing\screens\pos_web_screen.dart:16:8 - unused_import
+   info - Use 'const' with the constructor to improve performance - lib\features\compliance\screens\complaints_screen.dart:90:38 - prefer_const_constructors
+   info - Use 'const' with the constructor to improve performance - lib\features\compliance\screens\complaints_screen.dart:92:40 - prefer_const_constructors
+   info - Missing an 'await' for the 'Future' computed by this expression - lib\features\hotels\screens\hotel_selector_screen.dart:243:34 - unawaited_futures
+   info - Unnecessary use of multiple underscores - lib\features\orders\screens\order_billing_screen.dart:127:36 - unnecessary_underscores
+   info - 'value' is deprecated and shouldn't be used. Use initialValue instead. This will set the initial value for the form field. This feature was deprecated after v3.33.0-1.0.pre - lib\features\orders\screens\order_billing_screen.dart:149:41 - deprecated_member_use
+   info - The value of the argument is redundant because it matches the default value - lib\features\orders\screens\order_billing_screen.dart:158:52 - avoid_redundant_argument_values
+   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\features\orders\screens\order_billing_screen.dart:196:68 - use_build_context_synchronously
+warning - The value of the field '_isLookingUp' isn't used - lib\features\products\widgets\add_product_modal.dart:50:8 - unused_field
+warning - The value of the field '_lookedUpProduct' isn't used - lib\features\products\widgets\add_product_modal.dart:52:19 - unused_field
+warning - The declaration '_scanAndLookupBarcode' isn't referenced - lib\features\products\widgets\add_product_modal.dart:135:16 - unused_element
+   info - The value of the argument is redundant because it matches the default value - lib\features\products\widgets\add_product_modal.dart:191:15 - avoid_redundant_argument_values
+   info - 'value' is deprecated and shouldn't be used. Use initialValue instead. This will set the initial value for the form field. This feature was deprecated after v3.33.0-1.0.pre - lib\features\products\widgets\add_product_modal.dart:419:25 - deprecated_member_use
+warning - Unused import: 'dart:convert' - lib\features\reports\screens\advanced_reports_screen.dart:4:8 - unused_import
+   info - Unnecessary use of multiple underscores - lib\features\reports\screens\advanced_reports_screen.dart:100:37 - unnecessary_underscores
+   info - Use 'const' with the constructor to improve performance - lib\features\settings\screens\settings_web_screen.dart:3403:19 - prefer_const_constructors
+   info - Use 'const' with the constructor to improve performance - lib\features\settings\screens\settings_web_screen.dart:3557:32 - prefer_const_constructors
+   info - Use 'const' with the constructor to improve performance - lib\features\settings\screens\settings_web_screen.dart:3705:32 - prefer_const_constructors
+   info - The value of the argument is redundant because it matches the default value - lib\features\shell\web_shell.dart:841:24 - avoid_redundant_argument_values
+
+flutter : 21 issues found. (ran in 10.3s)
+At line:1 char:1
++ flutter analyze 2>&1 | Tee-Object -Variable analyzeOutput; $analyzeOu ...
++ ~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (21 issues found. (ran in 10.3s):S 
+   tring) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 

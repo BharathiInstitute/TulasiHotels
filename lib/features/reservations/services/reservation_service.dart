@@ -1,20 +1,15 @@
-/// Reservation management service
+﻿/// Reservation management service
 library;
 
+import 'package:tulasihotels/core/services/active_store_manager.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:tulasihotels/models/reservation_model.dart';
 
 class ReservationService {
   static final _firestore = FirebaseFirestore.instance;
-  static final _auth = FirebaseAuth.instance;
 
-  static String get _basePath {
-    final uid = _auth.currentUser?.uid;
-    if (uid == null) return '';
-    return 'users/$uid';
-  }
+  static String get _basePath => ActiveStoreManager.basePath;
 
   static CollectionReference<Map<String, dynamic>> get _reservationsRef =>
       _firestore.collection('$_basePath/reservations');
@@ -61,7 +56,7 @@ class ReservationService {
         .doc(reservation.id)
         .set(reservation.toFirestore());
     debugPrint(
-        '✅ Created reservation for ${reservation.guestName} at ${reservation.dateTime}');
+        'âœ… Created reservation for ${reservation.guestName} at ${reservation.dateTime}');
     return reservation;
   }
 

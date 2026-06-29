@@ -20,6 +20,7 @@ import 'package:tulasihotels/models/product_model.dart';
 import 'package:tulasihotels/router/app_router.dart';
 import 'package:tulasihotels/shared/widgets/loading_states.dart';
 import 'package:tulasihotels/shared/widgets/nps_survey_dialog.dart';
+import 'package:tulasihotels/shared/widgets/privacy_consent_dialog.dart';
 import 'package:tulasihotels/shared/widgets/onboarding_checklist.dart';
 import 'package:tulasihotels/features/coupons/providers/coupon_provider.dart';
 import 'package:tulasihotels/features/coupons/services/coupon_service.dart';
@@ -39,8 +40,20 @@ class _BillingScreenState extends ConsumerState<BillingScreen> {
   @override
   void initState() {
     super.initState();
-    // Check NPS survey eligibility once after the first frame
-    WidgetsBinding.instance.addPostFrameCallback((_) => _maybeShowNps());
+    // Check privacy consent first, then NPS survey
+    WidgetsBinding.instance.addPostFrameCallback((_) => _maybeShowConsent());
+  }
+
+  Future<void> _maybeShowConsent() async {
+    if (!mounted) return;
+    final user = ref.read(currentUserProvider);
+    if (user == null) return;
+    await PrivacyConsentDialog.showIfRequired(
+      context,
+      uid: user.id,
+      consentVersion: user.consentVersion,
+    );
+    if (mounted) await _maybeShowNps();
   }
 
   Future<void> _maybeShowNps() async {

@@ -19,6 +19,7 @@ import 'package:tulasihotels/features/auth/widgets/demo_mode_banner.dart';
 import 'package:tulasihotels/features/notifications/widgets/notification_bell.dart';
 import 'package:tulasihotels/shared/widgets/global_sync_indicator.dart';
 import 'package:tulasihotels/features/shell/web_shell.dart';
+import 'package:tulasihotels/features/hotels/providers/hotel_provider.dart';
 import 'package:tulasihotels/l10n/app_localizations.dart';
 import 'package:tulasihotels/models/user_model.dart';
 import 'package:tulasihotels/router/app_router.dart';
@@ -37,11 +38,7 @@ class _AppShellState extends ConsumerState<AppShell> {
   final _scaffoldKey = GlobalKey<ScaffoldState>();
 
   /// Bottom nav shows only these 4 popular indices + a "More" entry
-  static const _bottomNavIndices = [
-    0,
-    2,
-    5,
-  ]; // Walk-in, Menu, Tables
+  static const _bottomNavIndices = [0, 2, 5]; // Walk-in, Menu, Tables
 
   int _getSelectedIndex(BuildContext context) {
     final location = GoRouterState.of(context).matchedLocation;
@@ -51,11 +48,12 @@ class _AppShellState extends ConsumerState<AppShell> {
     if (location.startsWith('/dashboard')) return 3;
     if (location.startsWith('/bills')) return 4;
     if (location.startsWith('/tables')) return 5;
-    if (location.startsWith('/kitchen')) return 6;
-    if (location.startsWith('/staff')) return 7;
+    if (location.startsWith('/orders')) return 6;
+    if (location.startsWith('/kitchen')) return 7;
+    if (location.startsWith('/staff')) return 8;
     if (location.startsWith('/attendance') ||
         location.startsWith('/my-attendance')) {
-      return 8;
+      return 9;
     }
     if (location.startsWith('/settings')) return 10;
     return 0;
@@ -67,8 +65,8 @@ class _AppShellState extends ConsumerState<AppShell> {
     }
   }
 
-  /// Get routes list — staff sees /my-attendance at index 8, owner sees /attendance
-  static List<String> _getRoutes(bool isStaff) {
+  /// Get routes list — only the owner sees /attendance; staff and team members see /my-attendance
+  static List<String> _getRoutes(bool isStaff, bool isOwner) {
     return [
       AppRoutes.billing, // 0
       AppRoutes.khata, // 1
@@ -76,9 +74,12 @@ class _AppShellState extends ConsumerState<AppShell> {
       AppRoutes.dashboard, // 3
       AppRoutes.bills, // 4
       AppRoutes.tables, // 5
-      AppRoutes.kitchen, // 6
-      AppRoutes.staff, // 7
-      isStaff ? AppRoutes.myAttendance : AppRoutes.attendance, // 8
+      AppRoutes.orders, // 6
+      AppRoutes.kitchen, // 7
+      AppRoutes.staff, // 8
+      (isStaff || !isOwner)
+          ? AppRoutes.myAttendance
+          : AppRoutes.attendance, // 9
     ];
   }
 
@@ -88,9 +89,36 @@ class _AppShellState extends ConsumerState<AppShell> {
     if (staff != null) {
       return StaffPermissions.visibleNavIndices(staff);
     }
-    // No staff logged in → check member permissions
-    final member = ref.watch(currentMemberProvider).valueOrNull;
-    return MemberPermissionGuard.visibleNavIndices(member);
+    // No staff logged in → check member permissions.
+    // Use AsyncValue.when so that:
+    //  - loading  → show nothing (avoid granting full access during stream init)
+    //  - data     → filter by member's actual permissions
+    //  - error    → full access only if user is the owner
+    final memberAsync = ref.watch(currentMemberProvider);
+    return memberAsync.when(
+      loading: () => [],
+      error: (_, __) => _isCurrentUserOwner()
+          ? MemberPermissionGuard.visibleNavIndices(null)
+          : [],
+      data: (member) {
+        // If member doc is null, check if user is the store owner
+        if (member == null) {
+          return _isCurrentUserOwner()
+              ? MemberPermissionGuard.visibleNavIndices(null)
+              : [];
+        }
+        return MemberPermissionGuard.visibleNavIndices(member);
+      },
+    );
+  }
+
+  /// Returns true if the currently authenticated user owns the selected hotel
+  bool _isCurrentUserOwner() {
+    final hotelId = ref.read(currentHotelIdProvider);
+    if (hotelId == null) return false;
+    // Check Firebase Auth UID directly (UserModel may not be loaded yet)
+    final uid = ref.read(authNotifierProvider).firebaseUser?.uid;
+    return hotelId == uid;
   }
 
   @override
@@ -99,7 +127,8 @@ class _AppShellState extends ConsumerState<AppShell> {
     final deviceType = ResponsiveHelper.getDeviceType(context);
     final visibleIndices = _getVisibleIndices();
     final loggedInStaff = ref.watch(loggedInStaffProvider);
-    final routes = _getRoutes(loggedInStaff != null);
+    final isOwner = _isCurrentUserOwner();
+    final routes = _getRoutes(loggedInStaff != null, isOwner);
 
     // Use WebShell for Desktop/Web view (desktop + desktopLarge)
     if (deviceType == DeviceType.desktop ||
@@ -134,54 +163,57 @@ class _AppShellState extends ConsumerState<AppShell> {
                 icon: const Icon(Icons.menu),
                 onPressed: () => _scaffoldKey.currentState?.openDrawer(),
               ),
-              title: Row(
-                children: [
-                  ShopLogoWidget(
-                    logoPath: user?.shopLogoPath,
-                    size: 28,
-                    borderRadius: 6,
-                    iconSize: 16,
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: loggedInStaff != null
-                        ? Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                loggedInStaff.name,
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                  color: Theme.of(
-                                    context,
-                                  ).colorScheme.onSurface,
+              title: GestureDetector(
+                onTap: () => context.go(AppRoutes.hotelSelector),
+                child: Row(
+                  children: [
+                    ShopLogoWidget(
+                      logoPath: user?.shopLogoPath,
+                      size: 28,
+                      borderRadius: 6,
+                      iconSize: 16,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: loggedInStaff != null
+                          ? Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  loggedInStaff.name,
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.onSurface,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
                                 ),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              Text(
-                                '${loggedInStaff.role.emoji} ${loggedInStaff.role.displayName}',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: Theme.of(
-                                    context,
-                                  ).colorScheme.onSurfaceVariant,
+                                Text(
+                                  '${loggedInStaff.role.emoji} ${loggedInStaff.role.displayName}',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.onSurfaceVariant,
+                                  ),
                                 ),
+                              ],
+                            )
+                          : Text(
+                              user?.shopName ?? AppConstants.defaultShopName,
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: Theme.of(context).colorScheme.onSurface,
                               ),
-                            ],
-                          )
-                        : Text(
-                            user?.shopName ?? AppConstants.defaultShopName,
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                              color: Theme.of(context).colorScheme.onSurface,
+                              overflow: TextOverflow.ellipsis,
                             ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                  ),
-                ],
+                    ),
+                  ],
+                ),
               ),
               actions: [
                 if (loggedInStaff != null)
@@ -189,7 +221,7 @@ class _AppShellState extends ConsumerState<AppShell> {
                     icon: const Icon(Icons.logout, size: 20),
                     tooltip: 'Staff Logout',
                     onPressed: () {
-                      ref.read(loggedInStaffProvider.notifier).state = null;
+                      ref.read(loggedInStaffProvider.notifier).logout();
                       context.go(AppRoutes.billing);
                     },
                   ),
@@ -297,12 +329,12 @@ class _AppShellState extends ConsumerState<AppShell> {
           7: (
             icon: Icons.badge_outlined,
             activeIcon: Icons.badge,
-            label: 'Staff',
+            label: loggedInStaff != null ? 'My Profile' : 'Staff',
           ),
           8: (
             icon: Icons.access_time_outlined,
             activeIcon: Icons.access_time_filled,
-            label: 'Attendance',
+            label: 'My Attendance',
           ),
         };
 
@@ -317,42 +349,48 @@ class _AppShellState extends ConsumerState<AppShell> {
               decoration: BoxDecoration(
                 color: AppColors.primary.withValues(alpha: 0.08),
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      ShopLogoWidget(
-                        logoPath: user?.shopLogoPath,
-                        size: 40,
-                        borderRadius: 10,
-                        iconSize: 22,
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              user?.shopName ?? AppConstants.defaultShopName,
-                              style: theme.textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.bold,
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            if (loggedInStaff != null)
-                              Text(
-                                '${loggedInStaff.role.emoji} ${loggedInStaff.name}',
-                                style: theme.textTheme.bodySmall?.copyWith(
-                                  color: theme.colorScheme.onSurfaceVariant,
-                                ),
-                              ),
-                          ],
+              child: GestureDetector(
+                onTap: () {
+                  Navigator.of(context).pop(); // close drawer
+                  context.go(AppRoutes.hotelSelector);
+                },
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        ShopLogoWidget(
+                          logoPath: user?.shopLogoPath,
+                          size: 40,
+                          borderRadius: 10,
+                          iconSize: 22,
                         ),
-                      ),
-                    ],
-                  ),
-                ],
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                user?.shopName ?? AppConstants.defaultShopName,
+                                style: theme.textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              if (loggedInStaff != null)
+                                Text(
+                                  '${loggedInStaff.role.emoji} ${loggedInStaff.name}',
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: theme.colorScheme.onSurfaceVariant,
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
             const Divider(height: 1),
@@ -403,11 +441,15 @@ class _AppShellState extends ConsumerState<AppShell> {
   List<Widget> _buildMoreFeaturesSections(BuildContext context, WidgetRef ref) {
     final staff = ref.watch(loggedInStaffProvider);
     final member = ref.watch(currentMemberProvider).valueOrNull;
+    final isOwner = _isCurrentUserOwner();
     final currentPath = GoRouterState.of(context).matchedLocation;
 
     Widget? routeItem(IconData icon, String label, String route) {
       if (!StaffPermissions.canViewRoute(staff, route)) return null;
-      if (staff == null && !MemberPermissionGuard.canViewRoute(member, route)) {
+      // Non-owner with no member doc: hide everything
+      if (staff == null &&
+          !isOwner &&
+          !MemberPermissionGuard.canViewRoute(member, route)) {
         return null;
       }
       final isActive = currentPath.startsWith(route);
@@ -442,7 +484,6 @@ class _AppShellState extends ConsumerState<AppShell> {
 
     final reportsItems = [
       routeItem(Icons.bar_chart, 'Advanced Reports', AppRoutes.advancedReports),
-      routeItem(Icons.description, 'GST Export', AppRoutes.gstExport),
     ].whereType<Widget>().toList();
 
     final complianceItems = [
@@ -481,9 +522,7 @@ class _AppShellState extends ConsumerState<AppShell> {
     }
 
     if (menuItems.isNotEmpty) {
-      sections.add(
-        _DrawerSection(title: 'Menu', children: menuItems),
-      );
+      sections.add(_DrawerSection(title: 'Menu', children: menuItems));
     }
     if (inventoryItems.isNotEmpty) {
       sections.add(
@@ -504,9 +543,7 @@ class _AppShellState extends ConsumerState<AppShell> {
       );
     }
     if (managementItems.isNotEmpty) {
-      sections.add(
-        _DrawerSection(title: 'Admin', children: managementItems),
-      );
+      sections.add(_DrawerSection(title: 'Admin', children: managementItems));
     }
 
     return sections;
@@ -781,7 +818,7 @@ class _AppShellState extends ConsumerState<AppShell> {
       8: const BottomNavigationBarItem(
         icon: Icon(Icons.access_time_outlined),
         activeIcon: Icon(Icons.access_time_filled),
-        label: 'Attendance',
+        label: 'My Attendance',
       ),
     };
 
@@ -846,6 +883,7 @@ class _AppShellState extends ConsumerState<AppShell> {
   ) {
     final isExpanded = deviceType == DeviceType.desktop;
     final l10n = context.l10n;
+    final loggedInStaff = ref.watch(loggedInStaffProvider);
 
     // All side nav items (indexed 0-9)
     final allNavItems = <int, ({IconData icon, String label})>{
@@ -855,9 +893,12 @@ class _AppShellState extends ConsumerState<AppShell> {
       3: (icon: Icons.dashboard, label: l10n.dashboard),
       4: (icon: Icons.receipt, label: 'Bills'),
       5: (icon: Icons.table_restaurant, label: 'Tables'),
-      6: (icon: Icons.kitchen, label: 'Kitchen'),
-      7: (icon: Icons.badge, label: 'Staff'),
-      8: (icon: Icons.access_time_filled, label: 'Attendance'),
+      7: (icon: Icons.kitchen, label: 'Kitchen'),
+      8: (
+        icon: loggedInStaff != null ? Icons.person : Icons.badge,
+        label: loggedInStaff != null ? 'My Profile' : 'Staff',
+      ),
+      9: (icon: Icons.access_time_filled, label: 'My Attendance'),
     };
 
     return Container(

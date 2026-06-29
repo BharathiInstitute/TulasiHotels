@@ -169,6 +169,32 @@ class _StaffClockWidgetState extends ConsumerState<StaffClockWidget> {
                       ),
                     ],
                   ),
+                  // Location tag
+                  if (currentRecord.clockInAddress != null &&
+                      currentRecord.clockInAddress!.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.location_on_outlined,
+                          size: 14,
+                          color: cs.onSurfaceVariant,
+                        ),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            currentRecord.clockInAddress!,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: cs.onSurfaceVariant,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ],
 
                 // Sessions summary
@@ -275,21 +301,26 @@ class _StaffClockWidgetState extends ConsumerState<StaffClockWidget> {
 
     setState(() => _isActioning = true);
     try {
+      String message;
       if (isClockedIn) {
         await AttendanceService.clockOut(staffId, recordId: currentRecordId);
+        message = 'Clocked out successfully';
       } else {
-        await AttendanceService.clockIn(staffId: staffId, staffName: staffName);
+        final record = await AttendanceService.clockIn(
+          staffId: staffId,
+          staffName: staffName,
+        );
+        final addr = record.clockInAddress;
+        message = addr != null && addr.isNotEmpty
+            ? 'Clocked in · $addr'
+            : 'Clocked in at ${_formatTime(record.clockIn)}';
       }
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(
-              isClockedIn
-                  ? 'Clocked out successfully'
-                  : 'Clocked in successfully',
-            ),
+            content: Text(message),
             backgroundColor: isClockedIn ? Colors.orange : Colors.green,
-            duration: const Duration(seconds: 2),
+            duration: const Duration(seconds: 3),
           ),
         );
       }

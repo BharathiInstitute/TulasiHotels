@@ -1,21 +1,16 @@
-/// Vendor payment settlement service
+﻿/// Vendor payment settlement service
 library;
 
+import 'package:tulasihotels/core/services/active_store_manager.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:tulasihotels/models/purchase_model.dart';
 
 class VendorSettlementService {
   static final _firestore = FirebaseFirestore.instance;
-  static final _auth = FirebaseAuth.instance;
 
-  static String get _basePath {
-    final uid = _auth.currentUser?.uid;
-    if (uid == null) return '';
-    return 'users/$uid';
-  }
+  static String get _basePath => ActiveStoreManager.basePath;
 
-  /// Record a purchase from a vendor (increases balance — you owe them more)
+  /// Record a purchase from a vendor (increases balance â€” you owe them more)
   static Future<void> recordPurchase({
     required String vendorId,
     required double amount,
@@ -40,7 +35,7 @@ class VendorSettlementService {
     await batch.commit();
   }
 
-  /// Record a payment to a vendor (decreases balance — you paid them)
+  /// Record a payment to a vendor (decreases balance â€” you paid them)
   static Future<void> recordPayment({
     required String vendorId,
     required double amount,

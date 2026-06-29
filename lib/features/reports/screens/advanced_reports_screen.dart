@@ -3,11 +3,13 @@ library;
 
 import 'dart:io';
 
-import 'package:csv/csv.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:tulasihotels/features/reports/services/advanced_reports_service.dart';
 import 'package:tulasihotels/features/reports/screens/menu_performance_screen.dart';
@@ -73,9 +75,9 @@ class _AdvancedReportsScreenState extends ConsumerState<AdvancedReportsScreen> {
         title: const Text('Reports'),
         actions: [
           IconButton(
-            onPressed: _exportCurrentReport,
-            icon: const Icon(Icons.file_download_outlined),
-            tooltip: 'Export as CSV',
+            onPressed: _exportPdf,
+            icon: const Icon(Icons.picture_as_pdf),
+            tooltip: 'Export PDF',
           ),
           TextButton.icon(
             onPressed: _pickDateRange,
@@ -403,127 +405,67 @@ class _AdvancedReportsScreenState extends ConsumerState<AdvancedReportsScreen> {
     );
   }
 
-  Future<void> _exportCurrentReport() async {
-    final rows = <List<dynamic>>[];
-    final tabName = _selectedTab.label;
-
-    switch (_selectedTab) {
-      case _ReportTab.overview:
-        if (_dailyRevenue == null) {
-          _showExportError('No data loaded. Please wait for reports to load.');
-          return;
-        }
-        rows.add(['Report', 'Overview']);
-        rows.add([
-          'Date Range',
-          '${_range.start.day}/${_range.start.month}/${_range.start.year} - ${_range.end.day}/${_range.end.month}/${_range.end.year}',
-        ]);
-        rows.add([]);
-        // Daily revenue
-        rows.add(['Daily Revenue']);
-        rows.add(['Date', 'Revenue']);
-        for (final e in _dailyRevenue!.entries) {
-          rows.add([e.key, e.value.toStringAsFixed(2)]);
-        }
-        rows.add([]);
-        // Top products
-        if (_topProducts != null) {
-          rows.add(['Top Products']);
-          rows.add(['Rank', 'Name', 'Quantity', 'Revenue']);
-          for (var i = 0; i < _topProducts!.length; i++) {
-            final p = _topProducts![i];
-            rows.add([
-              i + 1,
-              p['name'] ?? '',
-              p['quantity'] ?? 0,
-              (p['revenue'] as num?)?.toStringAsFixed(2) ?? '0',
-            ]);
-          }
-          rows.add([]);
-        }
-        // Payment breakdown
-        if (_paymentBreakdown != null) {
-          rows.add(['Payment Methods']);
-          rows.add(['Method', 'Amount']);
-          for (final e in _paymentBreakdown!.entries) {
-            rows.add([e.key, e.value.toStringAsFixed(2)]);
-          }
-          rows.add([]);
-        }
-        // Hourly orders
-        if (_hourlyOrders != null) {
-          rows.add(['Hourly Orders']);
-          rows.add(['Hour', 'Orders']);
-          final sorted = _hourlyOrders!.entries.toList()
-            ..sort((a, b) => a.key.compareTo(b.key));
-          for (final e in sorted) {
-            rows.add(['${e.key}:00', e.value]);
-          }
-        }
-      case _ReportTab.menuPerformance:
-      case _ReportTab.weeklyReport:
-      case _ReportTab.pnlReport:
-      case _ReportTab.peakHours:
-      case _ReportTab.itemSales:
-      case _ReportTab.comparative:
-      case _ReportTab.feedbackReport:
-      case _ReportTab.gstExport:
-        // For sub-tabs, export bills for the range
-        final bills = await AdvancedReportsService.getBillsInRange(
-          _range.start,
-          _range.end,
-        );
-        if (bills.isEmpty) {
-          _showExportError('No data found in the selected date range.');
-          return;
-        }
-        rows.add(['Report', tabName]);
-        rows.add([
-          'Date Range',
-          '${_range.start.day}/${_range.start.month}/${_range.start.year} - ${_range.end.day}/${_range.end.month}/${_range.end.year}',
-        ]);
-        rows.add([]);
-        rows.add([
-          'Bill Number',
-          'Date',
-          'Items',
-          'Total',
-          'Payment Method',
-          'Customer',
-        ]);
-        for (final bill in bills) {
-          rows.add([
-            bill.billNumber,
-            bill.date,
-            bill.items.map((i) => '${i.name} x${i.quantity}').join('; '),
-            bill.total.toStringAsFixed(2),
-            bill.paymentMethod.name,
-            bill.customerName ?? '',
-          ]);
-        }
+  void _showExportError(String message) {
+    if (mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
     }
+  }
 
-    if (rows.isEmpty) {
-      _showExportError('No data to export.');
+  Future<void> _exportPdf() async {
+    if (_selectedTab == _ReportTab.overview && _dailyRevenue == null) {
+      _showExportError('No data loaded. Please load reports first.');
       return;
     }
 
     try {
-      final csvContent = const ListToCsvConverter().convert(rows);
-      final fileName =
-          '${tabName.replaceAll(' ', '_').toLowerCase()}_${DateTime.now().millisecondsSinceEpoch}';
+      final pdf = pw.Document();
+      final tabName = _selectedTab.label;
+      final dateRange =
+          '${_range.start.day}/${_range.start.month}/${_range.start.year} - ${_range.end.day}/${_range.end.month}/${_range.end.year}';
+
+      pdf.addPage(
+        pw.MultiPage(
+          pageFormat: PdfPageFormat.a4,
+          margin: const pw.EdgeInsets.all(32),
+          header: (context) => pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.Text(
+                'Tulasi Restaurants - $tabName Report',
+                style: pw.TextStyle(
+                  fontSize: 18,
+                  fontWeight: pw.FontWeight.bold,
+                ),
+              ),
+              pw.SizedBox(height: 4),
+              pw.Text(
+                'Date Range: $dateRange',
+                style: const pw.TextStyle(fontSize: 11),
+              ),
+              pw.Divider(),
+              pw.SizedBox(height: 8),
+            ],
+          ),
+          build: (context) => _buildPdfContent(tabName),
+        ),
+      );
+
+      final bytes = await pdf.save();
 
       if (kIsWeb) {
-        // Web: download via data URI isn't ideal, try share
-        await Share.share(csvContent, subject: '$fileName.csv');
+        await Printing.sharePdf(bytes: bytes, filename: '$tabName Report.pdf');
       } else {
         final dir = await getApplicationDocumentsDirectory();
-        final exportDir = Directory('${dir.path}/Tulasi Hotels_Exports');
+        final exportDir = Directory('${dir.path}/Tulasi Restaurants_Exports');
         if (!exportDir.existsSync()) {
           exportDir.createSync(recursive: true);
         }
-        final file = File('${exportDir.path}/$fileName.csv');
-        await file.writeAsString(csvContent);
+        final fileName =
+            '${tabName.replaceAll(' ', '_').toLowerCase()}_${DateTime.now().millisecondsSinceEpoch}.pdf';
+        final file = File('${exportDir.path}/$fileName');
+        await file.writeAsBytes(bytes);
 
         if (mounted) {
           await Share.shareXFiles([
@@ -532,16 +474,127 @@ class _AdvancedReportsScreenState extends ConsumerState<AdvancedReportsScreen> {
         }
       }
     } catch (e) {
-      _showExportError('Export failed: $e');
+      _showExportError('PDF export failed: $e');
     }
   }
 
-  void _showExportError(String message) {
-    if (mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(message)));
+  List<pw.Widget> _buildPdfContent(String tabName) {
+    final widgets = <pw.Widget>[];
+
+    if (_selectedTab == _ReportTab.overview) {
+      // Daily Revenue table
+      if (_dailyRevenue != null && _dailyRevenue!.isNotEmpty) {
+        widgets.add(
+          pw.Text(
+            'Daily Revenue',
+            style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold),
+          ),
+        );
+        widgets.add(pw.SizedBox(height: 6));
+        widgets.add(
+          pw.TableHelper.fromTextArray(
+            headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+            headerDecoration: const pw.BoxDecoration(color: PdfColors.grey300),
+            cellPadding: const pw.EdgeInsets.all(4),
+            headers: ['Date', 'Revenue (₹)'],
+            data: _dailyRevenue!.entries
+                .map((e) => [e.key, e.value.toStringAsFixed(2)])
+                .toList(),
+          ),
+        );
+        widgets.add(pw.SizedBox(height: 16));
+      }
+
+      // Top Products table
+      if (_topProducts != null && _topProducts!.isNotEmpty) {
+        widgets.add(
+          pw.Text(
+            'Top Products',
+            style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold),
+          ),
+        );
+        widgets.add(pw.SizedBox(height: 6));
+        widgets.add(
+          pw.TableHelper.fromTextArray(
+            headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+            headerDecoration: const pw.BoxDecoration(color: PdfColors.grey300),
+            cellPadding: const pw.EdgeInsets.all(4),
+            headers: ['#', 'Name', 'Qty', 'Revenue (₹)'],
+            data: List.generate(_topProducts!.length, (i) {
+              final p = _topProducts![i];
+              return [
+                '${i + 1}',
+                p['name'] ?? '',
+                '${p['quantity'] ?? 0}',
+                (p['revenue'] as num?)?.toStringAsFixed(2) ?? '0',
+              ];
+            }),
+          ),
+        );
+        widgets.add(pw.SizedBox(height: 16));
+      }
+
+      // Payment Breakdown
+      if (_paymentBreakdown != null && _paymentBreakdown!.isNotEmpty) {
+        widgets.add(
+          pw.Text(
+            'Payment Methods',
+            style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold),
+          ),
+        );
+        widgets.add(pw.SizedBox(height: 6));
+        widgets.add(
+          pw.TableHelper.fromTextArray(
+            headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+            headerDecoration: const pw.BoxDecoration(color: PdfColors.grey300),
+            cellPadding: const pw.EdgeInsets.all(4),
+            headers: ['Method', 'Amount (₹)'],
+            data: _paymentBreakdown!.entries
+                .map((e) => [e.key, e.value.toStringAsFixed(2)])
+                .toList(),
+          ),
+        );
+        widgets.add(pw.SizedBox(height: 16));
+      }
+
+      // Hourly Orders
+      if (_hourlyOrders != null && _hourlyOrders!.isNotEmpty) {
+        widgets.add(
+          pw.Text(
+            'Hourly Orders',
+            style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold),
+          ),
+        );
+        widgets.add(pw.SizedBox(height: 6));
+        final sorted = _hourlyOrders!.entries.toList()
+          ..sort((a, b) => a.key.compareTo(b.key));
+        widgets.add(
+          pw.TableHelper.fromTextArray(
+            headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+            headerDecoration: const pw.BoxDecoration(color: PdfColors.grey300),
+            cellPadding: const pw.EdgeInsets.all(4),
+            headers: ['Hour', 'Orders'],
+            data: sorted.map((e) => ['${e.key}:00', '${e.value}']).toList(),
+          ),
+        );
+      }
+    } else {
+      widgets.add(
+        pw.Text(
+          'Report: $tabName',
+          style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold),
+        ),
+      );
+      widgets.add(pw.SizedBox(height: 8));
+      widgets.add(
+        pw.Text(
+          'For detailed sub-report data, use the CSV export option.',
+          style: const pw.TextStyle(fontSize: 11),
+        ),
+      );
     }
+
+    return widgets;
   }
 
   Future<void> _pickDateRange() async {

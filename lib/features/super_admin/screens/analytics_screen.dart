@@ -52,6 +52,7 @@ class AnalyticsScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 16),
             statsAsync.when(
+              skipLoadingOnRefresh: false,
               data: (stats) => _buildActiveUsersGrid(stats, isWide),
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (e, _) => Text('Error: $e'),
@@ -66,6 +67,7 @@ class AnalyticsScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 16),
             statsAsync.when(
+              skipLoadingOnRefresh: false,
               data: (stats) => _buildGrowthCards(stats, isWide),
               loading: () => const SizedBox(),
               error: (e, _) => const SizedBox(),
@@ -75,6 +77,7 @@ class AnalyticsScreen extends ConsumerWidget {
 
             // Feature Usage (Real data)
             featureUsageAsync.when(
+              skipLoadingOnRefresh: false,
               data: (featureStats) => _buildFeatureUsageCard(featureStats),
               loading: () => const Card(
                 child: Padding(
@@ -90,6 +93,7 @@ class AnalyticsScreen extends ConsumerWidget {
 
             // Platform Distribution (Real data)
             platformStatsAsync.when(
+              skipLoadingOnRefresh: false,
               data: (platformStats) => _buildPlatformCard(platformStats),
               loading: () => const Card(
                 child: Padding(

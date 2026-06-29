@@ -1,19 +1,14 @@
-/// License and compliance tracking service
+﻿/// License and compliance tracking service
 library;
 
+import 'package:tulasihotels/core/services/active_store_manager.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:tulasihotels/models/license_model.dart';
 
 class LicenseService {
   static final _firestore = FirebaseFirestore.instance;
-  static final _auth = FirebaseAuth.instance;
 
-  static String get _basePath {
-    final uid = _auth.currentUser?.uid;
-    if (uid == null) return '';
-    return 'users/$uid';
-  }
+  static String get _basePath => ActiveStoreManager.basePath;
 
   static CollectionReference<Map<String, dynamic>> get _licensesRef =>
       _firestore.collection('$_basePath/licenses');

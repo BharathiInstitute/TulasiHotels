@@ -1,4 +1,4 @@
-/// App routing configuration using go_router (local mode)
+﻿/// App routing configuration using go_router (local mode)
 library;
 
 import 'dart:async';
@@ -33,6 +33,7 @@ import 'package:tulasihotels/features/super_admin/screens/performance_screen.dar
 import 'package:tulasihotels/features/super_admin/screens/user_costs_screen.dart';
 import 'package:tulasihotels/features/super_admin/screens/manage_admins_screen.dart';
 import 'package:tulasihotels/features/super_admin/screens/admin_shell_screen.dart';
+import 'package:tulasihotels/features/super_admin/screens/nps_screen.dart';
 import 'package:tulasihotels/features/super_admin/screens/super_admin_login_screen.dart';
 import 'package:tulasihotels/features/super_admin/screens/notifications_admin_screen.dart';
 import 'package:tulasihotels/features/super_admin/screens/support_admin_screen.dart';
@@ -197,6 +198,7 @@ class AppRoutes {
   static const String superAdminNotifications = '/super-admin/notifications';
   static const String superAdminSupport = '/super-admin/support';
   static const String superAdminSupportChat = '/super-admin/support/:id';
+  static const String superAdminNps = '/super-admin/nps';
   static const String support = '/support';
   static const String supportChat = '/support/:id';
   static const String notifications = '/notifications';
@@ -212,6 +214,10 @@ class _AuthChangeNotifier extends ChangeNotifier {
     ref.listen<AuthState>(authNotifierProvider, (prev, next) {
       notifyListeners();
     });
+    // Also re-evaluate when Firestore admin list loads (for dynamically-added admins)
+    ref.listen<AsyncValue<List<String>>>(adminEmailsProvider, (prev, next) {
+      notifyListeners();
+    });
   }
 }
 
@@ -221,7 +227,7 @@ const String _lastRouteKey = 'last_route';
 /// Debounce timer for route persistence (avoids excessive SharedPrefs writes)
 Timer? _routePersistTimer;
 
-/// Debounced route persistence — writes to SharedPrefs after 1s idle
+/// Debounced route persistence â€” writes to SharedPrefs after 1s idle
 void _persistRoute(String fullUri) {
   _routePersistTimer?.cancel();
   _routePersistTimer = Timer(const Duration(seconds: 1), () {
@@ -233,7 +239,9 @@ void _persistRoute(String fullUri) {
 String _getRestoredInitialLocation() {
   final saved = OfflineStorageService.prefs?.getString(_lastRouteKey);
   if (saved != null && saved.isNotEmpty && saved.startsWith('/')) {
-    debugPrint('🔄 Restoring initial location from SharedPreferences: $saved');
+    debugPrint(
+      'ðŸ”„ Restoring initial location from SharedPreferences: $saved',
+    );
     return saved;
   }
   return AppRoutes.hotelSelector;
@@ -261,13 +269,12 @@ final routerProvider = Provider<GoRouter>((ref) {
     observers: [_ErrorRouteObserver()],
 
     redirect: (context, state) {
-      // Read auth state inside redirect (not watch — GoRouter is not recreated)
+      // Read auth state inside redirect (not watch â€” GoRouter is not recreated)
       final authState = ref.read(authNotifierProvider);
       final isLoggedIn = authState.isLoggedIn;
       final isShopSetupComplete = authState.isShopSetupComplete;
       final isLoading = authState.isLoading;
-      final userEmail = authState.user?.email?.toLowerCase().trim() ?? '';
-      final isSuperAdminUser = superAdminEmails.contains(userEmail);
+      final isSuperAdminUser = ref.read(isSuperAdminProvider);
 
       final currentPath = state.matchedLocation;
       final fullUri = state.uri.toString();
@@ -282,18 +289,71 @@ final routerProvider = Provider<GoRouter>((ref) {
         return isLoadingRoute ? null : AppRoutes.loading;
       }
 
-      // Auth is resolved — leave the loading screen
+      // Auth is resolved â€” leave the loading screen
       if (isLoadingRoute) {
+        // Wait for adminEmailsProvider to settle BEFORE deciding destination.
+        // Without this, dynamically-added admins (not in the hardcoded list)
+        // are sent to /hotels because isSuperAdminProvider returns false
+        // while the Firestore email list is still loading.
+        final adminEmailsState = ref.read(adminEmailsProvider);
+        if (isLoggedIn && adminEmailsState.isLoading) {
+          return AppRoutes.loading; // _AuthChangeNotifier re-fires when loaded
+        }
+
         // TODO: Re-enable shop setup redirect when ready
         final destination = !isLoggedIn
             ? AppRoutes.login
             : (pendingRedirect ?? restoredLocation);
-        if (!isLoggedIn || (isShopSetupComplete || isSuperAdminUser)) {
-          pendingRedirect = null;
-        }
-        // If the restored target is a super-admin route, only allow if admin
+        // If the destination is a super-admin route but admin status is not yet
+        // confirmed, stay on loading so _AuthChangeNotifier fires once
+        // adminEmailsProvider resolves. Do NOT clear pendingRedirect here.
         if (destination.startsWith('/super-admin') && !isSuperAdminUser) {
-          return AppRoutes.hotelSelector;
+          // Safety net: also check firebaseUser email directly
+          final fbEmail = ref
+              .read(authNotifierProvider)
+              .firebaseUser
+              ?.email
+              ?.toLowerCase();
+          final isAdminByFbEmail =
+              fbEmail != null && superAdminEmails.contains(fbEmail);
+          if (!isAdminByFbEmail) {
+            final adminEmailsState = ref.read(adminEmailsProvider);
+            if (adminEmailsState.isLoading) {
+              return AppRoutes.loading; // wait - preserve pendingRedirect
+            }
+            pendingRedirect = null;
+            return AppRoutes.hotelSelector;
+          }
+        }
+
+        // Primary owner always restores to the super admin panel.
+        // They manage the platform — the hotel panel is not their default home.
+        // Added (dual-role) admins respect last_route so hotel vs admin
+        // sessions stay independent.
+        const primaryOwnerEmail = 'kehsaram001@gmail.com';
+        final sessionEmail = ref
+            .read(authNotifierProvider)
+            .firebaseUser
+            ?.email
+            ?.toLowerCase();
+        if (isLoggedIn &&
+            sessionEmail == primaryOwnerEmail &&
+            !destination.startsWith('/super-admin')) {
+          pendingRedirect = null;
+          return AppRoutes.superAdmin;
+        }
+
+        // Clear pendingRedirect - but for super-admin destinations, delay
+        // until adminEmailsProvider has settled. Without this guard, the rapid
+        // state transitions (loading -> data) cause multiple evaluations:
+        // the first clears pendingRedirect, and the next falls back to
+        // restoredLocation (which may be a hotel route).
+        if (!isLoggedIn || (isShopSetupComplete || isSuperAdminUser)) {
+          final adminEmailsState = ref.read(adminEmailsProvider);
+          if (!destination.startsWith('/super-admin') ||
+              !adminEmailsState.isLoading) {
+            pendingRedirect = null;
+          }
         }
         return destination;
       }
@@ -314,7 +374,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           currentPath.startsWith('/rate/') ||
           currentPath.startsWith('/reserve/');
 
-      // Public routes — no auth needed
+      // Public routes â€” no auth needed
       if (isPublicRoute) return null;
 
       // Not logged in
@@ -336,7 +396,28 @@ final routerProvider = Provider<GoRouter>((ref) {
           _persistRoute(fullUri);
           return null; // Authorized — allow
         }
-        return AppRoutes.billing; // Not authorized — send to store
+        // Admin status may still be loading (dynamic admin not yet confirmed).
+        // Wait on the loading screen rather than immediately redirecting.
+        final adminEmailsState = ref.read(adminEmailsProvider);
+        if (adminEmailsState.isLoading) {
+          pendingRedirect = fullUri; // remember where they were going
+          return AppRoutes.loading;
+        }
+        // Also check firebaseUser email directly as a safety net
+        // (handles case where UserModel hasn't loaded yet but auth succeeded)
+        final fbEmail = ref
+            .read(authNotifierProvider)
+            .firebaseUser
+            ?.email
+            ?.toLowerCase();
+        if (fbEmail != null && superAdminEmails.contains(fbEmail)) {
+          if (currentPath == AppRoutes.superAdminLogin) {
+            return '/super-admin';
+          }
+          _persistRoute(fullUri);
+          return null; // Authorized via firebaseUser fallback
+        }
+        return AppRoutes.hotelSelector; // confirmed not an admin
       }
 
       // TODO: Re-enable shop setup after OTP/phone auth is configured
@@ -349,63 +430,75 @@ final routerProvider = Provider<GoRouter>((ref) {
 
       // Logged in and setup complete (or super admin)
       if (isAuthRoute || isShopSetupRoute) {
-        // Redirect auth routes to hotel selector
+        if (currentPath == AppRoutes.superAdminLogin) {
+          // Already confirmed super admin → send to panel
+          if (isSuperAdminUser) return AppRoutes.superAdmin;
+          // adminEmailsProvider still loading (dynamic admin not yet confirmed)
+          // — stay on the login page so the login screen can finish its own
+          // _isAuthorizedEmailAsync check and call context.go itself.
+          final adminState = ref.read(adminEmailsProvider);
+          if (adminState.isLoading) return null;
+          // Confirmed not an admin → redirect away
+          return AppRoutes.hotelSelector;
+        }
+        // Redirect other auth routes (login, register, etc.) to hotel selector
         return AppRoutes.hotelSelector;
       }
 
-      // ── Hotel selection guard ──
+      // â”€â”€ Hotel selection guard â”€â”€
       // If no hotel is selected yet, redirect to hotel selector
       // (except when already on the selector or doing staff login)
       final isHotelSelectorRoute = currentPath == AppRoutes.hotelSelector;
-      var hasHotel = ref.read(currentHotelIdProvider) != null;
-
-      // Restore persisted hotel ID after page refresh
-      if (!hasHotel) {
-        final savedHotelId = OfflineStorageService.prefs?.getString('last_hotel_id');
-        if (savedHotelId != null && savedHotelId.isNotEmpty) {
-          ref.read(currentHotelIdProvider.notifier).state = savedHotelId;
-          hasHotel = true;
-        }
-      }
+      final hasHotel = ref.read(currentHotelIdProvider) != null;
 
       if (!hasHotel && !isHotelSelectorRoute && !isSuperAdminRoute) {
         // Clear persisted route so next load goes to hotel selector
-        OfflineStorageService.prefs?.setString(_lastRouteKey, AppRoutes.hotelSelector);
+        OfflineStorageService.prefs?.setString(
+          _lastRouteKey,
+          AppRoutes.hotelSelector,
+        );
         return AppRoutes.hotelSelector;
       }
       if (isHotelSelectorRoute && hasHotel) {
         return null; // Allow revisiting selector even with hotel selected
       }
 
-      // ── Staff role-based permission check ──
+      // â”€â”€ Staff role-based permission check â”€â”€
       // If a staff member is logged in, restrict screen access by role
       final loggedInStaff = ref.read(loggedInStaffProvider);
       if (loggedInStaff != null) {
         final isStaffLoginRoute = currentPath == AppRoutes.staffLogin;
-        final isAttendanceRoute =
-            currentPath == AppRoutes.attendance ||
-            currentPath == AppRoutes.myAttendance;
-        if (!isStaffLoginRoute && !isAttendanceRoute) {
+        final isMyAttendanceRoute = currentPath == AppRoutes.myAttendance;
+        if (!isStaffLoginRoute && !isMyAttendanceRoute) {
           if (!StaffPermissions.canAccess(loggedInStaff, currentPath)) {
             return StaffPermissions.homeRoute(loggedInStaff);
           }
         }
       }
 
-      // ── Member permission check (multi-user store access) ──
+      // â”€â”€ Member permission check (multi-user store access) â”€â”€
       // If no staff is logged in, check member-level permissions
       if (loggedInStaff == null) {
         final memberAsync = ref.read(currentMemberProvider);
         final member = memberAsync.valueOrNull;
-        // Only enforce if member doc exists and user is NOT the owner
-        if (member != null && !member.isOwner) {
-          if (!MemberPermissionGuard.canAccess(member, currentPath)) {
-            return MemberPermissionGuard.homeRoute(member);
+        final hotelId = ref.read(currentHotelIdProvider);
+        final isOwner =
+            hotelId != null && hotelId == authState.firebaseUser?.uid;
+
+        if (!isOwner) {
+          // Non-owner: enforce member permissions
+          if (member != null) {
+            if (!MemberPermissionGuard.canAccess(member, currentPath)) {
+              return MemberPermissionGuard.homeRoute(member);
+            }
+          } else if (!memberAsync.isLoading) {
+            // Member doc not found and not loading — block access
+            return AppRoutes.hotelSelector;
           }
         }
       }
 
-      // ── Persist current route for restoration after web refresh ──
+      // â”€â”€ Persist current route for restoration after web refresh â”€â”€
       // Save all app routes (but not auth/login pages)
       if (isLoggedIn && !isAuthRoute) {
         _persistRoute(fullUri);
@@ -415,7 +508,7 @@ final routerProvider = Provider<GoRouter>((ref) {
     },
 
     routes: [
-      // Loading route — shown while Firebase Auth initializes
+      // Loading route â€” shown while Firebase Auth initializes
       // Uses _LoadingGuard to actively watch auth state and force GoRouter
       // to re-evaluate redirect when auth resolves (workaround for
       // refreshListenable not always firing on web).
@@ -437,7 +530,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: AppRoutes.forgotPassword,
         builder: (context, state) => const ForgotPasswordScreen(),
       ),
-      // Desktop login bridge — used by Windows app for Google Sign-In
+      // Desktop login bridge â€” used by Windows app for Google Sign-In
       GoRoute(
         path: '/desktop-login',
         builder: (context, state) {
@@ -498,8 +591,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             builder: (context, state) {
               final tableId = state.uri.queryParameters['tableId'];
               final tableName = state.uri.queryParameters['tableName'];
-              return NewOrderScreen(
-                  tableId: tableId, tableName: tableName);
+              return NewOrderScreen(tableId: tableId, tableName: tableName);
             },
           ),
           GoRoute(
@@ -523,7 +615,7 @@ final routerProvider = Provider<GoRouter>((ref) {
                 const NoTransitionPage(child: MyAttendanceScreen()),
           ),
 
-          // ── Store Members ──
+          // â”€â”€ Store Members â”€â”€
           GoRoute(
             path: AppRoutes.members,
             pageBuilder: (context, state) =>
@@ -546,7 +638,7 @@ final routerProvider = Provider<GoRouter>((ref) {
                 const NoTransitionPage(child: PermissionsOverviewScreen()),
           ),
 
-          // ── Inventory ──
+          // â”€â”€ Inventory â”€â”€
           GoRoute(
             path: AppRoutes.ingredients,
             pageBuilder: (context, state) =>
@@ -573,7 +665,7 @@ final routerProvider = Provider<GoRouter>((ref) {
                 const NoTransitionPage(child: WastageScreen()),
           ),
 
-          // ── Hospitality ──
+          // â”€â”€ Hospitality â”€â”€
           GoRoute(
             path: AppRoutes.reservations,
             pageBuilder: (context, state) =>
@@ -600,7 +692,7 @@ final routerProvider = Provider<GoRouter>((ref) {
                 const NoTransitionPage(child: FeedbackDashboardScreen()),
           ),
 
-          // ── Reports ──
+          // â”€â”€ Reports â”€â”€
           GoRoute(
             path: AppRoutes.advancedReports,
             pageBuilder: (context, state) =>
@@ -647,7 +739,7 @@ final routerProvider = Provider<GoRouter>((ref) {
                 const NoTransitionPage(child: FeedbackReportScreen()),
           ),
 
-          // ── Compliance ──
+          // â”€â”€ Compliance â”€â”€
           GoRoute(
             path: AppRoutes.licenses,
             pageBuilder: (context, state) =>
@@ -776,7 +868,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         },
       ),
 
-      // Settings — full-width (outside shell, has its own side nav)
+      // Settings â€” full-width (outside shell, has its own side nav)
       GoRoute(
         path: AppRoutes.settingsTab,
         pageBuilder: (context, state) {
@@ -882,6 +974,11 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: AppRoutes.superAdminSupport,
             pageBuilder: (context, state) =>
                 const NoTransitionPage(child: SupportAdminScreen()),
+          ),
+          GoRoute(
+            path: AppRoutes.superAdminNps,
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: NpsScreen()),
           ),
         ],
       ),

@@ -88,16 +88,22 @@ class AdminShellScreen extends ConsumerWidget {
               ),
             ),
             const SizedBox(height: 8),
-            ..._navItems.map(
-              (item) => _buildNavItem(
-                context,
-                item['icon'] as IconData,
-                item['label'] as String,
-                item['route'] as String,
-                currentPath == item['route'],
+            Expanded(
+              child: ListView(
+                padding: EdgeInsets.zero,
+                children: _navItems
+                    .map(
+                      (item) => _buildNavItem(
+                        context,
+                        item['icon'] as IconData,
+                        item['label'] as String,
+                        item['route'] as String,
+                        currentPath == item['route'],
+                      ),
+                    )
+                    .toList(),
               ),
             ),
-            const Spacer(),
             // Back to store
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
@@ -313,6 +319,11 @@ class AdminShellScreen extends ConsumerWidget {
       'icon': Icons.support_agent,
       'label': 'Support',
       'route': '/super-admin/support',
+    },
+    {
+      'icon': Icons.thumb_up_alt_outlined,
+      'label': 'NPS Survey',
+      'route': '/super-admin/nps',
     },
   ];
 }

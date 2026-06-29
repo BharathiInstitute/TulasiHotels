@@ -2,10 +2,9 @@
 library;
 
 import 'package:flutter/material.dart';
-import 'package:tulasihotels/core/constants/app_constants.dart';
-import 'package:tulasihotels/core/design/design_system.dart';
 
-/// Splash screen shown during app initialization
+/// Minimal splash: logo centered + linear progress indicator at bottom.
+/// Replaces the full-screen gradient splash.
 class SplashScreen extends StatelessWidget {
   final String? message;
   final bool showError;
@@ -25,119 +24,55 @@ class SplashScreen extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       home: Scaffold(
-        body: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [AppColors.primary, AppColors.primaryDark],
-            ),
-          ),
-          child: Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                // App Icon
-                Container(
-                  width: 80,
-                  height: 80,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: const Icon(
-                    Icons.point_of_sale,
-                    size: 44,
-                    color: Colors.white,
-                  ),
-                ),
-                const SizedBox(height: 24),
-
-                // App Name
-                const Text(
-                  AppConstants.appName,
-                  style: TextStyle(
-                    fontSize: 36,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                    letterSpacing: 2,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                // Tagline
-                Text(
-                  'भारत का सबसे आसान बिलिंग ऐप',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.white.withValues(alpha: 0.85),
-                    fontWeight: FontWeight.w300,
-                  ),
-                ),
-                const SizedBox(height: 48),
-
-                // Show error or loading
-                if (showError) ...[
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: const Icon(
-                      Icons.error_outline,
-                      color: Colors.white,
-                      size: 40,
+        backgroundColor: Colors.white,
+        body: Stack(
+          children: [
+            // Logo centered
+            Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Image.asset(
+                    'assets/images/splash_logo.png',
+                    width: 120,
+                    height: 120,
+                    errorBuilder: (_, e, stack) => const Icon(
+                      Icons.storefront_outlined,
+                      size: 80,
+                      color: Color(0xFF2E7D32),
                     ),
                   ),
-                  const SizedBox(height: 16),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 32),
-                    child: Text(
-                      errorMessage ?? 'Failed to load app',
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(color: Colors.white, fontSize: 14),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  if (onRetry != null)
-                    ElevatedButton.icon(
-                      onPressed: onRetry,
-                      icon: const Icon(Icons.refresh),
-                      label: const Text('Retry'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.white,
-                        foregroundColor: AppColors.primaryDark,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 24,
-                          vertical: 12,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
+                  if (showError) ...[
+                    const SizedBox(height: 32),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 32),
+                      child: Text(
+                        errorMessage ?? 'Failed to load app',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(color: Colors.red, fontSize: 14),
                       ),
                     ),
-                ] else ...[
-                  // Loading spinner
-                  const SizedBox(
-                    width: 36,
-                    height: 36,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 3,
-                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    message ?? 'Loading...',
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.7),
-                      fontSize: 14,
-                    ),
-                  ),
+                    const SizedBox(height: 16),
+                    if (onRetry != null)
+                      TextButton.icon(
+                        onPressed: onRetry,
+                        icon: const Icon(Icons.refresh),
+                        label: const Text('Retry'),
+                      ),
+                  ],
                 ],
-              ],
+              ),
             ),
-          ),
+
+            // Loading indicator at bottom
+            if (!showError)
+              const Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: LinearProgressIndicator(minHeight: 3),
+              ),
+          ],
         ),
       ),
     );

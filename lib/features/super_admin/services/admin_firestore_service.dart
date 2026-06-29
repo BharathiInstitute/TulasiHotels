@@ -29,7 +29,12 @@ class AdminFirestoreService {
           .collection('admins')
           .doc(primaryOwnerEmail)
           .get();
-      if (doc.exists) return;
+      if (doc.exists) {
+        // Primary owner doc exists — also sync any dynamically-added admins
+        // from app_config/super_admins that may be missing from /admins collection
+        await _syncDynamicAdmins();
+        return;
+      }
     } catch (_) {
       // May fail if not primary owner and collection doesn't exist yet
     }
@@ -55,8 +60,53 @@ class AdminFirestoreService {
       }
       await batch.commit();
       debugPrint('✅ AdminFirestore: Seeded ${emails.length} admins');
+      // Sync dynamic admins too
+      await _syncDynamicAdmins();
     } catch (e) {
       debugPrint('⚠️ AdminFirestore: Seed failed: $e');
+    }
+  }
+
+  /// Sync any emails in app_config/super_admins that are missing a
+  /// corresponding /admins/{email} document (Firestore rules check this).
+  static Future<void> _syncDynamicAdmins() async {
+    try {
+      final configDoc = await _firestore
+          .collection(_adminConfigPath)
+          .doc(_superAdminsDoc)
+          .get();
+      if (!configDoc.exists) return;
+
+      final emails =
+          (configDoc.data()?['emails'] as List<dynamic>?)
+              ?.map((e) => e.toString().toLowerCase().trim())
+              .where((e) => e.isNotEmpty)
+              .toList() ??
+          [];
+
+      if (emails.isEmpty) return;
+
+      // Fetch existing /admins docs to avoid redundant writes
+      final existingSnap = await _firestore.collection('admins').get();
+      final existingIds = existingSnap.docs.map((d) => d.id).toSet();
+
+      final missing = emails.where((e) => !existingIds.contains(e)).toList();
+      if (missing.isEmpty) return;
+
+      debugPrint(
+        '🔑 AdminFirestore: Syncing ${missing.length} missing admin docs...',
+      );
+      final batch = _firestore.batch();
+      for (final email in missing) {
+        batch.set(_firestore.collection('admins').doc(email), {
+          'email': email,
+          'addedAt': FieldValue.serverTimestamp(),
+        });
+      }
+      await batch.commit();
+      debugPrint('✅ AdminFirestore: Synced ${missing.length} dynamic admins');
+    } catch (e) {
+      debugPrint('⚠️ AdminFirestore: Dynamic admin sync failed: $e');
     }
   }
 
@@ -588,11 +638,25 @@ class AdminFirestoreService {
 
       currentEmails.add(normalizedEmail);
 
-      await _firestore.collection(_adminConfigPath).doc(_superAdminsDoc).set({
-        'emails': currentEmails,
-        'primaryOwner': primaryOwnerEmail,
-        'updatedAt': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
+      // Write to BOTH stores atomically:
+      // 1. app_config/super_admins.emails — app-level list (read by adminEmailsProvider)
+      // 2. /admins/{email} — Firestore rules check this for isAdmin() access
+      final batch = _firestore.batch();
+      batch.set(
+        _firestore.collection(_adminConfigPath).doc(_superAdminsDoc),
+        {
+          'emails': currentEmails,
+          'primaryOwner': primaryOwnerEmail,
+          'updatedAt': FieldValue.serverTimestamp(),
+        },
+        SetOptions(merge: true),
+      );
+      batch.set(_firestore.collection('admins').doc(normalizedEmail), {
+        'email': normalizedEmail,
+        'addedAt': FieldValue.serverTimestamp(),
+        'addedBy': primaryOwnerEmail,
+      });
+      await batch.commit();
 
       return true;
     } catch (e) {
@@ -618,11 +682,19 @@ class AdminFirestoreService {
 
       currentEmails.remove(normalizedEmail);
 
-      await _firestore.collection(_adminConfigPath).doc(_superAdminsDoc).set({
-        'emails': currentEmails,
-        'primaryOwner': primaryOwnerEmail,
-        'updatedAt': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
+      // Remove from BOTH stores atomically
+      final batch = _firestore.batch();
+      batch.set(
+        _firestore.collection(_adminConfigPath).doc(_superAdminsDoc),
+        {
+          'emails': currentEmails,
+          'primaryOwner': primaryOwnerEmail,
+          'updatedAt': FieldValue.serverTimestamp(),
+        },
+        SetOptions(merge: true),
+      );
+      batch.delete(_firestore.collection('admins').doc(normalizedEmail));
+      await batch.commit();
 
       return true;
     } catch (e) {
@@ -786,5 +858,41 @@ class AdminFirestoreService {
         'unreadAdmin': 0,
       });
     } catch (_) {}
+  }
+
+  // =====================
+  // NPS SURVEY
+  // =====================
+
+  /// Fetch all NPS survey responses across all users using a collection group query.
+  /// Returns list of maps with: userId, score, completedAt.
+  static Future<List<Map<String, dynamic>>> getNpsResults() async {
+    try {
+      final snapshot = await _firestore
+          .collectionGroup('surveys')
+          .where('score', isGreaterThanOrEqualTo: 0)
+          .orderBy('score')
+          .get();
+
+      final results = <Map<String, dynamic>>[];
+      for (final doc in snapshot.docs) {
+        final data = doc.data();
+        // doc.reference.parent.parent is the user doc
+        final userId = doc.reference.parent.parent?.id ?? '';
+        final score = (data['score'] as num?)?.toInt();
+        final completedAt = (data['lastCompletedAt'] as Timestamp?)?.toDate();
+        if (score != null) {
+          results.add({
+            'userId': userId,
+            'score': score,
+            'completedAt': completedAt,
+          });
+        }
+      }
+      return results;
+    } catch (e) {
+      debugPrint('❌ AdminFirestore: Failed to get NPS results: $e');
+      return [];
+    }
   }
 }

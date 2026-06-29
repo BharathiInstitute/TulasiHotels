@@ -1,21 +1,16 @@
-/// Staff management service — Firestore CRUD for staff members
+﻿/// Staff management service â€” Firestore CRUD for staff members
 library;
 
+import 'package:tulasihotels/core/services/active_store_manager.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:tulasihotels/core/utils/id_generator.dart';
 import 'package:tulasihotels/models/staff_model.dart';
 
 class StaffService {
   static final _firestore = FirebaseFirestore.instance;
-  static final _auth = FirebaseAuth.instance;
 
-  static String get _basePath {
-    final uid = _auth.currentUser?.uid;
-    if (uid == null) return '';
-    return 'users/$uid';
-  }
+  static String get _basePath => ActiveStoreManager.basePath;
 
   static CollectionReference<Map<String, dynamic>> get _staffRef =>
       _firestore.collection('$_basePath/staff');
@@ -108,7 +103,7 @@ class StaffService {
     });
   }
 
-  /// Verify staff PIN — returns the matching staff member or null
+  /// Verify staff PIN â€” returns the matching staff member or null
   static Future<StaffModel?> verifyPin(String pin) async {
     final snapshot = await _staffRef
         .where('pin', isEqualTo: pin)
@@ -119,7 +114,7 @@ class StaffService {
     return StaffModel.fromFirestore(snapshot.docs.first);
   }
 
-  /// Verify staff email + PIN — returns the matching staff or null
+  /// Verify staff email + PIN â€” returns the matching staff or null
   static Future<StaffModel?> verifyEmailAndPin(
     String email,
     String pin,

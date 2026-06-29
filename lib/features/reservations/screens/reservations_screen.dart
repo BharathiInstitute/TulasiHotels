@@ -8,88 +8,95 @@ import 'package:tulasihotels/features/reservations/providers/reservation_provide
 import 'package:tulasihotels/features/reservations/services/reservation_service.dart';
 import 'package:tulasihotels/models/reservation_model.dart';
 
-class ReservationsScreen extends ConsumerWidget {
+class ReservationsScreen extends ConsumerStatefulWidget {
   const ReservationsScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ReservationsScreen> createState() => _ReservationsScreenState();
+}
+
+class _ReservationsScreenState extends ConsumerState<ReservationsScreen>
+    with SingleTickerProviderStateMixin {
+  late final TabController _tabController;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 2, vsync: this);
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final todayAsync = ref.watch(todayReservationsProvider);
+    final upcomingAsync = ref.watch(upcomingReservationsProvider);
     final theme = Theme.of(context);
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Reservations'),
+        bottom: TabBar(
+          controller: _tabController,
+          tabs: const [
+            Tab(text: 'Today'),
+            Tab(text: 'Upcoming'),
+          ],
+        ),
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _showReservationForm(context),
         icon: const Icon(Icons.add),
         label: const Text('New Reservation'),
       ),
-      body: todayAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('Error: $e')),
-        data: (reservations) {
-          if (reservations.isEmpty) {
-            return const Center(
-              child: Text('No reservations for today'),
-            );
-          }
-          return ListView.builder(
-            padding: const EdgeInsets.all(8),
-            itemCount: reservations.length,
-            itemBuilder: (context, index) {
-              final res = reservations[index];
-              return Card(
-                child: ListTile(
-                  leading: CircleAvatar(
-                    backgroundColor: _statusColor(res.status, theme),
-                    child: Text(res.status.emoji),
+      body: TabBarView(
+        controller: _tabController,
+        children: [
+          // ── Today tab ──────────────────────────────────────────────────
+          todayAsync.when(
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (e, _) => Center(child: Text('Error: $e')),
+            data: (reservations) => reservations.isEmpty
+                ? const Center(child: Text('No reservations for today'))
+                : _ReservationList(
+                    reservations: reservations,
+                    theme: theme,
+                    showDate: false,
+                    onAction: _handleAction,
                   ),
-                  title: Text(res.guestName),
-                  subtitle: Text(
-                    '${res.partySize} guests • ${TimeOfDay.fromDateTime(res.dateTime).format(context)} • ${res.phone}',
-                  ),
-                  trailing: PopupMenuButton<String>(
-                    onSelected: (action) =>
-                        _handleAction(action, res.id),
-                    itemBuilder: (ctx) => [
-                      if (res.status == ReservationStatus.pending)
-                        const PopupMenuItem(
-                          value: 'confirm',
-                          child: Text('Confirm'),
-                        ),
-                      if (res.status == ReservationStatus.confirmed)
-                        const PopupMenuItem(
-                          value: 'seat',
-                          child: Text('Seat Guests'),
-                        ),
-                      const PopupMenuItem(
-                        value: 'cancel',
-                        child: Text('Cancel'),
-                      ),
-                      const PopupMenuItem(
-                        value: 'noshow',
-                        child: Text('No-Show'),
-                      ),
-                    ],
-                  ),
-                ),
-              );
+          ),
+          // ── Upcoming tab (tomorrow onward, next 7 days) ────────────────
+          upcomingAsync.when(
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (e, _) => Center(child: Text('Error: $e')),
+            data: (all) {
+              // Exclude today — show only tomorrow+
+              final today = DateTime.now();
+              final endOfToday = DateTime(
+                today.year,
+                today.month,
+                today.day,
+              ).add(const Duration(days: 1));
+              final upcoming = all
+                  .where((r) => r.dateTime.isAfter(endOfToday))
+                  .toList();
+              return upcoming.isEmpty
+                  ? const Center(child: Text('No upcoming reservations'))
+                  : _ReservationList(
+                      reservations: upcoming,
+                      theme: theme,
+                      showDate: true,
+                      onAction: _handleAction,
+                    );
             },
-          );
-        },
+          ),
+        ],
       ),
     );
-  }
-
-  Color _statusColor(ReservationStatus status, ThemeData theme) {
-    return switch (status) {
-      ReservationStatus.pending => theme.colorScheme.tertiaryContainer,
-      ReservationStatus.confirmed => theme.colorScheme.primaryContainer,
-      ReservationStatus.seated => theme.colorScheme.secondaryContainer,
-      ReservationStatus.cancelled => theme.colorScheme.errorContainer,
-      ReservationStatus.noShow => theme.colorScheme.surfaceContainerHighest,
-    };
   }
 
   void _handleAction(String action, String reservationId) {
@@ -98,7 +105,7 @@ class ReservationsScreen extends ConsumerWidget {
         ReservationService.confirmReservation(reservationId);
         break;
       case 'cancel':
-        ReservationService.cancelReservation(reservationId);
+        ReservationService.deleteReservation(reservationId);
         break;
       case 'noshow':
         ReservationService.markNoShow(reservationId);
@@ -130,8 +137,10 @@ class ReservationsScreen extends ConsumerWidget {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Text('New Reservation',
-                      style: Theme.of(context).textTheme.headlineSmall),
+                  Text(
+                    'New Reservation',
+                    style: Theme.of(context).textTheme.headlineSmall,
+                  ),
                   const SizedBox(height: 16),
                   TextField(
                     controller: nameCtrl,
@@ -167,8 +176,9 @@ class ReservationsScreen extends ConsumerWidget {
                             final date = await showDatePicker(
                               context: context,
                               firstDate: DateTime.now(),
-                              lastDate: DateTime.now()
-                                  .add(const Duration(days: 90)),
+                              lastDate: DateTime.now().add(
+                                const Duration(days: 90),
+                              ),
                             );
                             if (date != null) {
                               setModalState(() => selectedDate = date);
@@ -215,8 +225,7 @@ class ReservationsScreen extends ConsumerWidget {
                         id: generateSafeId('res'),
                         guestName: nameCtrl.text.trim(),
                         phone: phoneCtrl.text.trim(),
-                        partySize:
-                            int.tryParse(partySizeCtrl.text) ?? 2,
+                        partySize: int.tryParse(partySizeCtrl.text) ?? 2,
                         dateTime: dateTime,
                         createdAt: DateTime.now(),
                       );
@@ -230,6 +239,71 @@ class ReservationsScreen extends ConsumerWidget {
               ),
             );
           },
+        );
+      },
+    );
+  }
+}
+
+// ── Shared reservation list widget ──────────────────────────────────────────
+
+class _ReservationList extends StatelessWidget {
+  const _ReservationList({
+    required this.reservations,
+    required this.theme,
+    required this.showDate,
+    required this.onAction,
+  });
+
+  final List<ReservationModel> reservations;
+  final ThemeData theme;
+  final bool showDate;
+  final void Function(String action, String reservationId) onAction;
+
+  Color _statusColor(ReservationStatus status) {
+    return switch (status) {
+      ReservationStatus.pending => theme.colorScheme.tertiaryContainer,
+      ReservationStatus.confirmed => theme.colorScheme.primaryContainer,
+      ReservationStatus.seated => theme.colorScheme.secondaryContainer,
+      ReservationStatus.cancelled => theme.colorScheme.errorContainer,
+      ReservationStatus.noShow => theme.colorScheme.surfaceContainerHighest,
+    };
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView.builder(
+      padding: const EdgeInsets.all(8),
+      itemCount: reservations.length,
+      itemBuilder: (context, index) {
+        final res = reservations[index];
+        final timeStr = TimeOfDay.fromDateTime(res.dateTime).format(context);
+        final dateStr = showDate
+            ? '${res.dateTime.day}/${res.dateTime.month}/${res.dateTime.year} • $timeStr'
+            : timeStr;
+        return Card(
+          child: ListTile(
+            leading: CircleAvatar(
+              backgroundColor: _statusColor(res.status),
+              child: Text(res.status.emoji),
+            ),
+            title: Text(res.guestName),
+            subtitle: Text('${res.partySize} guests • $dateStr • ${res.phone}'),
+            trailing: PopupMenuButton<String>(
+              onSelected: (action) => onAction(action, res.id),
+              itemBuilder: (ctx) => [
+                if (res.status == ReservationStatus.pending)
+                  const PopupMenuItem(value: 'confirm', child: Text('Confirm')),
+                if (res.status == ReservationStatus.confirmed)
+                  const PopupMenuItem(
+                    value: 'seat',
+                    child: Text('Seat Guests'),
+                  ),
+                const PopupMenuItem(value: 'cancel', child: Text('Delete')),
+                const PopupMenuItem(value: 'noshow', child: Text('No-Show')),
+              ],
+            ),
+          ),
         );
       },
     );

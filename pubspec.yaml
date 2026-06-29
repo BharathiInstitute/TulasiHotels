@@ -98,6 +98,10 @@ dependencies:
   # Permissions (Bluetooth, etc.)
   permission_handler: ^11.4.0
 
+  # Geolocation (staff attendance geo-tagging)
+  geolocator: ^13.0.2
+  geocoding: ^3.0.0
+
   # Web APIs (Web Bluetooth, Web Serial)
   web: ^1.1.1
 

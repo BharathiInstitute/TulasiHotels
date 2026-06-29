@@ -25,10 +25,13 @@ class HotelService {
 
   /// Stream all hotels the current user has access to
   static Stream<List<HotelInfo>> hotelsStream() {
-    return _hotelsRef.orderBy('createdAt').snapshots().map(
-      (snapshot) =>
-          snapshot.docs.map((doc) => HotelInfo.fromFirestore(doc)).toList(),
-    );
+    return _hotelsRef
+        .orderBy('createdAt')
+        .snapshots()
+        .map(
+          (snapshot) =>
+              snapshot.docs.map((doc) => HotelInfo.fromFirestore(doc)).toList(),
+        );
   }
 
   /// Get all hotels (one-shot)
@@ -98,6 +101,15 @@ class HotelService {
       'currency': 'INR',
       'timezone': 'Asia/Kolkata',
       'settings': {'darkMode': false},
+      'isShopSetupComplete': true,
+      'limits': {
+        'productsCount': 0,
+        'productsLimit': 100,
+        'billsThisMonth': 0,
+        'billsLimit': 50,
+        'customersCount': 0,
+        'customersLimit': 10,
+      },
       'createdAt': FieldValue.serverTimestamp(),
     });
 
@@ -109,6 +121,9 @@ class HotelService {
       'status': 'active',
       'joinedAt': FieldValue.serverTimestamp(),
     });
+
+    // Initialize billing counter for the new store
+    await _firestore.doc('users/$storeId/counters/billing').set({'current': 0});
 
     // Add to user's hotel list
     final hotelSlug = slug ?? _generateSlug(name);
@@ -138,6 +153,32 @@ class HotelService {
     await _hotelsRef.doc(hotelId).update({'status': HotelStatus.archived.name});
   }
 
+  /// Remove user_hotels entries where the user has no valid member doc.
+  /// Runs on login to clean up stale entries from old invite bugs.
+  static Future<void> pruneInvalidHotels() async {
+    final userId = _userId;
+    if (userId == null) return;
+    try {
+      final hotels = await _hotelsRef.get();
+      for (final hotelDoc in hotels.docs) {
+        final hotelId = hotelDoc.id;
+        // Keep hotels the user owns
+        if (hotelId == userId) continue;
+        // Check if a valid member doc exists for this user in this store
+        final memberDoc = await _firestore
+            .collection('users/$hotelId/members')
+            .doc(userId)
+            .get();
+        if (!memberDoc.exists) {
+          await _hotelsRef.doc(hotelId).delete();
+          debugPrint('Pruned invalid hotel entry: $hotelId');
+        }
+      }
+    } catch (e) {
+      debugPrint('⚠️ pruneInvalidHotels error: $e');
+    }
+  }
+
   // ---------------------------------------------------------------------------
   // Helpers
   // ---------------------------------------------------------------------------
@@ -159,23 +200,34 @@ class HotelService {
       for (final doc in invites.docs) {
         final data = doc.data();
         final ownerId = data['ownerId'] as String;
+        // storeId is the specific hotel the member was invited to.
+        // Falls back to ownerId for old invites created before this field existed.
+        final storeId = (data['storeId'] as String?)?.isNotEmpty == true
+            ? data['storeId'] as String
+            : ownerId;
         final shopName = data['shopName'] as String? ?? 'Hotel';
         final role = data['role'] as String? ?? 'staff';
 
+        // Write user_hotels entry pointing to the correct store (hotel)
         await _firestore
             .collection('user_hotels/${user.uid}/hotels')
-            .doc(ownerId)
+            .doc(storeId) // ← use storeId
             .set({
-          'id': ownerId,
-          'name': shopName,
-          'slug': shopName.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '-'),
-          'role': role,
-          'status': 'active',
-          'createdAt': FieldValue.serverTimestamp(),
-        });
+              'id': storeId, // ← use storeId
+              'name': shopName,
+              'slug': shopName.toLowerCase().replaceAll(
+                RegExp(r'[^a-z0-9]'),
+                '-',
+              ),
+              'role': role,
+              'status': 'active',
+              'createdAt': FieldValue.serverTimestamp(),
+            });
 
-        // Replace placeholder member doc with real UID
-        final membersRef = _firestore.collection('users/$ownerId/members');
+        // Replace placeholder member doc with real UID in the correct store
+        final membersRef = _firestore.collection(
+          'users/$storeId/members',
+        ); // ← use storeId
         final placeholders = await membersRef
             .where('email', isEqualTo: user.email)
             .get();
@@ -198,9 +250,11 @@ class HotelService {
       debugPrint('⚠️ resolvePendingInvites step 1 error: $e');
     }
 
-    // ── 2. Collection-group scan: find member docs for this user by email ──
-    // This catches members added before the pending_invites system, or cases
-    // where user_hotels entry was never written.
+    // ── 2. Collection-group scan: fix placeholder UID docs only ──
+    // Only processes docs with placeholder IDs (invite_/existing_) that were
+    // created before the user had a real UID. Does NOT auto-link hotels for
+    // docs that already have the real UID — those should have a user_hotels
+    // entry written at invite time already.
     try {
       final memberDocs = await _firestore
           .collectionGroup('members')
@@ -208,57 +262,57 @@ class HotelService {
           .get();
 
       for (final snap in memberDocs.docs) {
-        // The owner ID is the parent of the 'members' subcollection:
-        // path = users/{ownerId}/members/{uid}
         final pathParts = snap.reference.path.split('/');
         if (pathParts.length < 4) continue;
-        final ownerId = pathParts[1]; // users/{ownerId}/members/{docId}
+        final storeId = pathParts[1]; // users/{storeId}/members/{docId}
 
-        // Skip if this is the user's own store
-        if (ownerId == user.uid) continue;
+        // Skip the user's own store
+        if (storeId == user.uid) continue;
 
-        // Check if user_hotels entry already exists
+        // Only process placeholder docs — real UID docs are already resolved
+        final isPlaceholder =
+            snap.id.startsWith('existing_') || snap.id.startsWith('invite_');
+        if (!isPlaceholder) continue;
+
+        // Migrate placeholder to real UID
+        final memberData = Map<String, dynamic>.from(snap.data());
+        memberData['uid'] = user.uid;
+        memberData['status'] = 'active';
+        await _firestore
+            .collection('users/$storeId/members')
+            .doc(user.uid)
+            .set(memberData);
+        await snap.reference.delete();
+
+        // Write user_hotels entry if not already present
         final existing = await _firestore
             .collection('user_hotels/${user.uid}/hotels')
-            .doc(ownerId)
+            .doc(storeId)
             .get();
-        if (existing.exists) continue;
-
-        // Fetch store name
-        final ownerDoc =
-            await _firestore.collection('users').doc(ownerId).get();
-        final shopName =
-            (ownerDoc.data()?['shopName'] as String?) ?? 'Hotel';
-        final role = snap.data()['role'] as String? ?? 'staff';
-
-        await _firestore
-            .collection('user_hotels/${user.uid}/hotels')
-            .doc(ownerId)
-            .set({
-          'id': ownerId,
-          'name': shopName,
-          'slug': shopName.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '-'),
-          'role': role,
-          'status': 'active',
-          'createdAt': FieldValue.serverTimestamp(),
-        });
-
-        // Fix placeholder UID if needed
-        if (snap.id != user.uid) {
-          final memberData = Map<String, dynamic>.from(snap.data());
-          memberData['uid'] = user.uid;
-          memberData['status'] = 'active';
+        if (!existing.exists) {
+          final storeDoc = await _firestore
+              .collection('users')
+              .doc(storeId)
+              .get();
+          final shopName = (storeDoc.data()?['shopName'] as String?) ?? 'Hotel';
+          final role = memberData['role'] as String? ?? 'staff';
           await _firestore
-              .collection('users/$ownerId/members')
-              .doc(user.uid)
-              .set(memberData);
-          if (snap.id.startsWith('existing_') ||
-              snap.id.startsWith('invite_')) {
-            await snap.reference.delete();
-          }
+              .collection('user_hotels/${user.uid}/hotels')
+              .doc(storeId)
+              .set({
+                'id': storeId,
+                'name': shopName,
+                'slug': shopName.toLowerCase().replaceAll(
+                  RegExp(r'[^a-z0-9]'),
+                  '-',
+                ),
+                'role': role,
+                'status': 'active',
+                'createdAt': FieldValue.serverTimestamp(),
+              });
         }
 
-        debugPrint('Auto-linked hotel: $shopName (ownerId=$ownerId)');
+        debugPrint('Resolved placeholder member → $storeId');
       }
     } catch (e) {
       debugPrint('⚠️ resolvePendingInvites step 2 error: $e');

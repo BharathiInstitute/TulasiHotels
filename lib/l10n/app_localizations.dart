@@ -295,7 +295,7 @@ extension LocalizationsExtension on BuildContext {
 
 // ============ ENGLISH STRINGS ============
 const Map<String, String> _englishStrings = {
-  'appName': 'Tulasi Hotels',
+  'appName': 'Tulasi Restaurants',
   'appTagline': "India's Easiest Billing App",
   'billing': 'Billing',
   'khata': 'Khata',
@@ -396,8 +396,8 @@ const Map<String, String> _englishStrings = {
   'noSalesData': 'No sales data available',
   'unitsSold': '{count} units sold',
   'recentBills': 'Recent Bills',
-  'shopDetails': 'Hotel Details',
-  'shopName': 'Hotel Name',
+  'shopDetails': 'Restaurant Details',
+  'shopName': 'Restaurant Name',
   'ownerName': 'Owner Name',
   'gstNumber': 'GST Number',
   'subscription': 'Subscription',
@@ -432,12 +432,12 @@ const Map<String, String> _englishStrings = {
   'password': 'Password',
   'forgotPassword': 'Forgot Password?',
   'welcomeBack': 'Welcome Back!',
-  'loginToContinue': 'Login to continue to your hotel',
+  'loginToContinue': 'Login to continue to your restaurant',
   'dontHaveAccount': "Don't have an account?",
   'alreadyHaveAccount': 'Already have an account?',
   'createAccount': 'Create Account',
-  'setupShop': 'Setup Your Hotel',
-  'enterShopDetails': 'Enter your hotel details to get started',
+  'setupShop': 'Setup Your Restaurant',
+  'enterShopDetails': 'Enter your restaurant details to get started',
   'getStarted': 'Get Started',
   'resetPassword': 'Reset Password',
   'sendResetLink': 'Send Reset Link',
@@ -450,13 +450,13 @@ const Map<String, String> _englishStrings = {
   'paperSize': 'Paper Size',
   'fontSize': 'Font Size',
   'printerSettings': 'Printer Settings',
-  'editShopDetails': 'Edit Hotel Details',
+  'editShopDetails': 'Edit Restaurant Details',
   'connected': 'Connected',
   'notConnected': 'Not connected',
   'logout': 'Logout',
   'on': 'On',
   'off': 'Off',
-  'shopInformation': 'Hotel Information',
+  'shopInformation': 'Restaurant Information',
   'appSettings': 'App Settings',
   'sync': 'Sync',
   'pendingChanges': 'pending changes',
@@ -501,7 +501,7 @@ const Map<String, String> _englishStrings = {
 
 // ============ HINDI STRINGS ============
 const Map<String, String> _hindiStrings = {
-  'appName': 'Tulasi Hotels',
+  'appName': 'Tulasi Restaurants',
   'appTagline': 'भारत का सबसे आसान बिलिंग ऐप',
   'billing': 'बिलिंग',
   'khata': 'खाता',
@@ -707,7 +707,7 @@ const Map<String, String> _hindiStrings = {
 
 // ============ TELUGU STRINGS ============
 const Map<String, String> _teluguStrings = {
-  'appName': 'Tulasi Hotels',
+  'appName': 'Tulasi Restaurants',
   'appTagline': 'భారతదేశం యొక్క సులభమైన బిల్లింగ్ యాప్',
   'billing': 'బిల్లింగ్',
   'khata': 'ఖాతా',

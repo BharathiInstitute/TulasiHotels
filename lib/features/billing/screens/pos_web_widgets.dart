@@ -46,12 +46,12 @@ class _WebProductCard extends StatelessWidget {
                       children: [
                         if (product.imageUrl == null)
                           Center(
-                            child: Icon(
-                              Icons.image,
-                              size: 40,
-                              color: Theme.of(
-                                context,
-                              ).colorScheme.onSurfaceVariant,
+                            child: Padding(
+                              padding: const EdgeInsets.all(4),
+                              child: Image.asset(
+                                'assets/images/restaurant_logo.png',
+                                fit: BoxFit.contain,
+                              ),
                             ),
                           ),
                         // Stock badge
@@ -247,7 +247,8 @@ class _WebCartSectionState extends ConsumerState<_WebCartSection> {
     setState(() => _isApplyingCoupon = true);
     try {
       final validated = await CouponService.validateCoupon(
-        selected.code, cart.subtotal,
+        selected.code,
+        cart.subtotal,
       );
       if (!mounted) return;
       if (validated == null) {
@@ -255,11 +256,13 @@ class _WebCartSectionState extends ConsumerState<_WebCartSection> {
           const SnackBar(content: Text('Coupon is invalid or expired')),
         );
       } else {
-        ref.read(cartProvider.notifier).applyCoupon(
-          couponId: validated.id,
-          couponCode: validated.code,
-          discount: validated.calculateDiscount(cart.subtotal),
-        );
+        ref
+            .read(cartProvider.notifier)
+            .applyCoupon(
+              couponId: validated.id,
+              couponCode: validated.code,
+              discount: validated.calculateDiscount(cart.subtotal),
+            );
       }
     } finally {
       if (mounted) setState(() => _isApplyingCoupon = false);
@@ -943,7 +946,13 @@ class _WebCartSectionState extends ConsumerState<_WebCartSection> {
                                       : null,
                                 ),
                                 child: imageUrl == null
-                                    ? const Icon(Icons.image, size: 16)
+                                    ? Padding(
+                                        padding: const EdgeInsets.all(2),
+                                        child: Image.asset(
+                                          'assets/images/restaurant_logo.png',
+                                          fit: BoxFit.contain,
+                                        ),
+                                      )
                                     : null,
                               ),
                               const SizedBox(width: 10),
@@ -1074,14 +1083,17 @@ class _WebCartSectionState extends ConsumerState<_WebCartSection> {
                       child: cart.hasCoupon
                           ? _SummaryRow(
                               label: 'Coupon (${cart.couponCode})',
-                              value: '-${Formatters.currency(cart.couponDiscount)}',
+                              value:
+                                  '-${Formatters.currency(cart.couponDiscount)}',
                               isGreen: true,
                             )
                           : Text(
                               'Apply Coupon',
                               style: TextStyle(
                                 fontSize: 12,
-                                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurfaceVariant,
                               ),
                             ),
                     ),
@@ -1101,7 +1113,9 @@ class _WebCartSectionState extends ConsumerState<_WebCartSection> {
                                   ? Colors.red
                                   : Theme.of(context).colorScheme.primary,
                             ),
-                            tooltip: cart.hasCoupon ? 'Remove coupon' : 'Apply coupon',
+                            tooltip: cart.hasCoupon
+                                ? 'Remove coupon'
+                                : 'Apply coupon',
                             onPressed: _showCouponPicker,
                           ),
                   ],
@@ -1391,9 +1405,9 @@ class _CouponPickerSheet extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
             child: Text(
               'Select Coupon',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
             ),
           ),
           const Divider(height: 1),
@@ -1409,8 +1423,13 @@ class _CouponPickerSheet extends StatelessWidget {
                 leading: CircleAvatar(
                   child: Text(c.type == CouponType.percentage ? '%' : '₹'),
                 ),
-                title: Text(c.code, style: const TextStyle(fontWeight: FontWeight.bold)),
-                subtitle: Text('$label • Used ${c.usedCount}/${c.maxUses ?? '∞'}'),
+                title: Text(
+                  c.code,
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                subtitle: Text(
+                  '$label • Used ${c.usedCount}/${c.maxUses ?? '∞'}',
+                ),
                 onTap: () => Navigator.pop(context, c),
               );
             },
@@ -1501,12 +1520,12 @@ class _MobileProductCard extends StatelessWidget {
                     children: [
                       if (product.imageUrl == null)
                         Center(
-                          child: Icon(
-                            Icons.restaurant_menu_outlined,
-                            size: 32,
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.onSurfaceVariant,
+                          child: Padding(
+                            padding: const EdgeInsets.all(6),
+                            child: Image.asset(
+                              'assets/images/restaurant_logo.png',
+                              fit: BoxFit.contain,
+                            ),
                           ),
                         ),
                       Positioned(

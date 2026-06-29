@@ -34,7 +34,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Hotel Members'),
+        title: const Text('Restaurant Members'),
         actions: [
           // Role filter dropdown
           Padding(
@@ -46,10 +46,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
               items: [
                 const DropdownMenuItem<StoreRole?>(child: Text('All Roles')),
                 ...StoreRole.values.map(
-                  (r) => DropdownMenuItem(
-                    value: r,
-                    child: Text(r.displayName),
-                  ),
+                  (r) => DropdownMenuItem(value: r, child: Text(r.displayName)),
                 ),
               ],
               onChanged: (value) {
@@ -73,21 +70,22 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.group_outlined, size: 64, color: theme.disabledColor),
-                  const SizedBox(height: 16),
-                  Text(
-                    'No members yet',
-                    style: theme.textTheme.titleMedium,
+                  Icon(
+                    Icons.group_outlined,
+                    size: 64,
+                    color: theme.disabledColor,
                   ),
+                  const SizedBox(height: 16),
+                  Text('No members yet', style: theme.textTheme.titleMedium),
                   const SizedBox(height: 8),
                   Text(
-                    'Invite people to manage your hotel',
+                    'Invite people to manage your restaurant',
                     style: theme.textTheme.bodyMedium?.copyWith(
                       color: theme.colorScheme.onSurfaceVariant,
                     ),
                   ),
                   const SizedBox(height: 24),
-          FilledButton.icon(
+                  FilledButton.icon(
                     icon: const Icon(Icons.person_add),
                     label: const Text('Add User'),
                     onPressed: () => _showInviteDialog(context),
@@ -106,10 +104,8 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
               return _MemberTile(
                 member: member,
                 onChangeRole: () => _showChangeRoleDialog(context, member),
-                onPermissions: () => context.push(
-                  AppRoutes.memberPermissions,
-                  extra: member,
-                ),
+                onPermissions: () =>
+                    context.push(AppRoutes.memberPermissions, extra: member),
                 onRemove: member.isOwner
                     ? null
                     : () => _confirmRemove(context, member),
@@ -129,8 +125,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
     final nameController = TextEditingController();
     final passwordController = TextEditingController();
     final confirmController = TextEditingController();
-    final hotelIdsController = TextEditingController();
-    var selectedRole = StoreRole.cashier;
+    final roleController = TextEditingController();
     var showPassword = false;
     var showConfirm = false;
 
@@ -140,17 +135,23 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
         builder: (ctx, setDialogState) => AlertDialog(
           title: const Row(
             children: [
-              CircleAvatar(
-                radius: 18,
-                child: Icon(Icons.person_add, size: 18),
-              ),
+              CircleAvatar(radius: 18, child: Icon(Icons.person_add, size: 18)),
               SizedBox(width: 12),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text('Add New User', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                  Text('Create a new team member account', style: TextStyle(fontSize: 12, fontWeight: FontWeight.normal)),
+                  Text(
+                    'Add New User',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                  Text(
+                    'Create a new team member account',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.normal,
+                    ),
+                  ),
                 ],
               ),
             ],
@@ -190,8 +191,14 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
                           prefixIcon: const Icon(Icons.lock_outlined),
                           border: const OutlineInputBorder(),
                           suffixIcon: IconButton(
-                            icon: Icon(showPassword ? Icons.visibility_off : Icons.visibility),
-                            onPressed: () => setDialogState(() => showPassword = !showPassword),
+                            icon: Icon(
+                              showPassword
+                                  ? Icons.visibility_off
+                                  : Icons.visibility,
+                            ),
+                            onPressed: () => setDialogState(
+                              () => showPassword = !showPassword,
+                            ),
                           ),
                         ),
                       ),
@@ -206,8 +213,14 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
                           prefixIcon: const Icon(Icons.lock_outlined),
                           border: const OutlineInputBorder(),
                           suffixIcon: IconButton(
-                            icon: Icon(showConfirm ? Icons.visibility_off : Icons.visibility),
-                            onPressed: () => setDialogState(() => showConfirm = !showConfirm),
+                            icon: Icon(
+                              showConfirm
+                                  ? Icons.visibility_off
+                                  : Icons.visibility,
+                            ),
+                            onPressed: () => setDialogState(
+                              () => showConfirm = !showConfirm,
+                            ),
                           ),
                         ),
                       ),
@@ -215,33 +228,12 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
                   ],
                 ),
                 const SizedBox(height: 12),
-                DropdownButtonFormField<StoreRole>(
-                  initialValue: selectedRole,
+                TextField(
+                  controller: roleController,
                   decoration: const InputDecoration(
                     labelText: 'Role',
-                    prefixIcon: Icon(Icons.manage_accounts_outlined),
-                    border: OutlineInputBorder(),
-                  ),
-                  items: StoreRole.values
-                      .where((r) => r != StoreRole.owner)
-                      .map(
-                        (r) => DropdownMenuItem(
-                          value: r,
-                          child: Text(r.displayName),
-                        ),
-                      )
-                      .toList(),
-                  onChanged: (v) {
-                    if (v != null) setDialogState(() => selectedRole = v);
-                  },
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: hotelIdsController,
-                  decoration: const InputDecoration(
-                    labelText: 'Hotel IDs',
-                    hintText: 'Comma-separated hotel IDs (optional)',
-                    prefixIcon: Icon(Icons.hotel_outlined),
+                    hintText: 'e.g. Chef, Receptionist, Cashier…',
+                    prefixIcon: Icon(Icons.badge_outlined),
                     border: OutlineInputBorder(),
                   ),
                 ),
@@ -268,34 +260,42 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
       final name = nameController.text.trim();
       final password = passwordController.text;
       final confirm = confirmController.text;
+      final roleText = roleController.text.trim();
       if (email.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Email is required')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Email is required')));
         return;
       }
       if (password.isNotEmpty && password.length < 6) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Password must be at least 6 characters')),
+          const SnackBar(
+            content: Text('Password must be at least 6 characters'),
+          ),
         );
         return;
       }
       if (password.isNotEmpty && password != confirm) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Passwords do not match')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Passwords do not match')));
         return;
       }
       try {
         await MemberService.inviteMember(
           email: email,
           displayName: name.isNotEmpty ? name : email.split('@').first,
-          role: selectedRole,
+          role: StoreRole.custom,
+          customRoleName: roleText.isNotEmpty ? roleText : null,
           password: password.isNotEmpty ? password : null,
         );
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Added $email as ${selectedRole.displayName}')),
+            SnackBar(
+              content: Text(
+                'Added $email as ${roleText.isNotEmpty ? roleText : 'Team Member'}',
+              ),
+            ),
           );
         }
       } on FirebaseAuthException catch (e) {
@@ -306,15 +306,15 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
             'invalid-email' => 'Invalid email address',
             _ => e.message ?? e.code,
           };
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(msg)),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(msg)));
         }
       } catch (e) {
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error: $e')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('Error: $e')));
         }
       }
     }
@@ -322,7 +322,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
     nameController.dispose();
     passwordController.dispose();
     confirmController.dispose();
-    hotelIdsController.dispose();
+    roleController.dispose();
   }
 
   Future<void> _showChangeRoleDialog(
@@ -375,9 +375,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(
-              '${member.displayName} is now ${result.displayName}',
-            ),
+            content: Text('${member.displayName} is now ${result.displayName}'),
           ),
         );
       }
@@ -390,7 +388,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
       builder: (ctx) => AlertDialog(
         title: const Text('Remove Member?'),
         content: Text(
-          'Remove ${member.displayName} (${member.email}) from this hotel? '
+          'Remove ${member.displayName} (${member.email}) from this restaurant? '
           'They will lose all access.',
         ),
         actions: [
@@ -480,7 +478,7 @@ class _MemberTile extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 8),
-          _RoleBadge(role: member.role),
+          _RoleBadge(role: member.role, customName: member.customRoleName),
           if (member.status == MemberStatus.invited) ...[
             const SizedBox(width: 4),
             Container(
@@ -592,10 +590,14 @@ class _MemberTile extends StatelessWidget {
 
 class _RoleBadge extends StatelessWidget {
   final StoreRole role;
-  const _RoleBadge({required this.role});
+  final String? customName;
+  const _RoleBadge({required this.role, this.customName});
 
   @override
   Widget build(BuildContext context) {
+    final label = role == StoreRole.custom && (customName?.isNotEmpty ?? false)
+        ? customName!
+        : role.displayName;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
@@ -603,7 +605,7 @@ class _RoleBadge extends StatelessWidget {
         borderRadius: BorderRadius.circular(4),
       ),
       child: Text(
-        role.displayName.toUpperCase(),
+        label.toUpperCase(),
         style: TextStyle(
           fontSize: 10,
           fontWeight: FontWeight.w600,

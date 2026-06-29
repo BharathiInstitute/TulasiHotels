@@ -514,6 +514,21 @@
             ]
         },
         {
+            "__comment": "attendance: per-staff date range — staffAttendanceStream (staffId == X, date range, orderBy date desc)",
+            "collectionGroup": "attendance",
+            "queryScope": "COLLECTION",
+            "fields": [
+                {
+                    "fieldPath": "staffId",
+                    "order": "ASCENDING"
+                },
+                {
+                    "fieldPath": "date",
+                    "order": "DESCENDING"
+                }
+            ]
+        },
+        {
             "__comment": "purchases: vendor purchase history sorted by date",
             "collectionGroup": "purchases",
             "queryScope": "COLLECTION",
@@ -569,6 +584,15 @@
                 { "order": "DESCENDING", "queryScope": "COLLECTION" },
                 { "order": "ASCENDING", "queryScope": "COLLECTION_GROUP" },
                 { "order": "DESCENDING", "queryScope": "COLLECTION_GROUP" }
+            ]
+        },
+        {
+            "__comment": "Enable collection group query on members.email for resolvePendingInvites",
+            "collectionGroup": "members",
+            "fieldPath": "email",
+            "indexes": [
+                { "order": "ASCENDING", "queryScope": "COLLECTION" },
+                { "order": "ASCENDING", "queryScope": "COLLECTION_GROUP" }
             ]
         }
     ]

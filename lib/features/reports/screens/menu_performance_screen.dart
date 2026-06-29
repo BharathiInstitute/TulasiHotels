@@ -55,9 +55,14 @@ class _MenuPerformanceScreenState extends ConsumerState<MenuPerformanceScreen> {
 
     return Scaffold(
       appBar: AppBar(
+        automaticallyImplyLeading: false,
         title: const Text('Menu Performance'),
         actions: [
-          IconButton(icon: const Icon(Icons.date_range), onPressed: _pickRange),
+          IconButton(
+            icon: const Icon(Icons.date_range),
+            tooltip: 'Change date range',
+            onPressed: _pickRange,
+          ),
         ],
       ),
       body: _loading

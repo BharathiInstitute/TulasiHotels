@@ -3,6 +3,7 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:tulasihotels/features/auth/providers/auth_provider.dart';
 import 'package:tulasihotels/features/staff/providers/staff_provider.dart';
 import 'package:tulasihotels/features/staff/services/attendance_service.dart';
 import 'package:tulasihotels/models/attendance_model.dart';
@@ -557,6 +558,10 @@ class _StaffAttendanceDetailScreenState
     );
 
     if (result == true && mounted) {
+      final currentUser =
+          ref.read(authNotifierProvider).user?.ownerName ??
+          ref.read(authNotifierProvider).firebaseUser?.email ??
+          'Owner';
       await AttendanceService.addManualRecord(
         staffId: widget.staffId,
         staffName: widget.staffName,
@@ -575,6 +580,8 @@ class _StaffAttendanceDetailScreenState
           clockOutTime.hour,
           clockOutTime.minute,
         ),
+        editedBy: currentUser,
+        editNote: 'Manual entry',
       );
       await _loadMonth();
     }
@@ -647,6 +654,10 @@ class _StaffAttendanceDetailScreenState
 
     if (result == true && mounted) {
       final date = record.date;
+      final currentUser =
+          ref.read(authNotifierProvider).user?.ownerName ??
+          ref.read(authNotifierProvider).firebaseUser?.email ??
+          'Owner';
       await AttendanceService.updateRecord(
         record.id,
         clockIn: DateTime(
@@ -666,6 +677,8 @@ class _StaffAttendanceDetailScreenState
               )
             : null,
         status: clockOutTime != null ? AttendanceStatus.clockedOut : null,
+        editedBy: currentUser,
+        editNote: 'Time corrected',
       );
       await _loadMonth();
     }
@@ -780,144 +793,232 @@ class _DetailRecordCard extends StatelessWidget {
     final theme = Theme.of(context);
     final hours = record.hoursWorked;
     final isStillIn = record.status == AttendanceStatus.clockedIn;
+    final isManual = record.clockInSource == ClockSource.manual;
+    final isAdmin = record.clockInSource == ClockSource.admin;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 6),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        child: Row(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Date column
-            Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                color: isStillIn
-                    ? Colors.green.withValues(alpha: 0.1)
-                    : theme.colorScheme.surfaceContainerHighest,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    '${record.date.day}',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                      color: isStillIn ? Colors.green : null,
-                    ),
+            Row(
+              children: [
+                // Date column
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: isStillIn
+                        ? Colors.green.withValues(alpha: 0.1)
+                        : theme.colorScheme.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(10),
                   ),
-                  Text(
-                    _monthAbbr(record.date.month),
-                    style: TextStyle(
-                      fontSize: 10,
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 12),
-
-            // Time details
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.login, size: 14, color: Colors.green[600]),
-                      const SizedBox(width: 4),
                       Text(
-                        'In: ${_formatTime(record.clockIn)}',
-                        style: const TextStyle(fontSize: 13),
+                        '${record.date.day}',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: isStillIn ? Colors.green : null,
+                        ),
+                      ),
+                      Text(
+                        _monthAbbr(record.date.month),
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
                       ),
                     ],
                   ),
-                  if (record.clockOut != null) ...[
-                    const SizedBox(height: 2),
-                    Row(
+                ),
+                const SizedBox(width: 12),
+
+                // Time details
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.login, size: 14, color: Colors.green[600]),
+                          const SizedBox(width: 4),
+                          Text(
+                            'In: ${_formatTime(record.clockIn)}',
+                            style: const TextStyle(fontSize: 13),
+                          ),
+                          // Source badge
+                          if (isManual || isAdmin) ...[
+                            const SizedBox(width: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 5,
+                                vertical: 1,
+                              ),
+                              decoration: BoxDecoration(
+                                color: (isManual ? Colors.orange : Colors.blue)
+                                    .withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                isManual ? 'Manual' : 'Admin',
+                                style: TextStyle(
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w600,
+                                  color: isManual
+                                      ? Colors.orange[800]
+                                      : Colors.blue[800],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                      if (record.clockOut != null) ...[
+                        const SizedBox(height: 2),
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.logout,
+                              size: 14,
+                              color: Colors.red[400],
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              'Out: ${_formatTime(record.clockOut!)}',
+                              style: const TextStyle(fontSize: 13),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+
+                // Duration / status
+                if (isStillIn)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 5,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.green.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.logout, size: 14, color: Colors.red[400]),
-                        const SizedBox(width: 4),
+                        Icon(Icons.circle, size: 8, color: Colors.green),
+                        SizedBox(width: 4),
                         Text(
-                          'Out: ${_formatTime(record.clockOut!)}',
-                          style: const TextStyle(fontSize: 13),
+                          'Active',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.green,
+                          ),
                         ),
                       ],
                     ),
-                  ],
-                ],
-              ),
-            ),
-
-            // Duration / status
-            if (isStillIn)
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 5,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.green.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.circle, size: 8, color: Colors.green),
-                    SizedBox(width: 4),
-                    Text(
-                      'Active',
+                  )
+                else if (hours > 0)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 5,
+                    ),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.primary.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      '${hours.toStringAsFixed(1)}h',
                       style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.green,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: theme.colorScheme.primary,
                       ),
                     ),
-                  ],
-                ),
-              )
-            else if (hours > 0)
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 5,
-                ),
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.primary.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  '${hours.toStringAsFixed(1)}h',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: theme.colorScheme.primary,
                   ),
-                ),
-              ),
 
-            // Owner edit/delete actions
-            if (isOwner) ...[
-              const SizedBox(width: 8),
-              PopupMenuButton<String>(
-                itemBuilder: (_) => [
-                  const PopupMenuItem(value: 'edit', child: Text('Edit')),
-                  const PopupMenuItem(value: 'delete', child: Text('Delete')),
+                // Owner edit/delete actions
+                if (isOwner) ...[
+                  const SizedBox(width: 8),
+                  PopupMenuButton<String>(
+                    itemBuilder: (_) => [
+                      const PopupMenuItem(value: 'edit', child: Text('Edit')),
+                      const PopupMenuItem(
+                        value: 'delete',
+                        child: Text('Delete'),
+                      ),
+                    ],
+                    onSelected: (v) {
+                      if (v == 'edit') onEdit?.call();
+                      if (v == 'delete') onDelete?.call();
+                    },
+                    icon: Icon(
+                      Icons.more_vert,
+                      size: 18,
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                  ),
                 ],
-                onSelected: (v) {
-                  if (v == 'edit') onEdit?.call();
-                  if (v == 'delete') onDelete?.call();
-                },
-                icon: Icon(
-                  Icons.more_vert,
-                  size: 18,
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(),
+              ],
+            ),
+
+            // Location info
+            if (record.clockInAddress != null &&
+                record.clockInAddress!.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  const SizedBox(width: 60), // align with time text
+                  Icon(
+                    Icons.location_on_outlined,
+                    size: 13,
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                  const SizedBox(width: 4),
+                  Flexible(
+                    child: Text(
+                      record.clockInAddress!,
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+
+            // Audit trail
+            if (record.editedBy != null) ...[
+              const SizedBox(height: 4),
+              Row(
+                children: [
+                  const SizedBox(width: 60),
+                  Icon(Icons.edit_note, size: 13, color: Colors.orange[700]),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Edited by ${record.editedBy}'
+                    '${record.editNote != null ? ' · ${record.editNote}' : ''}',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontStyle: FontStyle.italic,
+                      color: Colors.orange[700],
+                    ),
+                  ),
+                ],
               ),
             ],
           ],

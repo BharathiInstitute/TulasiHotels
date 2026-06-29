@@ -22,6 +22,7 @@ class UserModel {
   final bool phoneVerified;
   final bool emailVerified;
   final DateTime? phoneVerifiedAt;
+  final String? consentVersion;
   final DateTime createdAt;
   final DateTime? updatedAt;
 
@@ -44,6 +45,7 @@ class UserModel {
     this.phoneVerified = false,
     this.emailVerified = false,
     this.phoneVerifiedAt,
+    this.consentVersion,
     required this.createdAt,
     this.updatedAt,
   });
@@ -71,6 +73,7 @@ class UserModel {
       phoneVerified: (data['phoneVerified'] as bool?) ?? false,
       emailVerified: (data['emailVerified'] as bool?) ?? false,
       phoneVerifiedAt: (data['phoneVerifiedAt'] as Timestamp?)?.toDate(),
+      consentVersion: data['consentVersion'] as String?,
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       updatedAt: (data['updatedAt'] as Timestamp?)?.toDate(),
     );
@@ -97,6 +100,7 @@ class UserModel {
       'phoneVerifiedAt': phoneVerifiedAt != null
           ? Timestamp.fromDate(phoneVerifiedAt!)
           : null,
+      'consentVersion': consentVersion,
       'createdAt': Timestamp.fromDate(createdAt),
       'updatedAt': updatedAt != null ? Timestamp.fromDate(updatedAt!) : null,
     };
@@ -120,6 +124,7 @@ class UserModel {
     bool? phoneVerified,
     bool? emailVerified,
     DateTime? phoneVerifiedAt,
+    String? consentVersion,
   }) {
     return UserModel(
       id: id,
@@ -140,6 +145,7 @@ class UserModel {
       phoneVerified: phoneVerified ?? this.phoneVerified,
       emailVerified: emailVerified ?? this.emailVerified,
       phoneVerifiedAt: phoneVerifiedAt ?? this.phoneVerifiedAt,
+      consentVersion: consentVersion ?? this.consentVersion,
       createdAt: createdAt,
       updatedAt: DateTime.now(),
     );

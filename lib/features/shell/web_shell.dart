@@ -14,6 +14,7 @@ import 'package:tulasihotels/features/staff/providers/staff_provider.dart';
 import 'package:tulasihotels/features/staff/services/staff_permissions.dart';
 import 'package:tulasihotels/features/admin/providers/current_member_provider.dart';
 import 'package:tulasihotels/features/admin/services/member_permission_guard.dart';
+import 'package:tulasihotels/features/hotels/providers/hotel_provider.dart';
 import 'package:tulasihotels/router/app_router.dart';
 import 'package:tulasihotels/shared/widgets/shop_logo_widget.dart';
 import 'package:tulasihotels/shared/widgets/web_safe_image.dart';
@@ -121,8 +122,14 @@ class _WebSidebar extends ConsumerWidget {
     5: (Icons.table_restaurant_outlined, 'Tables'),
     7: (Icons.kitchen_outlined, 'Kitchen'),
     8: (Icons.badge_outlined, 'Staff'),
-    9: (Icons.access_time_outlined, 'Attendance'),
+    9: (Icons.access_time_outlined, 'My Attendance'),
   };
+
+  /// Returns nav items, replacing index 8 label with 'My Profile' for PIN-logged staff
+  static Map<int, (IconData, String)> _resolvedNavItems(bool isStaff) {
+    if (!isStaff) return _navItems;
+    return {..._navItems, 8: (Icons.person_outlined, 'My Profile')};
+  }
 
   /// Build profile avatar that handles both URL and local file
   Widget _buildProfileAvatar(String? logoPath, double radius, bool isSelected) {
@@ -171,6 +178,8 @@ class _WebSidebar extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(currentUserProvider);
+    final loggedInStaff = ref.watch(loggedInStaffProvider);
+    final navItems = _resolvedNavItems(loggedInStaff != null);
     // Identify if we are in settings (since it might be outside standard index)
     final isSettings = currentPath.startsWith(AppRoutes.settings);
     final userToggle = ref.watch(sidebarCollapsedProvider);
@@ -185,375 +194,403 @@ class _WebSidebar extends ConsumerWidget {
       decoration: BoxDecoration(color: Theme.of(context).cardColor),
       child: Column(
         children: [
-          // Logo Area
-          Container(
-            height: 70,
-            padding: EdgeInsets.symmetric(horizontal: isCollapsed ? 0 : 24),
-            alignment: isCollapsed ? Alignment.center : Alignment.centerLeft,
-            child: isCollapsed
-                ? ShopLogoWidget(logoPath: user?.shopLogoPath)
-                : Row(
-                    children: [
-                      ShopLogoWidget(logoPath: user?.shopLogoPath),
-                      const SizedBox(width: 12),
-                      Flexible(
-                        child: Text(
-                          user?.shopName ?? AppConstants.defaultShopName,
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: Theme.of(context).colorScheme.onSurface,
+          // Logo Area — tap to go back to hotel selector
+          GestureDetector(
+            onTap: () => context.go(AppRoutes.hotelSelector),
+            child: MouseRegion(
+              cursor: SystemMouseCursors.click,
+              child: Container(
+                height: 70,
+                padding: EdgeInsets.symmetric(horizontal: isCollapsed ? 0 : 24),
+                alignment: isCollapsed
+                    ? Alignment.center
+                    : Alignment.centerLeft,
+                child: isCollapsed
+                    ? ShopLogoWidget(logoPath: user?.shopLogoPath)
+                    : Row(
+                        children: [
+                          ShopLogoWidget(logoPath: user?.shopLogoPath),
+                          const SizedBox(width: 12),
+                          Flexible(
+                            child: Text(
+                              user?.shopName ?? AppConstants.defaultShopName,
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: Theme.of(context).colorScheme.onSurface,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
+                        ],
                       ),
-                    ],
-                  ),
+              ),
+            ),
           ),
 
           const SizedBox(height: 8),
 
           // Navigation Links
           Expanded(
-            child: ListView(
-              padding: EdgeInsets.symmetric(horizontal: isCollapsed ? 8 : 16),
-              children: [
-                for (final idx in visibleIndices)
-                  if (_navItems[idx] case final item?)
-                    _SidebarItem(
-                      icon: item.$1,
-                      label: item.$2,
-                      isSelected: selectedIndex == idx,
-                      isCollapsed: isCollapsed,
-                      onTap: () => onItemTapped(idx),
+            child: Scrollbar(
+              child: ListView(
+                primary: true,
+                padding: EdgeInsets.symmetric(horizontal: isCollapsed ? 8 : 16),
+                children: [
+                  for (final idx in visibleIndices)
+                    if (navItems[idx] case final item?)
+                      _SidebarItem(
+                        icon: item.$1,
+                        label: item.$2,
+                        isSelected: selectedIndex == idx,
+                        isCollapsed: isCollapsed,
+                        onTap: () => onItemTapped(idx),
+                      ),
+
+                  // More features — direct route links (permission-filtered)
+                  if (!isCollapsed) ...[
+                    const Divider(height: 16),
+                    Builder(
+                      builder: (context) {
+                        final staff = ref.watch(loggedInStaffProvider);
+                        final memberAsync = ref.watch(currentMemberProvider);
+                        final member = memberAsync.valueOrNull;
+                        // Check ownership: if hotelId == auth uid
+                        final hotelId = ref.read(currentHotelIdProvider);
+                        final uid = ref
+                            .read(authNotifierProvider)
+                            .firebaseUser
+                            ?.uid;
+                        final isOwner = hotelId != null && hotelId == uid;
+                        Widget? routeItem(
+                          IconData icon,
+                          String label,
+                          String route,
+                        ) {
+                          if (!StaffPermissions.canViewRoute(staff, route)) {
+                            return null;
+                          }
+                          // Non-owner with no member doc: hide everything
+                          if (staff == null &&
+                              !isOwner &&
+                              !MemberPermissionGuard.canViewRoute(
+                                member,
+                                route,
+                              )) {
+                            return null;
+                          }
+                          return _SidebarRouteItem(
+                            icon: icon,
+                            label: label,
+                            route: route,
+                            currentPath: currentPath,
+                            isCollapsed: isCollapsed,
+                          );
+                        }
+
+                        // Build sections, omit empty ones
+                        final menuItems = [
+                          routeItem(
+                            Icons.star,
+                            'Daily Specials',
+                            AppRoutes.dailySpecials,
+                          ),
+                          routeItem(
+                            Icons.lunch_dining,
+                            'Combos',
+                            AppRoutes.combos,
+                          ),
+                        ].whereType<Widget>().toList();
+                        final inventoryItems = [
+                          routeItem(
+                            Icons.egg,
+                            'Ingredients',
+                            AppRoutes.ingredients,
+                          ),
+                          routeItem(
+                            Icons.local_shipping,
+                            'Vendors',
+                            AppRoutes.vendors,
+                          ),
+                          routeItem(
+                            Icons.delete_sweep,
+                            'Wastage',
+                            AppRoutes.wastage,
+                          ),
+                        ].whereType<Widget>().toList();
+                        final hospitalityItems = [
+                          routeItem(
+                            Icons.event_seat,
+                            'Reservations',
+                            AppRoutes.reservations,
+                          ),
+                          routeItem(
+                            Icons.local_offer,
+                            'Coupons',
+                            AppRoutes.coupons,
+                          ),
+                          routeItem(
+                            Icons.celebration,
+                            'Events',
+                            AppRoutes.events,
+                          ),
+                          routeItem(
+                            Icons.feedback,
+                            'Feedback',
+                            AppRoutes.feedbackDashboard,
+                          ),
+                        ].whereType<Widget>().toList();
+                        final reportsItems = [
+                          routeItem(
+                            Icons.bar_chart,
+                            'Advanced Reports',
+                            AppRoutes.advancedReports,
+                          ),
+                        ].whereType<Widget>().toList();
+                        final complianceItems = [
+                          routeItem(
+                            Icons.build,
+                            'Equipment',
+                            AppRoutes.equipment,
+                          ),
+                          routeItem(
+                            Icons.badge,
+                            'Licenses',
+                            AppRoutes.licenses,
+                          ),
+                          routeItem(
+                            Icons.report_problem,
+                            'Complaints',
+                            AppRoutes.complaints,
+                          ),
+                        ].whereType<Widget>().toList();
+                        return Column(
+                          children: [
+                            if (menuItems.isNotEmpty)
+                              _SidebarSection(
+                                title: 'Menu',
+                                isCollapsed: isCollapsed,
+                                children: menuItems,
+                              ),
+                            if (inventoryItems.isNotEmpty)
+                              _SidebarSection(
+                                title: 'Inventory',
+                                isCollapsed: isCollapsed,
+                                children: inventoryItems,
+                              ),
+                            if (hospitalityItems.isNotEmpty)
+                              _SidebarSection(
+                                title: 'Hospitality',
+                                isCollapsed: isCollapsed,
+                                children: hospitalityItems,
+                              ),
+                            if (reportsItems.isNotEmpty)
+                              _SidebarSection(
+                                title: 'Reports',
+                                isCollapsed: isCollapsed,
+                                children: reportsItems,
+                              ),
+                            if (complianceItems.isNotEmpty)
+                              _SidebarSection(
+                                title: 'Compliance',
+                                isCollapsed: isCollapsed,
+                                children: complianceItems,
+                              ),
+                          ],
+                        );
+                      },
+                    ),
+                  ],
+
+                  const Divider(height: 32),
+
+                  // Notification bell — real-time unread badge
+                  if (isCollapsed)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 4),
+                      child: NotificationBell(),
+                    )
+                  else
+                    Consumer(
+                      builder: (context, ref, _) {
+                        final unreadAsync = ref.watch(
+                          unreadNotificationCountProvider,
+                        );
+                        final count = unreadAsync.valueOrNull ?? 0;
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 4),
+                          child: Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              onTap: () =>
+                                  GoRouter.of(context).push('/notifications'),
+                              borderRadius: BorderRadius.circular(8),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 12,
+                                ),
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      count > 0
+                                          ? Icons.notifications_active
+                                          : Icons.notifications_outlined,
+                                      size: 20,
+                                      color: count > 0
+                                          ? Colors.amber
+                                          : Theme.of(
+                                              context,
+                                            ).colorScheme.onSurfaceVariant,
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Text(
+                                        'Notifications',
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w500,
+                                          color: Theme.of(
+                                            context,
+                                          ).colorScheme.onSurfaceVariant,
+                                        ),
+                                      ),
+                                    ),
+                                    if (count > 0)
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 8,
+                                          vertical: 2,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: Colors.red,
+                                          borderRadius: BorderRadius.circular(
+                                            12,
+                                          ),
+                                        ),
+                                        child: Text(
+                                          count > 99 ? '99+' : '$count',
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        );
+                      },
                     ),
 
-                // More features — direct route links (permission-filtered)
-                if (!isCollapsed) ...[
-                  const Divider(height: 16),
+                  // "Visit Website" — web only, hidden on Android/Windows
+                  if (showWebsiteLink)
+                    _SidebarItem(
+                      icon: Icons.language_rounded,
+                      label: 'Visit Website',
+                      isSelected: false,
+                      isCollapsed: isCollapsed,
+                      onTap: () {
+                        launchUrl(
+                          Uri.parse(websiteUrl),
+                          webOnlyWindowName: '_self',
+                        );
+                      },
+                    ),
+
+                  // Help & Support
+                  _SidebarItem(
+                    icon: Icons.support_agent,
+                    label: 'Help & Support',
+                    isSelected: currentPath == '/support',
+                    isCollapsed: isCollapsed,
+                    onTap: () => GoRouter.of(context).push('/support'),
+                  ),
+
+                  // ── Admin section (scrollable with other items) ──
                   Builder(
                     builder: (context) {
                       final staff = ref.watch(loggedInStaffProvider);
                       final member = ref
                           .watch(currentMemberProvider)
                           .valueOrNull;
-                      Widget? routeItem(
-                        IconData icon,
-                        String label,
-                        String route,
-                      ) {
-                        if (!StaffPermissions.canViewRoute(staff, route)) {
-                          return null;
-                        }
+
+                      bool canSee(String route) {
+                        if (!StaffPermissions.canViewRoute(staff, route))
+                          return false;
                         if (staff == null &&
                             !MemberPermissionGuard.canViewRoute(
                               member,
                               route,
                             )) {
-                          return null;
+                          return false;
                         }
-                        return _SidebarRouteItem(
-                          icon: icon,
-                          label: label,
-                          route: route,
-                          currentPath: currentPath,
-                          isCollapsed: isCollapsed,
-                        );
+                        return true;
                       }
 
-                      // Build sections, omit empty ones
-                      final menuItems = [
-                        routeItem(
-                          Icons.star,
-                          'Daily Specials',
-                          AppRoutes.dailySpecials,
-                        ),
-                        routeItem(
-                          Icons.lunch_dining,
-                          'Combos',
-                          AppRoutes.combos,
-                        ),
-                      ].whereType<Widget>().toList();
-                      final inventoryItems = [
-                        routeItem(
-                          Icons.egg,
-                          'Ingredients',
-                          AppRoutes.ingredients,
-                        ),
-                        routeItem(
-                          Icons.local_shipping,
-                          'Vendors',
-                          AppRoutes.vendors,
-                        ),
-                        routeItem(
-                          Icons.delete_sweep,
-                          'Wastage',
-                          AppRoutes.wastage,
-                        ),
-                      ].whereType<Widget>().toList();
-                      final hospitalityItems = [
-                        routeItem(
-                          Icons.event_seat,
-                          'Reservations',
-                          AppRoutes.reservations,
-                        ),
-                        routeItem(
-                          Icons.local_offer,
-                          'Coupons',
-                          AppRoutes.coupons,
-                        ),
-                        routeItem(
-                          Icons.celebration,
-                          'Events',
-                          AppRoutes.events,
-                        ),
-                        routeItem(
-                          Icons.feedback,
-                          'Feedback',
-                          AppRoutes.feedbackDashboard,
-                        ),
-                      ].whereType<Widget>().toList();
-                      final reportsItems = [
-                        routeItem(
-                          Icons.bar_chart,
-                          'Advanced Reports',
-                          AppRoutes.advancedReports,
-                        ),
-                        routeItem(
-                          Icons.description,
-                          'GST Export',
-                          AppRoutes.gstExport,
-                        ),
-                      ].whereType<Widget>().toList();
-                      final complianceItems = [
-                        routeItem(
-                          Icons.build,
-                          'Equipment',
-                          AppRoutes.equipment,
-                        ),
-                        routeItem(Icons.badge, 'Licenses', AppRoutes.licenses),
-                        routeItem(
-                          Icons.report_problem,
-                          'Complaints',
-                          AppRoutes.complaints,
-                        ),
-                      ].whereType<Widget>().toList();
+                      final showUsers = canSee(AppRoutes.members);
+                      final showPerms = canSee(AppRoutes.permissionsOverview);
+                      if (!showUsers && !showPerms)
+                        return const SizedBox.shrink();
+
                       return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          if (menuItems.isNotEmpty)
-                            _SidebarSection(
-                              title: 'Menu',
-                              isCollapsed: isCollapsed,
-                              children: menuItems,
+                          const Divider(height: 12),
+                          if (!isCollapsed)
+                            Padding(
+                              padding: const EdgeInsets.only(
+                                left: 12,
+                                bottom: 4,
+                              ),
+                              child: Text(
+                                'ADMIN',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: 1.2,
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .onSurfaceVariant
+                                      .withValues(alpha: 0.6),
+                                ),
+                              ),
                             ),
-                          if (inventoryItems.isNotEmpty)
-                            _SidebarSection(
-                              title: 'Inventory',
+                          if (showUsers)
+                            _SidebarItem(
+                              icon: Icons.group_outlined,
+                              label: 'Users',
+                              isSelected: currentPath.startsWith(
+                                AppRoutes.members,
+                              ),
                               isCollapsed: isCollapsed,
-                              children: inventoryItems,
+                              onTap: () =>
+                                  GoRouter.of(context).push(AppRoutes.members),
                             ),
-                          if (hospitalityItems.isNotEmpty)
-                            _SidebarSection(
-                              title: 'Hospitality',
+                          if (showPerms)
+                            _SidebarItem(
+                              icon: Icons.admin_panel_settings_outlined,
+                              label: 'Permissions',
+                              isSelected: currentPath.startsWith(
+                                AppRoutes.permissionsOverview,
+                              ),
                               isCollapsed: isCollapsed,
-                              children: hospitalityItems,
-                            ),
-                          if (reportsItems.isNotEmpty)
-                            _SidebarSection(
-                              title: 'Reports',
-                              isCollapsed: isCollapsed,
-                              children: reportsItems,
-                            ),
-                          if (complianceItems.isNotEmpty)
-                            _SidebarSection(
-                              title: 'Compliance',
-                              isCollapsed: isCollapsed,
-                              children: complianceItems,
+                              onTap: () => GoRouter.of(
+                                context,
+                              ).push(AppRoutes.permissionsOverview),
                             ),
                         ],
                       );
                     },
                   ),
                 ],
-
-                const Divider(height: 32),
-
-                // Notification bell — real-time unread badge
-                if (isCollapsed)
-                  const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 4),
-                    child: NotificationBell(),
-                  )
-                else
-                  Consumer(
-                    builder: (context, ref, _) {
-                      final unreadAsync = ref.watch(
-                        unreadNotificationCountProvider,
-                      );
-                      final count = unreadAsync.valueOrNull ?? 0;
-                      return Container(
-                        margin: const EdgeInsets.only(bottom: 4),
-                        child: Material(
-                          color: Colors.transparent,
-                          child: InkWell(
-                            onTap: () =>
-                                GoRouter.of(context).push('/notifications'),
-                            borderRadius: BorderRadius.circular(8),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 12,
-                              ),
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Row(
-                                children: [
-                                  Icon(
-                                    count > 0
-                                        ? Icons.notifications_active
-                                        : Icons.notifications_outlined,
-                                    size: 20,
-                                    color: count > 0
-                                        ? Colors.amber
-                                        : Theme.of(
-                                            context,
-                                          ).colorScheme.onSurfaceVariant,
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Text(
-                                      'Notifications',
-                                      style: TextStyle(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w500,
-                                        color: Theme.of(
-                                          context,
-                                        ).colorScheme.onSurfaceVariant,
-                                      ),
-                                    ),
-                                  ),
-                                  if (count > 0)
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 8,
-                                        vertical: 2,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: Colors.red,
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                      child: Text(
-                                        count > 99 ? '99+' : '$count',
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                    ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-
-                // "Visit Website" — web only, hidden on Android/Windows
-                if (showWebsiteLink)
-                  _SidebarItem(
-                    icon: Icons.language_rounded,
-                    label: 'Visit Website',
-                    isSelected: false,
-                    isCollapsed: isCollapsed,
-                    onTap: () {
-                      launchUrl(
-                        Uri.parse(websiteUrl),
-                        webOnlyWindowName: '_self',
-                      );
-                    },
-                  ),
-
-                // Help & Support
-                _SidebarItem(
-                  icon: Icons.support_agent,
-                  label: 'Help & Support',
-                  isSelected: currentPath == '/support',
-                  isCollapsed: isCollapsed,
-                  onTap: () => GoRouter.of(context).push('/support'),
-                ),
-
-                // ── Admin section (scrollable with other items) ──
-                Builder(
-                  builder: (context) {
-                    final staff = ref.watch(loggedInStaffProvider);
-                    final member = ref.watch(currentMemberProvider).valueOrNull;
-
-                    bool canSee(String route) {
-                      if (!StaffPermissions.canViewRoute(staff, route))
-                        return false;
-                      if (staff == null &&
-                          !MemberPermissionGuard.canViewRoute(member, route)) {
-                        return false;
-                      }
-                      return true;
-                    }
-
-                    final showUsers = canSee(AppRoutes.members);
-                    final showPerms = canSee(AppRoutes.permissionsOverview);
-                    if (!showUsers && !showPerms)
-                      return const SizedBox.shrink();
-
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Divider(height: 12),
-                        if (!isCollapsed)
-                          Padding(
-                            padding: const EdgeInsets.only(left: 12, bottom: 4),
-                            child: Text(
-                              'ADMIN',
-                              style: TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w700,
-                                letterSpacing: 1.2,
-                                color: Theme.of(context)
-                                    .colorScheme
-                                    .onSurfaceVariant
-                                    .withValues(alpha: 0.6),
-                              ),
-                            ),
-                          ),
-                        if (showUsers)
-                          _SidebarItem(
-                            icon: Icons.group_outlined,
-                            label: 'Users',
-                            isSelected: currentPath.startsWith(
-                              AppRoutes.members,
-                            ),
-                            isCollapsed: isCollapsed,
-                            onTap: () =>
-                                GoRouter.of(context).push(AppRoutes.members),
-                          ),
-                        if (showPerms)
-                          _SidebarItem(
-                            icon: Icons.admin_panel_settings_outlined,
-                            label: 'Permissions',
-                            isSelected: currentPath.startsWith(
-                              AppRoutes.permissionsOverview,
-                            ),
-                            isCollapsed: isCollapsed,
-                            onTap: () => GoRouter.of(
-                              context,
-                            ).push(AppRoutes.permissionsOverview),
-                          ),
-                      ],
-                    );
-                  },
-                ),
-              ],
+              ),
             ),
           ),
 
@@ -581,8 +618,7 @@ class _WebSidebar extends ConsumerWidget {
                             '${staff.name} (${staff.role.displayName}) — Tap to logout',
                         child: InkWell(
                           onTap: () {
-                            ref.read(loggedInStaffProvider.notifier).state =
-                                null;
+                            ref.read(loggedInStaffProvider.notifier).logout();
                             GoRouter.of(context).go(AppRoutes.billing);
                           },
                           child: Icon(
@@ -629,8 +665,7 @@ class _WebSidebar extends ConsumerWidget {
                           ),
                           InkWell(
                             onTap: () {
-                              ref.read(loggedInStaffProvider.notifier).state =
-                                  null;
+                              ref.read(loggedInStaffProvider.notifier).logout();
                               GoRouter.of(context).go(AppRoutes.billing);
                             },
                             borderRadius: BorderRadius.circular(6),

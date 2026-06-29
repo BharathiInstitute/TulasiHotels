@@ -1,28 +1,24 @@
-/// Advanced reports service — analytics, trends, and intelligence
+﻿/// Advanced reports service â€” analytics, trends, and intelligence
 library;
 
+import 'package:tulasihotels/core/services/active_store_manager.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:tulasihotels/models/bill_model.dart';
 import 'package:tulasihotels/models/order_model.dart';
 
 class AdvancedReportsService {
   static final _firestore = FirebaseFirestore.instance;
-  static final _auth = FirebaseAuth.instance;
 
-  static String get _basePath {
-    final uid = _auth.currentUser?.uid;
-    if (uid == null) return '';
-    return 'users/$uid';
-  }
+  static String get _basePath => ActiveStoreManager.basePath;
 
   /// Get daily revenue for a date range (for charting)
   static Future<Map<String, double>> dailyRevenue(
-      DateTime start, DateTime end) async {
+    DateTime start,
+    DateTime end,
+  ) async {
     final snapshot = await _firestore
         .collection('$_basePath/bills')
-        .where('createdAt',
-            isGreaterThanOrEqualTo: Timestamp.fromDate(start))
+        .where('createdAt', isGreaterThanOrEqualTo: Timestamp.fromDate(start))
         .where('createdAt', isLessThan: Timestamp.fromDate(end))
         .get();
 
@@ -36,12 +32,13 @@ class AdvancedReportsService {
 
   /// Get top-selling products for a period
   static Future<List<Map<String, dynamic>>> topProducts(
-      DateTime start, DateTime end,
-      {int limit = 10}) async {
+    DateTime start,
+    DateTime end, {
+    int limit = 10,
+  }) async {
     final snapshot = await _firestore
         .collection('$_basePath/bills')
-        .where('createdAt',
-            isGreaterThanOrEqualTo: Timestamp.fromDate(start))
+        .where('createdAt', isGreaterThanOrEqualTo: Timestamp.fromDate(start))
         .where('createdAt', isLessThan: Timestamp.fromDate(end))
         .get();
 
@@ -66,18 +63,18 @@ class AdvancedReportsService {
     }
 
     final sorted = productSales.values.toList()
-      ..sort((a, b) =>
-          (b['quantity'] as int).compareTo(a['quantity'] as int));
+      ..sort((a, b) => (b['quantity'] as int).compareTo(a['quantity'] as int));
     return sorted.take(limit).toList();
   }
 
   /// Get revenue by payment method
   static Future<Map<String, double>> revenueByPaymentMethod(
-      DateTime start, DateTime end) async {
+    DateTime start,
+    DateTime end,
+  ) async {
     final snapshot = await _firestore
         .collection('$_basePath/bills')
-        .where('createdAt',
-            isGreaterThanOrEqualTo: Timestamp.fromDate(start))
+        .where('createdAt', isGreaterThanOrEqualTo: Timestamp.fromDate(start))
         .where('createdAt', isLessThan: Timestamp.fromDate(end))
         .get();
 
@@ -92,11 +89,12 @@ class AdvancedReportsService {
 
   /// Get order type distribution
   static Future<Map<String, int>> orderTypeDistribution(
-      DateTime start, DateTime end) async {
+    DateTime start,
+    DateTime end,
+  ) async {
     final snapshot = await _firestore
         .collection('$_basePath/orders')
-        .where('createdAt',
-            isGreaterThanOrEqualTo: Timestamp.fromDate(start))
+        .where('createdAt', isGreaterThanOrEqualTo: Timestamp.fromDate(start))
         .where('createdAt', isLessThan: Timestamp.fromDate(end))
         .get();
 
@@ -111,11 +109,12 @@ class AdvancedReportsService {
 
   /// Get hourly order counts (peak hour analysis)
   static Future<Map<int, int>> hourlyOrderCounts(
-      DateTime start, DateTime end) async {
+    DateTime start,
+    DateTime end,
+  ) async {
     final snapshot = await _firestore
         .collection('$_basePath/orders')
-        .where('createdAt',
-            isGreaterThanOrEqualTo: Timestamp.fromDate(start))
+        .where('createdAt', isGreaterThanOrEqualTo: Timestamp.fromDate(start))
         .where('createdAt', isLessThan: Timestamp.fromDate(end))
         .get();
 
@@ -130,11 +129,12 @@ class AdvancedReportsService {
 
   /// Get waiter performance statistics
   static Future<List<Map<String, dynamic>>> waiterPerformance(
-      DateTime start, DateTime end) async {
+    DateTime start,
+    DateTime end,
+  ) async {
     final snapshot = await _firestore
         .collection('$_basePath/bills')
-        .where('createdAt',
-            isGreaterThanOrEqualTo: Timestamp.fromDate(start))
+        .where('createdAt', isGreaterThanOrEqualTo: Timestamp.fromDate(start))
         .where('createdAt', isLessThan: Timestamp.fromDate(end))
         .get();
 
@@ -143,11 +143,7 @@ class AdvancedReportsService {
       final bill = BillModel.fromFirestore(doc);
       final name = bill.waiterName ?? 'Unknown';
       if (waiterMap[name] == null) {
-        waiterMap[name] = {
-          'name': name,
-          'billCount': 0,
-          'totalRevenue': 0.0,
-        };
+        waiterMap[name] = {'name': name, 'billCount': 0, 'totalRevenue': 0.0};
       }
       waiterMap[name]!['billCount'] =
           (waiterMap[name]!['billCount'] as int) + 1;
@@ -155,18 +151,20 @@ class AdvancedReportsService {
           (waiterMap[name]!['totalRevenue'] as double) + bill.total;
     }
 
-    return waiterMap.values.toList()
-      ..sort((a, b) => (b['totalRevenue'] as double)
-          .compareTo(a['totalRevenue'] as double));
+    return waiterMap.values.toList()..sort(
+      (a, b) =>
+          (b['totalRevenue'] as double).compareTo(a['totalRevenue'] as double),
+    );
   }
 
   /// Get raw bills in a date range (for export)
   static Future<List<BillModel>> getBillsInRange(
-      DateTime start, DateTime end) async {
+    DateTime start,
+    DateTime end,
+  ) async {
     final snapshot = await _firestore
         .collection('$_basePath/bills')
-        .where('createdAt',
-            isGreaterThanOrEqualTo: Timestamp.fromDate(start))
+        .where('createdAt', isGreaterThanOrEqualTo: Timestamp.fromDate(start))
         .where('createdAt', isLessThan: Timestamp.fromDate(end))
         .orderBy('createdAt', descending: true)
         .get();

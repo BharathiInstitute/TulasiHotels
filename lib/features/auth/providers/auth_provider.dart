@@ -14,6 +14,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:tulasihotels/core/config/razorpay_config.dart';
 import 'package:tulasihotels/core/constants/app_constants.dart';
+import 'package:tulasihotels/core/services/active_store_manager.dart';
 import 'package:tulasihotels/core/services/cloud_function_helper.dart';
 import 'package:tulasihotels/core/services/demo_data_service.dart';
 import 'package:tulasihotels/core/services/offline_storage_service.dart';
@@ -132,6 +133,7 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
   bool _pendingReauth = false;
   bool _signOutTriggered = false;
   bool _profileLoadInProgress = false;
+  Completer<void>? _profileLoadCompleter;
 
   /// Stores a Google credential while waiting for password to complete linking
   AuthCredential? _pendingGoogleCredential;
@@ -305,8 +307,16 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
 
   /// Load user profile from Firestore
   Future<void> _loadUserProfile(User firebaseUser) async {
-    if (_profileLoadInProgress) return; // Prevent concurrent loads
+    if (_profileLoadInProgress) {
+      // Another call already loading — wait for it to finish instead of
+      // returning immediately. This prevents signIn() from returning true
+      // before authState.user is populated (web race condition where
+      // authStateChanges listener starts _loadUserProfile first).
+      await _profileLoadCompleter?.future;
+      return;
+    }
     _profileLoadInProgress = true;
+    _profileLoadCompleter = Completer<void>();
     try {
       debugPrint('🔐 _loadUserProfile: START for ${firebaseUser.uid}');
       final doc = await _firestore
@@ -383,6 +393,7 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
             phoneVerifiedAt: (data['phoneVerifiedAt'] as Timestamp?)?.toDate(),
             createdAt:
                 (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+            consentVersion: data['consentVersion'] as String?,
           ),
         );
         // Keep Razorpay checkout title up to date with user's shop name
@@ -463,6 +474,8 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
       _refreshSettingsProviders();
     } finally {
       _profileLoadInProgress = false;
+      _profileLoadCompleter?.complete();
+      _profileLoadCompleter = null;
     }
   }
 
@@ -1043,8 +1056,14 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
           'idToken': idToken,
         });
         final customToken = data['customToken'] as String;
-        await _auth.signInWithCustomToken(customToken);
+        final cred = await _auth.signInWithCustomToken(customToken);
         debugPrint('✅ Windows: Signed in with custom token');
+        if (cred.user != null) {
+          _authResolved = true;
+          _pendingReauth = false;
+          _profileLoaded = true;
+          await _loadUserProfile(cred.user!);
+        }
         return true;
       } catch (cfError) {
         debugPrint(
@@ -1052,11 +1071,17 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
         );
         // Fallback: try direct signInWithEmailAndPassword one more time
         try {
-          await _auth.signInWithEmailAndPassword(
+          final cred = await _auth.signInWithEmailAndPassword(
             email: email,
             password: password,
           );
           debugPrint('✅ Windows: Direct auth succeeded on retry');
+          if (cred.user != null) {
+            _authResolved = true;
+            _pendingReauth = false;
+            _profileLoaded = true;
+            await _loadUserProfile(cred.user!);
+          }
           return true;
         } catch (retryError) {
           debugPrint('🖥️ Windows: Direct auth retry also failed: $retryError');
@@ -1392,6 +1417,7 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
       _profileLoaded = false;
       _authResolved = false;
       _pendingReauth = false;
+      ActiveStoreManager.clear();
       state = const AuthState(isLoading: false);
 
       // 2. Sign out of Firebase Auth first
@@ -1530,7 +1556,7 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
       debugPrint('🔐 Hotel setup error: $e');
       state = state.copyWith(
         error:
-            'Failed to save hotel details. Please check your internet and try again.',
+            'Failed to save restaurant details. Please check your internet and try again.',
       );
       return false;
     }
@@ -2023,7 +2049,7 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
       isLoading: false,
       user: UserModel(
         id: 'demo_user',
-        shopName: 'Demo Hotel',
+        shopName: 'Demo Restaurant',
         ownerName: 'Demo Owner',
         email: 'demo@tulasihotels.com',
         phone: '9876543210',

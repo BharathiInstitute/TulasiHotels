@@ -1,8 +1,8 @@
-/// Salary calculation service
+﻿/// Salary calculation service
 library;
 
+import 'package:tulasihotels/core/services/active_store_manager.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:tulasihotels/models/attendance_model.dart';
 
 class SalarySlip {
@@ -37,13 +37,8 @@ class SalarySlip {
 
 class SalaryService {
   static final _firestore = FirebaseFirestore.instance;
-  static final _auth = FirebaseAuth.instance;
 
-  static String get _basePath {
-    final uid = _auth.currentUser?.uid;
-    if (uid == null) return '';
-    return 'users/$uid';
-  }
+  static String get _basePath => ActiveStoreManager.basePath;
 
   /// Calculate salary for a staff member for a given month
   static Future<SalarySlip> calculateSalary({

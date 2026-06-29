@@ -1,19 +1,14 @@
-/// Customer feedback management service
+﻿/// Customer feedback management service
 library;
 
+import 'package:tulasihotels/core/services/active_store_manager.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:tulasihotels/models/feedback_model.dart';
 
 class FeedbackService {
   static final _firestore = FirebaseFirestore.instance;
-  static final _auth = FirebaseAuth.instance;
 
-  static String get _basePath {
-    final uid = _auth.currentUser?.uid;
-    if (uid == null) return '';
-    return 'users/$uid';
-  }
+  static String get _basePath => ActiveStoreManager.basePath;
 
   static CollectionReference<Map<String, dynamic>> get _feedbackRef =>
       _firestore.collection('$_basePath/feedback');
@@ -36,7 +31,7 @@ class FeedbackService {
     await _feedbackRef.doc(feedback.id).set(feedback.toFirestore());
   }
 
-  /// Submit feedback for a specific hotel (public — no auth needed)
+  /// Submit feedback for a specific hotel (public â€” no auth needed)
   static Future<void> submitPublicFeedback(
       String hotelUid, FeedbackModel feedback) async {
     await _firestore

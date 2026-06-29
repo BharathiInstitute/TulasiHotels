@@ -2,8 +2,8 @@
   "@@locale": "en",
   "@@last_modified": "2026-01-30",
   
-  "appName": "Tulasi Hotels",
-  "appTagline": "India's Easiest Hotel Billing App",
+  "appName": "Tulasi Restaurants",
+  "appTagline": "India's Easiest Restaurant Billing App",
   
   "billing": "Billing",
   "khata": "Khata",
@@ -114,8 +114,8 @@
   "unitsSold": "{count} units sold",
   "recentBills": "Recent Bills",
   
-  "shopDetails": "Hotel Details",
-  "shopName": "Hotel Name",
+  "shopDetails": "Restaurant Details",
+  "shopName": "Restaurant Name",
   "ownerName": "Owner Name",
   "gstNumber": "GST Number",
   "subscription": "Subscription",
@@ -154,10 +154,10 @@
   "alreadyHaveAccount": "Already have an account?",
   "createAccount": "Create Account",
   "welcomeBack": "Welcome Back!",
-  "loginToContinue": "Login to continue to your hotel",
+  "loginToContinue": "Login to continue to your restaurant",
   
-  "setupShop": "Setup Your Hotel",
-  "enterShopDetails": "Enter your hotel details to get started",
+  "setupShop": "Setup Your Restaurant",
+  "enterShopDetails": "Enter your restaurant details to get started",
   "getStarted": "Get Started",
   
   "error": "Error",

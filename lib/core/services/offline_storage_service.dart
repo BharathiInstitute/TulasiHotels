@@ -1,4 +1,4 @@
-/// Offline storage service - Firestore-based with offline support
+﻿/// Offline storage service - Firestore-based with offline support
 ///
 /// This replaces the previous Hive-based implementation.
 /// Firebase Firestore offline persistence handles all local caching.
@@ -6,8 +6,8 @@ library;
 
 import 'dart:convert';
 import 'dart:io';
+import 'package:tulasihotels/core/services/active_store_manager.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart' show DateTimeRange;
 import 'package:tulasihotels/core/constants/app_constants.dart';
@@ -167,7 +167,7 @@ class PrinterStorage {
     await _prefs?.setString(_printerTypeKey, type);
   }
 
-  // ── WiFi printer settings ──
+  // â”€â”€ WiFi printer settings â”€â”€
 
   /// Get saved WiFi printer IP
   static String getWifiPrinterIp() {
@@ -191,7 +191,7 @@ class PrinterStorage {
     await _prefs?.setInt(_wifiPortKey, port);
   }
 
-  // ── USB printer settings ──
+  // â”€â”€ USB printer settings â”€â”€
 
   /// Get saved USB printer name (Windows)
   static String getUsbPrinterName() {
@@ -204,7 +204,7 @@ class PrinterStorage {
     await _prefs?.setString(_usbPrinterNameKey, name);
   }
 
-  // ── Cash drawer ──
+  // â”€â”€ Cash drawer â”€â”€
   static bool getOpenCashDrawer() =>
       _prefs?.getBool(_openCashDrawerKey) ?? false;
   static Future<void> saveOpenCashDrawer(bool open) async {
@@ -212,14 +212,14 @@ class PrinterStorage {
     await _prefs?.setBool(_openCashDrawerKey, open);
   }
 
-  // ── Print copies ──
+  // â”€â”€ Print copies â”€â”€
   static int getPrintCopies() => _prefs?.getInt(_printCopiesKey) ?? 1;
   static Future<void> savePrintCopies(int copies) async {
     await _ensurePrefs();
     await _prefs?.setInt(_printCopiesKey, copies);
   }
 
-  // ── Show QR on receipt ──
+  // â”€â”€ Show QR on receipt â”€â”€
   static bool getShowQrOnReceipt() =>
       _prefs?.getBool(_showQrOnReceiptKey) ?? false;
   static Future<void> saveShowQrOnReceipt(bool show) async {
@@ -227,7 +227,7 @@ class PrinterStorage {
     await _prefs?.setBool(_showQrOnReceiptKey, show);
   }
 
-  // ── Show GST breakdown ──
+  // â”€â”€ Show GST breakdown â”€â”€
   static bool getShowGstBreakdown() =>
       _prefs?.getBool(_showGstBreakdownKey) ?? false;
   static Future<void> saveShowGstBreakdown(bool show) async {
@@ -235,7 +235,7 @@ class PrinterStorage {
     await _prefs?.setBool(_showGstBreakdownKey, show);
   }
 
-  // ── Receipt language ──
+  // â”€â”€ Receipt language â”€â”€
   static String getReceiptLanguage() =>
       _prefs?.getString(_receiptLanguageKey) ?? 'english';
   static Future<void> saveReceiptLanguage(String lang) async {
@@ -243,7 +243,7 @@ class PrinterStorage {
     await _prefs?.setString(_receiptLanguageKey, lang);
   }
 
-  // ── Show logo on thermal ──
+  // â”€â”€ Show logo on thermal â”€â”€
   static bool getShowLogoOnThermal() =>
       _prefs?.getBool(_showLogoOnThermalKey) ?? false;
   static Future<void> saveShowLogoOnThermal(bool show) async {
@@ -251,21 +251,21 @@ class PrinterStorage {
     await _prefs?.setBool(_showLogoOnThermalKey, show);
   }
 
-  // ── Cut mode ──
+  // â”€â”€ Cut mode â”€â”€
   static String getCutMode() => _prefs?.getString(_cutModeKey) ?? 'fullCut';
   static Future<void> saveCutMode(String mode) async {
     await _ensurePrefs();
     await _prefs?.setString(_cutModeKey, mode);
   }
 
-  // ── Show copy label ──
+  // â”€â”€ Show copy label â”€â”€
   static bool getShowCopyLabel() => _prefs?.getBool(_showCopyLabelKey) ?? false;
   static Future<void> saveShowCopyLabel(bool show) async {
     await _ensurePrefs();
     await _prefs?.setBool(_showCopyLabelKey, show);
   }
 
-  // ── Show HSN on receipt ──
+  // â”€â”€ Show HSN on receipt â”€â”€
   static bool getShowHsnOnReceipt() =>
       _prefs?.getBool(_showHsnOnReceiptKey) ?? false;
   static Future<void> saveShowHsnOnReceipt(bool show) async {
@@ -273,14 +273,14 @@ class PrinterStorage {
     await _prefs?.setBool(_showHsnOnReceiptKey, show);
   }
 
-  // ── Print density ──
+  // â”€â”€ Print density â”€â”€
   static int getPrintDensity() => _prefs?.getInt(_printDensityKey) ?? 1;
   static Future<void> savePrintDensity(int density) async {
     await _ensurePrefs();
     await _prefs?.setInt(_printDensityKey, density);
   }
 
-  // ── System printer (for direct PDF print) ──
+  // â”€â”€ System printer (for direct PDF print) â”€â”€
   static String getSystemPrinterName() =>
       _prefs?.getString(_systemPrinterNameKey) ?? '';
   static String getSystemPrinterUrl() =>
@@ -302,7 +302,6 @@ class OfflineStorageService {
   static bool _initialized = false;
   static SharedPreferences? _prefs;
   static final _firestore = FirebaseFirestore.instance;
-  static final _auth = FirebaseAuth.instance;
 
   /// Expose prefs for direct access (e.g., route persistence)
   static SharedPreferences? get prefs => _prefs;
@@ -316,18 +315,14 @@ class OfflineStorageService {
   }
 
   /// Get user's collection path
-  static String get _basePath {
-    final uid = _auth.currentUser?.uid;
-    if (uid == null) return ''; // Not logged in
-    return 'users/$uid';
-  }
+  static String get _basePath => ActiveStoreManager.basePath;
 
   /// Initialize storage (Firestore offline is already enabled in SyncSettingsService)
   static Future<void> initialize() async {
     if (_initialized) return;
     _prefs = await SharedPreferences.getInstance();
     _initialized = true;
-    debugPrint('✅ OfflineStorageService initialized (Firestore-based)');
+    debugPrint('âœ… OfflineStorageService initialized (Firestore-based)');
   }
 
   // ==================== Products ====================
@@ -466,7 +461,7 @@ class OfflineStorageService {
     try {
       final counterRef = _firestore.doc('$_basePath/counters/billing');
 
-      // On Windows, avoid runTransaction — the C++ Firestore SDK sends
+      // On Windows, avoid runTransaction â€” the C++ Firestore SDK sends
       // callbacks on non-platform threads, crashing Flutter.
       if (!kIsWeb && Platform.isWindows) {
         final snapshot = await counterRef.get();
@@ -493,7 +488,7 @@ class OfflineStorageService {
       UserUsageService.trackWrite();
       return newBillNumber;
     } catch (e) {
-      debugPrint('⚠️ Bill counter fallback: $e');
+      debugPrint('âš ï¸ Bill counter fallback: $e');
       return generateBillNumber();
     }
   }
@@ -540,7 +535,7 @@ class OfflineStorageService {
       transaction.toFirestore(),
     );
 
-    // Atomic commit — all three succeed or all fail
+    // Atomic commit â€” all three succeed or all fail
     await batch.commit();
   }
 
@@ -597,7 +592,7 @@ class OfflineStorageService {
     });
   }
 
-  /// Paginated bills fetch — returns (bills, lastDocument) for cursor pagination.
+  /// Paginated bills fetch â€” returns (bills, lastDocument) for cursor pagination.
   /// Pass [startAfter] from a previous call to load the next page.
   static Future<(List<BillModel>, DocumentSnapshot?)> fetchBillsPage({
     int pageSize = 50,
@@ -635,7 +630,7 @@ class OfflineStorageService {
     );
   }
 
-  /// Delete old bills (data retention) — processes in batches of 400
+  /// Delete old bills (data retention) â€” processes in batches of 400
   /// to stay under Firestore's 500-operation batch limit.
   static Future<int> deleteOldBills(DateTime before) async {
     if (_basePath.isEmpty) return 0;
@@ -750,7 +745,7 @@ class OfflineStorageService {
     });
   }
 
-  /// Paginated expenses fetch — returns (expenses, lastDocument) for cursor pagination.
+  /// Paginated expenses fetch â€” returns (expenses, lastDocument) for cursor pagination.
   static Future<(List<ExpenseModel>, DocumentSnapshot?)> fetchExpensesPage({
     int pageSize = 50,
     DocumentSnapshot? startAfter,
@@ -886,7 +881,7 @@ class OfflineStorageService {
       transaction.toFirestore(),
     );
 
-    // Atomic commit — both succeed or both fail
+    // Atomic commit â€” both succeed or both fail
     await batch.commit();
     UserUsageService.trackWrite(count: 2);
   }
@@ -953,7 +948,7 @@ class OfflineStorageService {
     });
   }
 
-  /// Paginated customers fetch — returns (customers, lastDocument) for cursor pagination.
+  /// Paginated customers fetch â€” returns (customers, lastDocument) for cursor pagination.
   static Future<(List<CustomerModel>, DocumentSnapshot?)> fetchCustomersPage({
     int pageSize = 50,
     DocumentSnapshot? startAfter,
@@ -1063,7 +1058,7 @@ class OfflineStorageService {
         return total + amount;
       });
     } catch (e) {
-      debugPrint('❌ getTodayPaymentTotal error: $e');
+      debugPrint('âŒ getTodayPaymentTotal error: $e');
       return 0;
     }
   }
@@ -1300,7 +1295,7 @@ class OfflineStorageService {
   /// Clear all local cache
   static Future<void> clearAll() async {
     await _prefs?.clear();
-    debugPrint('✅ clearAll: SharedPreferences cleared');
+    debugPrint('âœ… clearAll: SharedPreferences cleared');
   }
 
   /// Clear user-specific local settings on sign-out
@@ -1341,7 +1336,7 @@ class OfflineStorageService {
         await _prefs?.remove(key);
       }
     }
-    debugPrint('✅ User-specific local settings cleared');
+    debugPrint('âœ… User-specific local settings cleared');
   }
 
   /// Clear demo data (used when exiting demo mode)

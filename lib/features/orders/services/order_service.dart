@@ -1,8 +1,8 @@
-/// Order management service — Firestore CRUD for orders
+﻿/// Order management service â€” Firestore CRUD for orders
 library;
 
+import 'package:tulasihotels/core/services/active_store_manager.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:tulasihotels/core/utils/id_generator.dart';
 import 'package:tulasihotels/features/tables/services/table_service.dart';
@@ -11,13 +11,8 @@ import 'package:tulasihotels/models/table_model.dart';
 
 class OrderService {
   static final _firestore = FirebaseFirestore.instance;
-  static final _auth = FirebaseAuth.instance;
 
-  static String get _basePath {
-    final uid = _auth.currentUser?.uid;
-    if (uid == null) return '';
-    return 'users/$uid';
-  }
+  static String get _basePath => ActiveStoreManager.basePath;
 
   static CollectionReference<Map<String, dynamic>> get _ordersRef =>
       _firestore.collection('$_basePath/orders');
@@ -117,11 +112,11 @@ class OrderService {
       );
     }
 
-    debugPrint('✅ Created order #$orderNumber for ${tableName ?? orderType.displayName}');
+    debugPrint('âœ… Created order #$orderNumber for ${tableName ?? orderType.displayName}');
     return order;
   }
 
-  /// Add items to an existing order (amendment — new KOT)
+  /// Add items to an existing order (amendment â€” new KOT)
   static Future<OrderModel> addItemsToOrder({
     required String orderId,
     required List<OrderItem> newItems,
@@ -139,7 +134,7 @@ class OrderService {
     );
 
     await _ordersRef.doc(orderId).update(updatedOrder.toFirestore());
-    debugPrint('✅ Added ${newItems.length} items to order #${order.orderNumber} (KOT #$nextKot)');
+    debugPrint('âœ… Added ${newItems.length} items to order #${order.orderNumber} (KOT #$nextKot)');
     return updatedOrder;
   }
 
@@ -251,7 +246,7 @@ class OrderService {
       );
     }
 
-    debugPrint('✅ Order #${order.orderNumber} billed, table freed');
+    debugPrint('âœ… Order #${order.orderNumber} billed, table freed');
   }
 
   /// Cancel an order and free the table
@@ -271,10 +266,10 @@ class OrderService {
       );
     }
 
-    debugPrint('❌ Order #${order.orderNumber} cancelled');
+    debugPrint('âŒ Order #${order.orderNumber} cancelled');
   }
 
-  /// Merge two orders — move items from source into target, cancel source
+  /// Merge two orders â€” move items from source into target, cancel source
   static Future<OrderModel> mergeOrders({
     required String targetOrderId,
     required String sourceOrderId,
@@ -297,7 +292,7 @@ class OrderService {
     await cancelOrder(sourceOrderId);
 
     debugPrint(
-        '🔀 Merged order #${source.orderNumber} into #${target.orderNumber}');
+        'ðŸ”€ Merged order #${source.orderNumber} into #${target.orderNumber}');
     return merged;
   }
 }

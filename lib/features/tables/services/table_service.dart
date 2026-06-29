@@ -1,21 +1,16 @@
-/// Table management service — Firestore CRUD for tables
+﻿/// Table management service â€” Firestore CRUD for tables
 library;
 
+import 'package:tulasihotels/core/services/active_store_manager.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:tulasihotels/core/utils/id_generator.dart';
 import 'package:tulasihotels/models/table_model.dart';
 
 class TableService {
   static final _firestore = FirebaseFirestore.instance;
-  static final _auth = FirebaseAuth.instance;
 
-  static String get _basePath {
-    final uid = _auth.currentUser?.uid;
-    if (uid == null) return '';
-    return 'users/$uid';
-  }
+  static String get _basePath => ActiveStoreManager.basePath;
 
   static CollectionReference<Map<String, dynamic>> get _tablesRef =>
       _firestore.collection('$_basePath/tables');
@@ -54,7 +49,7 @@ class TableService {
     );
 
     await _tablesRef.doc(id).set(table.toFirestore());
-    debugPrint('✅ Created table: ${table.displayName}');
+    debugPrint('âœ… Created table: ${table.displayName}');
     return table;
   }
 
@@ -71,7 +66,7 @@ class TableService {
     await _tablesRef.doc(tableId).delete();
   }
 
-  /// Update table status (e.g., available → occupied)
+  /// Update table status (e.g., available â†’ occupied)
   static Future<void> updateTableStatus(
     String tableId,
     TableStatus status, {
@@ -90,7 +85,7 @@ class TableService {
     await _tablesRef.doc(tableId).update(updates);
   }
 
-  /// Bulk-create tables (e.g., "Add tables 1–20")
+  /// Bulk-create tables (e.g., "Add tables 1â€“20")
   static Future<void> createBulkTables({
     required int from,
     required int to,
@@ -110,7 +105,7 @@ class TableService {
       batch.set(_tablesRef.doc(id), table.toFirestore());
     }
     await batch.commit();
-    debugPrint('✅ Created ${to - from + 1} tables ($from–$to)');
+    debugPrint('âœ… Created ${to - from + 1} tables ($fromâ€“$to)');
   }
 
   /// Assign a server (waiter) to a table

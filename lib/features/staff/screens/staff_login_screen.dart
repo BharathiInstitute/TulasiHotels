@@ -93,8 +93,8 @@ class _StaffLoginScreenState extends ConsumerState<StaffLoginScreen> {
         return;
       }
 
-      // Set logged-in staff
-      ref.read(loggedInStaffProvider.notifier).state = staff;
+      // Set logged-in staff and persist session
+      ref.read(loggedInStaffProvider.notifier).login(staff);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -195,14 +195,23 @@ class _StaffLoginScreenState extends ConsumerState<StaffLoginScreen> {
                 ] else ...[
                   // Step 2: Show email + PIN entry
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 10,
+                    ),
                     decoration: BoxDecoration(
-                      color: theme.colorScheme.primaryContainer.withValues(alpha: 0.3),
+                      color: theme.colorScheme.primaryContainer.withValues(
+                        alpha: 0.3,
+                      ),
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Row(
                       children: [
-                        Icon(Icons.email, size: 18, color: theme.colorScheme.primary),
+                        Icon(
+                          Icons.email,
+                          size: 18,
+                          color: theme.colorScheme.primary,
+                        ),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
@@ -287,7 +296,7 @@ class _StaffLoginScreenState extends ConsumerState<StaffLoginScreen> {
                     return OutlinedButton.icon(
                       onPressed: () async {
                         await AttendanceService.clockOut(loggedIn.id);
-                        ref.read(loggedInStaffProvider.notifier).state = null;
+                        ref.read(loggedInStaffProvider.notifier).logout();
                         if (context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
@@ -338,15 +347,9 @@ class _NumberPad extends StatelessWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            _PadButton(
-              label: 'C',
-              onTap: enabled ? onClear : null,
-            ),
+            _PadButton(label: 'C', onTap: enabled ? onClear : null),
             const SizedBox(width: 12),
-            _PadButton(
-              label: '0',
-              onTap: enabled ? () => onDigit('0') : null,
-            ),
+            _PadButton(label: '0', onTap: enabled ? () => onDigit('0') : null),
             const SizedBox(width: 12),
             _PadButton(
               icon: Icons.backspace_outlined,

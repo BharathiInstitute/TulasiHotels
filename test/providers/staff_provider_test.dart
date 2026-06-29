@@ -20,8 +20,7 @@ void main() {
       final container = ProviderContainer();
       addTearDown(container.dispose);
 
-      container.read(staffRoleFilterProvider.notifier).state =
-          StaffRole.waiter;
+      container.read(staffRoleFilterProvider.notifier).state = StaffRole.waiter;
       expect(container.read(staffRoleFilterProvider), StaffRole.waiter);
     });
   });
@@ -54,7 +53,7 @@ void main() {
       addTearDown(container.dispose);
 
       final staff = makeStaff(id: 's1', name: 'Ravi');
-      container.read(loggedInStaffProvider.notifier).state = staff;
+      container.read(loggedInStaffProvider.notifier).login(staff);
       expect(container.read(loggedInStaffProvider)?.name, 'Ravi');
     });
   });
@@ -62,10 +61,25 @@ void main() {
   group('filteredStaff derived logic', () {
     final staffList = [
       makeStaff(id: 's1', name: 'Ravi Kumar', phone: '1111'),
-      makeStaff(id: 's2', name: 'Amit Shah', role: StaffRole.chef, phone: '2222'),
+      makeStaff(
+        id: 's2',
+        name: 'Amit Shah',
+        role: StaffRole.chef,
+        phone: '2222',
+      ),
       makeStaff(id: 's3', name: 'Priya Sharma', phone: '3333'),
-      makeStaff(id: 's4', name: 'Kumar Patel', role: StaffRole.cashier, phone: '4444'),
-      makeStaff(id: 's5', name: 'Deepa Nair', role: StaffRole.manager, phone: '5555'),
+      makeStaff(
+        id: 's4',
+        name: 'Kumar Patel',
+        role: StaffRole.cashier,
+        phone: '4444',
+      ),
+      makeStaff(
+        id: 's5',
+        name: 'Deepa Nair',
+        role: StaffRole.manager,
+        phone: '5555',
+      ),
     ];
 
     test('no filter returns all', () {
@@ -75,8 +89,7 @@ void main() {
 
     test('role filter: waiter', () {
       const roleFilter = StaffRole.waiter;
-      final filtered =
-          staffList.where((s) => s.role == roleFilter).toList();
+      final filtered = staffList.where((s) => s.role == roleFilter).toList();
       expect(filtered.length, 2);
       expect(filtered.every((s) => s.role == StaffRole.waiter), isTrue);
     });
@@ -84,9 +97,11 @@ void main() {
     test('search by name (case-insensitive)', () {
       const query = 'kumar';
       final filtered = staffList
-          .where((s) =>
-              s.name.toLowerCase().contains(query.toLowerCase()) ||
-              (s.phone?.toLowerCase().contains(query.toLowerCase()) ?? false))
+          .where(
+            (s) =>
+                s.name.toLowerCase().contains(query.toLowerCase()) ||
+                (s.phone?.toLowerCase().contains(query.toLowerCase()) ?? false),
+          )
           .toList();
       expect(filtered.length, 2); // "Ravi Kumar" + "Kumar Patel"
     });
@@ -94,9 +109,11 @@ void main() {
     test('search by phone', () {
       const query = '2222';
       final filtered = staffList
-          .where((s) =>
-              s.name.toLowerCase().contains(query) ||
-              (s.phone?.contains(query) ?? false))
+          .where(
+            (s) =>
+                s.name.toLowerCase().contains(query) ||
+                (s.phone?.contains(query) ?? false),
+          )
           .toList();
       expect(filtered.length, 1);
       expect(filtered[0].name, 'Amit Shah');
@@ -107,9 +124,11 @@ void main() {
       const query = 'ravi';
       final filtered = staffList
           .where((s) => s.role == roleFilter)
-          .where((s) =>
-              s.name.toLowerCase().contains(query.toLowerCase()) ||
-              (s.phone?.toLowerCase().contains(query.toLowerCase()) ?? false))
+          .where(
+            (s) =>
+                s.name.toLowerCase().contains(query.toLowerCase()) ||
+                (s.phone?.toLowerCase().contains(query.toLowerCase()) ?? false),
+          )
           .toList();
       expect(filtered.length, 1);
       expect(filtered[0].name, 'Ravi Kumar');
@@ -120,9 +139,11 @@ void main() {
       const query = '';
       var filtered = staffList.where((s) => s.role == roleFilter);
       if (query.isNotEmpty) {
-        filtered = filtered.where((s) =>
-            s.name.toLowerCase().contains(query) ||
-            (s.phone?.contains(query) ?? false));
+        filtered = filtered.where(
+          (s) =>
+              s.name.toLowerCase().contains(query) ||
+              (s.phone?.contains(query) ?? false),
+        );
       }
       expect(filtered.length, 1);
     });

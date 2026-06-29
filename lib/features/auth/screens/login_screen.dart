@@ -240,7 +240,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
     return AuthLayout(
       title: 'Welcome',
-      subtitle: 'Sign in to manage your hotel',
+      subtitle: 'Sign in to manage your restaurant',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -401,7 +401,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               color: AppColors.textSecondary,
             ),
             label: const Text(
-              'Try Demo Hotel',
+              'Try Demo Restaurant',
               style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
             ),
           ),

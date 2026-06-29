@@ -1,8 +1,8 @@
-/// Data retention service for managing data lifecycle
+﻿/// Data retention service for managing data lifecycle
 library;
 
+import 'package:tulasihotels/core/services/active_store_manager.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tulasihotels/core/services/offline_storage_service.dart';
@@ -46,15 +46,10 @@ class DataRetentionService {
 
   final RetentionPeriod _period;
   static final _firestore = FirebaseFirestore.instance;
-  static final _auth = FirebaseAuth.instance;
   static SharedPreferences? _prefs;
 
   /// Get user's base path
-  static String get _basePath {
-    final uid = _auth.currentUser?.uid;
-    if (uid == null) return '';
-    return 'users/$uid';
-  }
+  static String get _basePath => ActiveStoreManager.basePath;
 
   /// Initialize the service
   static Future<void> initialize() async {
@@ -211,7 +206,7 @@ class DataRetentionService {
       }
 
       debugPrint(
-        '🧹 Cleanup: $billsDeleted bills, $expensesDeleted expenses '
+        'ðŸ§¹ Cleanup: $billsDeleted bills, $expensesDeleted expenses '
         '(dryRun=$dryRun, period=${_period.label})',
       );
 
@@ -222,7 +217,7 @@ class DataRetentionService {
         dryRun: dryRun,
       );
     } catch (e) {
-      debugPrint('🧹 Cleanup error: $e');
+      debugPrint('ðŸ§¹ Cleanup error: $e');
       return CleanupResult(
         billsDeleted: billsDeleted,
         expensesDeleted: expensesDeleted,
@@ -277,7 +272,7 @@ class CleanupResult {
   }
 }
 
-/// Provider for data retention service — reads retention period from user settings
+/// Provider for data retention service â€” reads retention period from user settings
 final dataRetentionServiceProvider = Provider<DataRetentionService>((ref) {
   final settings = ref.watch(settingsProvider);
   return DataRetentionService(settings.retentionPeriod);

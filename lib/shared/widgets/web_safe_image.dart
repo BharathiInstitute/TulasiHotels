@@ -5,7 +5,8 @@ library;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
-import 'package:tulasihotels/shared/widgets/web_safe_image_web.dart' if (dart.library.io) 'package:tulasihotels/shared/widgets/web_safe_image_stub.dart'
+import 'package:tulasihotels/shared/widgets/web_safe_image_web.dart'
+    if (dart.library.io) 'package:tulasihotels/shared/widgets/web_safe_image_stub.dart'
     as platform;
 
 /// Displays a network image that works on all platforms.
@@ -60,7 +61,13 @@ class WebSafeImage extends StatelessWidget {
             );
       },
       errorBuilder: (_, _, _) =>
-          errorWidget ?? const Icon(Icons.broken_image, color: Colors.grey),
+          errorWidget ??
+          Image.asset(
+            'assets/images/restaurant_logo.png',
+            width: width,
+            height: height,
+            fit: BoxFit.contain,
+          ),
     );
   }
 }

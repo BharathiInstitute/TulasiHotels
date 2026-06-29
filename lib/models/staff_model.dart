@@ -93,6 +93,44 @@ class StaffModel {
     };
   }
 
+  /// Serialize to plain JSON (for SharedPreferences persistence)
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'name': name,
+    'email': email,
+    'phone': phone,
+    'role': role.name,
+    'pin': pin,
+    'isActive': isActive,
+    'createdAt': createdAt.millisecondsSinceEpoch,
+    if (permissions != null) 'permissions': permissions,
+  };
+
+  /// Deserialize from plain JSON (inverse of toJson)
+  factory StaffModel.fromJson(Map<String, dynamic> data) {
+    Map<String, List<String>>? permissions;
+    if (data['permissions'] is Map) {
+      final raw = data['permissions'] as Map<String, dynamic>;
+      permissions = {
+        for (final entry in raw.entries)
+          entry.key: (entry.value as List<dynamic>).cast<String>(),
+      };
+    }
+    return StaffModel(
+      id: (data['id'] as String?) ?? '',
+      name: (data['name'] as String?) ?? '',
+      email: data['email'] as String?,
+      phone: data['phone'] as String?,
+      role: StaffRole.fromString((data['role'] as String?) ?? 'waiter'),
+      pin: (data['pin'] as String?) ?? '0000',
+      isActive: (data['isActive'] as bool?) ?? true,
+      createdAt: DateTime.fromMillisecondsSinceEpoch(
+        (data['createdAt'] as int?) ?? 0,
+      ),
+      permissions: permissions,
+    );
+  }
+
   StaffModel copyWith({
     String? name,
     String? email,

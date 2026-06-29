@@ -9,6 +9,7 @@ import 'package:tulasihotels/features/auth/providers/auth_provider.dart';
 import 'package:tulasihotels/features/auth/widgets/auth_layout.dart';
 import 'package:tulasihotels/features/super_admin/providers/super_admin_provider.dart';
 import 'package:tulasihotels/features/super_admin/services/admin_firestore_service.dart';
+import 'package:tulasihotels/core/services/offline_storage_service.dart';
 
 class SuperAdminLoginScreen extends ConsumerStatefulWidget {
   const SuperAdminLoginScreen({super.key});
@@ -79,39 +80,64 @@ class _SuperAdminLoginScreenState extends ConsumerState<SuperAdminLoginScreen> {
       _accessError = null;
     });
 
-    // Check if email is in authorized list (Firestore + fallback)
-    final isAuthorized = await _isAuthorizedEmailAsync(email);
-    if (!isAuthorized) {
-      _failedAttempts++;
-      if (_failedAttempts >= _maxAttempts) {
-        _lockoutUntil = DateTime.now().add(_lockoutDuration);
-        _failedAttempts = 0;
-      }
-      setState(() {
-        _isLoading = false;
-        _accessError =
-            'Invalid credentials. Please check your email and password.';
-      });
-      return;
-    }
-
     ref.read(authNotifierProvider.notifier).clearError();
 
     try {
+      // Step 1: Sign in with Firebase Auth (validates email + password)
       final success = await ref
           .read(authNotifierProvider.notifier)
           .signIn(email: email, password: _passwordController.text);
 
-      if (success && mounted) {
-        _failedAttempts = 0; // Reset on successful login
-        context.go('/super-admin');
-      } else {
+      if (!success) {
         _failedAttempts++;
         if (_failedAttempts >= _maxAttempts) {
           _lockoutUntil = DateTime.now().add(_lockoutDuration);
           _failedAttempts = 0;
         }
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+            _accessError =
+                'Invalid credentials. Please check your email and password.';
+          });
+        }
+        return;
       }
+
+      // Step 2: Now that we're authenticated, check if user is an admin.
+      // After sign-in, Firestore rules allow reading /admins/{email}
+      // and app_config/super_admins for authorized users.
+      final isAuthorized = await _isAuthorizedEmailAsync(email);
+      if (!isAuthorized) {
+        // Not an admin — sign out and show error
+        await ref.read(authNotifierProvider.notifier).signOut();
+        _failedAttempts++;
+        if (_failedAttempts >= _maxAttempts) {
+          _lockoutUntil = DateTime.now().add(_lockoutDuration);
+          _failedAttempts = 0;
+        }
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+            _accessError =
+                'Access denied. This email is not authorized as an admin.';
+          });
+        }
+        return;
+      }
+
+      // Step 3: Authorized admin — seed admins collection and navigate
+      _failedAttempts = 0;
+      try {
+        await AdminFirestoreService.ensureAdminSeeded();
+        await ref.read(adminEmailsProvider.future);
+      } catch (_) {}
+      // Persist /super-admin so session-restore always returns to admin panel
+      await OfflineStorageService.prefs?.setString(
+        'last_route',
+        '/super-admin',
+      );
+      if (mounted) context.go('/super-admin');
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);

@@ -27,6 +27,9 @@ class StoreMember {
   final String email;
   final String displayName;
   final StoreRole role;
+
+  /// Free-text role label used when [role] == [StoreRole.custom]
+  final String? customRoleName;
   final MemberStatus status;
   final Map<String, List<String>>? permissions;
   final DateTime joinedAt;
@@ -37,11 +40,18 @@ class StoreMember {
     required this.email,
     required this.displayName,
     required this.role,
+    this.customRoleName,
     this.status = MemberStatus.active,
     this.permissions,
     required this.joinedAt,
     this.invitedBy,
   });
+
+  /// Display-friendly role label (uses customRoleName for custom role)
+  String get roleLabel =>
+      role == StoreRole.custom && (customRoleName?.isNotEmpty ?? false)
+      ? customRoleName!
+      : role.displayName;
 
   /// Effective permissions: custom overrides or role defaults
   Map<String, List<String>> get effectivePermissions {
@@ -67,9 +77,8 @@ class StoreMember {
       email: (data['email'] as String?) ?? '',
       displayName: (data['displayName'] as String?) ?? '',
       role: StoreRole.fromString((data['role'] as String?) ?? 'staff'),
-      status: MemberStatus.fromString(
-        (data['status'] as String?) ?? 'invited',
-      ),
+      customRoleName: data['customRoleName'] as String?,
+      status: MemberStatus.fromString((data['status'] as String?) ?? 'invited'),
       permissions: permissions,
       joinedAt: (data['joinedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       invitedBy: data['invitedBy'] as String?,
@@ -81,6 +90,7 @@ class StoreMember {
       'email': email,
       'displayName': displayName,
       'role': role.name,
+      if (customRoleName != null) 'customRoleName': customRoleName,
       'status': status.name,
       'joinedAt': Timestamp.fromDate(joinedAt),
       if (permissions != null) 'permissions': permissions,
@@ -92,6 +102,7 @@ class StoreMember {
     String? email,
     String? displayName,
     StoreRole? role,
+    String? customRoleName,
     MemberStatus? status,
     Map<String, List<String>>? permissions,
     String? invitedBy,
@@ -101,6 +112,7 @@ class StoreMember {
       email: email ?? this.email,
       displayName: displayName ?? this.displayName,
       role: role ?? this.role,
+      customRoleName: customRoleName ?? this.customRoleName,
       status: status ?? this.status,
       permissions: permissions ?? this.permissions,
       joinedAt: joinedAt,

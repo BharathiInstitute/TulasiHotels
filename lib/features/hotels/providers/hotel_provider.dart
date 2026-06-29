@@ -2,6 +2,8 @@
 library;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:tulasihotels/core/services/active_store_manager.dart';
+import 'package:tulasihotels/core/services/offline_storage_service.dart';
 import 'package:tulasihotels/features/hotels/models/hotel_info.dart';
 import 'package:tulasihotels/features/hotels/services/hotel_service.dart';
 
@@ -13,8 +15,16 @@ final hotelsStreamProvider = StreamProvider<List<HotelInfo>>((ref) {
   });
 });
 
-/// Currently selected hotel ID (persists across the session)
-final currentHotelIdProvider = StateProvider<String?>((ref) => null);
+/// Currently selected hotel ID (persists across the session).
+/// Initializes from SharedPreferences so it's available before the router builds.
+final currentHotelIdProvider = StateProvider<String?>((ref) {
+  final savedId = OfflineStorageService.prefs?.getString('last_hotel_id');
+  if (savedId != null && savedId.isNotEmpty) {
+    ActiveStoreManager.setActiveStore(savedId);
+    return savedId;
+  }
+  return null;
+});
 
 /// The currently selected hotel info (derived from list + selected ID)
 final currentHotelProvider = Provider<HotelInfo?>((ref) {

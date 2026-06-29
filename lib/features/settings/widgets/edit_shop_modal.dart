@@ -186,7 +186,7 @@ class _EditShopModalState extends ConsumerState<EditShopModal> {
 
                     AppTextField(
                       label: '${l10n.shopName} *',
-                      hint: 'e.g., Tulasi Grand Hotel',
+                      hint: 'e.g., Tulasi Grand Restaurant',
                       controller: _shopNameController,
                       prefixIcon: const Icon(Icons.hotel),
                       validator: (v) => Validators.name(v, l10n.shopName),
@@ -214,7 +214,7 @@ class _EditShopModalState extends ConsumerState<EditShopModal> {
 
                     AppTextField(
                       label: l10n.address,
-                      hint: 'Hotel address (optional)',
+                      hint: 'Restaurant address (optional)',
                       controller: _addressController,
                       prefixIcon: const Icon(Icons.location_on),
                       maxLines: 2,

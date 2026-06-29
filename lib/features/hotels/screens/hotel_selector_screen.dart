@@ -1,16 +1,18 @@
-/// Hotel selector screen — shown after login to pick or create a hotel
+﻿/// Hotel selector screen â€” shown after login to pick or create a hotel
 library;
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:tulasihotels/features/admin/providers/current_member_provider.dart';
+import 'package:tulasihotels/features/admin/services/member_permission_guard.dart';
 import 'package:tulasihotels/features/auth/providers/auth_provider.dart';
 import 'package:tulasihotels/features/hotels/models/hotel_info.dart';
 import 'package:tulasihotels/features/hotels/providers/hotel_provider.dart';
 import 'package:tulasihotels/features/hotels/services/hotel_service.dart';
+import 'package:tulasihotels/core/services/active_store_manager.dart';
 import 'package:tulasihotels/core/services/offline_storage_service.dart';
-import 'package:tulasihotels/router/app_router.dart';
 
 class HotelSelectorScreen extends ConsumerStatefulWidget {
   const HotelSelectorScreen({super.key});
@@ -33,6 +35,7 @@ class _HotelSelectorScreenState extends ConsumerState<HotelSelectorScreen> {
     try {
       await HotelService.ensureDefaultHotel();
       await HotelService.resolvePendingInvites();
+      await HotelService.pruneInvalidHotels();
     } catch (e) {
       debugPrint('⚠️ ensureDefaultHotel error: $e');
     }
@@ -235,20 +238,28 @@ class _HotelSelectorScreenState extends ConsumerState<HotelSelectorScreen> {
   void _openHotel(BuildContext context, HotelInfo hotel) {
     // Set the current hotel and persist for page refresh
     ref.read(currentHotelIdProvider.notifier).state = hotel.id;
+    ActiveStoreManager.setActiveStore(hotel.id);
     OfflineStorageService.prefs?.setString('last_hotel_id', hotel.id);
-    context.go(AppRoutes.billing);
+
+    // Determine starting route based on member permissions.
+    // Read the member doc synchronously (may be null on first load — router
+    // redirect will correct the route once the stream resolves).
+    final member = ref.read(currentMemberProvider).valueOrNull;
+    final home = MemberPermissionGuard.homeRoute(member);
+    context.go(home);
   }
 
   Future<void> _logout(BuildContext context) async {
     ref.read(currentHotelIdProvider.notifier).state = null;
+    ActiveStoreManager.clear();
     await OfflineStorageService.prefs?.remove('last_hotel_id');
     await ref.read(authNotifierProvider.notifier).signOut();
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Hotel card
-// ─────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 class _HotelCard extends StatelessWidget {
   final HotelInfo hotel;

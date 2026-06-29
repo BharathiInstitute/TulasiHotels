@@ -31,14 +31,21 @@ service cloud.firestore {
         && get(/databases/$(database)/documents/users/$(userId)/members/$(request.auth.uid)).data.status == 'active';
     }
 
+    // Helper: check if auth user is the store creator (ownerUid field)
+    function isStoreCreator(userId) {
+      return request.auth != null
+        && exists(/databases/$(database)/documents/users/$(userId))
+        && get(/databases/$(database)/documents/users/$(userId)).data.ownerUid == request.auth.uid;
+    }
+
     // Helper: check if auth user is owner OR active member
     function isMemberOrOwner(userId) {
-      return isOwner(userId) || isMember(userId);
+      return isOwner(userId) || isStoreCreator(userId) || isMember(userId);
     }
 
     // Helper: check if auth user is the owner or a manager-level member
     function isManagerOrOwner(userId) {
-      return isOwner(userId) || (
+      return isOwner(userId) || isStoreCreator(userId) || (
         isMember(userId)
         && get(/databases/$(database)/documents/users/$(userId)/members/$(request.auth.uid)).data.role in ['owner', 'manager']
       );
@@ -105,14 +112,26 @@ service cloud.firestore {
     // ===================
     // USER DOCUMENTS
     // ===================
+    
+    // Collection group rule: allows authenticated users to query ALL /members
+    // sub-collections by email (used by resolvePendingInvites on login).
+    // The read returns only docs where the caller's email matches — enforced
+    // client-side via the .where() query; Firestore evaluates per-document.
+    match /{path=**}/members/{memberId} {
+      allow read: if isAuthenticated()
+        && (request.auth.uid == memberId
+            || resource.data.email == request.auth.token.email);
+      allow write: if false; // writes handled by the specific sub-collection rule
+    }
+
     match /users/{userId} {
-      // Single document reads: owner, members, or admins
-      allow get: if isAuthenticated() && (isOwner(userId) || isMember(userId) || isAdmin());
+      // Single document reads: owner, store creator, members, or admins
+      allow get: if isAuthenticated() && (isOwner(userId) || isStoreCreator(userId) || isMember(userId) || isAdmin());
       // Collection queries (list): only owner of that doc or admins can list
       allow list: if isAuthenticated() && isAdmin();
       
-      // Owner can write to their own store doc
-      allow write: if isAuthenticated() && isOwner(userId) && isReasonableSize();
+      // Owner or store creator can write to their store doc
+      allow write: if isAuthenticated() && (isOwner(userId) || isStoreCreator(userId)) && isReasonableSize();
 
       // Allow creating a NEW store doc if ownerUid matches the authenticated user
       allow create: if isAuthenticated() 
@@ -129,8 +148,8 @@ service cloud.firestore {
       // SETTINGS (sub-collection for user preferences sync)
       // ===================
       match /settings/{settingId} {
-        allow read: if isAuthenticated() && isOwner(userId);
-        allow write: if isAuthenticated() && isOwner(userId) && isReasonableSize();
+        allow read: if isAuthenticated() && isMemberOrOwner(userId);
+        allow write: if isAuthenticated() && isMemberOrOwner(userId) && isReasonableSize();
       }
       
       // ===================
@@ -141,7 +160,7 @@ service cloud.firestore {
       match /products/{productId} {
         allow read: if true; // Public: customer menu browsing
         // CREATE: enforce subscription product limit
-        allow create: if isAuthenticated() && isOwner(userId)
+        allow create: if isAuthenticated() && isMemberOrOwner(userId)
           && hasString(request.resource.data.name)
           && request.resource.data.name.size() <= 200
           && isPositive(request.resource.data.price)
@@ -150,13 +169,13 @@ service cloud.firestore {
           && canAddProduct(userId)
           && isNotRateLimited(userId);
         // UPDATE: no limit check needed (not creating new product)
-        allow update: if isAuthenticated() && isOwner(userId)
+        allow update: if isAuthenticated() && isMemberOrOwner(userId)
           && hasString(request.resource.data.name)
           && request.resource.data.name.size() <= 200
           && isPositive(request.resource.data.price)
           && request.resource.data.price <= 9999999
           && isReasonableSize();
-        allow delete: if isAuthenticated() && isOwner(userId);
+        allow delete: if isAuthenticated() && isMemberOrOwner(userId);
       }
       
       // ===================
@@ -179,44 +198,39 @@ service cloud.firestore {
         // Bills are immutable - no update
         allow update: if false;
         // Owner can delete for data retention/cleanup
-        allow delete: if isAuthenticated() && isOwner(userId);
+        allow delete: if isAuthenticated() && isMemberOrOwner(userId);
       }
       
       // ===================
       // CUSTOMERS (sub-collection)
-      // Note: customer limit is soft (no productsLimit-style field yet).
-      // Free tier limited to 10 customers via client-side check.
-      // Server-side enforcement can be added when customersLimit field is
-      // written to the user document by Cloud Functions.
       // ===================
       match /customers/{customerId} {
         allow read: if isAuthenticated() && (isMemberOrOwner(userId) || isAdmin());
-        allow create: if isAuthenticated() && isOwner(userId)
+        allow create: if isAuthenticated() && isMemberOrOwner(userId)
           && hasString(request.resource.data.name)
           && request.resource.data.name.size() <= 200
           && isReasonableSize()
           && canAddCustomer(userId)
           && isNotRateLimited(userId);
-        allow update: if isAuthenticated() && isOwner(userId)
+        allow update: if isAuthenticated() && isMemberOrOwner(userId)
           && hasString(request.resource.data.name)
           && request.resource.data.name.size() <= 200
           && isReasonableSize();
-        allow delete: if isAuthenticated() && isOwner(userId);
+        allow delete: if isAuthenticated() && isMemberOrOwner(userId);
         
         // ===================
         // TRANSACTIONS (nested sub-collection under customers - legacy)
         // ===================
         match /transactions/{transactionId} {
-          allow read: if isAuthenticated() && (isOwner(userId) || isAdmin());
-          allow create: if isAuthenticated() && isOwner(userId)
+          allow read: if isAuthenticated() && (isMemberOrOwner(userId) || isAdmin());
+          allow create: if isAuthenticated() && isMemberOrOwner(userId)
             && request.resource.data.amount is number
             && request.resource.data.amount > 0
             && request.resource.data.amount <= 99999999
             && isReasonableSize()
             && isNotRateLimited(userId);
           allow update: if false;
-          // Owner can delete for data retention/cleanup
-          allow delete: if isAuthenticated() && isOwner(userId);
+          allow delete: if isAuthenticated() && isMemberOrOwner(userId);
         }
       }
       
@@ -224,27 +238,27 @@ service cloud.firestore {
       // EXPENSES (sub-collection)
       // ===================
       match /expenses/{expenseId} {
-        allow read: if isAuthenticated() && (isOwner(userId) || isAdmin());
-        allow create: if isAuthenticated() && isOwner(userId)
+        allow read: if isAuthenticated() && (isMemberOrOwner(userId) || isAdmin());
+        allow create: if isAuthenticated() && isMemberOrOwner(userId)
           && request.resource.data.amount is number
           && request.resource.data.amount > 0
           && request.resource.data.amount <= 99999999
           && isReasonableSize()
           && isNotRateLimited(userId);
-        allow update: if isAuthenticated() && isOwner(userId)
+        allow update: if isAuthenticated() && isMemberOrOwner(userId)
           && request.resource.data.amount is number
           && request.resource.data.amount > 0
           && request.resource.data.amount <= 99999999
           && isReasonableSize();
-        allow delete: if isAuthenticated() && isOwner(userId);
+        allow delete: if isAuthenticated() && isMemberOrOwner(userId);
       }
       
       // ===================
       // TRANSACTIONS (direct sub-collection under user)
       // ===================
       match /transactions/{transactionId} {
-        allow read: if isAuthenticated() && (isOwner(userId) || isAdmin());
-        allow create: if isAuthenticated() && isOwner(userId)
+        allow read: if isAuthenticated() && (isMemberOrOwner(userId) || isAdmin());
+        allow create: if isAuthenticated() && isMemberOrOwner(userId)
           && request.resource.data.amount is number
           && request.resource.data.amount > 0
           && request.resource.data.amount <= 99999999
@@ -252,19 +266,16 @@ service cloud.firestore {
           && isNotRateLimited(userId);
         // Transactions are immutable - no update
         allow update: if false;
-        // Owner can delete for data retention/cleanup
-        allow delete: if isAuthenticated() && isOwner(userId);
+        allow delete: if isAuthenticated() && isMemberOrOwner(userId);
       }
       
       // ===================
       // NOTIFICATIONS (sub-collection)
-      // Written by Cloud Functions or Admin panel, read/updated by client
       // ===================
       match /notifications/{notificationId} {
-        allow read: if isAuthenticated() && (isOwner(userId) || isAdmin());
-        allow update: if isAuthenticated() && (isOwner(userId) || isAdmin());
-        allow delete: if isAuthenticated() && (isOwner(userId) || isAdmin());
-        // Admin can create notifications from admin panel, Cloud Functions use Admin SDK
+        allow read: if isAuthenticated() && (isMemberOrOwner(userId) || isAdmin());
+        allow update: if isAuthenticated() && (isMemberOrOwner(userId) || isAdmin());
+        allow delete: if isAuthenticated() && (isMemberOrOwner(userId) || isAdmin());
         allow create: if isAdmin();
       }
       
@@ -273,9 +284,9 @@ service cloud.firestore {
       // ===================
       match /attendance/{attendanceId} {
         allow read: if isAuthenticated() && (isMemberOrOwner(userId) || isAdmin());
-        allow create, update: if isAuthenticated() && isOwner(userId)
+        allow create, update: if isAuthenticated() && isMemberOrOwner(userId)
           && isReasonableSize();
-        allow delete: if isAuthenticated() && isOwner(userId);
+        allow delete: if isAuthenticated() && isMemberOrOwner(userId);
       }
       
       // ===================
@@ -291,8 +302,8 @@ service cloud.firestore {
       // COUNTERS (sub-collection for atomic bill numbering etc.)
       // ===================
       match /counters/{counterId} {
-        allow read: if isAuthenticated() && (isOwner(userId) || isAdmin());
-        allow write: if isAuthenticated() && isOwner(userId) && isReasonableSize();
+        allow read: if isAuthenticated() && (isMemberOrOwner(userId) || isAdmin());
+        allow write: if isAuthenticated() && isMemberOrOwner(userId) && isReasonableSize();
       }
 
       // ===================
@@ -300,27 +311,23 @@ service cloud.firestore {
       // ===================
       match /tables/{tableId} {
         allow read: if isAuthenticated() && (isMemberOrOwner(userId) || isAdmin());
-        allow create: if isAuthenticated() && isOwner(userId)
+        allow create: if isAuthenticated() && isMemberOrOwner(userId)
           && request.resource.data.number is int
           && request.resource.data.number >= 0
           && isReasonableSize()
           && isNotRateLimited(userId);
         allow update: if isAuthenticated() && isMemberOrOwner(userId)
           && isReasonableSize();
-        allow delete: if isAuthenticated() && isOwner(userId);
+        allow delete: if isAuthenticated() && isMemberOrOwner(userId);
       }
 
       // ===================
       // ORDERS (sub-collection for order lifecycle)
-      // Public get: order status tracking (/menu/:hotelId/order/:orderId/status)
-      // Public list: customer order lookup by phone (/order/:hotelId)
-      // Public create: customer self-ordering from digital menu
       // ===================
       match /orders/{orderId} {
-        allow get: if true; // Public: order status tracking by URL
+        allow get: if true;
         allow list: if isAuthenticated() && (isMemberOrOwner(userId) || isAdmin())
-          || (request.query.limit <= 10); // Public: limited customer lookup
-        // Owner/member creates from POS; customers create from self-order
+          || (request.query.limit <= 10);
         allow create: if (isAuthenticated() && isMemberOrOwner(userId)
           && request.resource.data.items is list
           && request.resource.data.items.size() > 0
@@ -334,7 +341,7 @@ service cloud.firestore {
           && isReasonableSize());
         allow update: if isAuthenticated() && isMemberOrOwner(userId)
           && isReasonableSize();
-        allow delete: if isAuthenticated() && isOwner(userId);
+        allow delete: if isAuthenticated() && isMemberOrOwner(userId);
       }
 
       // ===================
@@ -342,217 +349,247 @@ service cloud.firestore {
       // ===================
       match /staff/{staffId} {
         allow read: if isAuthenticated() && (isMemberOrOwner(userId) || isAdmin());
-        allow create: if isAuthenticated() && isOwner(userId)
+        allow create: if isAuthenticated() && isMemberOrOwner(userId)
           && hasString(request.resource.data.name)
           && request.resource.data.name.size() <= 200
           && isReasonableSize()
           && isNotRateLimited(userId);
-        allow update: if isAuthenticated() && isOwner(userId)
+        allow update: if isAuthenticated() && isMemberOrOwner(userId)
           && hasString(request.resource.data.name)
           && isReasonableSize();
-        allow delete: if isAuthenticated() && isOwner(userId);
+        allow delete: if isAuthenticated() && isMemberOrOwner(userId);
       }
 
       // ===================
       // COMBOS (sub-collection for combo meals)
-      // Public read allowed for customer digital menu
       // ===================
       match /combos/{comboId} {
-        allow read: if true; // Public: customer menu browsing
-        allow create, update: if isAuthenticated() && isOwner(userId) && isReasonableSize();
-        allow delete: if isAuthenticated() && isOwner(userId);
+        allow read: if true;
+        allow create, update: if isAuthenticated() && isMemberOrOwner(userId) && isReasonableSize();
+        allow delete: if isAuthenticated() && isMemberOrOwner(userId);
       }
 
       // ===================
       // RESERVATIONS (sub-collection)
-      // Public create allowed for customer-facing reservations
       // ===================
       match /reservations/{reservationId} {
-        allow read: if isAuthenticated() && (isOwner(userId) || isAdmin());
-        allow create: if isReasonableSize(); // Public: customers can create
-        allow update: if isAuthenticated() && isOwner(userId) && isReasonableSize();
-        allow delete: if isAuthenticated() && isOwner(userId);
+        allow read: if isAuthenticated() && (isMemberOrOwner(userId) || isAdmin());
+        allow create: if isReasonableSize();
+        allow update: if isAuthenticated() && isMemberOrOwner(userId) && isReasonableSize();
+        allow delete: if isAuthenticated() && isMemberOrOwner(userId);
       }
 
       // ===================
       // COUPONS (sub-collection)
       // ===================
       match /coupons/{couponId} {
-        allow read: if isAuthenticated() && (isOwner(userId) || isAdmin());
-        allow create, update: if isAuthenticated() && isOwner(userId) && isReasonableSize();
-        allow delete: if isAuthenticated() && isOwner(userId);
+        allow read: if isAuthenticated() && (isMemberOrOwner(userId) || isAdmin());
+        allow create, update: if isAuthenticated() && isMemberOrOwner(userId) && isReasonableSize();
+        allow delete: if isAuthenticated() && isMemberOrOwner(userId);
       }
 
       // ===================
       // SHIFTS (sub-collection for staff scheduling)
       // ===================
       match /shifts/{shiftId} {
-        allow read: if isAuthenticated() && (isOwner(userId) || isAdmin());
-        allow create, update: if isAuthenticated() && isOwner(userId) && isReasonableSize();
-        allow delete: if isAuthenticated() && isOwner(userId);
+        allow read: if isAuthenticated() && (isMemberOrOwner(userId) || isAdmin());
+        allow create, update: if isAuthenticated() && isMemberOrOwner(userId) && isReasonableSize();
+        allow delete: if isAuthenticated() && isMemberOrOwner(userId);
       }
 
       // ===================
       // TASKS (sub-collection for staff tasks)
       // ===================
       match /tasks/{taskId} {
-        allow read: if isAuthenticated() && (isOwner(userId) || isAdmin());
-        allow create, update: if isAuthenticated() && isOwner(userId) && isReasonableSize();
-        allow delete: if isAuthenticated() && isOwner(userId);
+        allow read: if isAuthenticated() && (isMemberOrOwner(userId) || isAdmin());
+        allow create, update: if isAuthenticated() && isMemberOrOwner(userId) && isReasonableSize();
+        allow delete: if isAuthenticated() && isMemberOrOwner(userId);
       }
 
       // ===================
       // MESSAGES (sub-collection for staff communication)
       // ===================
       match /messages/{messageId} {
-        allow read: if isAuthenticated() && (isOwner(userId) || isAdmin());
-        allow create: if isAuthenticated() && isOwner(userId) && isReasonableSize();
-        allow update: if isAuthenticated() && isOwner(userId) && isReasonableSize();
-        allow delete: if isAuthenticated() && isOwner(userId);
+        allow read: if isAuthenticated() && (isMemberOrOwner(userId) || isAdmin());
+        allow create: if isAuthenticated() && isMemberOrOwner(userId) && isReasonableSize();
+        allow update: if isAuthenticated() && isMemberOrOwner(userId) && isReasonableSize();
+        allow delete: if isAuthenticated() && isMemberOrOwner(userId);
       }
 
       // ===================
       // CASH REGISTERS (sub-collection)
       // ===================
       match /cashRegisters/{registerId} {
-        allow read: if isAuthenticated() && (isOwner(userId) || isAdmin());
-        allow create, update: if isAuthenticated() && isOwner(userId) && isReasonableSize();
-        allow delete: if isAuthenticated() && isOwner(userId);
+        allow read: if isAuthenticated() && (isMemberOrOwner(userId) || isAdmin());
+        allow create, update: if isAuthenticated() && isMemberOrOwner(userId) && isReasonableSize();
+        allow delete: if isAuthenticated() && isMemberOrOwner(userId);
       }
 
       // ===================
       // FEEDBACK (sub-collection)
-      // Public create allowed for customer feedback
       // ===================
       match /feedback/{feedbackId} {
-        allow read: if isAuthenticated() && (isOwner(userId) || isAdmin());
-        allow create: if isReasonableSize(); // Public: customers can submit
-        allow update: if isAuthenticated() && isOwner(userId) && isReasonableSize();
-        allow delete: if isAuthenticated() && isOwner(userId);
+        allow read: if isAuthenticated() && (isMemberOrOwner(userId) || isAdmin());
+        allow create: if isReasonableSize();
+        allow update: if isAuthenticated() && isMemberOrOwner(userId) && isReasonableSize();
+        allow delete: if isAuthenticated() && isMemberOrOwner(userId);
       }
 
       // ===================
       // INGREDIENTS (sub-collection for inventory)
       // ===================
       match /ingredients/{ingredientId} {
-        allow read: if isAuthenticated() && (isOwner(userId) || isAdmin());
-        allow create, update: if isAuthenticated() && isOwner(userId) && isReasonableSize();
-        allow delete: if isAuthenticated() && isOwner(userId);
+        allow read: if isAuthenticated() && (isMemberOrOwner(userId) || isAdmin());
+        allow create, update: if isAuthenticated() && isMemberOrOwner(userId) && isReasonableSize();
+        allow delete: if isAuthenticated() && isMemberOrOwner(userId);
       }
 
       // ===================
       // PURCHASES (sub-collection for inventory purchases)
       // ===================
       match /purchases/{purchaseId} {
-        allow read: if isAuthenticated() && (isOwner(userId) || isAdmin());
-        allow create, update: if isAuthenticated() && isOwner(userId) && isReasonableSize();
-        allow delete: if isAuthenticated() && isOwner(userId);
+        allow read: if isAuthenticated() && (isMemberOrOwner(userId) || isAdmin());
+        allow create, update: if isAuthenticated() && isMemberOrOwner(userId) && isReasonableSize();
+        allow delete: if isAuthenticated() && isMemberOrOwner(userId);
       }
 
       // ===================
       // RECIPES (sub-collection)
       // ===================
       match /recipes/{recipeId} {
-        allow read: if isAuthenticated() && (isOwner(userId) || isAdmin());
-        allow create, update: if isAuthenticated() && isOwner(userId) && isReasonableSize();
-        allow delete: if isAuthenticated() && isOwner(userId);
+        allow read: if isAuthenticated() && (isMemberOrOwner(userId) || isAdmin());
+        allow create, update: if isAuthenticated() && isMemberOrOwner(userId) && isReasonableSize();
+        allow delete: if isAuthenticated() && isMemberOrOwner(userId);
       }
 
       // ===================
       // VENDORS (sub-collection)
       // ===================
       match /vendors/{vendorId} {
-        allow read: if isAuthenticated() && (isOwner(userId) || isAdmin());
-        allow create, update: if isAuthenticated() && isOwner(userId) && isReasonableSize();
-        allow delete: if isAuthenticated() && isOwner(userId);
+        allow read: if isAuthenticated() && (isMemberOrOwner(userId) || isAdmin());
+        allow create, update: if isAuthenticated() && isMemberOrOwner(userId) && isReasonableSize();
+        allow delete: if isAuthenticated() && isMemberOrOwner(userId);
       }
 
       // ===================
       // WASTAGE (sub-collection)
       // ===================
       match /wastage/{wastageId} {
-        allow read: if isAuthenticated() && (isOwner(userId) || isAdmin());
-        allow create: if isAuthenticated() && isOwner(userId) && isReasonableSize();
+        allow read: if isAuthenticated() && (isMemberOrOwner(userId) || isAdmin());
+        allow create: if isAuthenticated() && isMemberOrOwner(userId) && isReasonableSize();
         allow update: if false; // Wastage logs are immutable
-        allow delete: if isAuthenticated() && isOwner(userId);
+        allow delete: if isAuthenticated() && isMemberOrOwner(userId);
       }
 
       // ===================
       // LICENSES (sub-collection for compliance)
       // ===================
       match /licenses/{licenseId} {
-        allow read: if isAuthenticated() && (isOwner(userId) || isAdmin());
-        allow create, update: if isAuthenticated() && isOwner(userId) && isReasonableSize();
-        allow delete: if isAuthenticated() && isOwner(userId);
+        allow read: if isAuthenticated() && (isMemberOrOwner(userId) || isAdmin());
+        allow create, update: if isAuthenticated() && isMemberOrOwner(userId) && isReasonableSize();
+        allow delete: if isAuthenticated() && isMemberOrOwner(userId);
       }
 
       // ===================
       // EQUIPMENT (sub-collection for maintenance tracking)
       // ===================
       match /equipment/{equipmentId} {
-        allow read: if isAuthenticated() && (isOwner(userId) || isAdmin());
-        allow create, update: if isAuthenticated() && isOwner(userId) && isReasonableSize();
-        allow delete: if isAuthenticated() && isOwner(userId);
+        allow read: if isAuthenticated() && (isMemberOrOwner(userId) || isAdmin());
+        allow create, update: if isAuthenticated() && isMemberOrOwner(userId) && isReasonableSize();
+        allow delete: if isAuthenticated() && isMemberOrOwner(userId);
       }
 
       // ===================
       // COMPLAINTS (sub-collection)
       // ===================
       match /complaints/{complaintId} {
-        allow read: if isAuthenticated() && (isOwner(userId) || isAdmin());
-        allow create, update: if isAuthenticated() && isOwner(userId) && isReasonableSize();
-        allow delete: if isAuthenticated() && isOwner(userId);
+        allow read: if isAuthenticated() && (isMemberOrOwner(userId) || isAdmin());
+        allow create, update: if isAuthenticated() && isMemberOrOwner(userId) && isReasonableSize();
+        allow delete: if isAuthenticated() && isMemberOrOwner(userId);
       }
 
       // ===================
       // EVENTS (sub-collection for banquet/event management)
       // ===================
       match /events/{eventId} {
-        allow read: if isAuthenticated() && (isOwner(userId) || isAdmin());
-        allow create, update: if isAuthenticated() && isOwner(userId) && isReasonableSize();
-        allow delete: if isAuthenticated() && isOwner(userId);
+        allow read: if isAuthenticated() && (isMemberOrOwner(userId) || isAdmin());
+        allow create, update: if isAuthenticated() && isMemberOrOwner(userId) && isReasonableSize();
+        allow delete: if isAuthenticated() && isMemberOrOwner(userId);
       }
 
       // ===================
       // VENDOR PAYMENTS (sub-collection for vendor settlements)
       // ===================
       match /vendorPayments/{paymentId} {
-        allow read: if isAuthenticated() && (isOwner(userId) || isAdmin());
-        allow create, update: if isAuthenticated() && isOwner(userId) && isReasonableSize();
-        allow delete: if isAuthenticated() && isOwner(userId);
+        allow read: if isAuthenticated() && (isMemberOrOwner(userId) || isAdmin());
+        allow create, update: if isAuthenticated() && isMemberOrOwner(userId) && isReasonableSize();
+        allow delete: if isAuthenticated() && isMemberOrOwner(userId);
       }
 
       // ===================
       // VENDOR SETTLEMENTS (unified purchase + payment history)
       // ===================
       match /vendorSettlements/{settlementId} {
-        allow read: if isAuthenticated() && (isOwner(userId) || isAdmin());
-        allow create: if isAuthenticated() && isOwner(userId) && isReasonableSize();
-        allow delete: if isAuthenticated() && isOwner(userId);
+        allow read: if isAuthenticated() && (isMemberOrOwner(userId) || isAdmin());
+        allow create: if isAuthenticated() && isMemberOrOwner(userId) && isReasonableSize();
+        allow delete: if isAuthenticated() && isMemberOrOwner(userId);
       }
 
       // ===================
       // MEMBERS (sub-collection for multi-user store access)
-      // Owner/manager can manage members; any active member can read all members
       // ===================
       match /members/{memberId} {
-        allow read: if isAuthenticated() && (isMemberOrOwner(userId) || isAdmin());
-        allow create, update: if isAuthenticated() && (isManagerOrOwner(userId)
-          || get(/databases/$(database)/documents/users/$(userId)).data.ownerUid == request.auth.uid)
-          && isReasonableSize();
-        allow delete: if isAuthenticated() && isOwner(userId);
+        // Members can read their own doc directly; owners/managers/admins can read all
+        allow read: if isAuthenticated() && (
+          memberId == request.auth.uid
+          || isMemberOrOwner(userId)
+          || isAdmin()
+        );
+        allow create, update: if isAuthenticated() && isReasonableSize() && (
+          isManagerOrOwner(userId)
+          || get(/databases/$(database)/documents/users/$(userId)).data.ownerUid == request.auth.uid
+          // Allow a member to create/migrate their own doc (invite resolution:
+          // replaces placeholder UID with real UID when they first log in)
+          || (memberId == request.auth.uid
+              && request.resource.data.email == request.auth.token.email)
+        );
+        // Allow member to delete their own placeholder doc during invite resolution
+        allow delete: if isAuthenticated() && (
+          isMemberOrOwner(userId)
+          || resource.data.email == request.auth.token.email
+        );
       }
     }
 
     // ===================
     // USER HOTELS (maps users to their hotels)
+    // User can read/write their own hotel list.
+    // Any authenticated user can write to ANOTHER user's hotel list
+    // (needed when owner adds a member — writes to user_hotels/{memberUid}/hotels)
     // ===================
     match /user_hotels/{userId}/hotels/{hotelId} {
       allow read: if isAuthenticated() && isOwner(userId);
-      allow create, update: if isAuthenticated() && isOwner(userId) && isReasonableSize();
+      // Owner manages their own list; other authenticated users can add entries
+      // (e.g. store owner linking a member to the store)
+      allow create, update: if isAuthenticated() && isReasonableSize();
       allow delete: if isAuthenticated() && isOwner(userId);
     }
-    
+
+    // ===================
+    // PENDING MEMBER INVITES
+    // Written by store owners when inviting existing-account users.
+    // Read by the invited user on login to resolve their membership.
+    // ===================
+    match /pending_member_invites/{inviteId} {
+      allow create: if isAuthenticated() && isReasonableSize();
+      // User can read/delete their own invites (queried by email)
+      allow read, delete: if isAuthenticated()
+        && resource.data.email == request.auth.token.email;
+      // Allow listing so the query-by-email works
+      allow list: if isAuthenticated();
+      allow update: if false;
+    }
+
     // ===================
     // ADMIN-ONLY COLLECTIONS
     // ===================
