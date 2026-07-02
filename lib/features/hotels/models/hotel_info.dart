@@ -26,6 +26,7 @@ class HotelInfo {
   final String name;
   final String slug;
   final String role; // owner, manager, cashier, etc.
+  final String? customRoleName; // free-text label when role == 'custom'
   final HotelStatus status;
   final DateTime createdAt;
 
@@ -34,11 +35,21 @@ class HotelInfo {
     required this.name,
     required this.slug,
     required this.role,
+    this.customRoleName,
     this.status = HotelStatus.active,
     required this.createdAt,
   });
 
   bool get isOwner => role == 'owner';
+
+  /// Display-friendly role label — shows customRoleName when role is 'custom'
+  String get roleLabel {
+    if (role == 'custom' && (customRoleName?.isNotEmpty ?? false)) {
+      return customRoleName!;
+    }
+    if (role.isEmpty) return 'Member';
+    return role[0].toUpperCase() + role.substring(1);
+  }
 
   factory HotelInfo.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
@@ -47,6 +58,7 @@ class HotelInfo {
       name: (data['name'] as String?) ?? '',
       slug: (data['slug'] as String?) ?? '',
       role: (data['role'] as String?) ?? 'owner',
+      customRoleName: data['customRoleName'] as String?,
       status: HotelStatus.fromString((data['status'] as String?) ?? 'active'),
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
     );
@@ -57,6 +69,7 @@ class HotelInfo {
       'name': name,
       'slug': slug,
       'role': role,
+      if (customRoleName != null) 'customRoleName': customRoleName,
       'status': status.name,
       'createdAt': Timestamp.fromDate(createdAt),
     };

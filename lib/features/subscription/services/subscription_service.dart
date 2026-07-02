@@ -12,12 +12,15 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:tulasihotels/core/services/cloud_function_helper.dart';
 import 'package:tulasihotels/core/services/razorpay_service.dart';
 import 'package:tulasihotels/core/services/user_metrics_service.dart';
+import 'package:tulasihotels/features/subscription/services/plan_enforcement_service.dart';
 
 /// Pricing map for subscription plans
 class SubscriptionPricing {
   static const Map<String, Map<String, double>> prices = {
-    'pro': {'monthly': 299, 'annual': 2999},
-    'business': {'monthly': 999, 'annual': 9999},
+    'free': {'monthly': 0, 'annual': 0},
+    'starter': {'monthly': 10, 'annual': 96},
+    'pro': {'monthly': 20, 'annual': 204},
+    'business': {'monthly': 30, 'annual': 300},
   };
 
   static double getPrice(String plan, String cycle) {
@@ -89,6 +92,8 @@ class SubscriptionService {
       });
 
       if (data['success'] == true) {
+        // Sync Firestore limits to match the new plan
+        await PlanEnforcementService.syncLimitsForPlan(plan);
         return SubscriptionResult.success(
           plan: plan,
           cycle: cycle,
@@ -121,6 +126,54 @@ class SubscriptionService {
     );
 
     return completer.future;
+  }
+
+  /// Cancel subscription — sets status to 'cancelled'.
+  /// Plan remains active until expiresAt, then auto-downgrades to Free.
+  Future<bool> cancelSubscription() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return false;
+
+    try {
+      await FirebaseFirestore.instance.collection('users').doc(uid).update({
+        'subscription.status': 'cancelled',
+      });
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /// Resume a cancelled subscription (before expiry).
+  Future<bool> resumeSubscription() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return false;
+
+    try {
+      await FirebaseFirestore.instance.collection('users').doc(uid).update({
+        'subscription.status': 'active',
+      });
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /// Downgrade to a lower plan immediately.
+  Future<bool> changePlan(String newPlan) async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return false;
+
+    try {
+      await FirebaseFirestore.instance.collection('users').doc(uid).update({
+        'subscription.plan': newPlan,
+        'subscription.status': 'active',
+      });
+      await PlanEnforcementService.syncLimitsForPlan(newPlan);
+      return true;
+    } catch (e) {
+      return false;
+    }
   }
 }
 

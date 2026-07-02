@@ -5,6 +5,7 @@ import 'package:tulasihotels/core/services/active_store_manager.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:tulasihotels/core/utils/id_generator.dart';
+import 'package:tulasihotels/features/subscription/services/plan_enforcement_service.dart';
 import 'package:tulasihotels/models/table_model.dart';
 
 class TableService {
@@ -17,10 +18,14 @@ class TableService {
 
   /// Stream all tables (real-time)
   static Stream<List<TableModel>> tablesStream() {
-    return _tablesRef.orderBy('number').snapshots().map(
-      (snapshot) =>
-          snapshot.docs.map((doc) => TableModel.fromFirestore(doc)).toList(),
-    );
+    return _tablesRef
+        .orderBy('number')
+        .snapshots()
+        .map(
+          (snapshot) => snapshot.docs
+              .map((doc) => TableModel.fromFirestore(doc))
+              .toList(),
+        );
   }
 
   /// Get a single table by ID
@@ -37,6 +42,12 @@ class TableService {
     int capacity = 4,
     int floor = 0,
   }) async {
+    // Check table limit before creating
+    final check = await PlanEnforcementService.checkLimit(LimitType.tables);
+    if (!check.allowed) {
+      throw Exception(check.message);
+    }
+
     final id = generateSafeId('table');
     final now = DateTime.now();
     final table = TableModel(
@@ -85,13 +96,19 @@ class TableService {
     await _tablesRef.doc(tableId).update(updates);
   }
 
-  /// Bulk-create tables (e.g., "Add tables 1â€“20")
+  /// Bulk-create tables (e.g., "Add tables 1–20")
   static Future<void> createBulkTables({
     required int from,
     required int to,
     int capacity = 4,
     int floor = 0,
   }) async {
+    // Check table limit before bulk creating
+    final check = await PlanEnforcementService.checkLimit(LimitType.tables);
+    if (!check.allowed) {
+      throw Exception(check.message);
+    }
+
     final batch = _firestore.batch();
     for (var i = from; i <= to; i++) {
       final id = generateSafeId('table');
@@ -110,7 +127,10 @@ class TableService {
 
   /// Assign a server (waiter) to a table
   static Future<void> assignServer(
-      String tableId, String staffId, String staffName) async {
+    String tableId,
+    String staffId,
+    String staffName,
+  ) async {
     await _tablesRef.doc(tableId).update({
       'assignedServerId': staffId,
       'assignedServerName': staffName,
@@ -124,10 +144,9 @@ class TableService {
         .where('assignedServerId', isEqualTo: staffId)
         .snapshots()
         .map(
-          (snapshot) => snapshot.docs
-              .map((doc) => TableModel.fromFirestore(doc))
-              .toList()
-            ..sort((a, b) => a.number.compareTo(b.number)),
+          (snapshot) =>
+              snapshot.docs.map((doc) => TableModel.fromFirestore(doc)).toList()
+                ..sort((a, b) => a.number.compareTo(b.number)),
         );
   }
 

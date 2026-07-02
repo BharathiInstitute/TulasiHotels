@@ -1,15 +1,13 @@
-﻿import 'dart:convert';
+﻿import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:http/http.dart' as http;
 import 'package:tulasihotels/features/subscription/providers/subscription_provider.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:tulasihotels/features/subscription/services/subscription_service.dart';
+import 'package:tulasihotels/features/subscription/models/plan_config.dart';
 
 /// Screen for viewing and managing subscription plans.
 ///
@@ -130,84 +128,26 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
                 ),
               ],
             ),
-            if (!kIsWeb) ...[
-              const SizedBox(height: 8),
-              Text(
-                'You\'ll be redirected to the website to complete payment',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+            const SizedBox(height: 16),
+            ...PlanConfig.allPlans.map(
+              (plan) => Padding(
+                padding: const EdgeInsets.only(bottom: 16),
+                child: _buildPlanCard(
+                  context,
+                  planKey: plan.key,
+                  name: plan.name,
+                  monthlyPrice: SubscriptionPricing.getPrice(
+                    plan.key,
+                    'monthly',
+                  ).toInt(),
+                  annualPrice: SubscriptionPricing.getPrice(
+                    plan.key,
+                    'annual',
+                  ).toInt(),
+                  features: plan.featureDescriptions,
+                  color: _planColor(plan.key),
+                ),
               ),
-            ],
-            const SizedBox(height: 16),
-            _buildPlanCard(
-              context,
-              planKey: 'free',
-              name: 'Free',
-              monthlyPrice: 0,
-              annualPrice: 0,
-              features: [
-                'Unlimited billing & orders',
-                'Menu management',
-                'Basic table management (5 tables)',
-                'PDF receipt sharing',
-                'Single user (Owner)',
-              ],
-              color: Colors.grey,
-            ),
-            const SizedBox(height: 16),
-            _buildPlanCard(
-              context,
-              planKey: 'starter',
-              name: 'Starter',
-              monthlyPrice: 500,
-              annualPrice: 5000,
-              features: [
-                'Everything in Free, plus:',
-                'Kitchen Display System',
-                'Up to 3 staff users',
-                'Basic inventory tracking',
-                'Customer database',
-                'GST export (GSTR-1)',
-                'Email support',
-              ],
-              color: Colors.teal,
-            ),
-            const SizedBox(height: 16),
-            _buildPlanCard(
-              context,
-              planKey: 'pro',
-              name: 'Pro',
-              monthlyPrice: 1000,
-              annualPrice: 10000,
-              features: [
-                'Everything in Starter, plus:',
-                'Up to 10 staff users',
-                'Full inventory & ingredients',
-                'Customer portal (QR menu, ordering)',
-                'Reservations & events',
-                'Coupons & discounts',
-                '9 analytics dashboards',
-                'Priority email support',
-              ],
-              color: Colors.blue,
-            ),
-            const SizedBox(height: 16),
-            _buildPlanCard(
-              context,
-              planKey: 'business',
-              name: 'Business',
-              monthlyPrice: 2000,
-              annualPrice: 20000,
-              features: [
-                'Everything in Pro, plus:',
-                'Unlimited staff users',
-                'Multi-location management',
-                'Custom report builder',
-                'API access & integrations',
-                'Dedicated account manager',
-                'Phone & WhatsApp support',
-              ],
-              color: Colors.purple,
             ),
           ],
         ),
@@ -300,7 +240,7 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
                 child: FilledButton.icon(
                   onPressed: _isLoading ? null : () => _handleUpgrade(planKey),
                   style: FilledButton.styleFrom(backgroundColor: color),
-                  icon: const Icon(Icons.open_in_browser, size: 18),
+                  icon: const Icon(Icons.upgrade, size: 18),
                   label: _isLoading
                       ? const SizedBox(
                           height: 20,
@@ -319,95 +259,67 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
     );
   }
 
-  /// Handle subscription upgrade — opens the website pricing page.
+  /// Handle subscription upgrade — uses native Razorpay checkout.
   ///
-  /// All platforms (Android, Web, Windows, iOS) redirect to the website
-  /// pricing page which handles Razorpay Checkout.js payment. The app
-  /// listens for Firestore subscription changes in real-time via
-  /// subscriptionPlanProvider, so the UI updates automatically after payment.
+  /// The user's email/phone is auto-filled from Firebase Auth so they
+  /// don't have to re-enter contact details.
   Future<void> _handleUpgrade(String planKey) async {
     setState(() => _isLoading = true);
     final cycle = _isAnnual ? 'annual' : 'monthly';
 
-    // Get a custom token so the pricing page signs in as the correct user
-    String? token;
-    try {
-      if (!kIsWeb && defaultTargetPlatform == TargetPlatform.windows) {
-        // On Windows desktop, the cloud_functions SDK doesn't reliably
-        // attach auth headers. Call via direct HTTP instead.
-        token = await _getPaymentTokenViaHttp();
-      } else {
-        final callable = FirebaseFunctions.instanceFor(
-          region: 'asia-south1',
-        ).httpsCallable('createPaymentToken');
-        final result = await callable.call<Map<String, dynamic>>({});
-        token = result.data['token'] as String?;
-      }
-    } catch (e) {
-      debugPrint('Failed to get payment token: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Authentication error: $e')));
-        setState(() => _isLoading = false);
-      }
-      return;
-    }
-
-    if (token == null) {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Could not authenticate. Please sign out and sign back in, then try again.',
-            ),
-          ),
+          const SnackBar(content: Text('Please sign in to upgrade.')),
         );
         setState(() => _isLoading = false);
       }
       return;
     }
 
-    final url =
-        'https://hotels.tulasierp.com/src/pages/pricing.html?plan=$planKey&cycle=$cycle&token=${Uri.encodeComponent(token)}';
+    final service = SubscriptionService();
+    final result = await service.upgradePlan(
+      plan: planKey,
+      cycle: cycle,
+      customerName: user.displayName ?? user.email?.split('@').first ?? 'User',
+      customerEmail: user.email,
+      customerPhone: user.phoneNumber,
+    );
 
-    final uri = Uri.parse(url);
-    final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
-    if (!launched && mounted) {
+    if (!mounted) return;
+    setState(() => _isLoading = false);
+
+    if (result.success) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text(
-            'Could not open browser. Please visit hotels.tulasierp.com to upgrade.',
+            '🎉 Upgraded to ${result.plan ?? planKey}! Enjoy your new features.',
           ),
+          backgroundColor: Colors.green,
+        ),
+      );
+      // Reload subscription state
+      unawaited(_loadCurrentSubscription());
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(result.error ?? 'Payment failed. Please try again.'),
         ),
       );
     }
-
-    if (mounted) setState(() => _isLoading = false);
   }
 
-  /// Calls createPaymentToken via direct HTTP for Windows desktop.
-  Future<String?> _getPaymentTokenViaHttp() async {
-    final idToken = await FirebaseAuth.instance.currentUser?.getIdToken(true);
-    if (idToken == null) throw Exception('Not signed in');
-
-    final response = await http.post(
-      Uri.parse(
-        'https://asia-south1-login1-aa21c.cloudfunctions.net/createPaymentToken',
-      ),
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $idToken',
-      },
-      body: json.encode({'data': {}}),
-    );
-
-    if (response.statusCode != 200) {
-      throw Exception('Server error ${response.statusCode}: ${response.body}');
+  static Color _planColor(String key) {
+    switch (key) {
+      case 'starter':
+        return Colors.teal;
+      case 'pro':
+        return Colors.blue;
+      case 'business':
+        return Colors.purple;
+      default:
+        return Colors.grey;
     }
-
-    final body = json.decode(response.body) as Map<String, dynamic>;
-    final result = body['result'] as Map<String, dynamic>?;
-    return result?['token'] as String?;
   }
 }

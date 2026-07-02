@@ -285,7 +285,6 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
         await MemberService.inviteMember(
           email: email,
           displayName: name.isNotEmpty ? name : email.split('@').first,
-          role: StoreRole.custom,
           customRoleName: roleText.isNotEmpty ? roleText : null,
           password: password.isNotEmpty ? password : null,
         );

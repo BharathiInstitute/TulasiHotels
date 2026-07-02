@@ -522,8 +522,9 @@ class _WebSidebar extends ConsumerWidget {
                           .valueOrNull;
 
                       bool canSee(String route) {
-                        if (!StaffPermissions.canViewRoute(staff, route))
+                        if (!StaffPermissions.canViewRoute(staff, route)) {
                           return false;
+                        }
                         if (staff == null &&
                             !MemberPermissionGuard.canViewRoute(
                               member,
@@ -536,8 +537,9 @@ class _WebSidebar extends ConsumerWidget {
 
                       final showUsers = canSee(AppRoutes.members);
                       final showPerms = canSee(AppRoutes.permissionsOverview);
-                      if (!showUsers && !showPerms)
+                      if (!showUsers && !showPerms) {
                         return const SizedBox.shrink();
+                      }
 
                       return Column(
                         crossAxisAlignment: CrossAxisAlignment.start,

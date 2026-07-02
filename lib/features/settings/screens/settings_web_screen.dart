@@ -16,6 +16,7 @@ import 'package:tulasihotels/core/services/web_bluetooth_printer_service.dart';
 import 'package:tulasihotels/core/services/web_serial_printer_service.dart';
 import 'package:tulasihotels/features/auth/providers/auth_provider.dart';
 import 'package:tulasihotels/features/auth/providers/phone_auth_provider.dart';
+import 'package:tulasihotels/features/hotels/providers/hotel_provider.dart';
 import 'package:tulasihotels/features/settings/providers/settings_provider.dart';
 import 'package:tulasihotels/features/settings/providers/theme_settings_provider.dart';
 import 'package:tulasihotels/models/theme_settings_model.dart';
@@ -26,13 +27,22 @@ import 'package:tulasihotels/core/services/privacy_consent_service.dart';
 import 'package:tulasihotels/core/services/user_metrics_service.dart';
 import 'package:tulasihotels/core/services/payment_link_service.dart';
 import 'package:tulasihotels/features/referral/services/referral_service.dart';
+import 'package:tulasihotels/features/settings/screens/attendance_settings_screen.dart';
+import 'package:tulasihotels/features/subscription/widgets/manage_subscription_panel.dart';
 import 'package:tulasihotels/main.dart' show appVersion, appBuildNumber;
 import 'package:tulasihotels/router/app_router.dart';
 import 'package:tulasihotels/shared/widgets/shop_logo_widget.dart';
 import 'package:tulasihotels/shared/widgets/web_safe_image.dart';
 
 /// Settings tab enum
-enum SettingsTab { general, account, hardware, billing }
+enum SettingsTab {
+  general,
+  account,
+  hardware,
+  billing,
+  subscription,
+  attendance,
+}
 
 class SettingsWebScreen extends ConsumerStatefulWidget {
   final String initialTab;
@@ -138,13 +148,21 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
         return SettingsTab.hardware;
       case 'billing':
         return SettingsTab.billing;
+      case 'subscription':
+        return SettingsTab.subscription;
+      case 'attendance':
+        return SettingsTab.attendance;
       default:
         return SettingsTab.general;
     }
   }
 
   void _navigateToTab(SettingsTab tab) {
-    context.go('/settings/${tab.name}');
+    if (tab == SettingsTab.attendance) {
+      context.go(AppRoutes.attendanceSettings);
+    } else {
+      context.go('/settings/${tab.name}');
+    }
   }
 
   bool _isSyncing = false;
@@ -798,6 +816,20 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
       subtitle:
           'Customize your invoice appearance, tax rules, and digital payment integrations.',
     ),
+    SettingsTab.subscription: (
+      icon: Icons.workspace_premium,
+      label: 'Subscription',
+      title: 'Manage Subscription',
+      subtitle:
+          'View your current plan, usage limits, and manage your subscription.',
+    ),
+    SettingsTab.attendance: (
+      icon: Icons.location_on_outlined,
+      label: 'Geo-Fence',
+      title: 'Attendance & Geo-Fence',
+      subtitle:
+          'Require staff to be on-site to clock in/out using GPS geo-fencing.',
+    ),
   };
 
   @override
@@ -1009,8 +1041,19 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
             ),
           ),
           const SizedBox(height: 8),
-          ...SettingsTab.values.map((tab) => _buildNavItem(tab)),
-          const Spacer(),
+          // Show all tabs except attendance (handled separately below)
+          ...SettingsTab.values
+              .where((t) => t != SettingsTab.attendance)
+              .map((tab) => _buildNavItem(tab)),
+          // Attendance & Geo-Fence (owner only)
+          Builder(
+            builder: (context) {
+              final currentHotel = ref.watch(currentHotelProvider);
+              final isOwner = currentHotel?.isOwner ?? false;
+              if (!isOwner) return const SizedBox.shrink();
+              return _buildNavItem(SettingsTab.attendance);
+            },
+          ),
           // Logout button
           Padding(
             padding: const EdgeInsets.all(16),
@@ -1188,6 +1231,10 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
         return _buildHardwareTab();
       case SettingsTab.billing:
         return _buildBillingTab();
+      case SettingsTab.subscription:
+        return const ManageSubscriptionPanel();
+      case SettingsTab.attendance:
+        return const AttendanceSettingsBody();
     }
   }
 
@@ -1763,7 +1810,7 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
                   child: const Text('Upgrade'),
                 )
               : TextButton(
-                  onPressed: () => context.push(AppRoutes.subscription),
+                  onPressed: () => context.go('/settings/subscription'),
                   child: const Text('Manage'),
                 ),
         ),

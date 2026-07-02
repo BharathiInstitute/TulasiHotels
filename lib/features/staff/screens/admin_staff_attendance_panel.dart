@@ -33,6 +33,10 @@ class _AdminStaffAttendancePanelState
   bool _isClockingIn = false;
   bool _isClockingOut = false;
 
+  // Tracked from stream so AppBar can show correct button state
+  bool _isClockedIn = false;
+  String? _activeRecordId;
+
   @override
   void initState() {
     super.initState();
@@ -70,6 +74,42 @@ class _AdminStaffAttendancePanelState
           ],
         ),
         actions: [
+          // Clock In / Clock Out buttons — left of role chip
+          if (_isClockingIn)
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 12),
+              child: SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            )
+          else if (!_isClockedIn)
+            TextButton.icon(
+              onPressed: _clockIn,
+              icon: const Icon(Icons.login, size: 16),
+              label: const Text('Clock In'),
+              style: TextButton.styleFrom(foregroundColor: Colors.green),
+            )
+          else if (_isClockingOut)
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 12),
+              child: SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Colors.red,
+                ),
+              ),
+            )
+          else
+            TextButton.icon(
+              onPressed: () => _clockOut(_activeRecordId),
+              icon: const Icon(Icons.logout, size: 16),
+              label: const Text('Clock Out'),
+              style: TextButton.styleFrom(foregroundColor: Colors.red),
+            ),
           if (widget.staffRole != null)
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
@@ -110,10 +150,22 @@ class _AdminStaffAttendancePanelState
               )
               .toList();
           final activeRecords = todayRecords
-              .where((r) => r.status == AttendanceStatus.clockedIn)
+              .where((r) => r.clockOut == null)
               .toList();
           final isClockedIn = activeRecords.isNotEmpty;
           final currentRecord = isClockedIn ? activeRecords.first : null;
+
+          // Sync clock state to widget state so AppBar can react
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted &&
+                (_isClockedIn != isClockedIn ||
+                    _activeRecordId != currentRecord?.id)) {
+              setState(() {
+                _isClockedIn = isClockedIn;
+                _activeRecordId = currentRecord?.id;
+              });
+            }
+          });
 
           // Month total
           double totalMinutes = 0;
@@ -194,7 +246,7 @@ class _AdminStaffAttendancePanelState
                     : ListView.separated(
                         padding: const EdgeInsets.symmetric(vertical: 4),
                         itemCount: records.length,
-                        separatorBuilder: (_, __) => Divider(
+                        separatorBuilder: (_, _) => Divider(
                           height: 1,
                           color: cs.outlineVariant.withValues(alpha: 0.2),
                         ),

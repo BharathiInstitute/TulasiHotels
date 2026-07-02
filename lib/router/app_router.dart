@@ -21,6 +21,7 @@ import 'package:tulasihotels/features/products/screens/products_web_screen.dart'
 import 'package:tulasihotels/features/products/screens/product_detail_screen.dart';
 import 'package:tulasihotels/features/reports/screens/dashboard_web_screen.dart';
 import 'package:tulasihotels/features/settings/screens/settings_web_screen.dart';
+
 import 'package:tulasihotels/features/settings/screens/theme_settings_screen.dart';
 import 'package:tulasihotels/features/shell/app_shell.dart';
 import 'package:tulasihotels/features/super_admin/screens/super_admin_dashboard_screen.dart';
@@ -89,6 +90,8 @@ import 'package:tulasihotels/features/admin/screens/permissions_overview_screen.
 import 'package:tulasihotels/features/admin/models/store_member.dart';
 import 'package:tulasihotels/features/admin/providers/current_member_provider.dart';
 import 'package:tulasihotels/features/admin/services/member_permission_guard.dart';
+import 'package:tulasihotels/features/subscription/models/plan_config.dart';
+import 'package:tulasihotels/features/subscription/widgets/plan_gated_screen.dart';
 import 'package:tulasihotels/features/hotels/screens/hotel_selector_screen.dart';
 import 'package:tulasihotels/features/hotels/providers/hotel_provider.dart';
 import 'package:tulasihotels/features/reports/screens/menu_performance_screen.dart';
@@ -121,6 +124,7 @@ class AppRoutes {
   static const String settings = '/settings';
   static const String settingsTab = '/settings/:tab';
   static const String themeSettings = '/settings/theme';
+  static const String attendanceSettings = '/settings/attendance';
   static const String subscription = '/subscription';
 
   // Hotel feature routes
@@ -596,8 +600,13 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: AppRoutes.kitchen,
-            pageBuilder: (context, state) =>
-                const NoTransitionPage(child: KitchenDisplayScreen()),
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: PlanGatedScreen(
+                requiredFeature: PlanFeature.kitchenDisplay,
+                featureName: 'Kitchen Display System',
+                child: KitchenDisplayScreen(),
+              ),
+            ),
           ),
           GoRoute(
             path: AppRoutes.staff,
@@ -641,8 +650,13 @@ final routerProvider = Provider<GoRouter>((ref) {
           // â”€â”€ Inventory â”€â”€
           GoRoute(
             path: AppRoutes.ingredients,
-            pageBuilder: (context, state) =>
-                const NoTransitionPage(child: IngredientsScreen()),
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: PlanGatedScreen(
+                requiredFeature: PlanFeature.inventoryBasic,
+                featureName: 'Inventory Tracking',
+                child: IngredientsScreen(),
+              ),
+            ),
           ),
           GoRoute(
             path: AppRoutes.combos,
@@ -668,13 +682,23 @@ final routerProvider = Provider<GoRouter>((ref) {
           // â”€â”€ Hospitality â”€â”€
           GoRoute(
             path: AppRoutes.reservations,
-            pageBuilder: (context, state) =>
-                const NoTransitionPage(child: ReservationsScreen()),
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: PlanGatedScreen(
+                requiredFeature: PlanFeature.reservations,
+                featureName: 'Reservations',
+                child: ReservationsScreen(),
+              ),
+            ),
           ),
           GoRoute(
             path: AppRoutes.coupons,
-            pageBuilder: (context, state) =>
-                const NoTransitionPage(child: CouponsScreen()),
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: PlanGatedScreen(
+                requiredFeature: PlanFeature.coupons,
+                featureName: 'Coupons & Discounts',
+                child: CouponsScreen(),
+              ),
+            ),
           ),
           GoRoute(
             path: AppRoutes.events,
@@ -700,8 +724,13 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: AppRoutes.gstExport,
-            pageBuilder: (context, state) =>
-                const NoTransitionPage(child: GstExportScreen()),
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: PlanGatedScreen(
+                requiredFeature: PlanFeature.gstExport,
+                featureName: 'GST Export',
+                child: GstExportScreen(),
+              ),
+            ),
           ),
           GoRoute(
             path: AppRoutes.menuPerformance,
@@ -784,6 +813,32 @@ final routerProvider = Provider<GoRouter>((ref) {
               return TicketChatScreen(ticketId: ticketId);
             },
           ),
+
+          // Staff sub-screens (inside shell so sidebar stays visible)
+          GoRoute(
+            path: AppRoutes.shifts,
+            builder: (context, state) => const ShiftScheduleScreen(),
+          ),
+          GoRoute(
+            path: AppRoutes.tasks,
+            builder: (context, state) => const TaskBoardScreen(),
+          ),
+          GoRoute(
+            path: AppRoutes.messages,
+            builder: (context, state) => const MessagesScreen(),
+          ),
+          GoRoute(
+            path: AppRoutes.cashRegister,
+            builder: (context, state) => const PlanGatedScreen(
+              requiredFeature: PlanFeature.cashRegister,
+              featureName: 'Cash Register',
+              child: CashRegisterScreen(),
+            ),
+          ),
+          GoRoute(
+            path: AppRoutes.salary,
+            builder: (context, state) => const SalaryScreen(),
+          ),
         ],
       ),
 
@@ -806,28 +861,6 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.tableLayout,
         builder: (context, state) => const TableLayoutEditor(),
-      ),
-
-      GoRoute(
-        path: AppRoutes.shifts,
-        builder: (context, state) => const ShiftScheduleScreen(),
-      ),
-      GoRoute(
-        path: AppRoutes.tasks,
-        builder: (context, state) => const TaskBoardScreen(),
-      ),
-      GoRoute(
-        path: AppRoutes.messages,
-        builder: (context, state) => const MessagesScreen(),
-      ),
-      GoRoute(
-        path: AppRoutes.cashRegister,
-        builder: (context, state) => const CashRegisterScreen(),
-      ),
-
-      GoRoute(
-        path: AppRoutes.salary,
-        builder: (context, state) => const SalaryScreen(),
       ),
 
       // Customer-facing public routes (no auth required)
@@ -866,6 +899,15 @@ final routerProvider = Provider<GoRouter>((ref) {
           final orderId = state.pathParameters['orderId']!;
           return OrderStatusScreen(hotelId: hotelId, orderId: orderId);
         },
+      ),
+
+      // Attendance settings — rendered inside SettingsWebScreen so the settings
+      // side nav stays visible on desktop.
+      GoRoute(
+        path: AppRoutes.attendanceSettings,
+        pageBuilder: (context, state) => const NoTransitionPage(
+          child: SettingsWebScreen(initialTab: 'attendance'),
+        ),
       ),
 
       // Settings â€” full-width (outside shell, has its own side nav)

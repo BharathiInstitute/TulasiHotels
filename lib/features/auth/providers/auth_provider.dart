@@ -20,6 +20,7 @@ import 'package:tulasihotels/core/services/demo_data_service.dart';
 import 'package:tulasihotels/core/services/offline_storage_service.dart';
 import 'package:tulasihotels/features/referral/services/referral_service.dart';
 import 'package:tulasihotels/core/services/payment_link_service.dart';
+import 'package:tulasihotels/features/subscription/models/plan_config.dart';
 import 'package:tulasihotels/firebase_options.dart';
 import 'package:tulasihotels/features/settings/providers/theme_settings_provider.dart';
 import 'package:tulasihotels/features/settings/providers/settings_provider.dart';
@@ -274,11 +275,15 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
           },
           'limits': {
             'productsCount': 0,
-            'productsLimit': 100,
+            'productsLimit': PlanConfig.free.productsLimitFirestore,
             'billsThisMonth': 0,
-            'billsLimit': 50,
+            'billsLimit': PlanConfig.free.billsLimitFirestore,
             'customersCount': 0,
-            'customersLimit': 10,
+            'customersLimit': PlanConfig.free.customersLimitFirestore,
+            'staffCount': 0,
+            'staffLimit': PlanConfig.free.staffLimitFirestore,
+            'tablesCount': 0,
+            'tablesLimit': PlanConfig.free.tablesLimitFirestore,
           },
         });
         debugPrint('✅ Created Firestore doc for redirect user: ${user.email}');
@@ -333,6 +338,61 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
 
       if (doc.exists) {
         final data = doc.data()!;
+
+        // Guard: a ghost store doc was auto-created for team members who logged
+        // in before this fix. Detect it by checking for ownerUid — real owners
+        // always have ownerUid; ghost docs (from old auto-create) don't.
+        final ownerUid = data['ownerUid'] as String?;
+        final isGhostDoc = ownerUid == null || ownerUid.isEmpty;
+
+        if (isGhostDoc) {
+          // Verify they are actually a team member (has hotel entries they
+          // were invited to, but no owned store)
+          bool hasOwnedHotel = false;
+          try {
+            final hotelEntries = await _firestore
+                .collection('user_hotels/${firebaseUser.uid}/hotels')
+                .where('role', isEqualTo: 'owner')
+                .limit(1)
+                .get();
+            hasOwnedHotel = hotelEntries.docs.isNotEmpty;
+          } catch (_) {}
+
+          if (!hasOwnedHotel) {
+            // Team member with a stale ghost doc — treat as team member
+            debugPrint(
+              '🔐 _loadUserProfile: Ghost store doc detected for team member — treating as member',
+            );
+            state = AuthState(
+              status: AuthStatus.authenticated,
+              firebaseUser: firebaseUser,
+              isLoggedIn: true,
+              isShopSetupComplete: true,
+              isEmailVerified: isGoogleUser || firebaseUser.emailVerified,
+              isLoading: false,
+              user: UserModel(
+                id: firebaseUser.uid,
+                shopName: '',
+                ownerName:
+                    firebaseUser.displayName ??
+                    (data['ownerName'] as String? ?? ''),
+                email: firebaseUser.email,
+                phone: '',
+                settings: const UserSettings(),
+                createdAt: DateTime.now(),
+              ),
+            );
+            _refreshSettingsProviders();
+            return;
+          }
+          // They DO have owned hotels — backfill ownerUid so we don't re-check next time
+          unawaited(
+            _firestore.collection('users').doc(firebaseUser.uid).set({
+              'ownerUid': firebaseUser.uid,
+            }, SetOptions(merge: true)),
+          );
+        }
+
         // Fall back to shopName presence — covers legacy users whose
         // Firestore doc never got the boolean set.
         final isShopSetupComplete =
@@ -346,11 +406,15 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
             _firestore.collection('users').doc(firebaseUser.uid).set({
               'limits': {
                 'productsCount': limits?['productsCount'] ?? 0,
-                'productsLimit': 100,
+                'productsLimit': PlanConfig.free.productsLimitFirestore,
                 'billsThisMonth': limits?['billsThisMonth'] ?? 0,
-                'billsLimit': 50,
+                'billsLimit': PlanConfig.free.billsLimitFirestore,
                 'customersCount': limits?['customersCount'] ?? 0,
-                'customersLimit': 10,
+                'customersLimit': PlanConfig.free.customersLimitFirestore,
+                'staffCount': limits?['staffCount'] ?? 0,
+                'staffLimit': PlanConfig.free.staffLimitFirestore,
+                'tablesCount': limits?['tablesCount'] ?? 0,
+                'tablesLimit': PlanConfig.free.tablesLimitFirestore,
               },
             }, SetOptions(merge: true)),
           );
@@ -416,51 +480,111 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
           PaymentLinkService.setUpiId(userUpiId);
         }
       } else {
-        debugPrint('🔐 _loadUserProfile: No Firestore doc — new user');
-        // Auto-create Firestore doc for new user (shop setup skipped for now)
-        // TODO: Re-enable shop setup screen when OTP/phone auth is configured
-        final defaultShopName = firebaseUser.displayName ?? 'My Hotel';
-        final newUserData = {
-          'shopName': defaultShopName,
-          'ownerName': firebaseUser.displayName ?? '',
-          'email': firebaseUser.email,
-          'phone': '',
-          'appType': 'hotels',
-          'isShopSetupComplete': true,
-          'createdAt': FieldValue.serverTimestamp(),
-          'limits': {
-            'productsCount': 0,
-            'productsLimit': 100,
-            'billsThisMonth': 0,
-            'billsLimit': 50,
-            'customersCount': 0,
-            'customersLimit': 10,
-          },
-        };
-        unawaited(
-          _firestore
-              .collection('users')
-              .doc(firebaseUser.uid)
-              .set(newUserData, SetOptions(merge: true)),
+        debugPrint(
+          '🔐 _loadUserProfile: No Firestore doc — checking if team member',
         );
-        state = AuthState(
-          status: AuthStatus.authenticated,
-          firebaseUser: firebaseUser,
-          isLoggedIn: true,
-          isShopSetupComplete: true,
-          isEmailVerified: isGoogleUser || firebaseUser.emailVerified,
-          isLoading: false,
-          user: UserModel(
-            id: firebaseUser.uid,
-            shopName: defaultShopName,
-            ownerName: firebaseUser.displayName ?? '',
-            email: firebaseUser.email,
-            phone: '',
-            settings: const UserSettings(),
-            createdAt: DateTime.now(),
-          ),
-        );
-        _refreshSettingsProviders();
+
+        // A team member (invited via inviteMember) has NO users/{uid} store doc.
+        // If we auto-create one they'll be treated as an owner on every future login.
+        // Detect team members by checking:
+        //   1. user_hotels/{uid}/hotels — already linked with a real UID
+        //   2. pending_member_invites   — invited but not yet resolved
+        bool isTeamMember = false;
+
+        try {
+          final hotelEntries = await _firestore
+              .collection('user_hotels/${firebaseUser.uid}/hotels')
+              .limit(1)
+              .get();
+          if (hotelEntries.docs.isNotEmpty) isTeamMember = true;
+        } catch (_) {}
+
+        if (!isTeamMember && firebaseUser.email != null) {
+          try {
+            final invites = await _firestore
+                .collection('pending_member_invites')
+                .where('email', isEqualTo: firebaseUser.email)
+                .limit(1)
+                .get();
+            if (invites.docs.isNotEmpty) isTeamMember = true;
+          } catch (_) {}
+        }
+
+        if (isTeamMember) {
+          // ── Team member login ──
+          // Don't create a store doc. Authenticate with their display name only.
+          debugPrint(
+            '🔐 _loadUserProfile: Team member detected — skipping store creation',
+          );
+          state = AuthState(
+            status: AuthStatus.authenticated,
+            firebaseUser: firebaseUser,
+            isLoggedIn: true,
+            isShopSetupComplete: true, // skip shop setup for team members
+            isEmailVerified: isGoogleUser || firebaseUser.emailVerified,
+            isLoading: false,
+            user: UserModel(
+              id: firebaseUser.uid,
+              shopName: '',
+              ownerName: firebaseUser.displayName ?? '',
+              email: firebaseUser.email,
+              phone: '',
+              settings: const UserSettings(),
+              createdAt: DateTime.now(),
+            ),
+          );
+          _refreshSettingsProviders();
+        } else {
+          // ── New owner / first-time user ──
+          debugPrint('🔐 _loadUserProfile: New user — creating store doc');
+          final defaultShopName = firebaseUser.displayName ?? 'My Hotel';
+          final newUserData = {
+            'shopName': defaultShopName,
+            'ownerName': firebaseUser.displayName ?? '',
+            'email': firebaseUser.email,
+            'phone': '',
+            'appType': 'hotels',
+            'isShopSetupComplete': true,
+            'ownerUid': firebaseUser.uid,
+            'createdAt': FieldValue.serverTimestamp(),
+            'limits': {
+              'productsCount': 0,
+              'productsLimit': PlanConfig.free.productsLimitFirestore,
+              'billsThisMonth': 0,
+              'billsLimit': PlanConfig.free.billsLimitFirestore,
+              'customersCount': 0,
+              'customersLimit': PlanConfig.free.customersLimitFirestore,
+              'staffCount': 0,
+              'staffLimit': PlanConfig.free.staffLimitFirestore,
+              'tablesCount': 0,
+              'tablesLimit': PlanConfig.free.tablesLimitFirestore,
+            },
+          };
+          unawaited(
+            _firestore
+                .collection('users')
+                .doc(firebaseUser.uid)
+                .set(newUserData, SetOptions(merge: true)),
+          );
+          state = AuthState(
+            status: AuthStatus.authenticated,
+            firebaseUser: firebaseUser,
+            isLoggedIn: true,
+            isShopSetupComplete: true,
+            isEmailVerified: isGoogleUser || firebaseUser.emailVerified,
+            isLoading: false,
+            user: UserModel(
+              id: firebaseUser.uid,
+              shopName: defaultShopName,
+              ownerName: firebaseUser.displayName ?? '',
+              email: firebaseUser.email,
+              phone: '',
+              settings: const UserSettings(),
+              createdAt: DateTime.now(),
+            ),
+          );
+          _refreshSettingsProviders();
+        }
       }
     } catch (e) {
       debugPrint('🔐 Error loading user profile: $e');

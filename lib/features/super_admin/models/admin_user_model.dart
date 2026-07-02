@@ -5,7 +5,7 @@ library;
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 /// Subscription plan types
-enum SubscriptionPlan { free, pro, business }
+enum SubscriptionPlan { free, starter, pro, business }
 
 /// Subscription status
 enum SubscriptionStatus { active, trial, expired, cancelled }
@@ -56,6 +56,8 @@ class UserSubscription {
     switch (plan) {
       case SubscriptionPlan.free:
         return 'Free';
+      case SubscriptionPlan.starter:
+        return 'Starter';
       case SubscriptionPlan.pro:
         return 'Pro';
       case SubscriptionPlan.business:
@@ -68,10 +70,12 @@ class UserSubscription {
     switch (plan) {
       case SubscriptionPlan.free:
         return 0;
+      case SubscriptionPlan.starter:
+        return 500;
       case SubscriptionPlan.pro:
-        return 299;
+        return 1000;
       case SubscriptionPlan.business:
-        return 999;
+        return 2000;
     }
   }
 
@@ -79,9 +83,9 @@ class UserSubscription {
   int get billsLimit {
     switch (plan) {
       case SubscriptionPlan.free:
-        return 50;
+        return 300;
+      case SubscriptionPlan.starter:
       case SubscriptionPlan.pro:
-        return 500;
       case SubscriptionPlan.business:
         return 999999;
     }

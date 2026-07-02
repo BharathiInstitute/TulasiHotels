@@ -8,10 +8,11 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:tulasihotels/core/services/error_logging_service.dart';
+import 'package:tulasihotels/features/subscription/models/plan_config.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Subscription plans
-enum SubscriptionPlan { free, pro, business }
+enum SubscriptionPlan { free, starter, pro, business }
 
 /// Subscription status
 enum SubscriptionStatus { active, trial, expired, cancelled }
@@ -61,27 +62,15 @@ class UserSubscription {
     );
   }
 
-  /// Get plan limits
-  int get billsLimit {
-    switch (plan) {
-      case SubscriptionPlan.free:
-        return 50;
-      case SubscriptionPlan.pro:
-        return 500;
-      case SubscriptionPlan.business:
-        return 999999; // Unlimited
-    }
-  }
+  /// Get the [PlanConfig] for this subscription's plan.
+  PlanConfig get config => PlanConfig.fromKey(plan.name);
 
-  int get productsLimit {
-    switch (plan) {
-      case SubscriptionPlan.free:
-        return 100;
-      case SubscriptionPlan.pro:
-      case SubscriptionPlan.business:
-        return 999999; // Unlimited
-    }
-  }
+  /// Get plan limits (delegated to PlanConfig)
+  int get billsLimit => config.billsLimitFirestore;
+  int get productsLimit => config.productsLimitFirestore;
+  int get customersLimit => config.customersLimitFirestore;
+  int get staffLimit => config.staffLimitFirestore;
+  int get tablesLimit => config.tablesLimitFirestore;
 
   bool get isActive =>
       status == SubscriptionStatus.active || status == SubscriptionStatus.trial;
@@ -119,14 +108,22 @@ class UserLimits {
   final int productsLimit;
   final int customersCount;
   final int customersLimit;
+  final int staffCount;
+  final int staffLimit;
+  final int tablesCount;
+  final int tablesLimit;
 
   UserLimits({
     this.billsThisMonth = 0,
-    this.billsLimit = 50,
+    this.billsLimit = 300,
     this.productsCount = 0,
-    this.productsLimit = 100,
+    this.productsLimit = 50,
     this.customersCount = 0,
     this.customersLimit = 10,
+    this.staffCount = 0,
+    this.staffLimit = 0,
+    this.tablesCount = 0,
+    this.tablesLimit = 5,
   });
 
   Map<String, dynamic> toMap() => {
@@ -136,26 +133,38 @@ class UserLimits {
     'productsLimit': productsLimit,
     'customersCount': customersCount,
     'customersLimit': customersLimit,
+    'staffCount': staffCount,
+    'staffLimit': staffLimit,
+    'tablesCount': tablesCount,
+    'tablesLimit': tablesLimit,
   };
 
   factory UserLimits.fromMap(Map<String, dynamic>? map) {
     if (map == null) return UserLimits();
     return UserLimits(
       billsThisMonth: (map['billsThisMonth'] as int?) ?? 0,
-      billsLimit: (map['billsLimit'] as int?) ?? 50,
+      billsLimit: (map['billsLimit'] as int?) ?? 300,
       productsCount: (map['productsCount'] as int?) ?? 0,
-      productsLimit: (map['productsLimit'] as int?) ?? 100,
+      productsLimit: (map['productsLimit'] as int?) ?? 50,
       customersCount: (map['customersCount'] as int?) ?? 0,
       customersLimit: (map['customersLimit'] as int?) ?? 10,
+      staffCount: (map['staffCount'] as int?) ?? 0,
+      staffLimit: (map['staffLimit'] as int?) ?? 0,
+      tablesCount: (map['tablesCount'] as int?) ?? 0,
+      tablesLimit: (map['tablesLimit'] as int?) ?? 5,
     );
   }
 
   bool get canCreateBill => billsThisMonth < billsLimit;
   bool get canAddProduct => productsCount < productsLimit;
   bool get canAddCustomer => customersCount < customersLimit;
+  bool get canAddStaff => staffCount < staffLimit;
+  bool get canAddTable => tablesCount < tablesLimit;
   int get billsRemaining => billsLimit - billsThisMonth;
   int get productsRemaining => productsLimit - productsCount;
   int get customersRemaining => customersLimit - customersCount;
+  int get staffRemaining => staffLimit - staffCount;
+  int get tablesRemaining => tablesLimit - tablesCount;
 }
 
 /// Service for tracking user metrics and syncing to Firestore
@@ -202,12 +211,15 @@ class UserMetricsService {
       if (!DateTime.now().isAfter(sub.expiresAt!)) return;
 
       // Subscription expired — downgrade to free limits
+      const freeLimits = PlanConfig.free;
       await _firestore.collection('users').doc(userId).update({
         'subscription.status': SubscriptionStatus.expired.name,
         'subscription.plan': SubscriptionPlan.free.name,
-        'limits.billsLimit': UserSubscription().billsLimit, // 50
-        'limits.productsLimit': UserSubscription().productsLimit, // 100
-        'limits.customersLimit': 10, // Free tier: 10 customers
+        'limits.billsLimit': freeLimits.billsLimitFirestore,
+        'limits.productsLimit': freeLimits.productsLimitFirestore,
+        'limits.customersLimit': freeLimits.customersLimitFirestore,
+        'limits.staffLimit': freeLimits.staffLimitFirestore,
+        'limits.tablesLimit': freeLimits.tablesLimitFirestore,
       });
       debugPrint('⚠️ UserMetrics: Subscription expired — downgraded to free');
     } catch (e, st) {

@@ -1,10 +1,11 @@
-﻿/// Attendance service — Firestore CRUD for staff attendance tracking
+/// Attendance service � Firestore CRUD for staff attendance tracking
 library;
 
 import 'package:tulasihotels/core/services/active_store_manager.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:tulasihotels/core/utils/id_generator.dart';
+import 'package:tulasihotels/features/settings/services/attendance_settings_service.dart';
 import 'package:tulasihotels/features/staff/services/location_service.dart';
 import 'package:tulasihotels/models/attendance_model.dart';
 
@@ -81,11 +82,43 @@ class AttendanceService {
   }) async {
     final now = DateTime.now();
     final id = generateSafeId('att');
+    final hotelId = ActiveStoreManager.storeId;
 
-    // Capture GPS location (non-blocking — fails gracefully)
+    // -- Geo-fence enforcement -----------------------------------
     LocationResult? location;
-    if (captureLocation) {
-      location = await LocationService.captureLocation();
+    if (captureLocation || hotelId != null) {
+      // Fetch settings to check if geo-fence is required
+      final geoSettings = hotelId != null
+          ? await AttendanceSettingsService.fetch(hotelId)
+          : null;
+
+      if (geoSettings != null &&
+          geoSettings.requireGeoFence &&
+          geoSettings.hasLocation) {
+        // Must capture location and check radius
+        location = await LocationService.captureLocation();
+        if (location == null) {
+          throw Exception(
+            'GPS location is required for clock-in. '
+            'Please enable location services and try again.',
+          );
+        }
+        final distance = LocationService.distanceBetween(
+          location.latitude,
+          location.longitude,
+          geoSettings.storeLatitude!,
+          geoSettings.storeLongitude!,
+        );
+        if (distance > geoSettings.geoFenceRadius) {
+          throw Exception(
+            'You are ${distance.toStringAsFixed(0)}m away from the store. '
+            'Must be within ${geoSettings.geoFenceRadius}m to clock in.',
+          );
+        }
+      } else if (captureLocation) {
+        // Geo-fence not required � capture location silently if allowed
+        location = await LocationService.captureLocation();
+      }
     }
 
     final attendance = AttendanceModel(
@@ -118,10 +151,40 @@ class AttendanceService {
     ClockSource source = ClockSource.staff,
     bool captureLocation = true,
   }) async {
-    // Capture GPS location
+    final hotelId = ActiveStoreManager.storeId;
+
+    // -- Geo-fence enforcement -------------------------------------
     LocationResult? location;
-    if (captureLocation) {
-      location = await LocationService.captureLocation();
+    if (captureLocation || hotelId != null) {
+      final geoSettings = hotelId != null
+          ? await AttendanceSettingsService.fetch(hotelId)
+          : null;
+
+      if (geoSettings != null &&
+          geoSettings.requireGeoFence &&
+          geoSettings.hasLocation) {
+        location = await LocationService.captureLocation();
+        if (location == null) {
+          throw Exception(
+            'GPS location is required for clock-out. '
+            'Please enable location services and try again.',
+          );
+        }
+        final distance = LocationService.distanceBetween(
+          location.latitude,
+          location.longitude,
+          geoSettings.storeLatitude!,
+          geoSettings.storeLongitude!,
+        );
+        if (distance > geoSettings.geoFenceRadius) {
+          throw Exception(
+            'You are ${distance.toStringAsFixed(0)}m away from the store. '
+            'Must be within ${geoSettings.geoFenceRadius}m to clock out.',
+          );
+        }
+      } else if (captureLocation) {
+        location = await LocationService.captureLocation();
+      }
     }
 
     final updates = <String, dynamic>{
@@ -173,7 +236,7 @@ class AttendanceService {
     return snapshot.docs.isNotEmpty;
   }
 
-  // â”€â”€ Owner manual corrections â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Owner manual corrections ──────────────────────────────────
 
   /// Add a manual attendance record (owner use)
   static Future<void> addManualRecord({

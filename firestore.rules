@@ -127,8 +127,10 @@ service cloud.firestore {
     match /users/{userId} {
       // Single document reads: owner, store creator, members, or admins
       allow get: if isAuthenticated() && (isOwner(userId) || isStoreCreator(userId) || isMember(userId) || isAdmin());
-      // Collection queries (list): only owner of that doc or admins can list
-      allow list: if isAuthenticated() && isAdmin();
+      // Collection queries (list): admins can list anything;
+      // regular users can only query stores they own (where ownerUid == their UID).
+      // This allows recoverOwnedHotels() to find hotels created by this user.
+      allow list: if isAuthenticated() && (isAdmin() || resource.data.ownerUid == request.auth.uid);
       
       // Owner or store creator can write to their store doc
       allow write: if isAuthenticated() && (isOwner(userId) || isStoreCreator(userId)) && isReasonableSize();

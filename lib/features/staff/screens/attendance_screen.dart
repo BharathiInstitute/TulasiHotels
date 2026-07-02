@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tulasihotels/features/auth/providers/auth_provider.dart';
 import 'package:tulasihotels/features/staff/services/attendance_service.dart';
 import 'package:tulasihotels/models/attendance_model.dart';
+import 'package:tulasihotels/shared/widgets/custom_date_range_picker.dart';
 
 class AttendanceScreen extends ConsumerWidget {
   const AttendanceScreen({super.key});
@@ -73,10 +74,14 @@ class _AttendanceBodyState extends ConsumerState<_AttendanceBody> {
               r.date.day == today.day;
         }).toList();
 
-        final isClockedIn = todayRecords.any(
-          (r) => r.status == AttendanceStatus.clockedIn,
-        );
-        final todayRecord = todayRecords.isNotEmpty ? todayRecords.first : null;
+        final isClockedIn = todayRecords.any((r) => r.clockOut == null);
+        // Prefer the open (active) record so clock-out targets the right entry
+        final openRecord = todayRecords
+            .where((r) => r.clockOut == null)
+            .toList();
+        final todayRecord = openRecord.isNotEmpty
+            ? openRecord.first
+            : (todayRecords.isNotEmpty ? todayRecords.first : null);
 
         // Total hours this period
         double totalHours = 0;
@@ -104,7 +109,6 @@ class _AttendanceBodyState extends ConsumerState<_AttendanceBody> {
                     staffId: uid,
                     staffName: userName,
                     source: ClockSource.admin,
-                    captureLocation: false,
                   );
                 },
                 onClockOut: () async {
@@ -112,7 +116,6 @@ class _AttendanceBodyState extends ConsumerState<_AttendanceBody> {
                     uid,
                     recordId: todayRecord?.id,
                     source: ClockSource.admin,
-                    captureLocation: false,
                   );
                 },
               ),
@@ -146,11 +149,11 @@ class _AttendanceBodyState extends ConsumerState<_AttendanceBody> {
                   GestureDetector(
                     onTap: () async {
                       final now = DateTime.now();
-                      final picked = await showDateRangePicker(
+                      final picked = await showCustomDateRangePicker(
                         context: context,
                         firstDate: DateTime(2024),
                         lastDate: DateTime(now.year, now.month + 1, 0),
-                        initialDateRange: _range,
+                        initialRange: _range,
                       );
                       if (picked != null) setState(() => _range = picked);
                     },

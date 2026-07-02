@@ -159,10 +159,7 @@ class _OrderBillingScreenState extends ConsumerState<OrderBillingScreen> {
                                             items: [
                                               const DropdownMenuItem<
                                                 CouponModel?
-                                              >(
-                                                value: null,
-                                                child: Text('None'),
-                                              ),
+                                              >(child: Text('None')),
                                               ...activeCoupons.map(
                                                 (
                                                   c,

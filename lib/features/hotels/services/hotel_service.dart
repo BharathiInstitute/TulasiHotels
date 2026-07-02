@@ -76,6 +76,50 @@ class HotelService {
     );
     await _hotelsRef.doc(userId).set(hotel.toFirestore());
     debugPrint('Registered default hotel: $shopName');
+
+    // Also recover any additional hotels this user owns (where ownerUid==userId)
+    // This fixes hotels that were incorrectly pruned by a previous bug.
+    await recoverOwnedHotels();
+  }
+
+  /// Scans Firestore for stores owned by this user (ownerUid == userId) and
+  /// re-registers any that are missing from user_hotels. Called once during
+  /// ensureDefaultHotel to recover hotels lost by the pruning bug.
+  static Future<void> recoverOwnedHotels() async {
+    final userId = _userId;
+    if (userId == null) return;
+    try {
+      // Find all stores where this user is the creator
+      final ownedStores = await _firestore
+          .collection('users')
+          .where('ownerUid', isEqualTo: userId)
+          .get();
+
+      for (final storeDoc in ownedStores.docs) {
+        final storeId = storeDoc.id;
+        if (storeId == userId) continue; // Default hotel already handled
+
+        // Check if already in user_hotels
+        final existing = await _hotelsRef.doc(storeId).get();
+        if (existing.exists) continue;
+
+        // Re-register the missing hotel entry
+        final data = storeDoc.data();
+        final name = (data['shopName'] as String?) ?? 'Hotel';
+        await _hotelsRef.doc(storeId).set({
+          'name': name,
+          'slug': _generateSlug(name),
+          'role': 'owner',
+          'status': HotelStatus.active.name,
+          'createdAt': data['createdAt'] ?? FieldValue.serverTimestamp(),
+        });
+        debugPrint('Recovered missing hotel entry: $name (id=$storeId)');
+      }
+    } catch (e) {
+      debugPrint(
+        '⚠️ recoverOwnedHotels error (check Firestore rules/index): $e',
+      );
+    }
   }
 
   /// Create a new hotel
@@ -154,7 +198,9 @@ class HotelService {
   }
 
   /// Remove user_hotels entries where the user has no valid member doc.
-  /// Runs on login to clean up stale entries from old invite bugs.
+  /// Also removes ghost "owner" entries created by an old bug (staff members
+  /// whose users/{uid} doc was auto-created before the staff-detection fix).
+  /// Runs on login to clean up stale entries.
   static Future<void> pruneInvalidHotels() async {
     final userId = _userId;
     if (userId == null) return;
@@ -162,16 +208,37 @@ class HotelService {
       final hotels = await _hotelsRef.get();
       for (final hotelDoc in hotels.docs) {
         final hotelId = hotelDoc.id;
-        // Keep hotels the user owns
-        if (hotelId == userId) continue;
-        // Check if a valid member doc exists for this user in this store
-        final memberDoc = await _firestore
-            .collection('users/$hotelId/members')
-            .doc(userId)
-            .get();
-        if (!memberDoc.exists) {
-          await _hotelsRef.doc(hotelId).delete();
-          debugPrint('Pruned invalid hotel entry: $hotelId');
+        final role = (hotelDoc.data()['role'] as String?) ?? '';
+
+        if (role == 'owner') {
+          // Verify this user is actually the owner of this store.
+          // Real owners have users/{hotelId}.ownerUid == userId.
+          // Ghost entries (created by the old auto-create bug) won't match.
+          try {
+            final storeDoc = await _firestore
+                .collection('users')
+                .doc(hotelId)
+                .get();
+            if (storeDoc.exists) {
+              final ownerUid = storeDoc.data()?['ownerUid'] as String?;
+              if (ownerUid == userId) continue; // real owner — keep
+            }
+            // No store doc, or ownerUid doesn't match → ghost entry → prune
+            await _hotelsRef.doc(hotelId).delete();
+            debugPrint('Pruned ghost owner hotel entry: $hotelId');
+          } catch (_) {
+            continue; // Can't verify → keep (fail safe)
+          }
+        } else {
+          // For non-owner entries (invited members), verify the member doc exists.
+          final memberDoc = await _firestore
+              .collection('users/$hotelId/members')
+              .doc(userId)
+              .get();
+          if (!memberDoc.exists) {
+            await _hotelsRef.doc(hotelId).delete();
+            debugPrint('Pruned invalid hotel entry: $hotelId');
+          }
         }
       }
     } catch (e) {
@@ -220,27 +287,50 @@ class HotelService {
                 '-',
               ),
               'role': role,
+              if (data['customRoleName'] != null)
+                'customRoleName': data['customRoleName'],
               'status': 'active',
               'createdAt': FieldValue.serverTimestamp(),
             });
 
-        // Replace placeholder member doc with real UID in the correct store
-        final membersRef = _firestore.collection(
-          'users/$storeId/members',
-        ); // ← use storeId
-        final placeholders = await membersRef
-            .where('email', isEqualTo: user.email)
-            .get();
-        for (final memberDoc in placeholders.docs) {
-          if (memberDoc.id.startsWith('existing_') ||
-              memberDoc.id.startsWith('invite_')) {
-            final memberData = Map<String, dynamic>.from(memberDoc.data());
-            memberData['uid'] = user.uid;
-            memberData['status'] = 'active';
-            await membersRef.doc(user.uid).set(memberData);
-            await memberDoc.reference.delete();
+        // Directly write the real-UID member doc from invite data.
+        // We do NOT try to read the placeholder doc (staff lack permission to
+        // read members they are not yet part of). Writing the real UID doc
+        // directly is allowed by the Firestore rule:
+        //   memberId == request.auth.uid && resource.data.email == request.auth.token.email
+        final membersRef = _firestore.collection('users/$storeId/members');
+        final customRoleName = data['customRoleName'] as String?;
+        await membersRef.doc(user.uid).set(
+          {
+            'uid': user.uid,
+            'email': user.email ?? '',
+            'displayName': user.displayName ?? '',
+            'role': role,
+            if (customRoleName != null && customRoleName.isNotEmpty)
+              'customRoleName': customRoleName,
+            'status': 'active',
+            'invitedBy': data['ownerId'] ?? '',
+            'joinedAt': FieldValue.serverTimestamp(),
+          },
+          SetOptions(merge: true),
+        ); // merge:true avoids overwriting existing docs
+
+        // Best-effort: try to clean up the placeholder doc if it exists.
+        // This may fail if the staff can't read it — that's OK, real doc is already written.
+        try {
+          final placeholders = await membersRef
+              .where('email', isEqualTo: user.email)
+              .get();
+          for (final memberDoc in placeholders.docs) {
+            if (memberDoc.id.startsWith('existing_') ||
+                memberDoc.id.startsWith('invite_')) {
+              await memberDoc.reference.delete();
+            }
           }
+        } catch (_) {
+          // Permission denied reading placeholder — harmless, real doc is written
         }
+
         await doc.reference.delete();
       }
       if (invites.docs.isNotEmpty) {

@@ -29,9 +29,16 @@ class PermissionsOverviewScreen extends ConsumerWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.security_outlined, size: 64, color: theme.disabledColor),
+                  Icon(
+                    Icons.security_outlined,
+                    size: 64,
+                    color: theme.disabledColor,
+                  ),
                   const SizedBox(height: 16),
-                  Text('No members to manage', style: theme.textTheme.titleMedium),
+                  Text(
+                    'No members to manage',
+                    style: theme.textTheme.titleMedium,
+                  ),
                 ],
               ),
             );
@@ -65,10 +72,8 @@ class PermissionsOverviewScreen extends ConsumerWidget {
               for (final member in members)
                 _MemberPermissionCard(
                   member: member,
-                  onTap: () => context.push(
-                    AppRoutes.memberPermissions,
-                    extra: member,
-                  ),
+                  onTap: () =>
+                      context.push(AppRoutes.memberPermissions, extra: member),
                 ),
             ],
           );
@@ -82,10 +87,7 @@ class _MemberPermissionCard extends StatelessWidget {
   final StoreMember member;
   final VoidCallback onTap;
 
-  const _MemberPermissionCard({
-    required this.member,
-    required this.onTap,
-  });
+  const _MemberPermissionCard({required this.member, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -107,7 +109,9 @@ class _MemberPermissionCard extends StatelessWidget {
             children: [
               // Avatar
               CircleAvatar(
-                backgroundColor: _roleColor(member.role).withValues(alpha: 0.15),
+                backgroundColor: _roleColor(
+                  member.role,
+                ).withValues(alpha: 0.15),
                 child: Text(
                   member.displayName.isNotEmpty
                       ? member.displayName[0].toUpperCase()
@@ -125,10 +129,15 @@ class _MemberPermissionCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      member.displayName,
-                      style: theme.textTheme.titleSmall,
-                    ),
+                    Text(member.displayName, style: theme.textTheme.titleSmall),
+                    if (member.email.isNotEmpty)
+                      Text(
+                        member.email,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                          fontSize: 11,
+                        ),
+                      ),
                     const SizedBox(height: 2),
                     Row(
                       children: [
@@ -138,11 +147,13 @@ class _MemberPermissionCard extends StatelessWidget {
                             vertical: 1,
                           ),
                           decoration: BoxDecoration(
-                            color: _roleColor(member.role).withValues(alpha: 0.12),
+                            color: _roleColor(
+                              member.role,
+                            ).withValues(alpha: 0.12),
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: Text(
-                            member.role.displayName,
+                            member.roleLabel,
                             style: TextStyle(
                               fontSize: 11,
                               color: _roleColor(member.role),

@@ -7,6 +7,7 @@ import 'package:tulasihotels/features/auth/providers/auth_provider.dart';
 import 'package:tulasihotels/features/staff/providers/staff_provider.dart';
 import 'package:tulasihotels/features/staff/services/attendance_service.dart';
 import 'package:tulasihotels/models/attendance_model.dart';
+import 'package:tulasihotels/shared/widgets/custom_date_range_picker.dart';
 
 /// Date range state for the My Attendance screen
 final _myAttendanceRangeProvider = StateProvider<DateTimeRange>((_) {
@@ -107,9 +108,12 @@ class _MyAttendanceBodyState extends ConsumerState<_MyAttendanceBody> {
           r.date.day == today.day;
     }).toList();
 
-    final isClockedIn =
-        todayRecords.any((r) => r.status == AttendanceStatus.clockedIn);
-    final todayRecord = todayRecords.isNotEmpty ? todayRecords.first : null;
+    final isClockedIn = todayRecords.any((r) => r.clockOut == null);
+    // Prefer the open (active) record so clock-out targets the right entry
+    final openRecord = todayRecords.where((r) => r.clockOut == null).toList();
+    final todayRecord = openRecord.isNotEmpty
+        ? openRecord.first
+        : (todayRecords.isNotEmpty ? todayRecords.first : null);
 
     double totalHours = 0;
     for (final r in records) {
@@ -134,14 +138,12 @@ class _MyAttendanceBodyState extends ConsumerState<_MyAttendanceBody> {
               await AttendanceService.clockIn(
                 staffId: widget.staffId,
                 staffName: widget.userName,
-                captureLocation: false,
               );
             },
             onClockOut: () async {
               await AttendanceService.clockOut(
                 widget.staffId,
                 recordId: todayRecord?.id,
-                captureLocation: false,
               );
             },
           ),
@@ -174,18 +176,22 @@ class _MyAttendanceBodyState extends ConsumerState<_MyAttendanceBody> {
               GestureDetector(
                 onTap: () async {
                   final now = DateTime.now();
-                  final picked = await showDateRangePicker(
+                  final picked = await showCustomDateRangePicker(
                     context: context,
                     firstDate: DateTime(2024),
                     lastDate: DateTime(now.year, now.month + 1, 0),
-                    initialDateRange: range,
+                    initialRange: range,
                   );
                   if (picked != null) {
-                    ref.read(_myAttendanceRangeProvider.notifier).state = picked;
+                    ref.read(_myAttendanceRangeProvider.notifier).state =
+                        picked;
                   }
                 },
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
                   decoration: BoxDecoration(
                     border: Border.all(color: cs.outlineVariant),
                     borderRadius: BorderRadius.circular(8),
@@ -282,7 +288,10 @@ class _UserClockCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(dateStr, style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
+            Text(
+              dateStr,
+              style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
+            ),
             const SizedBox(height: 12),
             Row(
               children: [
@@ -291,7 +300,11 @@ class _UserClockCard extends StatelessWidget {
                   backgroundColor: cs.primaryContainer,
                   child: Text(
                     userName.isNotEmpty ? userName[0].toUpperCase() : 'U',
-                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: cs.onPrimaryContainer),
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w700,
+                      color: cs.onPrimaryContainer,
+                    ),
                   ),
                 ),
                 const SizedBox(width: 14),
@@ -299,9 +312,21 @@ class _UserClockCard extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(userName, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
+                      Text(
+                        userName,
+                        style: const TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
                       if (userEmail.isNotEmpty)
-                        Text(userEmail, style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
+                        Text(
+                          userEmail,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: cs.onSurfaceVariant,
+                          ),
+                        ),
                     ],
                   ),
                 ),
@@ -327,7 +352,10 @@ class _UserClockCard extends StatelessWidget {
             if (todayRecord != null) ...[
               const SizedBox(height: 12),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
                 decoration: BoxDecoration(
                   color: cs.surfaceContainerHighest.withValues(alpha: 0.4),
                   borderRadius: BorderRadius.circular(8),
@@ -336,17 +364,33 @@ class _UserClockCard extends StatelessWidget {
                   children: [
                     Icon(Icons.login, size: 14, color: Colors.green[700]),
                     const SizedBox(width: 6),
-                    Text('In: ${_fmtTime(todayRecord!.clockIn)}',
-                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                    Text(
+                      'In: ${_fmtTime(todayRecord!.clockIn)}',
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                     if (todayRecord!.clockOut != null) ...[
                       const SizedBox(width: 16),
                       Icon(Icons.logout, size: 14, color: Colors.red[700]),
                       const SizedBox(width: 6),
-                      Text('Out: ${_fmtTime(todayRecord!.clockOut!)}',
-                          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                      Text(
+                        'Out: ${_fmtTime(todayRecord!.clockOut!)}',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                       const Spacer(),
-                      Text('${todayRecord!.hoursWorked.toStringAsFixed(1)}h',
-                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: cs.primary)),
+                      Text(
+                        '${todayRecord!.hoursWorked.toStringAsFixed(1)}h',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: cs.primary,
+                        ),
+                      ),
                     ],
                   ],
                 ),
@@ -360,13 +404,18 @@ class _UserClockCard extends StatelessWidget {
                 icon: Icon(isClockedIn ? Icons.logout : Icons.login, size: 20),
                 label: Text(
                   isClockedIn ? 'Clock Out' : 'Clock In',
-                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
                 style: FilledButton.styleFrom(
                   backgroundColor: isClockedIn ? Colors.red : Colors.green,
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
               ),
             ),
@@ -382,8 +431,22 @@ class _UserClockCard extends StatelessWidget {
     return '$h:$m ${dt.hour >= 12 ? "PM" : "AM"}';
   }
 
-  static String _dayName(int w) => ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'][w - 1];
-  static String _monthName(int m) => ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][m - 1];
+  static String _dayName(int w) =>
+      ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][w - 1];
+  static String _monthName(int m) => [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+  ][m - 1];
 }
 
 // ─── Summary Chip ──────────────────────────────────────────────
@@ -394,7 +457,12 @@ class _SummaryChip extends StatelessWidget {
   final String value;
   final Color color;
 
-  const _SummaryChip({required this.icon, required this.label, required this.value, required this.color});
+  const _SummaryChip({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.color,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -410,9 +478,19 @@ class _SummaryChip extends StatelessWidget {
         children: [
           Icon(icon, size: 14, color: color),
           const SizedBox(width: 5),
-          Text(value, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: color)),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              color: color,
+            ),
+          ),
           const SizedBox(width: 4),
-          Text(label, style: TextStyle(fontSize: 10, color: color.withValues(alpha: 0.8))),
+          Text(
+            label,
+            style: TextStyle(fontSize: 10, color: color.withValues(alpha: 0.8)),
+          ),
         ],
       ),
     );
@@ -431,11 +509,18 @@ class _DayRecord extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final parts = day.split('-');
-    final dt = DateTime(int.parse(parts[0]), int.parse(parts[1]), int.parse(parts[2]));
-    final dayLabel = '${_dayName(dt.weekday)}, ${dt.day} ${_monthName(dt.month)}';
+    final dt = DateTime(
+      int.parse(parts[0]),
+      int.parse(parts[1]),
+      int.parse(parts[2]),
+    );
+    final dayLabel =
+        '${_dayName(dt.weekday)}, ${dt.day} ${_monthName(dt.month)}';
 
     double dayHours = 0;
-    for (final r in records) { dayHours += r.hoursWorked; }
+    for (final r in records) {
+      dayHours += r.hoursWorked;
+    }
 
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
@@ -451,49 +536,97 @@ class _DayRecord extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(14, 10, 14, 8),
             decoration: BoxDecoration(
               color: cs.surfaceContainerHighest.withValues(alpha: 0.3),
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(12),
+              ),
             ),
             child: Row(
               children: [
-                Text(dayLabel, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
+                Text(
+                  dayLabel,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
                 const Spacer(),
-                Text('${dayHours.toStringAsFixed(1)}h',
-                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: cs.primary)),
+                Text(
+                  '${dayHours.toStringAsFixed(1)}h',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: cs.primary,
+                  ),
+                ),
               ],
             ),
           ),
-          ...records.map((r) => Padding(
-            padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
-            child: Row(
-              children: [
-                Icon(Icons.login, size: 14, color: Colors.green[700]),
-                const SizedBox(width: 6),
-                Text(_fmtTime(r.clockIn), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-                if (r.clockOut != null) ...[
-                  const SizedBox(width: 8),
-                  Icon(Icons.arrow_forward, size: 12, color: cs.onSurfaceVariant),
-                  const SizedBox(width: 8),
-                  Icon(Icons.logout, size: 14, color: Colors.red[700]),
+          ...records.map(
+            (r) => Padding(
+              padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
+              child: Row(
+                children: [
+                  Icon(Icons.login, size: 14, color: Colors.green[700]),
                   const SizedBox(width: 6),
-                  Text(_fmtTime(r.clockOut!), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-                ] else ...[
-                  const SizedBox(width: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: Colors.green.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(6),
+                  Text(
+                    _fmtTime(r.clockIn),
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
                     ),
-                    child: const Text('Active', style: TextStyle(fontSize: 11, color: Colors.green, fontWeight: FontWeight.w600)),
                   ),
+                  if (r.clockOut != null) ...[
+                    const SizedBox(width: 8),
+                    Icon(
+                      Icons.arrow_forward,
+                      size: 12,
+                      color: cs.onSurfaceVariant,
+                    ),
+                    const SizedBox(width: 8),
+                    Icon(Icons.logout, size: 14, color: Colors.red[700]),
+                    const SizedBox(width: 6),
+                    Text(
+                      _fmtTime(r.clockOut!),
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ] else ...[
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.green.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: const Text(
+                        'Active',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.green,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                  const Spacer(),
+                  if (r.clockOut != null)
+                    Text(
+                      '${r.hoursWorked.toStringAsFixed(1)}h',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: cs.primary,
+                      ),
+                    ),
                 ],
-                const Spacer(),
-                if (r.clockOut != null)
-                  Text('${r.hoursWorked.toStringAsFixed(1)}h',
-                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: cs.primary)),
-              ],
+              ),
             ),
-          )),
+          ),
         ],
       ),
     );
@@ -505,6 +638,20 @@ class _DayRecord extends StatelessWidget {
     return '$h:$m ${dt.hour >= 12 ? "PM" : "AM"}';
   }
 
-  static String _dayName(int w) => ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'][w - 1];
-  static String _monthName(int m) => ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][m - 1];
+  static String _dayName(int w) =>
+      ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][w - 1];
+  static String _monthName(int m) => [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+  ][m - 1];
 }

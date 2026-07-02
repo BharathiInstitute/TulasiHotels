@@ -158,9 +158,11 @@ class ProductsService {
   final bool _isDemoMode;
   final CollectionReference? _collection;
 
-  ProductsService({required bool isDemoMode})
+  ProductsService({required bool isDemoMode, String? storeId})
     : _isDemoMode = isDemoMode,
-      _collection = isDemoMode ? null : _firestore.collection(_productsPath());
+      _collection = isDemoMode
+          ? null
+          : _firestore.collection(_productsPath(storeId));
 
   /// Add new product
   Future<String> addProduct(ProductModel product) async {
@@ -169,18 +171,11 @@ class ProductsService {
     }
 
     final id = generateSafeId('product');
-    final newProduct = ProductModel(
-      id: id,
-      name: product.name,
-      price: product.price,
-      purchasePrice: product.purchasePrice,
-      stock: product.stock,
-      lowStockAlert: product.lowStockAlert,
-      barcode: product.barcode,
-      unit: product.unit,
-      createdAt: DateTime.now(),
-    );
-    await _collection!.doc(id).set(newProduct.toFirestore());
+    final data = <String, dynamic>{
+      ...product.toFirestore(),
+      'createdAt': Timestamp.fromDate(DateTime.now()),
+    };
+    await _collection!.doc(id).set(data);
     unawaited(UserMetricsService.trackProductAdded());
     return id;
   }
@@ -208,18 +203,11 @@ class ProductsService {
       final batch = _firestore.batch();
       for (final product in chunk) {
         final id = generateSafeId('product');
-        final newProduct = ProductModel(
-          id: id,
-          name: product.name,
-          price: product.price,
-          purchasePrice: product.purchasePrice,
-          stock: product.stock,
-          lowStockAlert: product.lowStockAlert,
-          barcode: product.barcode,
-          unit: product.unit,
-          createdAt: DateTime.now(),
-        );
-        batch.set(_collection!.doc(id), newProduct.toFirestore());
+        final data = <String, dynamic>{
+          ...product.toFirestore(),
+          'createdAt': Timestamp.fromDate(DateTime.now()),
+        };
+        batch.set(_collection!.doc(id), data);
       }
       await batch.commit();
       added += chunk.length;
@@ -303,5 +291,6 @@ class ProductsService {
 /// Products service provider - auto-detects demo mode
 final productsServiceProvider = Provider<ProductsService>((ref) {
   final isDemoMode = ref.watch(isDemoModeProvider);
-  return ProductsService(isDemoMode: isDemoMode);
+  final storeId = ref.watch(currentHotelIdProvider) ?? _auth.currentUser?.uid;
+  return ProductsService(isDemoMode: isDemoMode, storeId: storeId);
 });

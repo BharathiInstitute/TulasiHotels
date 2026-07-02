@@ -50,7 +50,14 @@ class _AppShellState extends ConsumerState<AppShell> {
     if (location.startsWith('/tables')) return 5;
     if (location.startsWith('/orders')) return 6;
     if (location.startsWith('/kitchen')) return 7;
-    if (location.startsWith('/staff')) return 8;
+    if (location.startsWith('/staff') ||
+        location.startsWith('/shifts') ||
+        location.startsWith('/cash-register') ||
+        location.startsWith('/tasks') ||
+        location.startsWith('/messages') ||
+        location.startsWith('/salary')) {
+      return 8;
+    }
     if (location.startsWith('/attendance') ||
         location.startsWith('/my-attendance')) {
       return 9;
@@ -97,7 +104,7 @@ class _AppShellState extends ConsumerState<AppShell> {
     final memberAsync = ref.watch(currentMemberProvider);
     return memberAsync.when(
       loading: () => [],
-      error: (_, __) => _isCurrentUserOwner()
+      error: (_, _) => _isCurrentUserOwner()
           ? MemberPermissionGuard.visibleNavIndices(null)
           : [],
       data: (member) {

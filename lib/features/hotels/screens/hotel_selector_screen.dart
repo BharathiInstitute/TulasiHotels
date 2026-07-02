@@ -33,7 +33,18 @@ class _HotelSelectorScreenState extends ConsumerState<HotelSelectorScreen> {
 
   Future<void> _ensureDefaultHotel() async {
     try {
-      await HotelService.ensureDefaultHotel();
+      // Team members (staff) have shopName == '' in auth state.
+      // Only run ensureDefaultHotel / recoverOwnedHotels for real owners —
+      // otherwise a ghost users/{uid} doc would trigger auto-creation of a
+      // fake "Owner" hotel entry for the staff member.
+      final authUser = ref.read(authNotifierProvider).user;
+      final isOwner = (authUser?.shopName ?? '').isNotEmpty;
+
+      if (isOwner) {
+        await HotelService.ensureDefaultHotel();
+        await HotelService.recoverOwnedHotels();
+      }
+      // Always resolve pending invites and prune for everyone
       await HotelService.resolvePendingInvites();
       await HotelService.pruneInvalidHotels();
     } catch (e) {
@@ -47,6 +58,13 @@ class _HotelSelectorScreenState extends ConsumerState<HotelSelectorScreen> {
     final hotelsAsync = ref.watch(hotelsStreamProvider);
     final user = FirebaseAuth.instance.currentUser;
     final theme = Theme.of(context);
+
+    // Determine if the current user owns any hotel
+    final isOwner =
+        hotelsAsync.whenOrNull(
+          data: (hotels) => hotels.any((h) => h.isOwner),
+        ) ??
+        true; // default true while loading to avoid flicker
 
     return Scaffold(
       body: SafeArea(
@@ -78,7 +96,7 @@ class _HotelSelectorScreenState extends ConsumerState<HotelSelectorScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'My Hotels',
+                          isOwner ? 'My Hotels' : 'Accessible Hotels',
                           style: theme.textTheme.titleLarge?.copyWith(
                             fontWeight: FontWeight.bold,
                           ),
@@ -92,13 +110,15 @@ class _HotelSelectorScreenState extends ConsumerState<HotelSelectorScreen> {
                       ],
                     ),
                   ),
-                  // Create Hotel button
-                  FilledButton.icon(
-                    icon: const Icon(Icons.hotel, size: 18),
-                    label: const Text('Create Hotel'),
-                    onPressed: () => _showCreateHotelDialog(context),
-                  ),
-                  const SizedBox(width: 8),
+                  // Create Hotel button — owners only
+                  if (isOwner) ...[
+                    FilledButton.icon(
+                      icon: const Icon(Icons.hotel, size: 18),
+                      label: const Text('Create Hotel'),
+                      onPressed: () => _showCreateHotelDialog(context),
+                    ),
+                    const SizedBox(width: 8),
+                  ],
                   // Logout button
                   OutlinedButton.icon(
                     icon: const Icon(Icons.logout, size: 18),
@@ -119,7 +139,9 @@ class _HotelSelectorScreenState extends ConsumerState<HotelSelectorScreen> {
               child: Align(
                 alignment: Alignment.centerLeft,
                 child: Text(
-                  'Select a hotel to manage or create a new one',
+                  isOwner
+                      ? 'Select a hotel to manage or create a new one'
+                      : 'Hotels you have been given access to',
                   style: theme.textTheme.bodyMedium?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
@@ -267,15 +289,39 @@ class _HotelCard extends StatelessWidget {
 
   const _HotelCard({required this.hotel, required this.onOpen});
 
+  Color _roleColor(String role) {
+    switch (role.toLowerCase()) {
+      case 'owner':
+        return Colors.amber.shade700;
+      case 'manager':
+        return Colors.blue;
+      case 'accountant':
+        return Colors.teal;
+      case 'cashier':
+        return Colors.green;
+      case 'staff':
+        return Colors.grey;
+      default:
+        return Colors.purple;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final roleColor = _roleColor(hotel.role);
+    final roleLabel = hotel.roleLabel;
 
     return Card(
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: theme.dividerColor),
+        side: BorderSide(
+          color: hotel.isOwner
+              ? Colors.amber.shade700.withValues(alpha: 0.4)
+              : theme.dividerColor,
+          width: hotel.isOwner ? 1.5 : 1,
+        ),
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -283,21 +329,23 @@ class _HotelCard extends StatelessWidget {
           children: [
             // Hotel icon
             Container(
-              width: 40,
-              height: 40,
+              width: 44,
+              height: 44,
               decoration: BoxDecoration(
-                color: theme.colorScheme.primaryContainer,
-                borderRadius: BorderRadius.circular(8),
+                color: roleColor.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(10),
               ),
               child: Icon(
-                Icons.store_rounded,
-                color: theme.colorScheme.onPrimaryContainer,
+                hotel.isOwner
+                    ? Icons.store_rounded
+                    : Icons.meeting_room_outlined,
+                color: roleColor,
                 size: 22,
               ),
             ),
             const SizedBox(width: 14),
 
-            // Hotel name + badges
+            // Hotel name + role badge
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -309,24 +357,52 @@ class _HotelCard extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 6),
-                  Wrap(
-                    spacing: 6,
+                  Row(
                     children: [
-                      _Badge(
-                        icon: Icons.circle,
-                        iconSize: 8,
-                        iconColor: hotel.isOwner ? Colors.green : Colors.blue,
-                        label: hotel.role,
+                      // Role badge — prominent
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 3,
+                        ),
+                        decoration: BoxDecoration(
+                          color: roleColor.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: roleColor.withValues(alpha: 0.4),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              hotel.isOwner
+                                  ? Icons.shield_rounded
+                                  : Icons.badge_outlined,
+                              size: 12,
+                              color: roleColor,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              roleLabel,
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: roleColor,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                      _Badge(icon: Icons.tag, iconSize: 12, label: hotel.slug),
-                      _Badge(
-                        icon: Icons.check_circle_outline,
-                        iconSize: 12,
-                        iconColor: hotel.status == HotelStatus.active
-                            ? Colors.green
-                            : Colors.orange,
-                        label: hotel.status.displayName.toLowerCase(),
-                      ),
+                      const SizedBox(width: 8),
+                      // Status badge
+                      if (hotel.status != HotelStatus.active)
+                        _Badge(
+                          icon: Icons.warning_amber_rounded,
+                          iconSize: 12,
+                          iconColor: Colors.orange,
+                          label: hotel.status.displayName.toLowerCase(),
+                        ),
                     ],
                   ),
                 ],

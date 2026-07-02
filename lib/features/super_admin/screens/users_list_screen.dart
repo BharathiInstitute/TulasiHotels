@@ -485,6 +485,8 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> {
     switch (plan) {
       case SubscriptionPlan.free:
         return Colors.grey;
+      case SubscriptionPlan.starter:
+        return Colors.teal;
       case SubscriptionPlan.pro:
         return Colors.blue;
       case SubscriptionPlan.business:

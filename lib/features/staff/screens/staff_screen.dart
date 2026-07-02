@@ -6,12 +6,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:tulasihotels/features/admin/models/store_member.dart';
 import 'package:tulasihotels/features/admin/models/store_role.dart';
+import 'package:tulasihotels/features/admin/providers/current_member_provider.dart';
 import 'package:tulasihotels/features/admin/providers/members_provider.dart';
-import 'package:tulasihotels/features/auth/providers/auth_provider.dart';
 import 'package:tulasihotels/features/hotels/providers/hotel_provider.dart';
 import 'package:tulasihotels/features/staff/providers/staff_provider.dart';
 import 'package:tulasihotels/features/staff/screens/permission_manager_screen.dart';
 import 'package:tulasihotels/features/staff/screens/staff_attendance_correction_view.dart';
+import 'package:tulasihotels/features/staff/services/salary_service.dart';
 import 'package:tulasihotels/features/staff/services/staff_service.dart';
 import 'package:tulasihotels/models/staff_model.dart';
 import 'package:tulasihotels/router/app_router.dart';
@@ -24,17 +25,23 @@ class StaffScreen extends ConsumerWidget {
     // Only the store owner may view staff data.
     // Block both PIN-logged staff and Firebase Team Members who are not the owner.
     final loggedInStaff = ref.watch(loggedInStaffProvider);
-    final hotelId = ref.watch(currentHotelIdProvider);
-    final uid = ref.watch(authNotifierProvider).firebaseUser?.uid;
-    final isOwner = hotelId != null && hotelId == uid;
+    final currentHotel = ref.watch(currentHotelProvider);
+    final isOwner = currentHotel?.isOwner ?? false;
 
     if (loggedInStaff != null) {
       return _StaffProfileView(staff: loggedInStaff);
     }
 
     if (!isOwner) {
+      // Non-owner Firebase team member → show their own profile
+      final memberAsync = ref.watch(currentMemberProvider);
+      final member = memberAsync.valueOrNull;
+      if (member != null) {
+        return _MemberProfileView(member: member);
+      }
+      // Loading or no member doc → show restricted
       return Scaffold(
-        appBar: AppBar(title: const Text('Staff Management')),
+        appBar: AppBar(title: const Text('My Profile')),
         body: const Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -189,7 +196,14 @@ class StaffScreen extends ConsumerWidget {
                             ),
                           ),
                           onShiftTiming: () => context.push(AppRoutes.shifts),
-                          onPayroll: () => context.push(AppRoutes.salary),
+                          onPayroll: () => Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => StaffPayrollScreen(
+                                staffId: member.id,
+                                staffName: member.name,
+                              ),
+                            ),
+                          ),
                           onCashRegister: () =>
                               context.push(AppRoutes.cashRegister),
                           onPermissions: () => Navigator.of(context).push(
@@ -706,7 +720,14 @@ class _MemberCard extends StatelessWidget {
                   icon: Icons.account_balance_wallet_outlined,
                   label: 'Payroll',
                   color: Colors.green,
-                  onTap: () => context.push(AppRoutes.salary),
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => StaffPayrollScreen(
+                        staffId: member.uid,
+                        staffName: member.displayName,
+                      ),
+                    ),
+                  ),
                 ),
                 _ActionBtn(
                   icon: Icons.point_of_sale_outlined,
@@ -742,13 +763,33 @@ class _MemberCard extends StatelessWidget {
 
 // ─── My Profile view for PIN-logged staff ─────────────────────────────────────
 
-class _StaffProfileView extends StatelessWidget {
+class _StaffProfileView extends StatefulWidget {
   final StaffModel staff;
 
   const _StaffProfileView({required this.staff});
 
   @override
+  State<_StaffProfileView> createState() => _StaffProfileViewState();
+}
+
+class _StaffProfileViewState extends State<_StaffProfileView> {
+  Future<SalarySlip>? _salaryFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    final now = DateTime.now();
+    _salaryFuture = SalaryService.calculateSalary(
+      staffId: widget.staff.id,
+      staffName: widget.staff.name,
+      month: DateTime(now.year, now.month),
+      baseSalary: 15000,
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final staff = widget.staff;
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
@@ -757,7 +798,6 @@ class _StaffProfileView extends StatelessWidget {
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             const SizedBox(height: 16),
 
@@ -794,7 +834,7 @@ class _StaffProfileView extends StatelessWidget {
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Text(
-                '${staff.role.emoji}  ${staff.role.displayName}',
+                staff.role.displayName,
                 style: TextStyle(
                   color: colorScheme.onSecondaryContainer,
                   fontWeight: FontWeight.w600,
@@ -824,7 +864,7 @@ class _StaffProfileView extends StatelessWidget {
             ),
             const SizedBox(height: 28),
 
-            // Info card
+            // ── Info card ──────────────────────────────────────────
             Card(
               elevation: 0,
               shape: RoundedRectangleBorder(
@@ -835,6 +875,11 @@ class _StaffProfileView extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(vertical: 8),
                 child: Column(
                   children: [
+                    _InfoTile(
+                      icon: Icons.work_outline,
+                      label: 'Staff Role',
+                      value: staff.role.displayName,
+                    ),
                     if (staff.email != null && staff.email!.isNotEmpty)
                       _InfoTile(
                         icon: Icons.email_outlined,
@@ -848,6 +893,12 @@ class _StaffProfileView extends StatelessWidget {
                         value: staff.phone!,
                       ),
                     _InfoTile(
+                      icon: Icons.calendar_today_outlined,
+                      label: 'Joined On',
+                      value:
+                          '${staff.createdAt.day}/${staff.createdAt.month}/${staff.createdAt.year}',
+                    ),
+                    _InfoTile(
                       icon: Icons.badge_outlined,
                       label: 'Staff ID',
                       value: staff.id,
@@ -856,8 +907,776 @@ class _StaffProfileView extends StatelessWidget {
                 ),
               ),
             ),
+            const SizedBox(height: 20),
+
+            // ── Payroll card (current month) ───────────────────────
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'Payroll — This Month',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            FutureBuilder<SalarySlip>(
+              future: _salaryFuture,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(16),
+                      child: CircularProgressIndicator(),
+                    ),
+                  );
+                }
+                if (snapshot.hasError || !snapshot.hasData) {
+                  return Card(
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      side: BorderSide(color: colorScheme.outlineVariant),
+                    ),
+                    child: const Padding(
+                      padding: EdgeInsets.all(16),
+                      child: Center(
+                        child: Text(
+                          'Could not load payroll data.',
+                          style: TextStyle(color: Colors.grey),
+                        ),
+                      ),
+                    ),
+                  );
+                }
+                final slip = snapshot.data!;
+                return Card(
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    side: BorderSide(color: colorScheme.outlineVariant),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      children: [
+                        _PayrollRow(
+                          label: 'Days Present',
+                          value: '${slip.presentDays} / ${slip.totalDays}',
+                          icon: Icons.event_available_outlined,
+                          color: Colors.blue,
+                        ),
+                        const Divider(height: 12),
+                        _PayrollRow(
+                          label: 'Total Hours',
+                          value: '${slip.totalHours.toStringAsFixed(1)} hrs',
+                          icon: Icons.access_time_outlined,
+                          color: Colors.orange,
+                        ),
+                        _PayrollRow(
+                          label: 'Overtime',
+                          value: '${slip.overtimeHours.toStringAsFixed(1)} hrs',
+                          icon: Icons.more_time_outlined,
+                          color: Colors.purple,
+                        ),
+                        const Divider(height: 12),
+                        _PayrollRow(
+                          label: 'Base Salary',
+                          value: '\u20B9${slip.baseSalary.toStringAsFixed(0)}',
+                          icon: Icons.account_balance_wallet_outlined,
+                          color: Colors.green,
+                        ),
+                        _PayrollRow(
+                          label: 'Overtime Pay',
+                          value: '\u20B9${slip.overtimePay.toStringAsFixed(0)}',
+                          icon: Icons.add_circle_outline,
+                          color: Colors.teal,
+                        ),
+                        if (slip.deductions > 0)
+                          _PayrollRow(
+                            label: 'Deductions',
+                            value:
+                                '-\u20B9${slip.deductions.toStringAsFixed(0)}',
+                            icon: Icons.remove_circle_outline,
+                            color: Colors.red,
+                          ),
+                        if (slip.advances > 0)
+                          _PayrollRow(
+                            label: 'Advances',
+                            value: '-\u20B9${slip.advances.toStringAsFixed(0)}',
+                            icon: Icons.money_off_outlined,
+                            color: Colors.red,
+                          ),
+                        const Divider(height: 16),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'Net Salary',
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            Text(
+                              '\u20B9${slip.netSalary.toStringAsFixed(0)}',
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.w800,
+                                color: Colors.green,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+            const SizedBox(height: 24),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _MemberProfileView extends StatefulWidget {
+  final StoreMember member;
+
+  const _MemberProfileView({required this.member});
+
+  @override
+  State<_MemberProfileView> createState() => _MemberProfileViewState();
+}
+
+class _MemberProfileViewState extends State<_MemberProfileView> {
+  Future<SalarySlip>? _salaryFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    final now = DateTime.now();
+    _salaryFuture = SalaryService.calculateSalary(
+      staffId: widget.member.uid,
+      staffName: widget.member.displayName,
+      month: DateTime(now.year, now.month),
+      baseSalary: 15000,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final member = widget.member;
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    return Scaffold(
+      appBar: AppBar(title: const Text('My Profile')),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          children: [
+            const SizedBox(height: 16),
+
+            // Avatar
+            CircleAvatar(
+              radius: 48,
+              backgroundColor: colorScheme.primaryContainer,
+              child: Text(
+                member.displayName.isNotEmpty
+                    ? member.displayName[0].toUpperCase()
+                    : '?',
+                style: TextStyle(
+                  fontSize: 36,
+                  fontWeight: FontWeight.bold,
+                  color: colorScheme.onPrimaryContainer,
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // Name
+            Text(
+              member.displayName,
+              style: theme.textTheme.headlineSmall?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 6),
+
+            // Role badge
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+              decoration: BoxDecoration(
+                color: colorScheme.secondaryContainer,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(
+                member.roleLabel,
+                style: TextStyle(
+                  color: colorScheme.onSecondaryContainer,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 14,
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+
+            // Status badge
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              decoration: BoxDecoration(
+                color: member.status == MemberStatus.active
+                    ? Colors.green.withValues(alpha: 0.12)
+                    : Colors.orange.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(
+                member.status.displayName,
+                style: TextStyle(
+                  color: member.status == MemberStatus.active
+                      ? Colors.green
+                      : Colors.orange,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 12,
+                ),
+              ),
+            ),
+            const SizedBox(height: 28),
+
+            // ── Info card ──────────────────────────────────────────────────
+            Card(
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+                side: BorderSide(color: colorScheme.outlineVariant),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Column(
+                  children: [
+                    _InfoTile(
+                      icon: Icons.work_outline,
+                      label: 'Staff Role',
+                      value: member.roleLabel,
+                    ),
+                    if (member.email.isNotEmpty)
+                      _InfoTile(
+                        icon: Icons.email_outlined,
+                        label: 'Email',
+                        value: member.email,
+                      ),
+                    _InfoTile(
+                      icon: Icons.calendar_today_outlined,
+                      label: 'Member Since',
+                      value: _formatDate(member.joinedAt),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            // ── Payroll card (current month) ───────────────────────────────
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'Payroll — This Month',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            FutureBuilder<SalarySlip>(
+              future: _salaryFuture,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(16),
+                      child: CircularProgressIndicator(),
+                    ),
+                  );
+                }
+                if (snapshot.hasError || !snapshot.hasData) {
+                  return Card(
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      side: BorderSide(color: colorScheme.outlineVariant),
+                    ),
+                    child: const Padding(
+                      padding: EdgeInsets.all(16),
+                      child: Center(
+                        child: Text(
+                          'Could not load payroll data.',
+                          style: TextStyle(color: Colors.grey),
+                        ),
+                      ),
+                    ),
+                  );
+                }
+                final slip = snapshot.data!;
+                return Card(
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    side: BorderSide(color: colorScheme.outlineVariant),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      children: [
+                        _PayrollRow(
+                          label: 'Days Present',
+                          value: '${slip.presentDays} / ${slip.totalDays}',
+                          icon: Icons.event_available_outlined,
+                          color: Colors.blue,
+                        ),
+                        const Divider(height: 12),
+                        _PayrollRow(
+                          label: 'Total Hours',
+                          value: '${slip.totalHours.toStringAsFixed(1)} hrs',
+                          icon: Icons.access_time_outlined,
+                          color: Colors.orange,
+                        ),
+                        _PayrollRow(
+                          label: 'Overtime',
+                          value: '${slip.overtimeHours.toStringAsFixed(1)} hrs',
+                          icon: Icons.more_time_outlined,
+                          color: Colors.purple,
+                        ),
+                        const Divider(height: 12),
+                        _PayrollRow(
+                          label: 'Base Salary',
+                          value: '\u20B9${slip.baseSalary.toStringAsFixed(0)}',
+                          icon: Icons.account_balance_wallet_outlined,
+                          color: Colors.green,
+                        ),
+                        _PayrollRow(
+                          label: 'Overtime Pay',
+                          value: '\u20B9${slip.overtimePay.toStringAsFixed(0)}',
+                          icon: Icons.add_circle_outline,
+                          color: Colors.teal,
+                        ),
+                        if (slip.deductions > 0)
+                          _PayrollRow(
+                            label: 'Deductions',
+                            value:
+                                '-\u20B9${slip.deductions.toStringAsFixed(0)}',
+                            icon: Icons.remove_circle_outline,
+                            color: Colors.red,
+                          ),
+                        if (slip.advances > 0)
+                          _PayrollRow(
+                            label: 'Advances',
+                            value: '-\u20B9${slip.advances.toStringAsFixed(0)}',
+                            icon: Icons.money_off_outlined,
+                            color: Colors.red,
+                          ),
+                        const Divider(height: 16),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'Net Salary',
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            Text(
+                              '\u20B9${slip.netSalary.toStringAsFixed(0)}',
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.w800,
+                                color: Colors.green,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+            const SizedBox(height: 24),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _formatDate(DateTime date) {
+    return '${date.day}/${date.month}/${date.year}';
+  }
+}
+
+// ─── Per-Staff Payroll Screen ─────────────────────────────────────────────────
+
+class StaffPayrollScreen extends StatefulWidget {
+  final String staffId;
+  final String staffName;
+
+  const StaffPayrollScreen({
+    super.key,
+    required this.staffId,
+    required this.staffName,
+  });
+
+  @override
+  State<StaffPayrollScreen> createState() => _StaffPayrollScreenState();
+}
+
+class _StaffPayrollScreenState extends State<StaffPayrollScreen> {
+  DateTime _month = DateTime(DateTime.now().year, DateTime.now().month);
+  Future<SalarySlip>? _future;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  void _load() {
+    setState(() {
+      _future = SalaryService.calculateSalary(
+        staffId: widget.staffId,
+        staffName: widget.staffName,
+        month: _month,
+        baseSalary: 15000,
+      );
+    });
+  }
+
+  void _prevMonth() {
+    _month = DateTime(_month.year, _month.month - 1);
+    _load();
+  }
+
+  void _nextMonth() {
+    final now = DateTime.now();
+    if (_month.year == now.year && _month.month == now.month) return;
+    _month = DateTime(_month.year, _month.month + 1);
+    _load();
+  }
+
+  static const _months = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final now = DateTime.now();
+    final isCurrentMonth = _month.year == now.year && _month.month == now.month;
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              widget.staffName,
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+            ),
+            const Text(
+              'Payroll',
+              style: TextStyle(fontSize: 12, fontWeight: FontWeight.normal),
+            ),
+          ],
+        ),
+      ),
+      body: Column(
+        children: [
+          // Month selector
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: cs.surfaceContainerHighest.withValues(alpha: 0.4),
+              border: Border(
+                bottom: BorderSide(color: cs.outlineVariant, width: 0.5),
+              ),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.chevron_left),
+                  onPressed: _prevMonth,
+                ),
+                Text(
+                  '${_months[_month.month - 1]} ${_month.year}',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                IconButton(
+                  icon: Icon(
+                    Icons.chevron_right,
+                    color: isCurrentMonth
+                        ? cs.onSurface.withValues(alpha: 0.3)
+                        : null,
+                  ),
+                  onPressed: isCurrentMonth ? null : _nextMonth,
+                ),
+              ],
+            ),
+          ),
+
+          // Payroll content
+          Expanded(
+            child: FutureBuilder<SalarySlip>(
+              future: _future,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                if (snapshot.hasError || !snapshot.hasData) {
+                  return Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.account_balance_wallet_outlined,
+                          size: 48,
+                          color: cs.onSurface.withValues(alpha: 0.3),
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          'No payroll data available',
+                          style: TextStyle(color: cs.onSurfaceVariant),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+                final slip = snapshot.data!;
+                return SingleChildScrollView(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    children: [
+                      // Net salary hero
+                      Card(
+                        elevation: 0,
+                        color: Colors.green.withValues(alpha: 0.08),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                          side: const BorderSide(
+                            color: Colors.green,
+                            width: 0.5,
+                          ),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            vertical: 20,
+                            horizontal: 24,
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Net Salary',
+                                    style: theme.textTheme.bodyMedium?.copyWith(
+                                      color: cs.onSurfaceVariant,
+                                    ),
+                                  ),
+                                  Text(
+                                    '\u20B9${slip.netSalary.toStringAsFixed(0)}',
+                                    style: theme.textTheme.headlineMedium
+                                        ?.copyWith(
+                                          fontWeight: FontWeight.w800,
+                                          color: Colors.green,
+                                        ),
+                                  ),
+                                ],
+                              ),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  Text(
+                                    '${slip.presentDays} / ${slip.totalDays} days',
+                                    style: theme.textTheme.bodySmall?.copyWith(
+                                      color: cs.onSurfaceVariant,
+                                    ),
+                                  ),
+                                  Text(
+                                    '${slip.totalHours.toStringAsFixed(1)} hrs worked',
+                                    style: theme.textTheme.bodySmall?.copyWith(
+                                      color: cs.onSurfaceVariant,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Breakdown card
+                      Card(
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                          side: BorderSide(color: cs.outlineVariant),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Attendance',
+                                style: theme.textTheme.labelLarge?.copyWith(
+                                  color: cs.onSurfaceVariant,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              _PayrollRow(
+                                label: 'Working Days',
+                                value: '${slip.totalDays}',
+                                icon: Icons.calendar_month_outlined,
+                                color: Colors.blueGrey,
+                              ),
+                              _PayrollRow(
+                                label: 'Days Present',
+                                value: '${slip.presentDays}',
+                                icon: Icons.event_available_outlined,
+                                color: Colors.blue,
+                              ),
+                              _PayrollRow(
+                                label: 'Total Hours',
+                                value:
+                                    '${slip.totalHours.toStringAsFixed(1)} hrs',
+                                icon: Icons.access_time_outlined,
+                                color: Colors.orange,
+                              ),
+                              _PayrollRow(
+                                label: 'Overtime Hours',
+                                value:
+                                    '${slip.overtimeHours.toStringAsFixed(1)} hrs',
+                                icon: Icons.more_time_outlined,
+                                color: Colors.purple,
+                              ),
+                              const Divider(height: 20),
+                              Text(
+                                'Earnings & Deductions',
+                                style: theme.textTheme.labelLarge?.copyWith(
+                                  color: cs.onSurfaceVariant,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              _PayrollRow(
+                                label: 'Base Salary',
+                                value:
+                                    '\u20B9${slip.baseSalary.toStringAsFixed(0)}',
+                                icon: Icons.account_balance_wallet_outlined,
+                                color: Colors.green,
+                              ),
+                              _PayrollRow(
+                                label: 'Overtime Pay',
+                                value:
+                                    '\u20B9${slip.overtimePay.toStringAsFixed(0)}',
+                                icon: Icons.add_circle_outline,
+                                color: Colors.teal,
+                              ),
+                              if (slip.deductions > 0)
+                                _PayrollRow(
+                                  label: 'Deductions',
+                                  value:
+                                      '-\u20B9${slip.deductions.toStringAsFixed(0)}',
+                                  icon: Icons.remove_circle_outline,
+                                  color: Colors.red,
+                                ),
+                              if (slip.advances > 0)
+                                _PayrollRow(
+                                  label: 'Advances',
+                                  value:
+                                      '-\u20B9${slip.advances.toStringAsFixed(0)}',
+                                  icon: Icons.money_off_outlined,
+                                  color: Colors.red,
+                                ),
+                              const Divider(height: 20),
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    'Net Salary',
+                                    style: theme.textTheme.titleMedium
+                                        ?.copyWith(fontWeight: FontWeight.w700),
+                                  ),
+                                  Text(
+                                    '\u20B9${slip.netSalary.toStringAsFixed(0)}',
+                                    style: theme.textTheme.titleMedium
+                                        ?.copyWith(
+                                          fontWeight: FontWeight.w800,
+                                          color: Colors.green,
+                                        ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PayrollRow extends StatelessWidget {
+  final String label;
+  final String value;
+  final IconData icon;
+  final Color color;
+
+  const _PayrollRow({
+    required this.label,
+    required this.value,
+    required this.icon,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          Icon(icon, size: 18, color: color),
+          const SizedBox(width: 10),
+          Expanded(child: Text(label, style: const TextStyle(fontSize: 13))),
+          Text(
+            value,
+            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+          ),
+        ],
       ),
     );
   }

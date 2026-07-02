@@ -31,6 +31,10 @@ class StaffAttendanceCorrectionView extends ConsumerStatefulWidget {
 class _StaffAttendanceCorrectionViewState
     extends ConsumerState<StaffAttendanceCorrectionView> {
   late DateTimeRange _range;
+  bool _isClockingIn = false;
+  bool _isClockingOut = false;
+  bool _isClockedIn = false;
+  String? _activeRecordId;
 
   @override
   void initState() {
@@ -68,6 +72,36 @@ class _StaffAttendanceCorrectionViewState
           ],
         ),
         actions: [
+          // Clock In always visible; Clock Out always visible (disabled when not applicable)
+          TextButton.icon(
+            onPressed: (_isClockedIn || _isClockingIn) ? null : _clockIn,
+            icon: _isClockingIn
+                ? const SizedBox(
+                    width: 14,
+                    height: 14,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.login, size: 16),
+            label: const Text('Clock In'),
+            style: TextButton.styleFrom(foregroundColor: Colors.green),
+          ),
+          TextButton.icon(
+            onPressed: (!_isClockedIn || _isClockingOut)
+                ? null
+                : () => _clockOut(_activeRecordId),
+            icon: _isClockingOut
+                ? const SizedBox(
+                    width: 14,
+                    height: 14,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.red,
+                    ),
+                  )
+                : const Icon(Icons.logout, size: 16),
+            label: const Text('Clock Out'),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+          ),
           if (widget.staffRole != null)
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
@@ -121,6 +155,32 @@ class _StaffAttendanceCorrectionViewState
           }
 
           final records = snapshot.data!;
+
+          // Always sync today's clock state so AppBar buttons stay accurate
+          final now = DateTime.now();
+          final today = DateTime(now.year, now.month, now.day);
+          final todayOpen = records
+              .where(
+                (r) =>
+                    r.date.year == today.year &&
+                    r.date.month == today.month &&
+                    r.date.day == today.day &&
+                    r.clockOut == null,
+              )
+              .toList();
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              final newIn = todayOpen.isNotEmpty;
+              final newId = todayOpen.isNotEmpty ? todayOpen.first.id : null;
+              if (_isClockedIn != newIn || _activeRecordId != newId) {
+                setState(() {
+                  _isClockedIn = newIn;
+                  _activeRecordId = newId;
+                });
+              }
+            }
+          });
+
           if (records.isEmpty) {
             return Center(
               child: Text(
@@ -201,11 +261,77 @@ class _StaffAttendanceCorrectionViewState
     );
   }
 
+  Future<void> _clockIn() async {
+    setState(() => _isClockingIn = true);
+    try {
+      final record = await AttendanceService.clockIn(
+        staffId: widget.staffId,
+        staffName: widget.staffName,
+        source: ClockSource.admin,
+        captureLocation: false,
+      );
+      // Optimistically update so Clock Out enables immediately
+      if (mounted) {
+        setState(() {
+          _isClockedIn = true;
+          _activeRecordId = record.id;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${widget.staffName} clocked in'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isClockingIn = false);
+    }
+  }
+
+  Future<void> _clockOut(String? recordId) async {
+    setState(() => _isClockingOut = true);
+    try {
+      await AttendanceService.clockOut(
+        widget.staffId,
+        recordId: recordId,
+        source: ClockSource.admin,
+        captureLocation: false,
+      );
+      // Optimistically update so Clock In enables immediately for next shift
+      if (mounted) {
+        setState(() {
+          _isClockedIn = false;
+          _activeRecordId = null;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${widget.staffName} clocked out'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isClockingOut = false);
+    }
+  }
+
   Future<void> _pickRange(BuildContext context) async {
     final picked = await showDateRangePicker(
       context: context,
       firstDate: DateTime(2024),
-      lastDate: DateTime.now(),
+      lastDate: DateTime(DateTime.now().year, DateTime.now().month + 1, 0),
       initialDateRange: _range,
     );
     if (picked != null) setState(() => _range = picked);

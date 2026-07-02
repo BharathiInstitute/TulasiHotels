@@ -5,6 +5,7 @@ import 'package:tulasihotels/core/services/active_store_manager.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:tulasihotels/core/utils/id_generator.dart';
+import 'package:tulasihotels/features/subscription/services/plan_enforcement_service.dart';
 import 'package:tulasihotels/models/staff_model.dart';
 
 class StaffService {
@@ -17,10 +18,14 @@ class StaffService {
 
   /// Stream all staff (real-time)
   static Stream<List<StaffModel>> staffStream() {
-    return _staffRef.orderBy('name').snapshots().map(
-      (snapshot) =>
-          snapshot.docs.map((doc) => StaffModel.fromFirestore(doc)).toList(),
-    );
+    return _staffRef
+        .orderBy('name')
+        .snapshots()
+        .map(
+          (snapshot) => snapshot.docs
+              .map((doc) => StaffModel.fromFirestore(doc))
+              .toList(),
+        );
   }
 
   /// Stream only active staff
@@ -29,10 +34,9 @@ class StaffService {
         .where('isActive', isEqualTo: true)
         .snapshots()
         .map(
-          (snapshot) => snapshot.docs
-              .map((doc) => StaffModel.fromFirestore(doc))
-              .toList()
-            ..sort((a, b) => a.name.compareTo(b.name)),
+          (snapshot) =>
+              snapshot.docs.map((doc) => StaffModel.fromFirestore(doc)).toList()
+                ..sort((a, b) => a.name.compareTo(b.name)),
         );
   }
 
@@ -51,6 +55,12 @@ class StaffService {
     StaffRole role = StaffRole.waiter,
     required String pin,
   }) async {
+    // Check staff limit before creating
+    final check = await PlanEnforcementService.checkLimit(LimitType.staff);
+    if (!check.allowed) {
+      throw Exception(check.message);
+    }
+
     final id = generateSafeId('staff');
     final now = DateTime.now();
     final staff = StaffModel(
@@ -93,10 +103,7 @@ class StaffService {
   }
 
   /// Toggle staff active/inactive status
-  static Future<void> toggleStaffActive(
-    String staffId,
-    bool isActive,
-  ) async {
+  static Future<void> toggleStaffActive(String staffId, bool isActive) async {
     await _staffRef.doc(staffId).update({
       'isActive': isActive,
       'updatedAt': FieldValue.serverTimestamp(),
@@ -115,10 +122,7 @@ class StaffService {
   }
 
   /// Verify staff email + PIN â€” returns the matching staff or null
-  static Future<StaffModel?> verifyEmailAndPin(
-    String email,
-    String pin,
-  ) async {
+  static Future<StaffModel?> verifyEmailAndPin(String email, String pin) async {
     final snapshot = await _staffRef
         .where('email', isEqualTo: email)
         .where('pin', isEqualTo: pin)

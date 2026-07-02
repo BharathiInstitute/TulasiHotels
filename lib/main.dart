@@ -192,7 +192,11 @@ Future<void> _initializeApp() async {
         'latest_version': '',
         'announcement': '',
       });
-      await remoteConfig.fetchAndActivate();
+
+      // Activate previously cached values instantly (no network wait).
+      // Then kick off a background fetch so next launch gets fresh values.
+      await remoteConfig.activate();
+      unawaited(remoteConfig.fetchAndActivate().catchError((_) => false));
 
       // Apply Remote Config values
       merchantUpiId = remoteConfig.getString('merchant_upi_id');
@@ -249,21 +253,25 @@ Future<void> _initializeApp() async {
     // Enable Firestore persistence BEFORE any other Firestore access
     await SyncSettingsService.initializeFirestorePersistence();
 
-    // Run independent initializations in PARALLEL for faster startup
-    // Each wrapped in try-catch so one failure doesn't crash the app
-    await Future.wait([
-      _safeInit('OfflineStorage', OfflineStorageService.initialize),
-      _safeInit('PrinterStorage', PrinterStorage.initialize),
-      _safeInit('SyncSettings', SyncSettingsService.initialize),
-      _safeInit('Connectivity', ConnectivityService.initialize),
-      _safeInit('AppHealth', AppHealthService.initialize),
-      _safeInit('WindowsNotification', WindowsNotificationService.init),
-      _safeInit('UserMetrics', UserMetricsService.initialize),
-      _safeInit('WriteRetryQueue', WriteRetryQueue.initialize),
-    ]);
+    // OfflineStorage (SharedPreferences) must be ready before runApp because
+    // currentHotelIdProvider reads from it synchronously on first build.
+    await _safeInit('OfflineStorage', OfflineStorageService.initialize);
 
-    // Launch the main app
+    // Launch the main app immediately — don't wait for non-critical services
     runApp(const ProviderScope(child: LiteApp()));
+
+    // Finish remaining initializations in the background after the UI is up
+    unawaited(
+      Future.wait([
+        _safeInit('PrinterStorage', PrinterStorage.initialize),
+        _safeInit('SyncSettings', SyncSettingsService.initialize),
+        _safeInit('Connectivity', ConnectivityService.initialize),
+        _safeInit('AppHealth', AppHealthService.initialize),
+        _safeInit('WindowsNotification', WindowsNotificationService.init),
+        _safeInit('UserMetrics', UserMetricsService.initialize),
+        _safeInit('WriteRetryQueue', WriteRetryQueue.initialize),
+      ]),
+    );
 
     // ─── Update System ───
     // Windows: 5-layer silent → dialog → force
@@ -310,7 +318,14 @@ Future<void> _initializeApp() async {
 /// Safely initialize a service — logs error but doesn't crash the app
 Future<void> _safeInit(String name, Future<void> Function() init) async {
   try {
-    await init();
+    // 15-second safety timeout prevents any single service from hanging
+    // the entire app startup (e.g. App Check reCAPTCHA not loading on a domain).
+    await init().timeout(
+      const Duration(seconds: 15),
+      onTimeout: () {
+        debugPrint('⚠️ $name init timed out after 15s — continuing without it');
+      },
+    );
   } catch (e, st) {
     debugPrint('⚠️ $name init failed (non-fatal): $e');
     unawaited(
