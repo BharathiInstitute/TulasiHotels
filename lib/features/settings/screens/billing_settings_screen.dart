@@ -25,7 +25,7 @@ class BillingSettingsScreen extends ConsumerStatefulWidget {
 
 class _BillingSettingsScreenState extends ConsumerState<BillingSettingsScreen> {
   late TextEditingController _invoiceTitleController;
-  late TextEditingController _taxRateController;
+  double _selectedGstRate = 5.0;
   late TextEditingController _termsController;
   late TextEditingController _upiIdController;
 
@@ -41,9 +41,7 @@ class _BillingSettingsScreenState extends ConsumerState<BillingSettingsScreen> {
     final user = ref.read(currentUserProvider);
     final settings = user?.settings;
     _invoiceTitleController = TextEditingController(text: 'Tax Invoice');
-    _taxRateController = TextEditingController(
-      text: (settings?.taxRate ?? 5.0).toStringAsFixed(0),
-    );
+    _selectedGstRate = settings?.taxRate ?? 5.0;
     _termsController = TextEditingController(
       text: settings?.receiptFooter ?? 'Thank you for your business!',
     );
@@ -70,7 +68,7 @@ class _BillingSettingsScreenState extends ConsumerState<BillingSettingsScreen> {
   @override
   void dispose() {
     _invoiceTitleController.dispose();
-    _taxRateController.dispose();
+
     _termsController.dispose();
     _upiIdController.dispose();
     super.dispose();
@@ -316,13 +314,22 @@ class _BillingSettingsScreenState extends ConsumerState<BillingSettingsScreen> {
                   const Divider(height: 1),
                   Padding(
                     padding: const EdgeInsets.all(16),
-                    child: TextField(
-                      controller: _taxRateController,
-                      keyboardType: TextInputType.number,
+                    child: DropdownButtonFormField<double>(
+                      value: [0.0, 5.0, 12.0, 18.0].contains(_selectedGstRate)
+                          ? _selectedGstRate
+                          : 5.0,
                       decoration: const InputDecoration(
-                        labelText: 'Tax Rate (%)',
-                        suffixText: '%',
+                        labelText: 'GST Rate',
                       ),
+                      items: const [
+                        DropdownMenuItem(value: 0.0, child: Text('Nil (0%)')),
+                        DropdownMenuItem(value: 5.0, child: Text('5%')),
+                        DropdownMenuItem(value: 12.0, child: Text('12%')),
+                        DropdownMenuItem(value: 18.0, child: Text('18%')),
+                      ],
+                      onChanged: (v) {
+                        if (v != null) setState(() => _selectedGstRate = v);
+                      },
                     ),
                   ),
                   const Divider(height: 1),
@@ -610,7 +617,7 @@ class _BillingSettingsScreenState extends ConsumerState<BillingSettingsScreen> {
     // Save all billing settings to Firestore
     if (uid != null) {
       try {
-        final taxRate = double.tryParse(_taxRateController.text.trim()) ?? 5.0;
+        final taxRate = _selectedGstRate;
         final footer = _termsController.text.trim();
 
         await FirebaseFirestore.instance.collection('users').doc(uid).update({

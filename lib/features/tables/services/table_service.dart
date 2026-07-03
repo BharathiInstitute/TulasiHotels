@@ -3,6 +3,7 @@ library;
 
 import 'package:tulasihotels/core/services/active_store_manager.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:tulasihotels/core/utils/id_generator.dart';
 import 'package:tulasihotels/features/subscription/services/plan_enforcement_service.dart';
@@ -60,7 +61,9 @@ class TableService {
     );
 
     await _tablesRef.doc(id).set(table.toFirestore());
-    debugPrint('âœ… Created table: ${table.displayName}');
+    // Increment tablesCount for the user (no Cloud Function handles this)
+    _incrementTablesCount(1);
+    debugPrint('✅ Created table: ${table.displayName}');
     return table;
   }
 
@@ -75,6 +78,7 @@ class TableService {
   /// Delete a table
   static Future<void> deleteTable(String tableId) async {
     await _tablesRef.doc(tableId).delete();
+    _incrementTablesCount(-1);
   }
 
   /// Update table status (e.g., available â†’ occupied)
@@ -122,7 +126,20 @@ class TableService {
       batch.set(_tablesRef.doc(id), table.toFirestore());
     }
     await batch.commit();
-    debugPrint('âœ… Created ${to - from + 1} tables ($fromâ€“$to)');
+    // Increment tablesCount by the number of tables created
+    _incrementTablesCount(to - from + 1);
+    debugPrint('✅ Created ${to - from + 1} tables ($from–$to)');
+  }
+
+  /// Increment (or decrement) the user-level `limits.tablesCount` counter.
+  static void _incrementTablesCount(int delta) {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+    FirebaseFirestore.instance
+        .collection('users')
+        .doc(uid)
+        .update({'limits.tablesCount': FieldValue.increment(delta)})
+        .ignore();
   }
 
   /// Assign a server (waiter) to a table

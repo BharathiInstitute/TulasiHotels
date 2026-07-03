@@ -1713,6 +1713,7 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
     String? currency,
     String? timezone,
     String? receiptFooter,
+    double? taxRate,
   }) async {
     final user = _auth.currentUser;
     if (user == null) return false;
@@ -1730,6 +1731,9 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
       if (timezone != null) updates['timezone'] = timezone;
       if (receiptFooter != null) {
         updates['settings.receiptFooter'] = receiptFooter;
+      }
+      if (taxRate != null) {
+        updates['settings.taxRate'] = taxRate;
       }
 
       if (updates.isEmpty) return true;
@@ -1755,8 +1759,11 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
             upiId: upiId ?? state.user!.upiId,
             currency: currency ?? state.user!.currency,
             timezone: timezone ?? state.user!.timezone,
-            settings: receiptFooter != null
-                ? state.user!.settings.copyWith(receiptFooter: receiptFooter)
+            settings: (receiptFooter != null || taxRate != null)
+                ? state.user!.settings.copyWith(
+                    receiptFooter: receiptFooter,
+                    taxRate: taxRate,
+                  )
                 : state.user!.settings,
           ),
         );

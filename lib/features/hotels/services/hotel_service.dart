@@ -5,6 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:tulasihotels/features/hotels/models/hotel_info.dart';
+import 'package:tulasihotels/features/subscription/models/plan_config.dart';
 
 class HotelService {
   static final _firestore = FirebaseFirestore.instance;
@@ -148,11 +149,15 @@ class HotelService {
       'isShopSetupComplete': true,
       'limits': {
         'productsCount': 0,
-        'productsLimit': 100,
+        'productsLimit': PlanConfig.free.productsLimitFirestore,
         'billsThisMonth': 0,
-        'billsLimit': 50,
+        'billsLimit': PlanConfig.free.billsLimitFirestore,
         'customersCount': 0,
-        'customersLimit': 10,
+        'customersLimit': PlanConfig.free.customersLimitFirestore,
+        'staffCount': 0,
+        'staffLimit': PlanConfig.free.staffLimitFirestore,
+        'tablesCount': 0,
+        'tablesLimit': PlanConfig.free.tablesLimitFirestore,
       },
       'createdAt': FieldValue.serverTimestamp(),
     });

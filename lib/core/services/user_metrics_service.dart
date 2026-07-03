@@ -285,80 +285,35 @@ class UserMetricsService {
     }
   }
 
-  /// Track bill creation — uses a Firestore transaction as the single source
-  /// of truth (prevents limit bypass via app reinstall / cache clear).
+  /// Check bill limit — read-only, does NOT increment.
+  /// The Cloud Function `onBillCreated` is the sole authority for incrementing
+  /// `billsThisMonth` to prevent double-counting.
   static Future<bool> trackBillCreated() async {
     final userId = _getUserId();
     if (userId == null) return true; // Allow if not logged in
 
     try {
       final userRef = _firestore.collection('users').doc(userId);
-      bool allowed = false;
-      int newCount = 0;
-      int limit = 50;
+      final snap = await userRef.get();
+      final data = snap.data() ?? {};
+      final limitsMap = data['limits'] as Map<String, dynamic>? ?? {};
+      final now = DateTime.now();
+      final currentMonth =
+          '${now.year}-${now.month.toString().padLeft(2, '0')}';
+      final lastResetMonth = (limitsMap['lastResetMonth'] as String?) ?? '';
+      final isNewMonth = lastResetMonth != currentMonth;
+      final billsThisMonth = isNewMonth
+          ? 0
+          : ((limitsMap['billsThisMonth'] as int?) ?? 0);
+      final limit = (limitsMap['billsLimit'] as int?) ?? 300;
+      final allowed = billsThisMonth < limit;
 
-      // On Windows, avoid runTransaction — the C++ Firestore SDK sends
-      // callbacks on non-platform threads, crashing Flutter.
-      final useSimpleWrite = !kIsWeb && Platform.isWindows;
-
-      if (useSimpleWrite) {
-        final snap = await userRef.get();
-        final data = snap.data() ?? {};
-        final limitsMap = data['limits'] as Map<String, dynamic>? ?? {};
-        final now = DateTime.now();
-        final currentMonth =
-            '${now.year}-${now.month.toString().padLeft(2, '0')}';
-        final lastResetMonth = (limitsMap['lastResetMonth'] as String?) ?? '';
-        final isNewMonth = lastResetMonth != currentMonth;
-        final billsThisMonth = isNewMonth
-            ? 0
-            : ((limitsMap['billsThisMonth'] as int?) ?? 0);
-        limit = (limitsMap['billsLimit'] as int?) ?? 50;
-        allowed = billsThisMonth < limit;
-        if (allowed) {
-          newCount = billsThisMonth + 1;
-          await userRef.update({
-            'limits.billsThisMonth': newCount,
-            'limits.lastResetMonth': currentMonth,
-            'activity.lastActiveAt': FieldValue.serverTimestamp(),
-          });
-        }
-      } else {
-        await _firestore.runTransaction((txn) async {
-          final snap = await txn.get(userRef);
-          final data = snap.data() ?? {};
-          final limitsMap = data['limits'] as Map<String, dynamic>? ?? {};
-          final now = DateTime.now();
-          final currentMonth =
-              '${now.year}-${now.month.toString().padLeft(2, '0')}';
-          final lastResetMonth = (limitsMap['lastResetMonth'] as String?) ?? '';
-          final isNewMonth = lastResetMonth != currentMonth;
-          final billsThisMonth = isNewMonth
-              ? 0
-              : ((limitsMap['billsThisMonth'] as int?) ?? 0);
-          limit = (limitsMap['billsLimit'] as int?) ?? 50;
-          allowed = billsThisMonth < limit;
-          if (allowed) {
-            newCount = billsThisMonth + 1;
-            txn.update(userRef, {
-              'limits.billsThisMonth': newCount,
-              'limits.lastResetMonth': currentMonth,
-              'activity.lastActiveAt': FieldValue.serverTimestamp(),
-            });
-          }
-        });
-      }
-
-      if (allowed) {
-        // Mirror to SharedPreferences only as a non-authoritative UI cache
-        await _prefs?.setInt(_billsThisMonthKey, newCount);
-        debugPrint('📊 UserMetrics: Bill tracked ($newCount/$limit)');
-      } else {
-        debugPrint('⚠️ UserMetrics: Bill limit reached ($limit/$limit)');
+      if (!allowed) {
+        debugPrint('⚠️ UserMetrics: Bill limit reached ($billsThisMonth/$limit)');
       }
       return allowed;
     } catch (e, st) {
-      debugPrint('❌ UserMetrics: Failed to track bill: $e');
+      debugPrint('❌ UserMetrics: Failed to check bill limit: $e');
       ErrorLoggingService.logError(
         error: e,
         stackTrace: st,
@@ -369,45 +324,16 @@ class UserMetricsService {
     }
   }
 
-  /// Track product added
+  /// Track product added — no-op; Cloud Function `onProductCreated` is the
+  /// sole authority for incrementing `productsCount` to prevent double-counting.
   static Future<void> trackProductAdded() async {
-    final userId = _getUserId();
-    if (userId == null) return;
-
-    try {
-      await _firestore.collection('users').doc(userId).set({
-        'limits': {'productsCount': FieldValue.increment(1)},
-      }, SetOptions(merge: true));
-      debugPrint('📊 UserMetrics: Product tracked');
-    } catch (e, st) {
-      debugPrint('❌ UserMetrics: Failed to track product: $e');
-      ErrorLoggingService.logError(
-        error: e,
-        stackTrace: st,
-        severity: ErrorSeverity.warning,
-        metadata: {'context': 'trackProductAdded'},
-      ).ignore();
-    }
+    // Intentionally empty — handled by Cloud Function onProductCreated.
   }
 
-  /// Track product deleted
+  /// Track product deleted — no-op; Cloud Function `onProductDeleted` is the
+  /// sole authority for decrementing `productsCount` to prevent double-counting.
   static Future<void> trackProductDeleted() async {
-    final userId = _getUserId();
-    if (userId == null) return;
-
-    try {
-      await _firestore.collection('users').doc(userId).set({
-        'limits': {'productsCount': FieldValue.increment(-1)},
-      }, SetOptions(merge: true));
-    } catch (e, st) {
-      debugPrint('❌ UserMetrics: Failed to track product deletion: $e');
-      ErrorLoggingService.logError(
-        error: e,
-        stackTrace: st,
-        severity: ErrorSeverity.warning,
-        metadata: {'context': 'trackProductDeleted'},
-      ).ignore();
-    }
+    // Intentionally empty — handled by Cloud Function onProductDeleted.
   }
 
   /// Track customer added

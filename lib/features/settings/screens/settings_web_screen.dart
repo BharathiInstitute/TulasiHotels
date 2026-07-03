@@ -66,6 +66,7 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
 
   String _selectedCurrency = 'INR';
   String _selectedTimezone = 'Asia/Kolkata';
+  double _selectedGstRate = 5.0;
 
   // Windows printer state
   List<String> _availablePrinters = [];
@@ -95,6 +96,7 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
     _upiController = TextEditingController(text: user?.upiId ?? '');
     _selectedCurrency = user?.currency ?? 'INR';
     _selectedTimezone = user?.timezone ?? 'Asia/Kolkata';
+    _selectedGstRate = user?.settings.taxRate ?? 5.0;
     _loadAvailablePrinters();
     _termsController = TextEditingController(
       text:
@@ -274,6 +276,7 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
             address: _shopAddressController.text.trim(),
             email: _emailController.text.trim(),
             gstNumber: _gstController.text.trim(),
+            taxRate: _selectedGstRate,
             upiId: _upiController.text.trim(),
             currency: _selectedCurrency,
             timezone: _selectedTimezone,
@@ -3063,6 +3066,40 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
                   ],
                 ),
               ]),
+              const SizedBox(height: 16),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildFieldLabel('GST Rate'),
+                  const SizedBox(height: 8),
+                  DropdownButtonFormField<double>(
+                    value: [0.0, 5.0, 12.0, 18.0].contains(_selectedGstRate)
+                        ? _selectedGstRate
+                        : 5.0,
+                    decoration: InputDecoration(
+                      filled: true,
+                      fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 12,
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
+                    items: const [
+                      DropdownMenuItem(value: 0.0, child: Text('Nil (0%)')),
+                      DropdownMenuItem(value: 5.0, child: Text('5%')),
+                      DropdownMenuItem(value: 12.0, child: Text('12%')),
+                      DropdownMenuItem(value: 18.0, child: Text('18%')),
+                    ],
+                    onChanged: (v) {
+                      if (v != null) setState(() => _selectedGstRate = v);
+                    },
+                  ),
+                ],
+              ),
             ],
           ),
         ),
