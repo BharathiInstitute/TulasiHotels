@@ -336,24 +336,10 @@ class UserMetricsService {
     // Intentionally empty — handled by Cloud Function onProductDeleted.
   }
 
-  /// Track customer added
+  /// Track customer added — no-op; Cloud Function `onCustomerCreated` is the
+  /// sole authority for incrementing `customersCount` to prevent double-counting.
   static Future<void> trackCustomerAdded() async {
-    final userId = _getUserId();
-    if (userId == null) return;
-
-    try {
-      await _firestore.collection('users').doc(userId).set({
-        'limits': {'customersCount': FieldValue.increment(1)},
-      }, SetOptions(merge: true));
-    } catch (e, st) {
-      debugPrint('❌ UserMetrics: Failed to track customer: $e');
-      ErrorLoggingService.logError(
-        error: e,
-        stackTrace: st,
-        severity: ErrorSeverity.warning,
-        metadata: {'context': 'trackCustomerAdded'},
-      ).ignore();
-    }
+    // Intentionally empty — handled by Cloud Function onCustomerCreated.
   }
 
   /// Get user's current limits

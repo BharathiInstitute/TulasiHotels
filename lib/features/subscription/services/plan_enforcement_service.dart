@@ -8,6 +8,7 @@ library;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:tulasihotels/core/services/active_store_manager.dart';
 import 'package:tulasihotels/core/services/user_metrics_service.dart';
 import 'package:tulasihotels/features/subscription/models/plan_config.dart';
 
@@ -138,17 +139,21 @@ class PlanEnforcementService {
   }
 
   /// Update Firestore limits when plan changes (called after successful payment).
+  /// Uses the active store ID so multi-hotel setups are handled correctly.
   static Future<void> syncLimitsForPlan(String planKey) async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
+    // Use the active store (falls back to uid for single-store users)
+    final storeId = ActiveStoreManager.storeId ?? uid;
 
     final config = PlanConfig.fromKey(planKey);
-    await _firestore.collection('users').doc(uid).update({
+    await _firestore.collection('users').doc(storeId).update({
       'limits.billsLimit': config.billsLimitFirestore,
       'limits.productsLimit': config.productsLimitFirestore,
       'limits.customersLimit': config.customersLimitFirestore,
       'limits.staffLimit': config.staffLimitFirestore,
       'limits.tablesLimit': config.tablesLimitFirestore,
+      'subscription.plan': planKey,
     });
   }
 

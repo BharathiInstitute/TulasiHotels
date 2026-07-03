@@ -3,6 +3,7 @@ library;
 
 import 'package:tulasihotels/core/services/active_store_manager.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:tulasihotels/core/utils/id_generator.dart';
 import 'package:tulasihotels/features/subscription/services/plan_enforcement_service.dart';
@@ -74,6 +75,7 @@ class StaffService {
     );
 
     await _staffRef.doc(id).set(staff.toFirestore());
+    _incrementStaffCount(1);
     debugPrint('Created staff: ${staff.name} (${staff.role.displayName})');
     return staff;
   }
@@ -100,6 +102,19 @@ class StaffService {
   /// Delete a staff member
   static Future<void> deleteStaff(String staffId) async {
     await _staffRef.doc(staffId).delete();
+    _incrementStaffCount(-1);
+  }
+
+  /// Increment (or decrement) the user-level `limits.staffCount` counter.
+  /// No Cloud Function exists for staff, so this is handled client-side.
+  static void _incrementStaffCount(int delta) {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+    FirebaseFirestore.instance
+        .collection('users')
+        .doc(uid)
+        .update({'limits.staffCount': FieldValue.increment(delta)})
+        .ignore();
   }
 
   /// Toggle staff active/inactive status
