@@ -5,6 +5,7 @@ library;
 import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -14,6 +15,7 @@ import 'package:tulasihotels/features/subscription/models/plan_config.dart';
 import 'package:tulasihotels/features/subscription/providers/subscription_provider.dart';
 import 'package:tulasihotels/features/subscription/services/subscription_service.dart';
 import 'package:tulasihotels/features/subscription/widgets/cancel_subscription_sheet.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 /// Full manage-subscription panel designed to be embedded in a settings tab.
 class ManageSubscriptionPanel extends ConsumerStatefulWidget {
@@ -32,6 +34,7 @@ class _ManageSubscriptionPanelState
   UserLimits _limits = UserLimits();
   bool _loading = true;
   bool _showPlans = false;
+  bool _isUpgrading = false;
   StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _docSub;
 
   @override
@@ -643,12 +646,22 @@ class _ManageSubscriptionPanelState
                                   child: Text('Downgrade to ${plan.name}'),
                                 )
                               : FilledButton(
-                                  onPressed: () =>
-                                      _handleUpgradeFromPanel(plan.key),
+                                  onPressed: _isUpgrading
+                                      ? null
+                                      : () => _handleUpgradeFromPanel(plan.key),
                                   style: FilledButton.styleFrom(
                                     backgroundColor: color,
                                   ),
-                                  child: Text('Upgrade to ${plan.name}'),
+                                  child: _isUpgrading
+                                      ? const SizedBox(
+                                          width: 20,
+                                          height: 20,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                            color: Colors.white,
+                                          ),
+                                        )
+                                      : Text('Upgrade to ${plan.name}'),
                                 ),
                         ),
                       ],
@@ -663,9 +676,66 @@ class _ManageSubscriptionPanelState
     );
   }
 
-  void _handleUpgradeFromPanel(String planKey) {
-    // Navigate to the full subscription screen for payment flow
-    context.push('/subscription');
+  Future<void> _handleUpgradeFromPanel(String planKey) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please sign in to upgrade.')),
+      );
+      return;
+    }
+
+    // On web, open the pricing page which uses Razorpay Checkout.js
+    // (the user is already authenticated via Firebase Auth shared session).
+    // The real-time Firestore listener will auto-update the UI after payment.
+    if (kIsWeb) {
+      setState(() => _isUpgrading = true);
+      final url = Uri.parse('https://hotels.tulasierp.com/src/pages/pricing.html');
+      await launchUrl(url, mode: LaunchMode.externalApplication);
+      // Give a moment then reset — the stream will pick up changes
+      await Future.delayed(const Duration(seconds: 2));
+      if (mounted) setState(() => _isUpgrading = false);
+      return;
+    }
+
+    // On mobile/desktop, use the native Razorpay Flutter SDK
+    setState(() => _isUpgrading = true);
+    const cycle = 'monthly';
+
+    final service = SubscriptionService();
+    final result = await service.upgradePlan(
+      plan: planKey,
+      cycle: cycle,
+      customerName:
+          user.displayName ?? user.email?.split('@').first ?? 'User',
+      customerEmail: user.email,
+      customerPhone: user.phoneNumber,
+    );
+
+    if (!mounted) return;
+    setState(() => _isUpgrading = false);
+
+    if (result.success) {
+      setState(() {
+        _currentPlan = planKey;
+        _showPlans = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Upgraded to ${result.plan ?? planKey}! Enjoy your new features.',
+          ),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(result.error ?? 'Payment failed. Please try again.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   bool _isDowngrade(String targetPlanKey) {

@@ -7,6 +7,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:tulasihotels/core/services/active_store_manager.dart';
 import 'package:tulasihotels/core/services/error_logging_service.dart';
 import 'package:tulasihotels/features/subscription/models/plan_config.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -232,9 +233,14 @@ class UserMetricsService {
     }
   }
 
-  /// Get current user ID (from auth or settings)
+  /// Get the active store/user ID used for all limit checks.
+  /// Uses ActiveStoreManager.storeId (the same document that Firestore
+  /// security rules and Cloud Functions operate on).
   static String? _getUserId() {
-    // Try Firebase Auth first
+    // Use the active store ID (same doc rules/CFs use)
+    final storeId = ActiveStoreManager.storeId;
+    if (storeId != null && storeId.isNotEmpty) return storeId;
+    // Fallback to Firebase Auth uid
     final user = _auth.currentUser;
     if (user != null) return user.uid;
     // Fallback to stored user ID

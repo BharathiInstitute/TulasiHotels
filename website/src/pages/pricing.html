@@ -535,10 +535,9 @@
       if (user) {
         // Fetch phone from Firestore user profile
         db.collection('users').doc(user.uid).get().then(function(doc) {
-          if (doc.exists && doc.data().phone) {
-            userPhone = doc.data().phone;
-          } else if (doc.exists && doc.data().phoneNumber) {
-            userPhone = doc.data().phoneNumber;
+          if (doc.exists) {
+            var data = doc.data();
+            userPhone = data.phone || data.phoneNumber || data.contactNumber || '';
           }
         }).catch(function() {});
       }
@@ -734,6 +733,17 @@
       var planName = plan === 'starter' ? 'Starter' : plan === 'pro' ? 'Pro' : 'Business';
       showPaymentOverlay('Creating order...', 'Setting up your ' + planName + ' plan.');
 
+      // Ensure phone is fetched before opening checkout
+      if (!userPhone && currentUser) {
+        try {
+          var userDoc = await db.collection('users').doc(currentUser.uid).get();
+          if (userDoc.exists) {
+            var data = userDoc.data();
+            userPhone = data.phone || data.phoneNumber || data.contactNumber || '';
+          }
+        } catch (e) {}
+      }
+
       try {
         var createOrderFn = functions.httpsCallable('createOrder');
         var result = await createOrderFn({ plan: plan, cycle: cycle });
@@ -764,6 +774,11 @@
           contact: userPhone || currentUser.phoneNumber || '',
           name: currentUser.displayName || '',
         },
+        notes: {
+          plan: plan,
+          cycle: cycle,
+          uid: currentUser.uid,
+        },
         theme: { color: '#F97316' },
         modal: {
           confirm_close: true,
@@ -783,6 +798,19 @@
 
       // Allow all payment methods on all platforms
       options.method = { upi: true, card: true, netbanking: true, wallet: false, emi: false, paylater: false };
+
+      // Skip contact details popup — make phone optional
+      options.config = {
+        display: {
+          blocks: { highlighted: { instruments: [{ method: 'upi' }, { method: 'card' }] } },
+          hide: [{ method: 'paylater' }, { method: 'emi' }],
+          preferences: { show_default_blocks: true },
+        },
+      };
+      // Allow Razorpay to proceed without phone if not available
+      if (!options.prefill.contact) {
+        options.prefill.contact = '9999999999';
+      }
 
       var rzp = new Razorpay(options);
       rzp.on('payment.failed', function (response) {

@@ -90,7 +90,18 @@ class KhataService {
       balance: customer.balance,
       createdAt: DateTime.now(),
     );
-    await OfflineStorageService.saveCustomer(newCustomer);
+    try {
+      await OfflineStorageService.saveCustomer(newCustomer);
+    } catch (e) {
+      // Catch Firestore permission-denied (security rule blocked due to limit)
+      final msg = e.toString();
+      if (msg.contains('permission-denied') || msg.contains('PERMISSION_DENIED')) {
+        throw Exception(
+          'Customer limit reached (${limits.customersLimit}). Upgrade your plan to add more customers.',
+        );
+      }
+      rethrow;
+    }
     unawaited(UserMetricsService.trackCustomerAdded());
     return id;
   }
