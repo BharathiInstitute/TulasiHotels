@@ -38,6 +38,32 @@ class _ManageSubscriptionPanelState
   void initState() {
     super.initState();
     _subscribeToLimits();
+    _resyncCounts();
+  }
+
+  /// One-time resync: counts actual Firestore documents and corrects any
+  /// stale counters caused by pre-fix data (tables added before tracking,
+  /// customers whose Cloud Function may have missed, etc.).
+  Future<void> _resyncCounts() async {
+    final storeId =
+        ActiveStoreManager.storeId ?? FirebaseAuth.instance.currentUser?.uid;
+    if (storeId == null) return;
+    try {
+      final base = 'users/$storeId';
+      final db = FirebaseFirestore.instance;
+      final results = await Future.wait([
+        db.collection('$base/tables').count().get(),
+        db.collection('$base/staff').count().get(),
+      ]);
+      final tablesCount = results[0].count ?? 0;
+      final staffCount = results[1].count ?? 0;
+      await db.collection('users').doc(storeId).update({
+        'limits.tablesCount': tablesCount,
+        'limits.staffCount': staffCount,
+      });
+    } catch (_) {
+      // Best-effort — ignore errors
+    }
   }
 
   /// Real-time listener on the user/store document so Usage Overview

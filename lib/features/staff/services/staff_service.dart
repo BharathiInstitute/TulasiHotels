@@ -108,11 +108,13 @@ class StaffService {
   /// Increment (or decrement) the user-level `limits.staffCount` counter.
   /// No Cloud Function exists for staff, so this is handled client-side.
   static void _incrementStaffCount(int delta) {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid == null) return;
+    // Write to the SAME document the subscription panel reads from
+    final storeId =
+        ActiveStoreManager.storeId ?? FirebaseAuth.instance.currentUser?.uid;
+    if (storeId == null) return;
     FirebaseFirestore.instance
         .collection('users')
-        .doc(uid)
+        .doc(storeId)
         .update({'limits.staffCount': FieldValue.increment(delta)})
         .ignore();
   }
