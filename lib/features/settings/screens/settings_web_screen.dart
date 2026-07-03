@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -10,6 +11,7 @@ import 'package:go_router/go_router.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:tulasihotels/core/constants/app_constants.dart';
+import 'package:tulasihotels/core/services/active_store_manager.dart';
 import 'package:tulasihotels/core/services/cloud_function_helper.dart';
 import 'package:tulasihotels/core/services/thermal_printer_service.dart';
 import 'package:tulasihotels/core/services/web_bluetooth_printer_service.dart';
@@ -80,13 +82,14 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
   int _referralCount = 0;
   UserSubscription _subscription = UserSubscription();
   UserLimits _limits = UserLimits();
+  StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _limitsSub;
 
   @override
   void initState() {
     super.initState();
     final user = ref.read(currentUserProvider);
     _loadReferral();
-    _loadSubscription();
+    _subscribeToLimits();
     _shopNameController = TextEditingController(text: user?.shopName ?? '');
     _ownerNameController = TextEditingController(text: user?.ownerName ?? '');
     _contactNumberController = TextEditingController(text: user?.phone ?? '');
@@ -107,6 +110,7 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
 
   @override
   void dispose() {
+    _limitsSub?.cancel();
     _shopNameController.dispose();
     _ownerNameController.dispose();
     _contactNumberController.dispose();
@@ -140,6 +144,28 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
         });
       }
     } catch (_) {}
+  }
+
+  void _subscribeToLimits() {
+    final storeId =
+        ActiveStoreManager.storeId ?? FirebaseAuth.instance.currentUser?.uid;
+    if (storeId == null) return;
+    _limitsSub = FirebaseFirestore.instance
+        .collection('users')
+        .doc(storeId)
+        .snapshots()
+        .listen((doc) {
+      if (!doc.exists || !mounted) return;
+      final data = doc.data()!;
+      setState(() {
+        _subscription = UserSubscription.fromMap(
+          data['subscription'] as Map<String, dynamic>?,
+        );
+        _limits = UserLimits.fromMap(
+          data['limits'] as Map<String, dynamic>?,
+        );
+      });
+    }, onError: (_) {});
   }
 
   SettingsTab get _selectedTab {

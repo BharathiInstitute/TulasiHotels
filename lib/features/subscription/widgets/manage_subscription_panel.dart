@@ -2,11 +2,13 @@
 /// and actions (change plan, cancel, resume).
 library;
 
+import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:tulasihotels/core/services/active_store_manager.dart';
 import 'package:tulasihotels/core/services/user_metrics_service.dart';
 import 'package:tulasihotels/features/subscription/models/plan_config.dart';
 import 'package:tulasihotels/features/subscription/providers/subscription_provider.dart';
@@ -30,34 +32,54 @@ class _ManageSubscriptionPanelState
   UserLimits _limits = UserLimits();
   bool _loading = true;
   bool _showPlans = false;
+  StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _docSub;
 
   @override
   void initState() {
     super.initState();
-    _loadData();
+    _subscribeToLimits();
   }
 
-  Future<void> _loadData() async {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid == null) return;
+  /// Real-time listener on the user/store document so Usage Overview
+  /// updates instantly whenever Cloud Functions write new counts.
+  void _subscribeToLimits() {
+    final storeId =
+        ActiveStoreManager.storeId ?? FirebaseAuth.instance.currentUser?.uid;
+    if (storeId == null) {
+      setState(() => _loading = false);
+      return;
+    }
 
-    final doc = await FirebaseFirestore.instance
+    _docSub = FirebaseFirestore.instance
         .collection('users')
-        .doc(uid)
-        .get();
-    final data = doc.data();
-    if (data == null || !mounted) return;
-
-    final sub = data['subscription'] as Map<String, dynamic>?;
-    final limitsMap = data['limits'] as Map<String, dynamic>?;
-
-    setState(() {
-      _currentPlan = (sub?['plan'] as String?) ?? 'free';
-      _status = (sub?['status'] as String?) ?? 'active';
-      _expiresAt = (sub?['expiresAt'] as Timestamp?)?.toDate();
-      _limits = UserLimits.fromMap(limitsMap);
-      _loading = false;
+        .doc(storeId)
+        .snapshots()
+        .listen((doc) {
+      if (!doc.exists || !mounted) return;
+      final data = doc.data()!;
+      final sub = data['subscription'] as Map<String, dynamic>?;
+      final limitsMap = data['limits'] as Map<String, dynamic>?;
+      setState(() {
+        _currentPlan = (sub?['plan'] as String?) ?? 'free';
+        _status = (sub?['status'] as String?) ?? 'active';
+        _expiresAt = (sub?['expiresAt'] as Timestamp?)?.toDate();
+        _limits = UserLimits.fromMap(limitsMap);
+        _loading = false;
+      });
+    }, onError: (_) {
+      if (mounted) setState(() => _loading = false);
     });
+  }
+
+  // kept for compatibility with plan-change reload in build()
+  Future<void> _loadData() async {
+    // no-op: real-time stream handles all updates
+  }
+
+  @override
+  void dispose() {
+    _docSub?.cancel();
+    super.dispose();
   }
 
   @override
