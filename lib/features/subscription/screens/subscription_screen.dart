@@ -278,6 +278,16 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
       return;
     }
 
+    // Check phone verification before allowing payment
+    final phoneVerified = await _isPhoneVerified();
+    if (!phoneVerified) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        _showPhoneRequiredDialog();
+      }
+      return;
+    }
+
     final service = SubscriptionService();
     final result = await service.upgradePlan(
       plan: planKey,
@@ -308,6 +318,42 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
         ),
       );
     }
+  }
+
+  /// Check if the user's phone is verified in Firestore.
+  Future<bool> _isPhoneVerified() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return false;
+    final doc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
+    return (doc.data()?['phoneVerified'] as bool?) ?? false;
+  }
+
+  /// Show dialog telling user to verify phone before upgrading.
+  void _showPhoneRequiredDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        icon: const Icon(Icons.phone_android, size: 40, color: Colors.orange),
+        title: const Text('Phone Verification Required'),
+        content: const Text(
+          'Please verify your phone number before upgrading your plan.\n\n'
+          'Go to Settings → Verification Status → Verify Phone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Later'),
+          ),
+          FilledButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              GoRouter.of(context).push('/settings');
+            },
+            child: const Text('Go to Settings'),
+          ),
+        ],
+      ),
+    );
   }
 
   static Color _planColor(String key) {

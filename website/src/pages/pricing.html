@@ -731,18 +731,26 @@
     async function startPayment(plan) {
       var cycle = isAnnual ? 'annual' : 'monthly';
       var planName = plan === 'starter' ? 'Starter' : plan === 'pro' ? 'Pro' : 'Business';
-      showPaymentOverlay('Creating order...', 'Setting up your ' + planName + ' plan.');
 
-      // Ensure phone is fetched before opening checkout
-      if (!userPhone && currentUser) {
+      // Check phone verification before allowing payment
+      if (currentUser) {
         try {
           var userDoc = await db.collection('users').doc(currentUser.uid).get();
           if (userDoc.exists) {
             var data = userDoc.data();
+            var phoneVerified = data.phoneVerified || false;
             userPhone = data.phone || data.phoneNumber || data.contactNumber || '';
+            if (!phoneVerified) {
+              alert('Please verify your phone number in the app (Settings → Verification Status) before upgrading your plan.');
+              return;
+            }
           }
-        } catch (e) {}
+        } catch (e) {
+          console.warn('Could not check phone verification:', e);
+        }
       }
+
+      showPaymentOverlay('Creating order...', 'Setting up your ' + planName + ' plan.');
 
       try {
         var createOrderFn = functions.httpsCallable('createOrder');

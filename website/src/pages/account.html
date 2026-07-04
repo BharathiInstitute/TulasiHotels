@@ -270,6 +270,31 @@
             <a href="/app/" class="btn btn-primary btn-sm">Open App →</a>
             <button class="btn btn-ghost btn-sm" onclick="signOut()">Sign Out</button>
           </div>
+
+          <!-- Phone Verification Status -->
+          <div id="phone-verify-section" style="margin-top:16px; padding:12px 16px; border-radius:8px; border:1px solid #e5e7eb; display:none;">
+            <div style="display:flex; align-items:center; justify-content:space-between;">
+              <div>
+                <span style="font-size:13px; color:#6b7280;">Phone Number</span>
+                <div id="phone-display" style="font-size:15px; font-weight:500; color:#111;">Not verified</div>
+              </div>
+              <div id="phone-status-badge"></div>
+            </div>
+            <div id="phone-verify-form" style="margin-top:12px; display:none;">
+              <div style="display:flex; gap:8px; margin-bottom:8px;">
+                <span style="line-height:40px; font-size:14px; color:#374151;">+91</span>
+                <input type="tel" id="phone-input" maxlength="10" placeholder="10-digit number" style="flex:1; padding:8px 12px; border:1px solid #d1d5db; border-radius:6px; font-size:14px;">
+                <button id="phone-send-btn" class="btn btn-primary btn-sm" onclick="sendPhoneOtp()">Send OTP</button>
+              </div>
+              <div id="phone-otp-section" style="display:none;">
+                <div style="display:flex; gap:8px;">
+                  <input type="text" id="phone-otp-input" maxlength="6" placeholder="Enter 6-digit OTP" style="flex:1; padding:8px 12px; border:1px solid #d1d5db; border-radius:6px; font-size:14px; text-align:center;">
+                  <button class="btn btn-primary btn-sm" onclick="verifyPhoneOtp()">Verify</button>
+                </div>
+              </div>
+              <p id="phone-error" style="color:#DC2626; font-size:12px; margin-top:8px; display:none;"></p>
+            </div>
+          </div>
         </div>
 
         <!-- Subscription Card -->
@@ -422,6 +447,7 @@
         var doc = await db.collection('users').doc(uid).get();
         if (!doc.exists) {
           updateSubscriptionUI('free', 'active', null, { billsLimit: 50, productsLimit: 50, customersLimit: 100 }, {});
+          updatePhoneUI(false, null);
           return;
         }
         var data = doc.data();
@@ -439,9 +465,143 @@
         }
 
         updateSubscriptionUI(plan, status, expiresAt, limits, usage);
+
+        // Phone verification status
+        var phoneVerified = data.phoneVerified || false;
+        var phone = data.phone || data.phoneNumber || null;
+        updatePhoneUI(phoneVerified, phone);
       } catch (err) {
         console.error('Failed to load subscription:', err);
       }
+    }
+
+    function updatePhoneUI(verified, phone) {
+      var section = document.getElementById('phone-verify-section');
+      section.style.display = 'block';
+      var display = document.getElementById('phone-display');
+      var badge = document.getElementById('phone-status-badge');
+      var form = document.getElementById('phone-verify-form');
+      var upgradeBanner = document.getElementById('upgrade-banner');
+
+      if (verified && phone) {
+        display.textContent = phone;
+        badge.innerHTML = '<span style="background:#ECFDF5; color:#059669; padding:4px 10px; border-radius:12px; font-size:12px; font-weight:600;">✓ Verified</span>';
+        form.style.display = 'none';
+        // Show upgrade button
+        if (upgradeBanner) upgradeBanner.querySelector('a').style.pointerEvents = 'auto';
+      } else {
+        display.textContent = 'Not verified';
+        badge.innerHTML = '<button class="btn btn-ghost btn-sm" style="color:#f59e0b; border-color:#f59e0b;" onclick="showPhoneForm()">Verify Now</button>';
+        form.style.display = 'none';
+        // Block upgrade button — replace with message
+        if (upgradeBanner) {
+          var link = upgradeBanner.querySelector('a');
+          link.onclick = function(e) {
+            e.preventDefault();
+            alert('Please verify your phone number first before upgrading.');
+            showPhoneForm();
+          };
+        }
+      }
+    }
+
+    function showPhoneForm() {
+      document.getElementById('phone-verify-form').style.display = 'block';
+    }
+
+    var phoneConfirmationResult = null;
+    var phoneToVerify = '';
+    var originalUserUid = null;
+    var phoneVerificationId = null;
+
+    async function sendPhoneOtp() {
+      var phone = document.getElementById('phone-input').value.trim();
+      if (phone.length !== 10) {
+        showPhoneError('Enter a valid 10-digit phone number');
+        return;
+      }
+      phoneToVerify = '+91' + phone;
+      originalUserUid = auth.currentUser ? auth.currentUser.uid : null;
+      var btn = document.getElementById('phone-send-btn');
+      btn.disabled = true;
+      btn.textContent = 'Sending...';
+      hidePhoneError();
+
+      try {
+        // Always create a fresh reCAPTCHA verifier
+        if (window.recaptchaVerifier) {
+          try { window.recaptchaVerifier.clear(); } catch(e) {}
+        }
+        window.recaptchaVerifier = new firebase.auth.RecaptchaVerifier('phone-send-btn', { size: 'invisible' });
+        await window.recaptchaVerifier.render();
+
+        var provider = new firebase.auth.PhoneAuthProvider();
+        phoneVerificationId = await provider.verifyPhoneNumber(phoneToVerify, window.recaptchaVerifier);
+        document.getElementById('phone-otp-section').style.display = 'block';
+        btn.textContent = 'OTP Sent';
+      } catch (err) {
+        console.error('Phone OTP error:', err);
+        showPhoneError(err.message || 'Failed to send OTP. Try again.');
+        btn.disabled = false;
+        btn.textContent = 'Send OTP';
+      }
+    }
+
+    async function verifyPhoneOtp() {
+      var otp = document.getElementById('phone-otp-input').value.trim().replace(/\s/g, '');
+      if (otp.length !== 6) { showPhoneError('Enter the 6-digit code'); return; }
+      if (!phoneVerificationId) { showPhoneError('Session expired. Please resend OTP.'); return; }
+      hidePhoneError();
+
+      try {
+        var credential = firebase.auth.PhoneAuthProvider.credential(phoneVerificationId, otp);
+        // Try to link/update phone on current user
+        try {
+          await auth.currentUser.updatePhoneNumber(credential);
+        } catch (linkErr) {
+          // Phone already used by another account — OTP was still correct
+          if (linkErr.code === 'auth/credential-already-in-use' ||
+              linkErr.code === 'auth/account-exists-with-different-credential' ||
+              linkErr.code === 'auth/provider-already-linked') {
+            // OTP is valid, just can't link — still mark as verified
+          } else {
+            throw linkErr;
+          }
+        }
+        await savePhoneVerified(phoneToVerify);
+      } catch (err) {
+        console.error('Phone verify error:', err);
+        if (err.code === 'auth/invalid-verification-code') {
+          showPhoneError('Invalid OTP code. Please check and try again.');
+        } else if (err.code === 'auth/code-expired') {
+          showPhoneError('OTP expired. Please click Send OTP again.');
+          document.getElementById('phone-send-btn').disabled = false;
+          document.getElementById('phone-send-btn').textContent = 'Resend';
+        } else {
+          showPhoneError(err.message || 'Verification failed. Try again.');
+        }
+      }
+    }
+
+    async function savePhoneVerified(phone) {
+      // Use the original UID (confirm may have changed currentUser)
+      var uid = originalUserUid || (auth.currentUser ? auth.currentUser.uid : null);
+      if (!uid) return;
+      await db.collection('users').doc(uid).set({
+        phoneVerified: true,
+        phone: phone,
+        phoneVerifiedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      }, { merge: true });
+      updatePhoneUI(true, phone);
+    }
+
+    function showPhoneError(msg) {
+      var el = document.getElementById('phone-error');
+      el.textContent = msg;
+      el.style.display = 'block';
+    }
+    function hidePhoneError() {
+      document.getElementById('phone-error').style.display = 'none';
     }
 
     function updateSubscriptionUI(plan, status, expiresAt, limits, usage) {

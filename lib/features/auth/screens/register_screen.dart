@@ -11,6 +11,7 @@ import 'package:go_router/go_router.dart';
 import 'package:tulasihotels/core/constants/app_constants.dart';
 import 'package:tulasihotels/core/design/design_system.dart';
 import 'package:tulasihotels/features/auth/providers/auth_provider.dart';
+import 'package:tulasihotels/features/auth/providers/phone_auth_provider.dart';
 import 'package:tulasihotels/features/auth/widgets/auth_layout.dart';
 import 'package:tulasihotels/features/auth/widgets/auth_social_section.dart';
 import 'package:tulasihotels/features/auth/widgets/password_strength_indicator.dart';
@@ -28,9 +29,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
+  final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
   final _otpController = TextEditingController();
+  final _phoneOtpController = TextEditingController();
 
   bool _isLoading = false;
   bool _isGoogleLoading = false;
@@ -39,7 +42,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   bool _showEmailForm = false;
   String _passwordText = '';
 
-  // OTP inline state
+  // Email OTP inline state
   bool _otpSent = false;
   bool _emailVerified = false;
   bool _isSendingOtp = false;
@@ -48,6 +51,10 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   String? _otpError;
   int _otpCooldownSeconds = 0;
   Timer? _otpCooldownTimer;
+
+  // Phone OTP state
+  bool _phoneVerified = false;
+  String? _phoneError;
 
   void _startOtpCooldown() {
     _otpCooldownSeconds = 60;
@@ -68,9 +75,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   void dispose() {
     _nameController.dispose();
     _emailController.dispose();
+    _phoneController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     _otpController.dispose();
+    _phoneOtpController.dispose();
     _otpCooldownTimer?.cancel();
     super.dispose();
   }
@@ -329,6 +338,31 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     }
   }
 
+  /// Send phone OTP
+  Future<void> _handleSendPhoneOtp() async {
+    final phone = _phoneController.text.trim();
+    if (phone.isEmpty || phone.length < 10) {
+      setState(() => _phoneError = 'Enter a valid 10-digit phone number');
+      return;
+    }
+    setState(() => _phoneError = null);
+    ref.read(phoneAuthProvider.notifier).sendOtp(phone);
+  }
+
+  /// Verify phone OTP
+  Future<void> _handleVerifyPhoneOtp() async {
+    final otp = _phoneOtpController.text.trim();
+    if (otp.length != 6) {
+      setState(() => _phoneError = 'Enter the 6-digit code');
+      return;
+    }
+    setState(() => _phoneError = null);
+    final ok = await ref.read(phoneAuthProvider.notifier).verifyOtp(otp);
+    if (ok && mounted) {
+      setState(() => _phoneVerified = true);
+    }
+  }
+
   /// Create account (only after email is verified)
   Future<void> _handleRegister() async {
     if (!_formKey.currentState!.validate()) return;
@@ -348,6 +382,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
           );
 
       if (success && mounted) {
+        // Save phone number if verified during registration
+        if (_phoneVerified && _phoneController.text.trim().isNotEmpty) {
+          final phone = '${AppConstants.countryCode}${_phoneController.text.trim()}';
+          await ref.read(authNotifierProvider.notifier).updatePhoneVerified(phone: phone);
+        }
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Account created & verified! ✅'),
@@ -646,15 +685,23 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                     ),
                   ],
 
-                  const SizedBox(height: AppSizes.md),
+                  // ── Phone Number Verification (only after email verified) ──
+                  if (_emailVerified) ...[
+                    const SizedBox(height: AppSizes.md),
+                    _buildPhoneVerificationSection(),
+                  ],
 
-                  // Password
-                  TextFormField(
-                    controller: _passwordController,
-                    obscureText: _obscurePassword,
-                    textInputAction: TextInputAction.next,
-                    onChanged: (value) {
-                      setState(() => _passwordText = value);
+                  // ── Password (only after phone verified) ──
+                  if (_phoneVerified) ...[
+                    const SizedBox(height: AppSizes.md),
+
+                    // Password
+                    TextFormField(
+                      controller: _passwordController,
+                      obscureText: _obscurePassword,
+                      textInputAction: TextInputAction.next,
+                      onChanged: (value) {
+                        setState(() => _passwordText = value);
                     },
                     decoration: InputDecoration(
                       labelText: 'Password',
@@ -716,13 +763,14 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                       return null;
                     },
                   ),
+                  ], // end if (_phoneVerified)
                   const SizedBox(height: AppSizes.xl),
 
-                  // Register button — only enabled after email is verified
+                  // Register button — only enabled after email & phone verified
                   SizedBox(
                     height: AppSizes.buttonHeight(context),
                     child: ElevatedButton.icon(
-                      onPressed: (_isLoading || !_emailVerified)
+                      onPressed: (_isLoading || !_emailVerified || !_phoneVerified)
                           ? null
                           : _handleRegister,
                       icon: _isLoading
@@ -740,6 +788,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                             ? 'Creating account...'
                             : !_emailVerified
                             ? 'Verify email first'
+                            : !_phoneVerified
+                            ? 'Verify phone first'
                             : 'Create Account',
                         style: AppTypography.button,
                       ),
@@ -821,6 +871,184 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildPhoneVerificationSection() {
+    final phoneState = ref.watch(phoneAuthProvider);
+    final isCodeSent = phoneState.status == PhoneAuthStatus.codeSent;
+    final isSending = phoneState.status == PhoneAuthStatus.sending;
+    final isVerifying = phoneState.status == PhoneAuthStatus.verifying;
+
+    if (_phoneVerified) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: Colors.green.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(AppSizes.radiusMd),
+          border: Border.all(color: Colors.green.withValues(alpha: 0.3)),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.check_circle, color: Colors.green, size: 20),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Phone +91 ${_phoneController.text.trim()} verified!',
+                style: const TextStyle(
+                  color: Colors.green,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // Phone input + Send OTP
+        if (!isCodeSent && !isVerifying) ...[
+          TextFormField(
+            controller: _phoneController,
+            keyboardType: TextInputType.phone,
+            maxLength: 10,
+            decoration: InputDecoration(
+              labelText: 'Phone Number',
+              hintText: '10-digit mobile number',
+              prefixIcon: const Icon(Icons.phone_outlined),
+              prefixText: '+91 ',
+              counterText: '',
+              suffixIcon: _phoneVerified
+                  ? const Icon(Icons.check_circle, color: Colors.green)
+                  : null,
+            ),
+          ),
+          const SizedBox(height: AppSizes.sm),
+          SizedBox(
+            height: 44,
+            child: OutlinedButton.icon(
+              onPressed: isSending ? null : _handleSendPhoneOtp,
+              icon: isSending
+                  ? const SizedBox(
+                      height: 18,
+                      width: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.sms_outlined, size: 18),
+              label: Text(isSending ? 'Sending OTP...' : 'Verify Phone'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.teal.shade700,
+                side: BorderSide(color: Colors.teal.shade300),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(AppSizes.radiusMd),
+                ),
+              ),
+            ),
+          ),
+        ],
+
+        // OTP input (after code sent)
+        if (isCodeSent || isVerifying) ...[
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.teal.withValues(alpha: 0.05),
+              borderRadius: BorderRadius.circular(AppSizes.radiusMd),
+              border: Border.all(color: Colors.teal.withValues(alpha: 0.2)),
+            ),
+            child: Column(
+              children: [
+                Text(
+                  'Enter the 6-digit code sent to\n+91 ${_phoneController.text.trim()}',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _phoneOtpController,
+                  keyboardType: TextInputType.number,
+                  maxLength: 6,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 26,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 8,
+                  ),
+                  decoration: InputDecoration(
+                    hintText: '000000',
+                    counterText: '',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(
+                        color: Colors.teal.shade600,
+                        width: 2,
+                      ),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 14,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    TextButton.icon(
+                      onPressed: phoneState.canResend
+                          ? () => ref.read(phoneAuthProvider.notifier).resendOtp()
+                          : null,
+                      icon: const Icon(Icons.refresh, size: 16),
+                      label: Text(
+                        phoneState.resendCountdown > 0
+                            ? 'Resend in ${phoneState.resendCountdown}s'
+                            : 'Resend',
+                      ),
+                      style: TextButton.styleFrom(
+                        foregroundColor: Colors.grey.shade600,
+                      ),
+                    ),
+                    const Spacer(),
+                    FilledButton.icon(
+                      onPressed: isVerifying ? null : _handleVerifyPhoneOtp,
+                      icon: isVerifying
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Icon(Icons.verified, size: 18),
+                      label: Text(isVerifying ? 'Verifying...' : 'Verify'),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: Colors.teal.shade600,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+
+        // Phone error
+        if (_phoneError != null || phoneState.error != null) ...[
+          const SizedBox(height: 8),
+          Text(
+            _phoneError ?? phoneState.error ?? '',
+            style: const TextStyle(color: Colors.red, fontSize: 13),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ],
     );
   }
 

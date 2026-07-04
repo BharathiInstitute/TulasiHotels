@@ -178,7 +178,6 @@ class UserMetricsService {
   static SharedPreferences? _prefs;
 
   // Local cache keys
-  static const String _billsThisMonthKey = 'bills_this_month';
   static const String _userIdKey = 'user_id';
 
   /// Initialize

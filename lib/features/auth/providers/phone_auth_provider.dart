@@ -147,8 +147,23 @@ class PhoneAuthNotifier extends StateNotifier<PhoneAuthState> {
         smsCode: smsCode.trim(),
       );
 
-      // Sign in with phone credential
-      await _auth.signInWithCredential(credential);
+      // Link phone to existing account (don't sign in as new user)
+      final currentUser = _auth.currentUser;
+      if (currentUser != null) {
+        try {
+          await currentUser.updatePhoneNumber(credential);
+        } on FirebaseAuthException catch (e) {
+          // If updatePhoneNumber fails (e.g., phone already linked to another
+          // account), try linkWithCredential as fallback
+          if (e.code == 'credential-already-in-use') {
+            rethrow;
+          }
+          // On web, updatePhoneNumber may not be supported — use link instead
+          await currentUser.linkWithCredential(credential);
+        }
+      } else {
+        await _auth.signInWithCredential(credential);
+      }
 
       _lastVerifiedCredential = credential;
       state = state.copyWith(status: PhoneAuthStatus.verified);

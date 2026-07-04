@@ -14,6 +14,7 @@ import 'package:tulasihotels/features/billing/widgets/payment_modal.dart';
 import 'package:tulasihotels/features/billing/screens/pos_web_screen.dart';
 import 'package:tulasihotels/features/products/providers/products_provider.dart';
 import 'package:tulasihotels/features/menu/providers/combo_provider.dart';
+import 'package:tulasihotels/features/subscription/providers/active_items_provider.dart';
 import 'package:tulasihotels/l10n/app_localizations.dart';
 import 'package:tulasihotels/models/bill_model.dart';
 import 'package:tulasihotels/models/product_model.dart';
@@ -780,19 +781,26 @@ class _BillingScreenState extends ConsumerState<BillingScreen> {
   }
 
   Widget _buildProductCard(ProductModel product) {
+    // Check if product is locked due to downgrade
+    final activeIds = ref.watch(activeProductIdsProvider).valueOrNull;
+    final isLocked = activeIds != null && !activeIds.contains(product.id);
+
     return Semantics(
       label:
           '${product.name}, ${Formatters.currency(product.price)}'
           '${product.isOutOfStock ? ', out of stock' : ''}'
-          '${product.isLowStock ? ', low stock' : ''}',
-      button: true,
-      hint: 'Double tap to add to cart',
+          '${product.isLowStock ? ', low stock' : ''}'
+          '${isLocked ? ', locked' : ''}',
+      button: !isLocked,
+      hint: isLocked ? 'Upgrade plan to unlock' : 'Double tap to add to cart',
       child: Opacity(
-        opacity: product.isAvailable ? 1.0 : 0.45,
+        opacity: isLocked ? 0.4 : product.isAvailable ? 1.0 : 0.45,
         child: Card(
           clipBehavior: Clip.antiAlias,
           child: InkWell(
-            onTap: () => ref.read(cartProvider.notifier).addProduct(product),
+            onTap: isLocked
+                ? null
+                : () => ref.read(cartProvider.notifier).addProduct(product),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -865,6 +873,24 @@ class _BillingScreenState extends ConsumerState<BillingScreen> {
                           top: 6,
                           right: 6,
                           child: Text('\u2b50', style: TextStyle(fontSize: 14)),
+                        ),
+                      // Lock icon for downgraded items
+                      if (isLocked)
+                        Positioned.fill(
+                          child: Center(
+                            child: Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: Colors.black54,
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: const Icon(
+                                Icons.lock_outline,
+                                color: Colors.white,
+                                size: 24,
+                              ),
+                            ),
+                          ),
                         ),
                     ],
                   ),

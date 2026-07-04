@@ -24,7 +24,7 @@ admin.initializeApp();
 // Uses Brevo HTTP API v3 for transactional emails (more reliable than SMTP)
 const sendBrevoEmail = async (to: string, subject: string, htmlContent: string) => {
     const apiKey = process.env.BREVO_API_KEY || "";
-    const senderEmail = process.env.BREVO_EMAIL || "support@hotels.tulasierp.com";
+    const senderEmail = process.env.BREVO_EMAIL || "support@restaurants.tulasierp.com";
 
     const response = await fetch("https://api.brevo.com/v3/smtp/email", {
         method: "POST",
@@ -34,7 +34,7 @@ const sendBrevoEmail = async (to: string, subject: string, htmlContent: string) 
             "content-type": "application/json",
         },
         body: JSON.stringify({
-            sender: { name: "Tulasi Hotels", email: senderEmail },
+            sender: { name: "Tulasi Restaurants", email: senderEmail },
             to: [{ email: to }],
             subject: subject,
             htmlContent: htmlContent,
@@ -2236,8 +2236,12 @@ export const onTableCreated = functions
 
                 const data = userDoc.data()!;
                 const limits = data.limits || {};
+                const sub = data.subscription || {};
+                const plan = (sub.plan as string) || "free";
                 const tablesCount = (limits.tablesCount as number) || 0;
-                const tablesLimit = (limits.tablesLimit as number) || 5;
+                // Default tablesLimit based on plan if not explicitly set
+                const defaultTablesLimit = plan === "business" ? 999999 : plan === "pro" ? 50 : plan === "starter" ? 15 : 5;
+                const tablesLimit = (limits.tablesLimit as number) ?? defaultTablesLimit;
 
                 if (tablesCount >= tablesLimit) {
                     console.warn(`⚠️ onTableCreated: User ${userId} OVER table limit (${tablesCount}/${tablesLimit}). Deleting table ${tableId}.`);
@@ -2294,8 +2298,12 @@ export const onStaffCreated = functions
 
                 const data = userDoc.data()!;
                 const limits = data.limits || {};
+                const sub = data.subscription || {};
+                const plan = (sub.plan as string) || "free";
                 const staffCount = (limits.staffCount as number) || 0;
-                const staffLimit = (limits.staffLimit as number) || 0;
+                // Default staffLimit based on plan if not explicitly set
+                const defaultStaffLimit = plan === "business" ? 999999 : plan === "pro" ? 10 : plan === "starter" ? 3 : 0;
+                const staffLimit = (limits.staffLimit as number) ?? defaultStaffLimit;
 
                 if (staffCount >= staffLimit) {
                     console.warn(`⚠️ onStaffCreated: User ${userId} OVER staff limit (${staffCount}/${staffLimit}). Deleting staff ${staffId}.`);
@@ -3412,9 +3420,13 @@ export const checkOrderStatus = functions
         const expiresAt = new Date();
         expiresAt.setDate(expiresAt.getDate() + daysToAdd);
 
-        const billsLimit = plan === "starter" ? 300 : plan === "pro" ? 500 : 999999;
-        const productsLimit = plan === "starter" ? 100 : 999999;
-        const customersLimit = plan === "starter" ? 200 : 999999;
+        // Limits must match client-side PlanConfig
+        const orderPlanLimits: Record<string, { bills: number; products: number; tables: number; staff: number; customers: number }> = {
+            starter: { bills: 999999, products: 200, tables: 15, staff: 3, customers: 100 },
+            pro:     { bills: 999999, products: 999999, tables: 50, staff: 10, customers: 999999 },
+            business:{ bills: 999999, products: 999999, tables: 999999, staff: 999999, customers: 999999 },
+        };
+        const orderLimits = orderPlanLimits[plan] || orderPlanLimits.starter;
 
         const db = admin.firestore();
         await db.collection("users").doc(userId).update({
@@ -3424,9 +3436,11 @@ export const checkOrderStatus = functions
             "subscription.expiresAt": admin.firestore.Timestamp.fromDate(expiresAt),
             "subscription.razorpayOrderId": orderId,
             "subscription.razorpayPaymentId": capturedPayment.id,
-            "limits.billsLimit": billsLimit,
-            "limits.productsLimit": productsLimit,
-            "limits.customersLimit": customersLimit,
+            "limits.billsLimit": orderLimits.bills,
+            "limits.productsLimit": orderLimits.products,
+            "limits.customersLimit": orderLimits.customers,
+            "limits.tablesLimit": orderLimits.tables,
+            "limits.staffLimit": orderLimits.staff,
         });
 
         return { success: true, paymentId: capturedPayment.id };
@@ -3495,9 +3509,13 @@ export const verifyPayment = functions
         const expiresAt = new Date();
         expiresAt.setDate(expiresAt.getDate() + daysToAdd);
 
-        const billsLimit = plan === "starter" ? 300 : plan === "pro" ? 500 : 999999;
-        const productsLimit = plan === "starter" ? 100 : 999999;
-        const customersLimit = plan === "starter" ? 200 : 999999;
+        // Limits must match client-side PlanConfig exactly
+        const planLimitsMap: Record<string, { bills: number; products: number; tables: number; staff: number; customers: number }> = {
+            starter: { bills: 999999, products: 200, tables: 15, staff: 3, customers: 100 },
+            pro:     { bills: 999999, products: 999999, tables: 50, staff: 10, customers: 999999 },
+            business:{ bills: 999999, products: 999999, tables: 999999, staff: 999999, customers: 999999 },
+        };
+        const planLimits = planLimitsMap[plan] || planLimitsMap.starter;
 
         const db = admin.firestore();
 
@@ -3508,9 +3526,11 @@ export const verifyPayment = functions
             "subscription.expiresAt": admin.firestore.Timestamp.fromDate(expiresAt),
             "subscription.razorpayOrderId": razorpayOrderId,
             "subscription.razorpayPaymentId": razorpayPaymentId,
-            "limits.billsLimit": billsLimit,
-            "limits.productsLimit": productsLimit,
-            "limits.customersLimit": customersLimit,
+            "limits.billsLimit": planLimits.bills,
+            "limits.productsLimit": planLimits.products,
+            "limits.customersLimit": planLimits.customers,
+            "limits.tablesLimit": planLimits.tables,
+            "limits.staffLimit": planLimits.staff,
         });
 
         // Welcome notification

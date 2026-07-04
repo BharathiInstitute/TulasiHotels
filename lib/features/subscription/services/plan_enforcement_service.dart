@@ -148,6 +148,7 @@ class PlanEnforcementService {
 
   /// Update Firestore limits when plan changes (called after successful payment).
   /// Uses the active store ID so multi-hotel setups are handled correctly.
+  /// Clears active item restrictions when upgrading (all items become usable).
   static Future<void> syncLimitsForPlan(String planKey) async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
@@ -161,6 +162,8 @@ class PlanEnforcementService {
       'limits.customersLimit': config.customersLimitFirestore,
       'limits.staffLimit': config.staffLimitFirestore,
       'limits.tablesLimit': config.tablesLimitFirestore,
+      'limits.activeProductIds': FieldValue.delete(),
+      'limits.activeTableIds': FieldValue.delete(),
       'subscription.plan': planKey,
     });
   }

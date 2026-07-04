@@ -11,7 +11,7 @@
 // caches the app shell (HTML, JS, CSS, assets). This worker focuses on
 // runtime data caching and FCM.
 
-const CACHE_NAME = 'tulasihotels-data-v1';
+const CACHE_NAME = 'tulasihotels-data-v2';
 const OFFLINE_URL = '/index.html';
 
 // URLs to cache for offline access (app shell is cached by Flutter SW)

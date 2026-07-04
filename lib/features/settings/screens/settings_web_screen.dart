@@ -133,19 +133,6 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
     } catch (_) {}
   }
 
-  Future<void> _loadSubscription() async {
-    try {
-      final sub = await UserMetricsService.getUserSubscription();
-      final limits = await UserMetricsService.getUserLimits();
-      if (mounted) {
-        setState(() {
-          _subscription = sub;
-          _limits = limits;
-        });
-      }
-    } catch (_) {}
-  }
-
   void _subscribeToLimits() {
     final storeId =
         ActiveStoreManager.storeId ?? FirebaseAuth.instance.currentUser?.uid;
@@ -3099,7 +3086,7 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
                   _buildFieldLabel('GST Rate'),
                   const SizedBox(height: 8),
                   DropdownButtonFormField<double>(
-                    value: [0.0, 5.0, 12.0, 18.0].contains(_selectedGstRate)
+                    initialValue: [0.0, 5.0, 12.0, 18.0].contains(_selectedGstRate)
                         ? _selectedGstRate
                         : 5.0,
                     decoration: InputDecoration(

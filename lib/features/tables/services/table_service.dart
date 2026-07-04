@@ -61,8 +61,7 @@ class TableService {
     );
 
     await _tablesRef.doc(id).set(table.toFirestore());
-    // Increment tablesCount for the user (no Cloud Function handles this)
-    _incrementTablesCount(1);
+    // Cloud Function onTableCreated handles count increment
     debugPrint('✅ Created table: ${table.displayName}');
     return table;
   }
@@ -78,7 +77,7 @@ class TableService {
   /// Delete a table
   static Future<void> deleteTable(String tableId) async {
     await _tablesRef.doc(tableId).delete();
-    _incrementTablesCount(-1);
+    // Cloud Function onTableDeleted handles count decrement
   }
 
   /// Update table status (e.g., available â†’ occupied)
@@ -126,22 +125,8 @@ class TableService {
       batch.set(_tablesRef.doc(id), table.toFirestore());
     }
     await batch.commit();
-    // Increment tablesCount by the number of tables created
-    _incrementTablesCount(to - from + 1);
+    // Cloud Functions onTableCreated will increment for each table
     debugPrint('✅ Created ${to - from + 1} tables ($from–$to)');
-  }
-
-  /// Increment (or decrement) the user-level `limits.tablesCount` counter.
-  static void _incrementTablesCount(int delta) {
-    // Write to the SAME document the subscription panel reads from
-    final storeId =
-        ActiveStoreManager.storeId ?? FirebaseAuth.instance.currentUser?.uid;
-    if (storeId == null) return;
-    FirebaseFirestore.instance
-        .collection('users')
-        .doc(storeId)
-        .update({'limits.tablesCount': FieldValue.increment(delta)})
-        .ignore();
   }
 
   /// Assign a server (waiter) to a table

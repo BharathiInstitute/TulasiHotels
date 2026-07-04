@@ -315,7 +315,7 @@ class _BillingSettingsScreenState extends ConsumerState<BillingSettingsScreen> {
                   Padding(
                     padding: const EdgeInsets.all(16),
                     child: DropdownButtonFormField<double>(
-                      value: [0.0, 5.0, 12.0, 18.0].contains(_selectedGstRate)
+                      initialValue: [0.0, 5.0, 12.0, 18.0].contains(_selectedGstRate)
                           ? _selectedGstRate
                           : 5.0,
                       decoration: const InputDecoration(

@@ -8,12 +8,14 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
+
 import 'package:tulasihotels/core/services/active_store_manager.dart';
 import 'package:tulasihotels/core/services/user_metrics_service.dart';
 import 'package:tulasihotels/features/subscription/models/plan_config.dart';
 import 'package:tulasihotels/features/subscription/providers/subscription_provider.dart';
+import 'package:tulasihotels/features/subscription/services/active_items_service.dart';
 import 'package:tulasihotels/features/subscription/services/subscription_service.dart';
+import 'package:tulasihotels/features/subscription/widgets/active_item_selection_modal.dart';
 import 'package:tulasihotels/features/subscription/widgets/cancel_subscription_sheet.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -54,6 +56,12 @@ class _ManageSubscriptionPanelState
     try {
       final base = 'users/$storeId';
       final db = FirebaseFirestore.instance;
+
+      // Get current user doc to check if limits are properly set
+      final userDoc = await db.collection('users').doc(storeId).get();
+      final currentLimits = userDoc.data()?['limits'] as Map<String, dynamic>? ?? {};
+      final currentPlan = (userDoc.data()?['subscription'] as Map<String, dynamic>?)?['plan'] as String? ?? 'free';
+
       final results = await Future.wait([
         db.collection('$base/tables').count().get(),
         db.collection('$base/staff').count().get(),
@@ -64,12 +72,33 @@ class _ManageSubscriptionPanelState
       final staffCount = results[1].count ?? 0;
       final productsCount = results[2].count ?? 0;
       final customersCount = results[3].count ?? 0;
-      await db.collection('users').doc(storeId).update({
+
+      final updates = <String, dynamic>{
         'limits.tablesCount': tablesCount,
         'limits.staffCount': staffCount,
         'limits.productsCount': productsCount,
         'limits.customersCount': customersCount,
-      });
+      };
+
+      // Fix missing limits based on current plan (ensures CFs don't use wrong defaults)
+      final config = PlanConfig.fromKey(currentPlan);
+      if (currentLimits['staffLimit'] == null) {
+        updates['limits.staffLimit'] = config.staffLimitFirestore;
+      }
+      if (currentLimits['tablesLimit'] == null) {
+        updates['limits.tablesLimit'] = config.tablesLimitFirestore;
+      }
+      if (currentLimits['billsLimit'] == null) {
+        updates['limits.billsLimit'] = config.billsLimitFirestore;
+      }
+      if (currentLimits['productsLimit'] == null) {
+        updates['limits.productsLimit'] = config.productsLimitFirestore;
+      }
+      if (currentLimits['customersLimit'] == null) {
+        updates['limits.customersLimit'] = config.customersLimitFirestore;
+      }
+
+      await db.collection('users').doc(storeId).update(updates);
     } catch (_) {
       // Best-effort — ignore errors
     }
@@ -691,6 +720,35 @@ class _ManageSubscriptionPanelState
       return;
     }
 
+    // Check phone verification before allowing payment
+    final doc = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(user.uid)
+        .get();
+    final phoneVerified = (doc.data()?['phoneVerified'] as bool?) ?? false;
+    if (!phoneVerified) {
+      if (mounted) {
+        showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            icon: const Icon(Icons.phone_android, size: 40, color: Colors.orange),
+            title: const Text('Phone Verification Required'),
+            content: const Text(
+              'Please verify your phone number before upgrading.\n\n'
+              'Go to Verification Status section and verify your phone.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('OK'),
+              ),
+            ],
+          ),
+        );
+      }
+      return;
+    }
+
     // On web, open the pricing page which uses Razorpay Checkout.js
     // (the user is already authenticated via Firebase Auth shared session).
     // The real-time Firestore listener will auto-update the UI after payment.
@@ -786,7 +844,11 @@ class _ManageSubscriptionPanelState
             _currentPlan = planKey;
             _showPlans = false;
           });
-          _loadData();
+          unawaited(_loadData());
+
+          // Check if user needs to select active items
+          await _promptActiveItemSelection(planKey);
+
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Downgraded to $planName successfully.')),
           );
@@ -796,6 +858,75 @@ class _ManageSubscriptionPanelState
               content: Text('Failed to downgrade. Please try again.'),
             ),
           );
+        }
+      }
+    }
+  }
+
+  /// Show item selection modal if user has more items than the new plan allows.
+  Future<void> _promptActiveItemSelection(String planKey) async {
+    final config = PlanConfig.fromKey(planKey);
+    final storeId =
+        ActiveStoreManager.storeId ?? FirebaseAuth.instance.currentUser?.uid;
+    if (storeId == null) return;
+
+    final db = FirebaseFirestore.instance;
+    final base = 'users/$storeId';
+
+    // Check products
+    if (config.maxProducts != null) {
+      final productsSnap = await db.collection('$base/products').get();
+      if (productsSnap.docs.length > config.maxProducts!) {
+        if (!mounted) return;
+        final selectedIds = await Navigator.push<List<String>>(
+          context,
+          MaterialPageRoute(
+            builder: (_) => ActiveItemSelectionModal<QueryDocumentSnapshot>(
+              title: 'Select Active Products',
+              subtitle:
+                  'Your new plan allows ${config.maxProducts} products.\n'
+                  'Choose which ones to keep active for billing.',
+              maxSelection: config.maxProducts!,
+              items: productsSnap.docs,
+              getName: (doc) => ((doc.data() as Map)['name'] as String?) ?? 'Unnamed',
+              getId: (doc) => doc.id,
+              getSubtitle: (doc) {
+                final data = doc.data() as Map;
+                final price = data['price'] ?? 0;
+                return '₹$price';
+              },
+            ),
+          ),
+        );
+        if (selectedIds != null) {
+          await ActiveItemsService.setActiveProducts(selectedIds);
+        }
+      }
+    }
+
+    // Check tables
+    if (config.maxTables != null) {
+      final tablesSnap = await db.collection('$base/tables').get();
+      if (tablesSnap.docs.length > config.maxTables!) {
+        if (!mounted) return;
+        final selectedIds = await Navigator.push<List<String>>(
+          context,
+          MaterialPageRoute(
+            builder: (_) => ActiveItemSelectionModal<QueryDocumentSnapshot>(
+              title: 'Select Active Tables',
+              subtitle:
+                  'Your new plan allows ${config.maxTables} tables.\n'
+                  'Choose which ones to keep active.',
+              maxSelection: config.maxTables!,
+              items: tablesSnap.docs,
+              getName: (doc) =>
+                  ((doc.data() as Map)['name'] as String?) ?? 'Table ${doc.id}',
+              getId: (doc) => doc.id,
+            ),
+          ),
+        );
+        if (selectedIds != null) {
+          await ActiveItemsService.setActiveTables(selectedIds);
         }
       }
     }

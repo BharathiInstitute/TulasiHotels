@@ -75,7 +75,6 @@ class StaffService {
     );
 
     await _staffRef.doc(id).set(staff.toFirestore());
-    _incrementStaffCount(1);
     debugPrint('Created staff: ${staff.name} (${staff.role.displayName})');
     return staff;
   }
@@ -102,21 +101,6 @@ class StaffService {
   /// Delete a staff member
   static Future<void> deleteStaff(String staffId) async {
     await _staffRef.doc(staffId).delete();
-    _incrementStaffCount(-1);
-  }
-
-  /// Increment (or decrement) the user-level `limits.staffCount` counter.
-  /// No Cloud Function exists for staff, so this is handled client-side.
-  static void _incrementStaffCount(int delta) {
-    // Write to the SAME document the subscription panel reads from
-    final storeId =
-        ActiveStoreManager.storeId ?? FirebaseAuth.instance.currentUser?.uid;
-    if (storeId == null) return;
-    FirebaseFirestore.instance
-        .collection('users')
-        .doc(storeId)
-        .update({'limits.staffCount': FieldValue.increment(delta)})
-        .ignore();
   }
 
   /// Toggle staff active/inactive status
