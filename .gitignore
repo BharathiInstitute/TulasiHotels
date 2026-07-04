@@ -83,3 +83,5 @@ functions/node_modules/
 
 # Installer output
 installer/Output/
+
+auth_users.json
