@@ -15,6 +15,7 @@ import 'package:tulasihotels/core/services/sync_status_service.dart';
 import 'package:tulasihotels/core/utils/windows_firestore_helper.dart';
 import 'package:tulasihotels/features/auth/providers/auth_provider.dart';
 import 'package:tulasihotels/features/hotels/providers/hotel_provider.dart';
+import 'package:tulasihotels/features/subscription/services/plan_enforcement_service.dart';
 import 'package:tulasihotels/models/product_model.dart';
 
 /// Firestore instance (Firebase singletons — safe as top-level)
@@ -168,6 +169,12 @@ class ProductsService {
   Future<String> addProduct(ProductModel product) async {
     if (_isDemoMode) {
       return DemoDataService.addProduct(product);
+    }
+
+    // Check plan limit before adding
+    final check = await PlanEnforcementService.checkLimit(LimitType.products);
+    if (!check.allowed) {
+      throw PlanLimitException(check.message ?? 'Product limit reached');
     }
 
     final id = generateSafeId('product');

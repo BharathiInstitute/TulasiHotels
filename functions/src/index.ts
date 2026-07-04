@@ -362,9 +362,11 @@ export const razorpayWebhook = functions
                     await admin.firestore().collection("users").doc(haltedUserId).update({
                         "subscription.status": "expired",
                         "subscription.plan": "free",
-                        "limits.billsLimit": 50,
-                        "limits.productsLimit": 100,
+                        "limits.billsLimit": 300,
+                        "limits.productsLimit": 50,
                         "limits.customersLimit": 10,
+                        "limits.tablesLimit": 5,
+                        "limits.staffLimit": 0,
                     });
                     await haltedSnap.ref.update({ status: "halted" });
                     console.log(`subscription.halted: downgraded user ${haltedUserId} to free`);
@@ -1186,9 +1188,18 @@ export const activateSubscription = functions
         const expiresAt = new Date();
         expiresAt.setDate(expiresAt.getDate() + daysToAdd);
 
-        const billsLimit = plan === "starter" ? 300 : plan === "pro" ? 500 : 999999;
-        const productsLimit = plan === "starter" ? 100 : 999999; // unlimited for Pro and Business
-        const customersLimit = plan === "starter" ? 200 : 999999; // unlimited for Pro and Business
+        // Limits must match client-side PlanConfig exactly
+        const planLimits: Record<string, { bills: number; products: number; tables: number; staff: number; customers: number }> = {
+            starter: { bills: 999999, products: 200, tables: 15, staff: 3, customers: 100 },
+            pro:     { bills: 999999, products: 999999, tables: 50, staff: 10, customers: 999999 },
+            business:{ bills: 999999, products: 999999, tables: 999999, staff: 999999, customers: 999999 },
+        };
+        const limits = planLimits[plan] || planLimits.starter;
+        const billsLimit = limits.bills;
+        const productsLimit = limits.products;
+        const customersLimit = limits.customers;
+        const tablesLimit = limits.tables;
+        const staffLimit = limits.staff;
 
         const db = admin.firestore();
 
@@ -1204,6 +1215,8 @@ export const activateSubscription = functions
             "limits.billsLimit": billsLimit,
             "limits.productsLimit": productsLimit,
             "limits.customersLimit": customersLimit,
+            "limits.tablesLimit": tablesLimit,
+            "limits.staffLimit": staffLimit,
         });
 
         // Store subscription→user mapping for webhook lookups
@@ -2066,7 +2079,7 @@ export const onBillCreated = functions
                 const lastResetMonth = (limits.lastResetMonth as string) || "";
                 const isNewMonth = lastResetMonth !== currentMonth;
                 const billsThisMonth = isNewMonth ? 0 : ((limits.billsThisMonth as number) || 0);
-                const billsLimit = (limits.billsLimit as number) || 50;
+                const billsLimit = (limits.billsLimit as number) || 300;
 
                 if (billsThisMonth >= billsLimit) {
                     // Over limit — delete the bill (safety net)
@@ -2108,7 +2121,7 @@ export const onProductCreated = functions
                 const data = userDoc.data()!;
                 const limits = data.limits || {};
                 const productsCount = (limits.productsCount as number) || 0;
-                const productsLimit = (limits.productsLimit as number) || 100;
+                const productsLimit = (limits.productsLimit as number) || 50;
 
                 if (productsCount >= productsLimit) {
                     console.warn(`⚠️ onProductCreated: User ${userId} OVER product limit (${productsCount}/${productsLimit}). Deleting product ${productId}.`);
@@ -2204,6 +2217,122 @@ export const onCustomerDeleted = functions
     });
 
 /**
+ * onTableCreated — After a table is created, increment tablesCount.
+ * Validates limit and deletes if over (safety net).
+ */
+export const onTableCreated = functions
+    .region("asia-south1")
+    .firestore.document("users/{userId}/tables/{tableId}")
+    .onCreate(async (snap, context) => {
+        const db = admin.firestore();
+        const userId = context.params.userId;
+        const tableId = context.params.tableId;
+        const userRef = db.collection("users").doc(userId);
+
+        try {
+            await db.runTransaction(async (txn) => {
+                const userDoc = await txn.get(userRef);
+                if (!userDoc.exists) return;
+
+                const data = userDoc.data()!;
+                const limits = data.limits || {};
+                const tablesCount = (limits.tablesCount as number) || 0;
+                const tablesLimit = (limits.tablesLimit as number) || 5;
+
+                if (tablesCount >= tablesLimit) {
+                    console.warn(`⚠️ onTableCreated: User ${userId} OVER table limit (${tablesCount}/${tablesLimit}). Deleting table ${tableId}.`);
+                    txn.delete(snap.ref);
+                    return;
+                }
+
+                txn.update(userRef, {
+                    "limits.tablesCount": tablesCount + 1,
+                });
+            });
+        } catch (e) {
+            console.error(`❌ onTableCreated: Failed for user ${userId}, table ${tableId}:`, e);
+        }
+    });
+
+/**
+ * onTableDeleted — Decrement tablesCount when a table is deleted.
+ */
+export const onTableDeleted = functions
+    .region("asia-south1")
+    .firestore.document("users/{userId}/tables/{tableId}")
+    .onDelete(async (_snap, context) => {
+        const db = admin.firestore();
+        const userId = context.params.userId;
+        const userRef = db.collection("users").doc(userId);
+
+        try {
+            await userRef.update({
+                "limits.tablesCount": admin.firestore.FieldValue.increment(-1),
+            });
+        } catch (e) {
+            console.error(`❌ onTableDeleted: Failed for user ${userId}:`, e);
+        }
+    });
+
+/**
+ * onStaffCreated — After a staff member is created, increment staffCount.
+ * Validates limit and deletes if over (safety net).
+ */
+export const onStaffCreated = functions
+    .region("asia-south1")
+    .firestore.document("users/{userId}/staff/{staffId}")
+    .onCreate(async (snap, context) => {
+        const db = admin.firestore();
+        const userId = context.params.userId;
+        const staffId = context.params.staffId;
+        const userRef = db.collection("users").doc(userId);
+
+        try {
+            await db.runTransaction(async (txn) => {
+                const userDoc = await txn.get(userRef);
+                if (!userDoc.exists) return;
+
+                const data = userDoc.data()!;
+                const limits = data.limits || {};
+                const staffCount = (limits.staffCount as number) || 0;
+                const staffLimit = (limits.staffLimit as number) || 0;
+
+                if (staffCount >= staffLimit) {
+                    console.warn(`⚠️ onStaffCreated: User ${userId} OVER staff limit (${staffCount}/${staffLimit}). Deleting staff ${staffId}.`);
+                    txn.delete(snap.ref);
+                    return;
+                }
+
+                txn.update(userRef, {
+                    "limits.staffCount": staffCount + 1,
+                });
+            });
+        } catch (e) {
+            console.error(`❌ onStaffCreated: Failed for user ${userId}, staff ${staffId}:`, e);
+        }
+    });
+
+/**
+ * onStaffDeleted — Decrement staffCount when a staff member is deleted.
+ */
+export const onStaffDeleted = functions
+    .region("asia-south1")
+    .firestore.document("users/{userId}/staff/{staffId}")
+    .onDelete(async (_snap, context) => {
+        const db = admin.firestore();
+        const userId = context.params.userId;
+        const userRef = db.collection("users").doc(userId);
+
+        try {
+            await userRef.update({
+                "limits.staffCount": admin.firestore.FieldValue.increment(-1),
+            });
+        } catch (e) {
+            console.error(`❌ onStaffDeleted: Failed for user ${userId}:`, e);
+        }
+    });
+
+/**
  * seedAdmins — One-time callable to populate the /admins collection
  * from the hardcoded list. Run once after deploying the new rules.
  * Can be called by any existing admin (validated via old hardcoded list
@@ -2269,10 +2398,15 @@ export const getSubscriptionLimits = functions
         if (!userDoc.exists) {
             return {
                 billsThisMonth: 0,
-                billsLimit: 50,
+                billsLimit: 300,
                 productsCount: 0,
-                productsLimit: 100,
+                productsLimit: 50,
                 customersCount: 0,
+                customersLimit: 10,
+                staffCount: 0,
+                staffLimit: 0,
+                tablesCount: 0,
+                tablesLimit: 5,
                 plan: "free",
                 status: "active",
             };
@@ -2284,10 +2418,15 @@ export const getSubscriptionLimits = functions
 
         return {
             billsThisMonth: limits.billsThisMonth || 0,
-            billsLimit: limits.billsLimit || 50,
+            billsLimit: limits.billsLimit || 300,
             productsCount: limits.productsCount || 0,
-            productsLimit: limits.productsLimit || 100,
+            productsLimit: limits.productsLimit || 50,
             customersCount: limits.customersCount || 0,
+            customersLimit: limits.customersLimit || 10,
+            staffCount: limits.staffCount || 0,
+            staffLimit: limits.staffLimit || 0,
+            tablesCount: limits.tablesCount || 0,
+            tablesLimit: limits.tablesLimit || 5,
             plan: sub.plan || "free",
             status: sub.status || "active",
         };

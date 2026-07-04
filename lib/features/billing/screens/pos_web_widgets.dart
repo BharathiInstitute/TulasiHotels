@@ -310,7 +310,7 @@ class _WebCartSectionState extends ConsumerState<_WebCartSection> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: const Text(
-                '?? Monthly bill limit reached. Upgrade to Pro for 500 bills/month.',
+                '🚫 Monthly bill limit reached. Upgrade for unlimited billing.',
               ),
               duration: const Duration(seconds: 5),
               action: SnackBarAction(

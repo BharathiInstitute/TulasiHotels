@@ -48,8 +48,8 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.sendFeedbackRequest = exports.sendOrderConfirmation = exports.verifyPayment = exports.checkOrderStatus = exports.createOrder = exports.createPaymentToken = exports.razorpayReconciliation = exports.onStockUpdate = exports.onNewOrderKitchenAlert = exports.onWastageLogged = exports.onComplaintCreated = exports.equipmentServiceReminder = exports.licenseExpiryReminder = exports.onNewReservation = exports.onNewFeedback = exports.onLowIngredientStock = exports.onOrderReady = exports.onCustomerOrderCreated = exports.onRushOrderCreated = exports.seedUserUsage = exports.scheduledFirestoreBackup = exports.sendNotificationToPlan = exports.sendNotificationToAll = exports.getSubscriptionLimits = exports.seedAdmins = exports.onCustomerDeleted = exports.onCustomerCreated = exports.onProductDeleted = exports.onProductCreated = exports.onBillCreated = exports.processReferralReward = exports.redeemReferralCode = exports.onSubscriptionWrite = exports.generateMonthlyReport = exports.exchangeIdToken = exports.sendDailySalesSummary = exports.checkChurnedUsers = exports.checkSubscriptionExpiry = exports.activateSubscription = exports.checkLowStock = exports.cleanupOldNotifications = exports.sendPushNotification = exports.onNewUserSignup = exports.generateDesktopToken = exports.deleteUserAccount = exports.onUserDeleted = exports.verifyRegistrationOTP = exports.sendRegistrationOTP = exports.razorpayWebhook = exports.createPaymentLink = void 0;
-exports.sendOrderReadySMS = exports.sendDailySummaryWhatsApp = exports.sendReservationReminder = void 0;
+exports.createOrder = exports.createPaymentToken = exports.razorpayReconciliation = exports.onStockUpdate = exports.onNewOrderKitchenAlert = exports.onWastageLogged = exports.onComplaintCreated = exports.equipmentServiceReminder = exports.licenseExpiryReminder = exports.onNewReservation = exports.onNewFeedback = exports.onLowIngredientStock = exports.onOrderReady = exports.onCustomerOrderCreated = exports.onRushOrderCreated = exports.seedUserUsage = exports.scheduledFirestoreBackup = exports.sendNotificationToPlan = exports.sendNotificationToAll = exports.getSubscriptionLimits = exports.seedAdmins = exports.onStaffDeleted = exports.onStaffCreated = exports.onTableDeleted = exports.onTableCreated = exports.onCustomerDeleted = exports.onCustomerCreated = exports.onProductDeleted = exports.onProductCreated = exports.onBillCreated = exports.processReferralReward = exports.redeemReferralCode = exports.onSubscriptionWrite = exports.generateMonthlyReport = exports.exchangeIdToken = exports.sendDailySalesSummary = exports.checkChurnedUsers = exports.checkSubscriptionExpiry = exports.activateSubscription = exports.checkLowStock = exports.cleanupOldNotifications = exports.sendPushNotification = exports.onNewUserSignup = exports.generateDesktopToken = exports.deleteUserAccount = exports.onUserDeleted = exports.verifyRegistrationOTP = exports.sendRegistrationOTP = exports.razorpayWebhook = exports.createPaymentLink = void 0;
+exports.sendOrderReadySMS = exports.sendDailySummaryWhatsApp = exports.sendReservationReminder = exports.sendFeedbackRequest = exports.sendOrderConfirmation = exports.verifyPayment = exports.checkOrderStatus = void 0;
 const functions = __importStar(require("firebase-functions"));
 const admin = __importStar(require("firebase-admin"));
 const crypto = __importStar(require("crypto"));
@@ -330,9 +330,11 @@ exports.razorpayWebhook = functions
                 await admin.firestore().collection("users").doc(haltedUserId).update({
                     "subscription.status": "expired",
                     "subscription.plan": "free",
-                    "limits.billsLimit": 50,
-                    "limits.productsLimit": 100,
+                    "limits.billsLimit": 300,
+                    "limits.productsLimit": 50,
                     "limits.customersLimit": 10,
+                    "limits.tablesLimit": 5,
+                    "limits.staffLimit": 0,
                 });
                 await haltedSnap.ref.update({ status: "halted" });
                 console.log(`subscription.halted: downgraded user ${haltedUserId} to free`);
@@ -1039,14 +1041,23 @@ exports.activateSubscription = functions
     const daysToAdd = cycle === "annual" ? 365 : 30;
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + daysToAdd);
-    const billsLimit = plan === "starter" ? 300 : plan === "pro" ? 500 : 999999;
-    const productsLimit = plan === "starter" ? 100 : 999999; // unlimited for Pro and Business
-    const customersLimit = plan === "starter" ? 200 : 999999; // unlimited for Pro and Business
+    // Limits must match client-side PlanConfig exactly
+    const planLimits = {
+        starter: { bills: 999999, products: 200, tables: 15, staff: 3, customers: 100 },
+        pro: { bills: 999999, products: 999999, tables: 50, staff: 10, customers: 999999 },
+        business: { bills: 999999, products: 999999, tables: 999999, staff: 999999, customers: 999999 },
+    };
+    const limits = planLimits[plan] || planLimits.starter;
+    const billsLimit = limits.bills;
+    const productsLimit = limits.products;
+    const customersLimit = limits.customers;
+    const tablesLimit = limits.tables;
+    const staffLimit = limits.staff;
     const db = admin.firestore();
     // Update user document
     await db.collection("users").doc(userId).update(Object.assign(Object.assign({ "subscription.plan": plan, "subscription.status": "active", "subscription.startedAt": admin.firestore.FieldValue.serverTimestamp(), "subscription.expiresAt": admin.firestore.Timestamp.fromDate(expiresAt) }, (razorpaySubscriptionId && {
         "subscription.razorpaySubscriptionId": razorpaySubscriptionId,
-    })), { "limits.billsLimit": billsLimit, "limits.productsLimit": productsLimit, "limits.customersLimit": customersLimit }));
+    })), { "limits.billsLimit": billsLimit, "limits.productsLimit": productsLimit, "limits.customersLimit": customersLimit, "limits.tablesLimit": tablesLimit, "limits.staffLimit": staffLimit }));
     // Store subscription→user mapping for webhook lookups
     if (razorpaySubscriptionId) {
         await db.collection("razorpay_subscriptions").doc(razorpaySubscriptionId).set({
@@ -1816,7 +1827,7 @@ exports.onBillCreated = functions
             const lastResetMonth = limits.lastResetMonth || "";
             const isNewMonth = lastResetMonth !== currentMonth;
             const billsThisMonth = isNewMonth ? 0 : (limits.billsThisMonth || 0);
-            const billsLimit = limits.billsLimit || 50;
+            const billsLimit = limits.billsLimit || 300;
             if (billsThisMonth >= billsLimit) {
                 // Over limit — delete the bill (safety net)
                 console.warn(`⚠️ onBillCreated: User ${userId} OVER bill limit (${billsThisMonth}/${billsLimit}). Deleting bill ${billId}.`);
@@ -1855,7 +1866,7 @@ exports.onProductCreated = functions
             const data = userDoc.data();
             const limits = data.limits || {};
             const productsCount = limits.productsCount || 0;
-            const productsLimit = limits.productsLimit || 100;
+            const productsLimit = limits.productsLimit || 50;
             if (productsCount >= productsLimit) {
                 console.warn(`⚠️ onProductCreated: User ${userId} OVER product limit (${productsCount}/${productsLimit}). Deleting product ${productId}.`);
                 txn.delete(snap.ref);
@@ -1944,6 +1955,114 @@ exports.onCustomerDeleted = functions
     }
 });
 /**
+ * onTableCreated — After a table is created, increment tablesCount.
+ * Validates limit and deletes if over (safety net).
+ */
+exports.onTableCreated = functions
+    .region("asia-south1")
+    .firestore.document("users/{userId}/tables/{tableId}")
+    .onCreate(async (snap, context) => {
+    const db = admin.firestore();
+    const userId = context.params.userId;
+    const tableId = context.params.tableId;
+    const userRef = db.collection("users").doc(userId);
+    try {
+        await db.runTransaction(async (txn) => {
+            const userDoc = await txn.get(userRef);
+            if (!userDoc.exists)
+                return;
+            const data = userDoc.data();
+            const limits = data.limits || {};
+            const tablesCount = limits.tablesCount || 0;
+            const tablesLimit = limits.tablesLimit || 5;
+            if (tablesCount >= tablesLimit) {
+                console.warn(`⚠️ onTableCreated: User ${userId} OVER table limit (${tablesCount}/${tablesLimit}). Deleting table ${tableId}.`);
+                txn.delete(snap.ref);
+                return;
+            }
+            txn.update(userRef, {
+                "limits.tablesCount": tablesCount + 1,
+            });
+        });
+    }
+    catch (e) {
+        console.error(`❌ onTableCreated: Failed for user ${userId}, table ${tableId}:`, e);
+    }
+});
+/**
+ * onTableDeleted — Decrement tablesCount when a table is deleted.
+ */
+exports.onTableDeleted = functions
+    .region("asia-south1")
+    .firestore.document("users/{userId}/tables/{tableId}")
+    .onDelete(async (_snap, context) => {
+    const db = admin.firestore();
+    const userId = context.params.userId;
+    const userRef = db.collection("users").doc(userId);
+    try {
+        await userRef.update({
+            "limits.tablesCount": admin.firestore.FieldValue.increment(-1),
+        });
+    }
+    catch (e) {
+        console.error(`❌ onTableDeleted: Failed for user ${userId}:`, e);
+    }
+});
+/**
+ * onStaffCreated — After a staff member is created, increment staffCount.
+ * Validates limit and deletes if over (safety net).
+ */
+exports.onStaffCreated = functions
+    .region("asia-south1")
+    .firestore.document("users/{userId}/staff/{staffId}")
+    .onCreate(async (snap, context) => {
+    const db = admin.firestore();
+    const userId = context.params.userId;
+    const staffId = context.params.staffId;
+    const userRef = db.collection("users").doc(userId);
+    try {
+        await db.runTransaction(async (txn) => {
+            const userDoc = await txn.get(userRef);
+            if (!userDoc.exists)
+                return;
+            const data = userDoc.data();
+            const limits = data.limits || {};
+            const staffCount = limits.staffCount || 0;
+            const staffLimit = limits.staffLimit || 0;
+            if (staffCount >= staffLimit) {
+                console.warn(`⚠️ onStaffCreated: User ${userId} OVER staff limit (${staffCount}/${staffLimit}). Deleting staff ${staffId}.`);
+                txn.delete(snap.ref);
+                return;
+            }
+            txn.update(userRef, {
+                "limits.staffCount": staffCount + 1,
+            });
+        });
+    }
+    catch (e) {
+        console.error(`❌ onStaffCreated: Failed for user ${userId}, staff ${staffId}:`, e);
+    }
+});
+/**
+ * onStaffDeleted — Decrement staffCount when a staff member is deleted.
+ */
+exports.onStaffDeleted = functions
+    .region("asia-south1")
+    .firestore.document("users/{userId}/staff/{staffId}")
+    .onDelete(async (_snap, context) => {
+    const db = admin.firestore();
+    const userId = context.params.userId;
+    const userRef = db.collection("users").doc(userId);
+    try {
+        await userRef.update({
+            "limits.staffCount": admin.firestore.FieldValue.increment(-1),
+        });
+    }
+    catch (e) {
+        console.error(`❌ onStaffDeleted: Failed for user ${userId}:`, e);
+    }
+});
+/**
  * seedAdmins — One-time callable to populate the /admins collection
  * from the hardcoded list. Run once after deploying the new rules.
  * Can be called by any existing admin (validated via old hardcoded list
@@ -2001,10 +2120,15 @@ exports.getSubscriptionLimits = functions
     if (!userDoc.exists) {
         return {
             billsThisMonth: 0,
-            billsLimit: 50,
+            billsLimit: 300,
             productsCount: 0,
-            productsLimit: 100,
+            productsLimit: 50,
             customersCount: 0,
+            customersLimit: 10,
+            staffCount: 0,
+            staffLimit: 0,
+            tablesCount: 0,
+            tablesLimit: 5,
             plan: "free",
             status: "active",
         };
@@ -2014,10 +2138,15 @@ exports.getSubscriptionLimits = functions
     const sub = data.subscription || {};
     return {
         billsThisMonth: limits.billsThisMonth || 0,
-        billsLimit: limits.billsLimit || 50,
+        billsLimit: limits.billsLimit || 300,
         productsCount: limits.productsCount || 0,
-        productsLimit: limits.productsLimit || 100,
+        productsLimit: limits.productsLimit || 50,
         customersCount: limits.customersCount || 0,
+        customersLimit: limits.customersLimit || 10,
+        staffCount: limits.staffCount || 0,
+        staffLimit: limits.staffLimit || 0,
+        tablesCount: limits.tablesCount || 0,
+        tablesLimit: limits.tablesLimit || 5,
         plan: sub.plan || "free",
         status: sub.status || "active",
     };

@@ -57,12 +57,18 @@ class _ManageSubscriptionPanelState
       final results = await Future.wait([
         db.collection('$base/tables').count().get(),
         db.collection('$base/staff').count().get(),
+        db.collection('$base/products').count().get(),
+        db.collection('$base/customers').count().get(),
       ]);
       final tablesCount = results[0].count ?? 0;
       final staffCount = results[1].count ?? 0;
+      final productsCount = results[2].count ?? 0;
+      final customersCount = results[3].count ?? 0;
       await db.collection('users').doc(storeId).update({
         'limits.tablesCount': tablesCount,
         'limits.staffCount': staffCount,
+        'limits.productsCount': productsCount,
+        'limits.customersCount': customersCount,
       });
     } catch (_) {
       // Best-effort — ignore errors

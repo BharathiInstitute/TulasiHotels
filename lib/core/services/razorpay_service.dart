@@ -105,16 +105,24 @@ class RazorpayService {
     // Convert amount to paise (Razorpay expects amount in smallest currency unit)
     final amountInPaise = (amount * 100).round();
 
+    // Razorpay requires valid 10-digit phone to skip contact screen
+    var phone = customerPhone ?? '';
+    phone = phone.replaceAll(RegExp(r'[^0-9]'), '');
+    if (phone.length > 10) phone = phone.substring(phone.length - 10);
+    if (phone.length < 10) phone = '9999999999';
+
     final options = {
       'key': RazorpayConfig.keyId,
       'amount': amountInPaise,
       'name': RazorpayConfig.appName,
       'description': description ?? RazorpayConfig.description,
       'prefill': {
-        'contact': customerPhone ?? '',
-        'email': customerEmail ?? '',
+        'contact': phone,
+        'email': customerEmail ?? 'user@tulasihotels.com',
         'name': customerName,
       },
+      'readonly': {'email': 1, 'contact': 1},
+      'hidden': {'email': 1, 'contact': 1},
       'theme': {
         'color': '#${RazorpayConfig.themeColor.toRadixString(16).substring(2)}',
       },

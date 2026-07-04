@@ -30,6 +30,14 @@ class PlanCheckResult {
 /// Limit types that can be checked.
 enum LimitType { bills, products, tables, staff, customers }
 
+/// Exception thrown when a plan limit is reached.
+class PlanLimitException implements Exception {
+  final String message;
+  const PlanLimitException(this.message);
+  @override
+  String toString() => message;
+}
+
 class PlanEnforcementService {
   PlanEnforcementService._();
 

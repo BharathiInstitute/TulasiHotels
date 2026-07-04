@@ -254,6 +254,7 @@ class _AddProductModalState extends ConsumerState<AddProductModal> {
       if (mounted) {
         final errorStr = e.toString().toLowerCase();
         final isLimitError =
+            errorStr.contains('limit reached') ||
             errorStr.contains('permission-denied') ||
             errorStr.contains('permission_denied') ||
             errorStr.contains('missing or insufficient permissions');
