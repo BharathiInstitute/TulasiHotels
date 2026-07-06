@@ -2014,51 +2014,30 @@ exports.onTableDeleted = functions
     }
 });
 /**
- * onStaffCreated — After a staff member is created, increment staffCount.
- * Validates limit and deletes if over (safety net).
+ * onStaffCreated — Increment staffCount when a member is added to the store.
  */
 exports.onStaffCreated = functions
     .region("asia-south1")
-    .firestore.document("users/{userId}/staff/{staffId}")
-    .onCreate(async (snap, context) => {
+    .firestore.document("users/{userId}/members/{memberId}")
+    .onCreate(async (_snap, context) => {
     const db = admin.firestore();
     const userId = context.params.userId;
-    const staffId = context.params.staffId;
     const userRef = db.collection("users").doc(userId);
     try {
-        await db.runTransaction(async (txn) => {
-            var _a;
-            const userDoc = await txn.get(userRef);
-            if (!userDoc.exists)
-                return;
-            const data = userDoc.data();
-            const limits = data.limits || {};
-            const sub = data.subscription || {};
-            const plan = sub.plan || "free";
-            const staffCount = limits.staffCount || 0;
-            // Default staffLimit based on plan if not explicitly set
-            const defaultStaffLimit = plan === "business" ? 999999 : plan === "pro" ? 10 : plan === "starter" ? 3 : 0;
-            const staffLimit = (_a = limits.staffLimit) !== null && _a !== void 0 ? _a : defaultStaffLimit;
-            if (staffCount >= staffLimit) {
-                console.warn(`⚠️ onStaffCreated: User ${userId} OVER staff limit (${staffCount}/${staffLimit}). Deleting staff ${staffId}.`);
-                txn.delete(snap.ref);
-                return;
-            }
-            txn.update(userRef, {
-                "limits.staffCount": staffCount + 1,
-            });
+        await userRef.update({
+            "limits.staffCount": admin.firestore.FieldValue.increment(1),
         });
     }
     catch (e) {
-        console.error(`❌ onStaffCreated: Failed for user ${userId}, staff ${staffId}:`, e);
+        console.error(`❌ onStaffCreated: Failed for user ${userId}:`, e);
     }
 });
 /**
- * onStaffDeleted — Decrement staffCount when a staff member is deleted.
+ * onStaffDeleted — Decrement staffCount when a member is removed.
  */
 exports.onStaffDeleted = functions
     .region("asia-south1")
-    .firestore.document("users/{userId}/staff/{staffId}")
+    .firestore.document("users/{userId}/members/{memberId}")
     .onDelete(async (_snap, context) => {
     const db = admin.firestore();
     const userId = context.params.userId;

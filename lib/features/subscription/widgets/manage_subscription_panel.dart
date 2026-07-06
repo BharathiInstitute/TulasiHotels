@@ -73,7 +73,7 @@ class _ManageSubscriptionPanelState
 
       final results = await Future.wait([
         db.collection('$base/tables').count().get(),
-        db.collection('$base/staff').count().get(),
+        db.collection('$base/members').count().get(), // members = Restaurant Members (linked accounts)
         db.collection('$base/products').count().get(),
         db.collection('$base/customers').count().get(),
       ]);
