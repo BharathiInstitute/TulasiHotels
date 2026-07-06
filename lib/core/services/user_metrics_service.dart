@@ -166,6 +166,32 @@ class UserLimits {
   int get customersRemaining => customersLimit - customersCount;
   int get staffRemaining => staffLimit - staffCount;
   int get tablesRemaining => tablesLimit - tablesCount;
+
+  UserLimits copyWith({
+    int? billsThisMonth,
+    int? billsLimit,
+    int? productsCount,
+    int? productsLimit,
+    int? customersCount,
+    int? customersLimit,
+    int? staffCount,
+    int? staffLimit,
+    int? tablesCount,
+    int? tablesLimit,
+  }) {
+    return UserLimits(
+      billsThisMonth: billsThisMonth ?? this.billsThisMonth,
+      billsLimit: billsLimit ?? this.billsLimit,
+      productsCount: productsCount ?? this.productsCount,
+      productsLimit: productsLimit ?? this.productsLimit,
+      customersCount: customersCount ?? this.customersCount,
+      customersLimit: customersLimit ?? this.customersLimit,
+      staffCount: staffCount ?? this.staffCount,
+      staffLimit: staffLimit ?? this.staffLimit,
+      tablesCount: tablesCount ?? this.tablesCount,
+      tablesLimit: tablesLimit ?? this.tablesLimit,
+    );
+  }
 }
 
 /// Service for tracking user metrics and syncing to Firestore

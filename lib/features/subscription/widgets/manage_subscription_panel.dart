@@ -40,6 +40,7 @@ class _ManageSubscriptionPanelState
   bool _isUpgrading = false;
   String? _userEmail;
   String? _userPhone;
+  DateTime? _lastResync;
   StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _docSub;
 
   @override
@@ -52,10 +53,12 @@ class _ManageSubscriptionPanelState
     _resyncCounts();
   }
 
-  /// One-time resync: counts actual Firestore documents and corrects any
-  /// stale counters caused by pre-fix data (tables added before tracking,
-  /// customers whose Cloud Function may have missed, etc.).
+  /// Resync counts from Firestore (runs on every panel open, debounced to 30s).
   Future<void> _resyncCounts() async {
+    final now = DateTime.now();
+    if (_lastResync != null && now.difference(_lastResync!).inSeconds < 30) return;
+    _lastResync = now;
+
     final storeId =
         ActiveStoreManager.storeId ?? FirebaseAuth.instance.currentUser?.uid;
     if (storeId == null) return;
@@ -105,6 +108,18 @@ class _ManageSubscriptionPanelState
       }
 
       await db.collection('users').doc(storeId).update(updates);
+
+      // Also update the UI immediately without waiting for Firestore stream
+      if (mounted) {
+        setState(() {
+          _limits = _limits.copyWith(
+            tablesCount: tablesCount,
+            staffCount: staffCount,
+            productsCount: productsCount,
+            customersCount: customersCount,
+          );
+        });
+      }
     } catch (_) {
       // Best-effort — ignore errors
     }
@@ -442,7 +457,9 @@ class _ManageSubscriptionPanelState
             SizedBox(
               height: 48,
               child: FilledButton.icon(
-                onPressed: () => setState(() => _showPlans = true),
+                onPressed: () => setState(() {
+                  _showPlans = true;
+                }),
                 style: FilledButton.styleFrom(
                   backgroundColor: cs.primary,
                   textStyle: const TextStyle(fontSize: 16),
@@ -574,7 +591,10 @@ class _ManageSubscriptionPanelState
           Row(
             children: [
               InkWell(
-                onTap: () => setState(() => _showPlans = false),
+                onTap: () {
+                  setState(() => _showPlans = false);
+                  _resyncCounts();
+                },
                 borderRadius: BorderRadius.circular(4),
                 child: Text(
                   'Manage Subscription',

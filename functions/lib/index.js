@@ -57,8 +57,8 @@ admin.initializeApp();
 // ─── Email Config (Brevo) ───
 // Uses Brevo HTTP API v3 for transactional emails (more reliable than SMTP)
 const sendBrevoEmail = async (to, subject, htmlContent) => {
-    const apiKey = process.env.BREVO_API_KEY || "";
-    const senderEmail = process.env.BREVO_EMAIL || "support@restaurants.tulasierp.com";
+    const apiKey = (process.env.BREVO_API_KEY || "").trim();
+    const senderEmail = (process.env.BREVO_EMAIL || "support@restaurants.tulasierp.com").trim();
     const response = await fetch("https://api.brevo.com/v3/smtp/email", {
         method: "POST",
         headers: {
