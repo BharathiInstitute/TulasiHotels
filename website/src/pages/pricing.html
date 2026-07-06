@@ -525,6 +525,8 @@
     // ─── State ───
     var currentUser = null;
     var userPhone = '';
+    var paramEmail = '';
+    var paramPhone = '';
     var pendingPlan = null;
     var isAnnual = false;
     var pendingOrder = null; // { orderId, plan, cycle } — for UPI fallback check
@@ -589,6 +591,9 @@
       var plan = params.get('plan');
       var cycle = params.get('cycle');
       var token = params.get('token');
+      paramEmail = params.get('email') || '';
+      paramPhone = params.get('phone') || '';
+      if (paramPhone) userPhone = paramPhone;
 
       if (token) {
         var cleanUrl = window.location.pathname + '?' +
@@ -772,7 +777,7 @@
       pendingOrder = { orderId: orderId, plan: plan, cycle: cycle };
 
       // Razorpay requires a valid 10-digit phone to skip contact screen
-      var phone = userPhone || currentUser.phoneNumber || '';
+      var phone = userPhone || paramPhone || (currentUser && currentUser.phoneNumber) || '';
       phone = phone.replace(/[^0-9]/g, '').slice(-10);
       if (phone.length < 10) phone = '9999999999';
 
@@ -784,13 +789,12 @@
         name: 'Tulasi Hotels',
         description: (plan === 'starter' ? 'Starter' : plan === 'pro' ? 'Pro' : 'Business') + ' Plan (' + (cycle === 'annual' ? 'Annual' : 'Monthly') + ')',
         prefill: {
-          email: currentUser.email || 'user@tulasihotels.com',
+          email: (currentUser && currentUser.email) || paramEmail || 'user@tulasihotels.com',
           contact: phone,
-          name: currentUser.displayName || '',
+          name: (currentUser && currentUser.displayName) || '',
         },
-        // These two options together skip the contact details screen
+        // Pre-fill both email and phone — read-only so user sees them but can't edit
         readonly: { email: 1, contact: 1 },
-        hidden: { email: 1, contact: 1 },
         notes: {
           plan: plan,
           cycle: cycle,

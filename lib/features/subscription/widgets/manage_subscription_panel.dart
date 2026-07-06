@@ -5,11 +5,12 @@ library;
 import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show defaultTargetPlatform, kIsWeb, TargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:tulasihotels/core/services/active_store_manager.dart';
+import 'package:tulasihotels/core/services/cloud_function_helper.dart';
 import 'package:tulasihotels/core/services/user_metrics_service.dart';
 import 'package:tulasihotels/features/subscription/models/plan_config.dart';
 import 'package:tulasihotels/features/subscription/providers/subscription_provider.dart';
@@ -37,11 +38,16 @@ class _ManageSubscriptionPanelState
   bool _loading = true;
   bool _showPlans = false;
   bool _isUpgrading = false;
+  String? _userEmail;
+  String? _userPhone;
   StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _docSub;
 
   @override
   void initState() {
     super.initState();
+    final user = FirebaseAuth.instance.currentUser;
+    _userEmail = user?.email;
+    _userPhone = user?.phoneNumber;
     _subscribeToLimits();
     _resyncCounts();
   }
@@ -128,6 +134,7 @@ class _ManageSubscriptionPanelState
         _status = (sub?['status'] as String?) ?? 'active';
         _expiresAt = (sub?['expiresAt'] as Timestamp?)?.toDate();
         _limits = UserLimits.fromMap(limitsMap);
+        _userPhone ??= (data['phone'] as String?) ?? (data['phoneNumber'] as String?);
         _loading = false;
       });
     }, onError: (_) {
@@ -280,6 +287,32 @@ class _ManageSubscriptionPanelState
                         : 'Active',
                     style: TextStyle(color: cs.onSurfaceVariant, fontSize: 14),
                   ),
+                  if (_userEmail != null) ...[  
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        Icon(Icons.email_outlined, size: 13, color: cs.onSurfaceVariant),
+                        const SizedBox(width: 4),
+                        Text(
+                          _userEmail!,
+                          style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12),
+                        ),
+                      ],
+                    ),
+                  ],
+                  if (_userPhone != null) ...[  
+                    const SizedBox(height: 2),
+                    Row(
+                      children: [
+                        Icon(Icons.phone_outlined, size: 13, color: cs.onSurfaceVariant),
+                        const SizedBox(width: 4),
+                        Text(
+                          _userPhone!,
+                          style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12),
+                        ),
+                      ],
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -749,12 +782,36 @@ class _ManageSubscriptionPanelState
       return;
     }
 
-    // On web, open the pricing page which uses Razorpay Checkout.js
-    // (the user is already authenticated via Firebase Auth shared session).
+    // On web or Windows, open the pricing page which uses Razorpay Checkout.js.
     // The real-time Firestore listener will auto-update the UI after payment.
-    if (kIsWeb) {
+    final isWindows = !kIsWeb && defaultTargetPlatform == TargetPlatform.windows;
+    if (kIsWeb || isWindows) {
       setState(() => _isUpgrading = true);
-      final url = Uri.parse('https://hotels.tulasierp.com/src/pages/pricing.html');
+      final user = FirebaseAuth.instance.currentUser;
+      final email = user?.email ?? _userEmail ?? '';
+      final rawPhone = _userPhone ?? user?.phoneNumber ?? '';
+      final phone = rawPhone.replaceAll(RegExp(r'[^0-9]'), '');
+
+      // Get a short-lived custom token so the pricing page auto-signs in
+      // without showing the login modal.
+      String? customToken;
+      try {
+        final result = await CloudFunctionHelper.call('createPaymentToken');
+        customToken = result['token'] as String?;
+      } catch (_) {
+        // Fall back gracefully — user will see sign-in on the page
+      }
+
+      final queryParams = <String, String>{'plan': planKey};
+      if (customToken != null) queryParams['token'] = customToken;
+      if (email.isNotEmpty) queryParams['email'] = email;
+      if (phone.isNotEmpty) queryParams['phone'] = phone;
+      final url = Uri(
+        scheme: 'https',
+        host: 'hotels.tulasierp.com',
+        path: '/src/pages/pricing.html',
+        queryParameters: queryParams,
+      );
       await launchUrl(url, mode: LaunchMode.externalApplication);
       // Give a moment then reset — the stream will pick up changes
       await Future.delayed(const Duration(seconds: 2));
@@ -762,7 +819,7 @@ class _ManageSubscriptionPanelState
       return;
     }
 
-    // On mobile/desktop, use the native Razorpay Flutter SDK
+    // On mobile, use the native Razorpay Flutter SDK
     setState(() => _isUpgrading = true);
     const cycle = 'monthly';
 

@@ -2,9 +2,12 @@
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart' show defaultTargetPlatform, kIsWeb, TargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:tulasihotels/core/services/cloud_function_helper.dart';
 import 'package:tulasihotels/features/subscription/providers/subscription_provider.dart';
 import 'package:tulasihotels/features/subscription/services/subscription_service.dart';
 import 'package:tulasihotels/features/subscription/models/plan_config.dart';
@@ -259,10 +262,9 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
     );
   }
 
-  /// Handle subscription upgrade — uses native Razorpay checkout.
-  ///
-  /// The user's email/phone is auto-filled from Firebase Auth so they
-  /// don't have to re-enter contact details.
+  /// Handle subscription upgrade.
+  /// On web/Windows: opens pricing page with auto sign-in token + prefilled details.
+  /// On mobile: uses native Razorpay SDK.
   Future<void> _handleUpgrade(String planKey) async {
     setState(() => _isLoading = true);
     final cycle = _isAnnual ? 'annual' : 'monthly';
@@ -278,7 +280,50 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
       return;
     }
 
-    // Check phone verification before allowing payment
+    // Web and Windows: open pricing page in browser with auto sign-in
+    final isWindows = !kIsWeb && defaultTargetPlatform == TargetPlatform.windows;
+    if (kIsWeb || isWindows) {
+      // Fetch phone from Firestore for prefill
+      String phone = user.phoneNumber ?? '';
+      try {
+        final doc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .get();
+        final data = doc.data();
+        phone = (data?['phone'] as String?) ??
+            (data?['phoneNumber'] as String?) ??
+            phone;
+      } catch (_) {}
+      phone = phone.replaceAll(RegExp(r'[^0-9]'), '');
+
+      final email = user.email ?? '';
+
+      // Get custom token for auto sign-in on the pricing page
+      String? customToken;
+      try {
+        final result = await CloudFunctionHelper.call('createPaymentToken');
+        customToken = result['token'] as String?;
+      } catch (_) {}
+
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+
+      final queryParams = <String, String>{'plan': planKey, 'cycle': cycle};
+      if (customToken != null) queryParams['token'] = customToken;
+      if (email.isNotEmpty) queryParams['email'] = email;
+      if (phone.isNotEmpty) queryParams['phone'] = phone;
+      final url = Uri(
+        scheme: 'https',
+        host: 'hotels.tulasierp.com',
+        path: '/src/pages/pricing.html',
+        queryParameters: queryParams,
+      );
+      await launchUrl(url, mode: LaunchMode.externalApplication);
+      return;
+    }
+
+    // Mobile: check phone verification before native Razorpay
     final phoneVerified = await _isPhoneVerified();
     if (!phoneVerified) {
       if (mounted) {
