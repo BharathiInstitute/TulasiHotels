@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:tulasihotels/core/design/design_system.dart';
+import 'package:tulasihotels/features/subscription/services/plan_enforcement_service.dart';
 import 'package:tulasihotels/features/tables/providers/table_provider.dart';
 import 'package:tulasihotels/features/tables/services/table_service.dart';
 import 'package:tulasihotels/features/tables/widgets/add_table_dialog.dart';
@@ -12,11 +13,16 @@ import 'package:tulasihotels/models/table_model.dart';
 import 'package:tulasihotels/router/app_router.dart';
 import 'package:tulasihotels/features/staff/providers/staff_provider.dart';
 
-class TablesScreen extends ConsumerWidget {
+class TablesScreen extends ConsumerStatefulWidget {
   const TablesScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<TablesScreen> createState() => _TablesScreenState();
+}
+
+class _TablesScreenState extends ConsumerState<TablesScreen> {
+  @override
+  Widget build(BuildContext context) {
     final tablesAsync = ref.watch(filteredTablesProvider);
     final floors = ref.watch(availableFloorsProvider);
     final selectedFloor = ref.watch(selectedFloorProvider);
@@ -51,7 +57,7 @@ class TablesScreen extends ConsumerWidget {
           IconButton(
             icon: const Icon(Icons.add),
             tooltip: 'Add Table',
-            onPressed: () => _showAddTableDialog(context),
+            onPressed: _showAddTableDialog,
           ),
         ],
       ),
@@ -66,7 +72,7 @@ class TablesScreen extends ConsumerWidget {
               data: (tables) {
                 if (tables.isEmpty) {
                   return _EmptyState(
-                    onAddTables: () => _showAddTableDialog(context),
+                    onAddTables: _showAddTableDialog,
                   );
                 }
                 return _TableGrid(tables: tables);
@@ -80,7 +86,26 @@ class TablesScreen extends ConsumerWidget {
     );
   }
 
-  void _showAddTableDialog(BuildContext context) {
+  Future<void> _showAddTableDialog() async {
+    // Check plan limit BEFORE opening dialog
+    final check = await PlanEnforcementService.checkLimit(LimitType.tables);
+    if (!mounted) return;
+    if (!check.allowed) {
+      ScaffoldMessenger.of(context).removeCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(check.message ?? 'Upgrade your plan to add more tables.'),
+          backgroundColor: Colors.orange,
+          duration: const Duration(seconds: 3),
+          action: SnackBarAction(
+            label: 'Upgrade',
+            textColor: Colors.white,
+            onPressed: () => context.push(AppRoutes.subscription),
+          ),
+        ),
+      );
+      return;
+    }
     showDialog(
       context: context,
       builder: (context) => const AddTableDialog(),

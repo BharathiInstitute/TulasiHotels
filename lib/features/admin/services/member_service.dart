@@ -150,7 +150,7 @@ class MemberService {
         'name': shopName,
         'slug': shopName.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '-'),
         'role': role.name,
-        if (customRoleName != null) 'customRoleName': customRoleName,
+        'customRoleName': ?customRoleName,
         'status': 'active',
         'createdAt': FieldValue.serverTimestamp(),
       });
@@ -166,7 +166,7 @@ class MemberService {
             storeId, // ← add storeId so invite resolution uses correct hotel
         'shopName': shopName,
         'role': role.name,
-        if (customRoleName != null) 'customRoleName': customRoleName,
+        'customRoleName': ?customRoleName,
         'createdAt': FieldValue.serverTimestamp(),
       });
     }
@@ -202,7 +202,7 @@ class MemberService {
   }) async {
     await _membersRef.doc(uid).update({
       'role': role.name,
-      if (permissions != null) 'permissions': permissions,
+      'permissions': ?permissions,
     });
   }
 

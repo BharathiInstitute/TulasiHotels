@@ -58,7 +58,7 @@ class CashRegisterService {
       'closingBalance': closingBalance,
       'closedAt': FieldValue.serverTimestamp(),
       'closedByName': closedByName,
-      if (notes != null) 'notes': notes,
+      'notes': ?notes,
     });
   }
 

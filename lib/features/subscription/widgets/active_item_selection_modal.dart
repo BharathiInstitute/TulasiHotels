@@ -155,7 +155,7 @@ class _ActiveItemSelectionModalState<T>
                 child: Text(
                   _selectedIds.length == widget.maxSelection
                       ? 'Confirm Selection'
-                      : 'Select ${remaining} more items',
+                      : 'Select $remaining more items',
                 ),
               ),
             ),

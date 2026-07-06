@@ -90,6 +90,27 @@ class PlanEnforcementService {
         );
 
       case LimitType.tables:
+        // Use real collection count — tablesCount field can be stale
+        final uid = FirebaseAuth.instance.currentUser?.uid;
+        if (uid != null) {
+          final snap = await _firestore
+              .collection('users')
+              .doc(uid)
+              .collection('tables')
+              .count()
+              .get();
+          final realCount = snap.count ?? 0;
+          final tableLimit = config.maxTables;
+          if (tableLimit != null && realCount >= tableLimit) {
+            return PlanCheckResult.blocked(
+              message:
+                  'You\'ve reached your table limit ($tableLimit). '
+                  'Upgrade to ${_nextPlanName(config.key)}.',
+              suggestedPlan: _nextPlanKey(config.key),
+            );
+          }
+          return const PlanCheckResult.allowed();
+        }
         if (limits.canAddTable) return const PlanCheckResult.allowed();
         return PlanCheckResult.blocked(
           message:
@@ -99,6 +120,34 @@ class PlanEnforcementService {
         );
 
       case LimitType.staff:
+        // Use real collection count — staffCount field can be stale
+        final staffUid = FirebaseAuth.instance.currentUser?.uid;
+        if (staffUid != null) {
+          final staffSnap = await _firestore
+              .collection('users')
+              .doc(staffUid)
+              .collection('staff')
+              .count()
+              .get();
+          final realStaffCount = staffSnap.count ?? 0;
+          final staffLimitMax = config.maxStaff;
+          if (staffLimitMax != null && realStaffCount >= staffLimitMax) {
+            final staffLabel = staffLimitMax == 0
+                ? 'Staff management requires a paid plan.'
+                : 'You\'ve reached your staff limit ($staffLimitMax).';
+            return PlanCheckResult.blocked(
+              message: '$staffLabel Upgrade to ${_nextPlanName(config.key)}.',
+              suggestedPlan: _nextPlanKey(config.key),
+            );
+          }
+          if (staffLimitMax == 0) {
+            return PlanCheckResult.blocked(
+              message: 'Staff management requires a paid plan. Upgrade to ${_nextPlanName(config.key)}.',
+              suggestedPlan: _nextPlanKey(config.key),
+            );
+          }
+          return const PlanCheckResult.allowed();
+        }
         if (limits.canAddStaff) return const PlanCheckResult.allowed();
         final staffLabel = config.maxStaff == 0
             ? 'Staff management requires a paid plan.'

@@ -724,6 +724,7 @@ class _ProductsWebScreenState extends ConsumerState<ProductsWebScreen> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      useRootNavigator: true,
       backgroundColor: Colors.transparent,
       builder: (context) => AddProductModal(product: product),
     );

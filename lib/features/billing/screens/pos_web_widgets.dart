@@ -291,6 +291,7 @@ class _WebCartSectionState extends ConsumerState<_WebCartSection> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      useRootNavigator: true,
       backgroundColor: Colors.transparent,
       builder: (context) => const AddCustomerModal(),
     );
@@ -1873,6 +1874,7 @@ class _CustomerSelectorSheetState
                     showModalBottomSheet(
                       context: context,
                       isScrollControlled: true,
+                      useRootNavigator: true,
                       backgroundColor: Colors.transparent,
                       builder: (context) => const AddCustomerModal(),
                     );

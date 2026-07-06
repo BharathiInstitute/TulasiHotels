@@ -9,6 +9,7 @@ import 'package:tulasihotels/features/admin/models/store_member.dart';
 import 'package:tulasihotels/features/admin/models/store_role.dart';
 import 'package:tulasihotels/features/admin/providers/members_provider.dart';
 import 'package:tulasihotels/features/admin/services/member_service.dart';
+import 'package:tulasihotels/features/subscription/services/plan_enforcement_service.dart';
 import 'package:tulasihotels/router/app_router.dart';
 
 class MembersScreen extends ConsumerStatefulWidget {
@@ -121,6 +122,28 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
   }
 
   Future<void> _showInviteDialog(BuildContext context) async {
+    // ── Check plan BEFORE opening the dialog ──
+    final planCheck = await PlanEnforcementService.checkLimit(LimitType.staff);
+    if (!planCheck.allowed) {
+      if (!context.mounted) return;
+      final messenger = ScaffoldMessenger.of(context);
+      messenger.removeCurrentSnackBar();
+      final ctrl = messenger.showSnackBar(
+        SnackBar(
+          content: Text(planCheck.message ?? 'Upgrade your plan to add staff.'),
+          backgroundColor: Colors.orange,
+          duration: const Duration(seconds: 3),
+          action: SnackBarAction(
+            label: 'Upgrade',
+            textColor: Colors.white,
+            onPressed: () => context.push(AppRoutes.subscription),
+          ),
+        ),
+      );
+      Future.delayed(const Duration(seconds: 3), ctrl.close);
+      return;
+    }
+
     final emailController = TextEditingController();
     final nameController = TextEditingController();
     final passwordController = TextEditingController();
@@ -261,26 +284,23 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
       final password = passwordController.text;
       final confirm = confirmController.text;
       final roleText = roleController.text.trim();
+      final sm = ScaffoldMessenger.of(context);
       if (email.isEmpty) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Email is required')));
+        sm.clearSnackBars();
+        sm.showSnackBar(const SnackBar(content: Text('Email is required'), duration: Duration(seconds: 3)));
         return;
       }
       if (password.isNotEmpty && password.length < 6) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Password must be at least 6 characters'),
-          ),
-        );
+        sm.clearSnackBars();
+        sm.showSnackBar(const SnackBar(content: Text('Password must be at least 6 characters'), duration: Duration(seconds: 3)));
         return;
       }
       if (password.isNotEmpty && password != confirm) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Passwords do not match')));
+        sm.clearSnackBars();
+        sm.showSnackBar(const SnackBar(content: Text('Passwords do not match'), duration: Duration(seconds: 3)));
         return;
       }
+
       try {
         await MemberService.inviteMember(
           email: email,
@@ -289,13 +309,11 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
           password: password.isNotEmpty ? password : null,
         );
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                'Added $email as ${roleText.isNotEmpty ? roleText : 'Team Member'}',
-              ),
-            ),
-          );
+          sm.clearSnackBars();
+          sm.showSnackBar(SnackBar(
+            content: Text('Added $email as ${roleText.isNotEmpty ? roleText : 'Team Member'}'),
+            duration: const Duration(seconds: 3),
+          ));
         }
       } on FirebaseAuthException catch (e) {
         if (context.mounted) {
@@ -305,15 +323,13 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
             'invalid-email' => 'Invalid email address',
             _ => e.message ?? e.code,
           };
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text(msg)));
+          sm.clearSnackBars();
+          sm.showSnackBar(SnackBar(content: Text(msg), duration: const Duration(seconds: 3)));
         }
       } catch (e) {
         if (context.mounted) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text('Error: $e')));
+          sm.clearSnackBars();
+          sm.showSnackBar(SnackBar(content: Text('Error: $e'), duration: const Duration(seconds: 3)));
         }
       }
     }
