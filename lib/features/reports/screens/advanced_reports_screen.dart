@@ -97,12 +97,43 @@ class _AdvancedReportsScreenState extends ConsumerState<AdvancedReportsScreen> {
             height: 50,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              separatorBuilder: (_, _) => const SizedBox(width: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              separatorBuilder: (_, _) => const SizedBox(width: 4),
               itemCount: _ReportTab.values.length,
               itemBuilder: (context, index) {
                 final tab = _ReportTab.values[index];
                 final isSelected = tab == _selectedTab;
+                final isMobile = MediaQuery.of(context).size.width < 600;
+                if (isMobile) {
+                  return Tooltip(
+                    message: tab.label,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(20),
+                      onTap: () => _onTabSelected(tab),
+                      child: Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: isSelected
+                              ? Theme.of(context).colorScheme.primary.withOpacity(0.15)
+                              : Colors.transparent,
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: isSelected
+                                ? Theme.of(context).colorScheme.primary
+                                : Colors.grey.shade300,
+                          ),
+                        ),
+                        child: Icon(
+                          tab.icon,
+                          size: 20,
+                          color: isSelected
+                              ? Theme.of(context).colorScheme.primary
+                              : Colors.grey.shade600,
+                        ),
+                      ),
+                    ),
+                  );
+                }
                 return FilterChip(
                   selected: isSelected,
                   showCheckmark: false,

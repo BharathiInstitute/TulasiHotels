@@ -1003,7 +1003,7 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
         children: [
           // Tab selector chips
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
             child: SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: Row(
@@ -1011,12 +1011,34 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
                   final isSelected = tab == _selectedTab;
                   final data = _tabData[tab]!;
                   return Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: ChoiceChip(
-                      label: Text(data.label),
-                      avatar: Icon(data.icon, size: 18),
-                      selected: isSelected,
-                      onSelected: (_) => _navigateToTab(tab),
+                    padding: const EdgeInsets.only(right: 4),
+                    child: Tooltip(
+                      message: data.label,
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(20),
+                        onTap: () => _navigateToTab(tab),
+                        child: Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: isSelected
+                                ? Theme.of(context).colorScheme.primary.withOpacity(0.15)
+                                : Colors.transparent,
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                              color: isSelected
+                                  ? Theme.of(context).colorScheme.primary
+                                  : Colors.grey.shade300,
+                            ),
+                          ),
+                          child: Icon(
+                            data.icon,
+                            size: 22,
+                            color: isSelected
+                                ? Theme.of(context).colorScheme.primary
+                                : Colors.grey.shade600,
+                          ),
+                        ),
+                      ),
                     ),
                   );
                 }).toList(),
