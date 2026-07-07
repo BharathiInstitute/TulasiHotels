@@ -73,14 +73,17 @@ class _ManageSubscriptionPanelState
 
       final results = await Future.wait([
         db.collection('$base/tables').count().get(),
-        db.collection('$base/members').count().get(), // members = Restaurant Members (linked accounts)
+        db.collection('$base/members').count().get(), // Firebase team members
+        db.collection('$base/staff').count().get(),   // local PIN-based staff
         db.collection('$base/products').count().get(),
         db.collection('$base/customers').count().get(),
       ]);
       final tablesCount = results[0].count ?? 0;
-      final staffCount = results[1].count ?? 0;
-      final productsCount = results[2].count ?? 0;
-      final customersCount = results[3].count ?? 0;
+      final membersCount = results[1].count ?? 0;
+      final localStaffCount = results[2].count ?? 0;
+      final staffCount = membersCount + localStaffCount; // combined total
+      final productsCount = results[3].count ?? 0;
+      final customersCount = results[4].count ?? 0;
 
       final updates = <String, dynamic>{
         'limits.tablesCount': tablesCount,

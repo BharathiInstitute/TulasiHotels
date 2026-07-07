@@ -43,12 +43,17 @@ class PlanEnforcementService {
 
   static final _firestore = FirebaseFirestore.instance;
 
-  /// Get the user's current [PlanConfig] from Firestore.
-  static Future<PlanConfig> getCurrentPlanConfig() async {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid == null) return PlanConfig.free;
+  /// Returns the active store/owner UID — always the owner's doc regardless
+  /// of whether the current Firebase user is the owner or a team member.
+  static String? get _storeId =>
+      ActiveStoreManager.storeId ?? FirebaseAuth.instance.currentUser?.uid;
 
-    final doc = await _firestore.collection('users').doc(uid).get();
+  /// Get the store's current [PlanConfig] from Firestore.
+  static Future<PlanConfig> getCurrentPlanConfig() async {
+    final storeId = _storeId;
+    if (storeId == null) return PlanConfig.free;
+
+    final doc = await _firestore.collection('users').doc(storeId).get();
     final planKey =
         (doc.data()?['subscription'] as Map<String, dynamic>?)?['plan']
             as String? ??
@@ -56,17 +61,18 @@ class PlanEnforcementService {
     return PlanConfig.fromKey(planKey);
   }
 
-  /// Get the user's current [UserLimits] from Firestore.
+  /// Get the store's current [UserLimits] from Firestore.
   static Future<UserLimits> getCurrentLimits() async {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid == null) return UserLimits();
+    final storeId = _storeId;
+    if (storeId == null) return UserLimits();
 
-    final doc = await _firestore.collection('users').doc(uid).get();
+    final doc = await _firestore.collection('users').doc(storeId).get();
     return UserLimits.fromMap(doc.data()?['limits'] as Map<String, dynamic>?);
   }
 
   /// Check whether the user can perform an action that requires a numeric limit.
   static Future<PlanCheckResult> checkLimit(LimitType type) async {
+    final storeId = _storeId;
     final limits = await getCurrentLimits();
     final config = await getCurrentPlanConfig();
 
@@ -90,12 +96,10 @@ class PlanEnforcementService {
         );
 
       case LimitType.tables:
-        // Use real collection count — tablesCount field can be stale
-        final uid = FirebaseAuth.instance.currentUser?.uid;
-        if (uid != null) {
+        if (storeId != null) {
           final snap = await _firestore
               .collection('users')
-              .doc(uid)
+              .doc(storeId)
               .collection('tables')
               .count()
               .get();
@@ -120,29 +124,32 @@ class PlanEnforcementService {
         );
 
       case LimitType.staff:
-        // Use real collection count — staffCount field can be stale
-        final staffUid = FirebaseAuth.instance.currentUser?.uid;
-        if (staffUid != null) {
-          final staffSnap = await _firestore
-              .collection('users')
-              .doc(staffUid)
-              .collection('staff')
-              .count()
-              .get();
-          final realStaffCount = staffSnap.count ?? 0;
+        if (storeId != null) {
+          final counts = await Future.wait([
+            _firestore
+                .collection('users')
+                .doc(storeId)
+                .collection('staff')
+                .count()
+                .get(),
+            _firestore
+                .collection('users')
+                .doc(storeId)
+                .collection('members')
+                .count()
+                .get(),
+          ]);
+          final realStaffCount = (counts[0].count ?? 0) + (counts[1].count ?? 0);
           final staffLimitMax = config.maxStaff;
-          if (staffLimitMax != null && realStaffCount >= staffLimitMax) {
-            final staffLabel = staffLimitMax == 0
-                ? 'Staff management requires a paid plan.'
-                : 'You\'ve reached your staff limit ($staffLimitMax).';
-            return PlanCheckResult.blocked(
-              message: '$staffLabel Upgrade to ${_nextPlanName(config.key)}.',
-              suggestedPlan: _nextPlanKey(config.key),
-            );
-          }
           if (staffLimitMax == 0) {
             return PlanCheckResult.blocked(
               message: 'Staff management requires a paid plan. Upgrade to ${_nextPlanName(config.key)}.',
+              suggestedPlan: _nextPlanKey(config.key),
+            );
+          }
+          if (staffLimitMax != null && realStaffCount >= staffLimitMax) {
+            return PlanCheckResult.blocked(
+              message: 'You\'ve reached your staff limit ($staffLimitMax). Upgrade to ${_nextPlanName(config.key)}.',
               suggestedPlan: _nextPlanKey(config.key),
             );
           }

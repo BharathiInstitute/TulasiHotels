@@ -569,6 +569,9 @@ service cloud.firestore {
     // Any authenticated user can write to ANOTHER user's hotel list
     // (needed when owner adds a member — writes to user_hotels/{memberUid}/hotels)
     // ===================
+    match /user_hotels/{userId} {
+      allow read: if isAuthenticated() && isOwner(userId);
+    }
     match /user_hotels/{userId}/hotels/{hotelId} {
       allow read: if isAuthenticated() && isOwner(userId);
       // Owner manages their own list; other authenticated users can add entries
@@ -744,7 +747,7 @@ service cloud.firestore {
     // ===================
     match /desktop_auth_sessions/{sessionId} {
       // Allow anyone to create a pending session (desktop app creates before auth)
-      allow create: if request.resource.data.keys().hasOnly(['status', 'createdAt', 'expiresAt'])
+      allow create: if request.resource.data.keys().hasOnly(['status', 'createdAt', 'expiresAt', 'deviceId'])
         && request.resource.data.status == 'pending'
         && request.resource.size() < 1000;
       

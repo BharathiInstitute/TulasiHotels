@@ -1,6 +1,8 @@
 /// Khata Web Screen - Redesigned with master-detail layout
 library;
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -16,6 +18,8 @@ import 'package:tulasihotels/features/khata/widgets/record_payment_modal.dart';
 import 'package:tulasihotels/l10n/app_localizations.dart';
 import 'package:tulasihotels/models/customer_model.dart';
 import 'package:tulasihotels/models/transaction_model.dart';
+import 'package:tulasihotels/features/subscription/services/plan_enforcement_service.dart';
+import 'package:tulasihotels/router/app_router.dart';
 import 'package:tulasihotels/shared/widgets/loading_states.dart';
 import 'package:tulasihotels/core/services/payment_link_service.dart';
 import 'package:tulasihotels/features/auth/providers/auth_provider.dart';
@@ -499,13 +503,33 @@ class _KhataWebScreenState extends ConsumerState<KhataWebScreen> {
     }).toList();
   }
 
-  void _showAddCustomerModal({CustomerModel? customer}) {
-    showModalBottomSheet(
+  Future<void> _showAddCustomerModal({CustomerModel? customer}) async {
+    if (customer == null) {
+      final check = await PlanEnforcementService.checkLimit(LimitType.customers);
+      if (!mounted) return;
+      if (!check.allowed) {
+        ScaffoldMessenger.of(context).removeCurrentSnackBar();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(check.message ?? 'Upgrade your plan to add more customers.'),
+            backgroundColor: Colors.orange,
+            duration: const Duration(seconds: 4),
+            action: SnackBarAction(
+              label: 'Upgrade',
+              textColor: Colors.white,
+              onPressed: () => context.push(AppRoutes.subscription),
+            ),
+          ),
+        );
+        return;
+      }
+    }
+    unawaited(showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => AddCustomerModal(customer: customer),
-    );
+    ));
   }
 }
 

@@ -977,7 +977,10 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
 
   /// Mobile: GoogleSignIn package
   Future<bool> _googleSignInMobile() async {
-    final googleSignIn = GoogleSignIn(scopes: ['email', 'profile']);
+    final googleSignIn = GoogleSignIn(
+      scopes: ['email', 'profile'],
+      serverClientId: '883551466761-9s896hmfvmilcj85v70a90jhea1j8g90.apps.googleusercontent.com',
+    );
     final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
     if (googleUser == null) {
       return false;

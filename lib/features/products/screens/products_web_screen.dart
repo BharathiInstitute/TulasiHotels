@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -13,6 +15,7 @@ import 'package:tulasihotels/models/product_model.dart';
 import 'package:tulasihotels/shared/widgets/loading_states.dart';
 import 'package:tulasihotels/shared/widgets/sync_badge.dart';
 import 'package:tulasihotels/shared/widgets/upgrade_prompt_modal.dart';
+import 'package:tulasihotels/features/subscription/services/plan_enforcement_service.dart';
 
 class ProductsWebScreen extends ConsumerStatefulWidget {
   const ProductsWebScreen({super.key});
@@ -720,14 +723,35 @@ class _ProductsWebScreenState extends ConsumerState<ProductsWebScreen> {
     );
   }
 
-  void _showAddProductModal({ProductModel? product}) {
-    showModalBottomSheet(
+  Future<void> _showAddProductModal({ProductModel? product}) async {
+    // Only enforce limit when adding a new product (not editing)
+    if (product == null) {
+      final check = await PlanEnforcementService.checkLimit(LimitType.products);
+      if (!mounted) return;
+      if (!check.allowed) {
+        ScaffoldMessenger.of(context).removeCurrentSnackBar();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(check.message ?? 'Upgrade your plan to add more products.'),
+            backgroundColor: Colors.orange,
+            duration: const Duration(seconds: 4),
+            action: SnackBarAction(
+              label: 'Upgrade',
+              textColor: Colors.white,
+              onPressed: () => context.push(AppRoutes.subscription),
+            ),
+          ),
+        );
+        return;
+      }
+    }
+    unawaited(showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       useRootNavigator: true,
       backgroundColor: Colors.transparent,
       builder: (context) => AddProductModal(product: product),
-    );
+    ));
   }
 
   Future<void> _handleExportCsv() async {

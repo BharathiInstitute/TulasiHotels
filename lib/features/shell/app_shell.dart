@@ -328,17 +328,17 @@ class _AppShellState extends ConsumerState<AppShell> {
             activeIcon: Icons.table_restaurant,
             label: 'Tables',
           ),
-          6: (
+          7: (
             icon: Icons.kitchen_outlined,
             activeIcon: Icons.kitchen,
             label: 'Kitchen',
           ),
-          7: (
+          8: (
             icon: Icons.badge_outlined,
             activeIcon: Icons.badge,
             label: loggedInStaff != null ? 'My Profile' : 'Staff',
           ),
-          8: (
+          9: (
             icon: Icons.access_time_outlined,
             activeIcon: Icons.access_time_filled,
             label: 'My Attendance',
@@ -812,17 +812,17 @@ class _AppShellState extends ConsumerState<AppShell> {
         activeIcon: Icon(Icons.table_restaurant),
         label: 'Tables',
       ),
-      6: const BottomNavigationBarItem(
+      7: const BottomNavigationBarItem(
         icon: Icon(Icons.kitchen_outlined),
         activeIcon: Icon(Icons.kitchen),
         label: 'Kitchen',
       ),
-      7: const BottomNavigationBarItem(
+      8: const BottomNavigationBarItem(
         icon: Icon(Icons.badge_outlined),
         activeIcon: Icon(Icons.badge),
         label: 'Staff',
       ),
-      8: const BottomNavigationBarItem(
+      9: const BottomNavigationBarItem(
         icon: Icon(Icons.access_time_outlined),
         activeIcon: Icon(Icons.access_time_filled),
         label: 'My Attendance',

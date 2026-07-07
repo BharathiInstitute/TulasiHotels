@@ -124,9 +124,12 @@ class _MyAttendanceBodyState extends ConsumerState<_MyAttendanceBody> {
         .toSet()
         .length;
 
+    final scrollController = ScrollController();
     return Scrollbar(
+      controller: scrollController,
       thumbVisibility: true,
       child: ListView(
+        controller: scrollController,
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
         children: [
           _UserClockCard(

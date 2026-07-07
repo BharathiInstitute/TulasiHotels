@@ -48,8 +48,8 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.createOrder = exports.createPaymentToken = exports.razorpayReconciliation = exports.onStockUpdate = exports.onNewOrderKitchenAlert = exports.onWastageLogged = exports.onComplaintCreated = exports.equipmentServiceReminder = exports.licenseExpiryReminder = exports.onNewReservation = exports.onNewFeedback = exports.onLowIngredientStock = exports.onOrderReady = exports.onCustomerOrderCreated = exports.onRushOrderCreated = exports.seedUserUsage = exports.scheduledFirestoreBackup = exports.sendNotificationToPlan = exports.sendNotificationToAll = exports.getSubscriptionLimits = exports.seedAdmins = exports.onStaffDeleted = exports.onStaffCreated = exports.onTableDeleted = exports.onTableCreated = exports.onCustomerDeleted = exports.onCustomerCreated = exports.onProductDeleted = exports.onProductCreated = exports.onBillCreated = exports.processReferralReward = exports.redeemReferralCode = exports.onSubscriptionWrite = exports.generateMonthlyReport = exports.exchangeIdToken = exports.sendDailySalesSummary = exports.checkChurnedUsers = exports.checkSubscriptionExpiry = exports.activateSubscription = exports.checkLowStock = exports.cleanupOldNotifications = exports.sendPushNotification = exports.onNewUserSignup = exports.generateDesktopToken = exports.deleteUserAccount = exports.onUserDeleted = exports.verifyRegistrationOTP = exports.sendRegistrationOTP = exports.razorpayWebhook = exports.createPaymentLink = void 0;
-exports.sendOrderReadySMS = exports.sendDailySummaryWhatsApp = exports.sendReservationReminder = exports.sendFeedbackRequest = exports.sendOrderConfirmation = exports.verifyPayment = exports.checkOrderStatus = void 0;
+exports.razorpayReconciliation = exports.onStockUpdate = exports.onNewOrderKitchenAlert = exports.onWastageLogged = exports.onComplaintCreated = exports.equipmentServiceReminder = exports.licenseExpiryReminder = exports.onNewReservation = exports.onNewFeedback = exports.onLowIngredientStock = exports.onOrderReady = exports.onCustomerOrderCreated = exports.onRushOrderCreated = exports.seedUserUsage = exports.scheduledFirestoreBackup = exports.sendNotificationToPlan = exports.sendNotificationToAll = exports.getSubscriptionLimits = exports.seedAdmins = exports.onLocalStaffDeleted = exports.onLocalStaffCreated = exports.onStaffDeleted = exports.onStaffCreated = exports.onTableDeleted = exports.onTableCreated = exports.onCustomerDeleted = exports.onCustomerCreated = exports.onProductDeleted = exports.onProductCreated = exports.onBillCreated = exports.processReferralReward = exports.redeemReferralCode = exports.onSubscriptionWrite = exports.generateMonthlyReport = exports.exchangeIdToken = exports.sendDailySalesSummary = exports.checkChurnedUsers = exports.checkSubscriptionExpiry = exports.activateSubscription = exports.checkLowStock = exports.cleanupOldNotifications = exports.sendPushNotification = exports.onNewUserSignup = exports.generateDesktopToken = exports.deleteUserAccount = exports.onUserDeleted = exports.verifyRegistrationOTP = exports.sendRegistrationOTP = exports.razorpayWebhook = exports.createPaymentLink = void 0;
+exports.sendOrderReadySMS = exports.sendDailySummaryWhatsApp = exports.sendReservationReminder = exports.sendFeedbackRequest = exports.sendOrderConfirmation = exports.verifyPayment = exports.checkOrderStatus = exports.createOrder = exports.createPaymentToken = void 0;
 const functions = __importStar(require("firebase-functions"));
 const admin = __importStar(require("firebase-admin"));
 const crypto = __importStar(require("crypto"));
@@ -2014,7 +2014,7 @@ exports.onTableDeleted = functions
     }
 });
 /**
- * onStaffCreated — Increment staffCount when a member is added to the store.
+ * onStaffCreated — Increment staffCount when a team member is added to the store.
  */
 exports.onStaffCreated = functions
     .region("asia-south1")
@@ -2033,7 +2033,7 @@ exports.onStaffCreated = functions
     }
 });
 /**
- * onStaffDeleted — Decrement staffCount when a member is removed.
+ * onStaffDeleted — Decrement staffCount when a team member is removed.
  */
 exports.onStaffDeleted = functions
     .region("asia-south1")
@@ -2049,6 +2049,44 @@ exports.onStaffDeleted = functions
     }
     catch (e) {
         console.error(`❌ onStaffDeleted: Failed for user ${userId}:`, e);
+    }
+});
+/**
+ * onLocalStaffCreated — Increment staffCount when a local PIN-based staff member is added.
+ */
+exports.onLocalStaffCreated = functions
+    .region("asia-south1")
+    .firestore.document("users/{userId}/staff/{staffId}")
+    .onCreate(async (_snap, context) => {
+    const db = admin.firestore();
+    const userId = context.params.userId;
+    const userRef = db.collection("users").doc(userId);
+    try {
+        await userRef.update({
+            "limits.staffCount": admin.firestore.FieldValue.increment(1),
+        });
+    }
+    catch (e) {
+        console.error(`❌ onLocalStaffCreated: Failed for user ${userId}:`, e);
+    }
+});
+/**
+ * onLocalStaffDeleted — Decrement staffCount when a local PIN-based staff member is removed.
+ */
+exports.onLocalStaffDeleted = functions
+    .region("asia-south1")
+    .firestore.document("users/{userId}/staff/{staffId}")
+    .onDelete(async (_snap, context) => {
+    const db = admin.firestore();
+    const userId = context.params.userId;
+    const userRef = db.collection("users").doc(userId);
+    try {
+        await userRef.update({
+            "limits.staffCount": admin.firestore.FieldValue.increment(-1),
+        });
+    }
+    catch (e) {
+        console.error(`❌ onLocalStaffDeleted: Failed for user ${userId}:`, e);
     }
 });
 /**

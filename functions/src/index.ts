@@ -2279,7 +2279,7 @@ export const onTableDeleted = functions
     });
 
 /**
- * onStaffCreated — Increment staffCount when a member is added to the store.
+ * onStaffCreated — Increment staffCount when a team member is added to the store.
  */
 export const onStaffCreated = functions
     .region("asia-south1")
@@ -2299,7 +2299,7 @@ export const onStaffCreated = functions
     });
 
 /**
- * onStaffDeleted — Decrement staffCount when a member is removed.
+ * onStaffDeleted — Decrement staffCount when a team member is removed.
  */
 export const onStaffDeleted = functions
     .region("asia-south1")
@@ -2315,6 +2315,46 @@ export const onStaffDeleted = functions
             });
         } catch (e) {
             console.error(`❌ onStaffDeleted: Failed for user ${userId}:`, e);
+        }
+    });
+
+/**
+ * onLocalStaffCreated — Increment staffCount when a local PIN-based staff member is added.
+ */
+export const onLocalStaffCreated = functions
+    .region("asia-south1")
+    .firestore.document("users/{userId}/staff/{staffId}")
+    .onCreate(async (_snap, context) => {
+        const db = admin.firestore();
+        const userId = context.params.userId;
+        const userRef = db.collection("users").doc(userId);
+
+        try {
+            await userRef.update({
+                "limits.staffCount": admin.firestore.FieldValue.increment(1),
+            });
+        } catch (e) {
+            console.error(`❌ onLocalStaffCreated: Failed for user ${userId}:`, e);
+        }
+    });
+
+/**
+ * onLocalStaffDeleted — Decrement staffCount when a local PIN-based staff member is removed.
+ */
+export const onLocalStaffDeleted = functions
+    .region("asia-south1")
+    .firestore.document("users/{userId}/staff/{staffId}")
+    .onDelete(async (_snap, context) => {
+        const db = admin.firestore();
+        const userId = context.params.userId;
+        const userRef = db.collection("users").doc(userId);
+
+        try {
+            await userRef.update({
+                "limits.staffCount": admin.firestore.FieldValue.increment(-1),
+            });
+        } catch (e) {
+            console.error(`❌ onLocalStaffDeleted: Failed for user ${userId}:`, e);
         }
     });
 
