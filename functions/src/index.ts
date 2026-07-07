@@ -2280,15 +2280,18 @@ export const onTableDeleted = functions
 
 /**
  * onStaffCreated — Increment staffCount when a team member is added to the store.
+ * Owner-role members are excluded from the count.
  */
 export const onStaffCreated = functions
     .region("asia-south1")
     .firestore.document("users/{userId}/members/{memberId}")
-    .onCreate(async (_snap, context) => {
+    .onCreate(async (snap, context) => {
+        const data = snap.data();
+        // Do not count the owner as staff
+        if (data?.role === "owner") return;
         const db = admin.firestore();
         const userId = context.params.userId;
         const userRef = db.collection("users").doc(userId);
-
         try {
             await userRef.update({
                 "limits.staffCount": admin.firestore.FieldValue.increment(1),
@@ -2300,15 +2303,18 @@ export const onStaffCreated = functions
 
 /**
  * onStaffDeleted — Decrement staffCount when a team member is removed.
+ * Owner-role members are excluded from the count.
  */
 export const onStaffDeleted = functions
     .region("asia-south1")
     .firestore.document("users/{userId}/members/{memberId}")
-    .onDelete(async (_snap, context) => {
+    .onDelete(async (snap, context) => {
+        const data = snap.data();
+        // Do not count the owner as staff
+        if (data?.role === "owner") return;
         const db = admin.firestore();
         const userId = context.params.userId;
         const userRef = db.collection("users").doc(userId);
-
         try {
             await userRef.update({
                 "limits.staffCount": admin.firestore.FieldValue.increment(-1),

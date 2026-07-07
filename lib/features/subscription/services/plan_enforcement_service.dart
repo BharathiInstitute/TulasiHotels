@@ -48,6 +48,10 @@ class PlanEnforcementService {
   static String? get _storeId =>
       ActiveStoreManager.storeId ?? FirebaseAuth.instance.currentUser?.uid;
 
+  /// Returns the Firebase Auth UID of the current user.
+  /// Subscription and plan data are ALWAYS stored under this UID, not the hotel ID.
+  static String? get _ownerUid => FirebaseAuth.instance.currentUser?.uid;
+
   /// Get the store's current [PlanConfig] from Firestore.
   static Future<PlanConfig> getCurrentPlanConfig() async {
     final storeId = _storeId;
@@ -71,10 +75,47 @@ class PlanEnforcementService {
   }
 
   /// Check whether the user can perform an action that requires a numeric limit.
+  ///
+  /// Does a single fresh Firestore read for plan + limits to eliminate stale
+  /// cache issues — snackbar only appears when the real limit is reached.
   static Future<PlanCheckResult> checkLimit(LimitType type) async {
-    final storeId = _storeId;
-    final limits = await getCurrentLimits();
-    final config = await getCurrentPlanConfig();
+    final storeId = _storeId;   // hotel ID — used for counting staff/tables/products
+    final ownerUid = _ownerUid; // Firebase Auth UID — used for subscription & limits
+
+    // Read subscription from owner's Firebase Auth UID doc (where Cloud Functions write it).
+    // This is DIFFERENT from storeId (hotel ID) which has no subscription data.
+    Map<String, dynamic>? subscriptionData;
+    Map<String, dynamic>? limitsData;
+    if (ownerUid != null) {
+      try {
+        // Force server read — subscription is always on owner's Firebase Auth UID doc
+        final doc = await _firestore
+            .collection('users')
+            .doc(ownerUid)
+            .get(const GetOptions(source: Source.server));
+        final data = doc.data();
+        subscriptionData = data?['subscription'] as Map<String, dynamic>?;
+        limitsData = data?['limits'] as Map<String, dynamic>?;
+      } catch (e) {
+        // Server unavailable — fall back to cache
+        try {
+          final doc = await _firestore.collection('users').doc(ownerUid).get(const GetOptions(source: Source.cache));
+          final data = doc.data();
+          subscriptionData = data?['subscription'] as Map<String, dynamic>?;
+          limitsData = data?['limits'] as Map<String, dynamic>?;
+        } catch (_) {}
+      }
+    }
+
+    final planKey = (subscriptionData?['plan'] as String?) ?? 'free';
+    final config = PlanConfig.fromKey(planKey);
+    final limits = UserLimits.fromMap(limitsData);
+
+    // Helper: effective limit = max(plan config, stored Firestore limit)
+    // Ensures stale Firestore limits (e.g., 0 from free plan) never
+    // incorrectly block users who have already upgraded to a paid plan.
+    int effectiveLimit(int planLimit, int storedLimit) =>
+        planLimit > storedLimit ? planLimit : storedLimit;
 
     switch (type) {
       case LimitType.bills:
@@ -104,11 +145,10 @@ class PlanEnforcementService {
               .count()
               .get();
           final realCount = snap.count ?? 0;
-          final tableLimit = config.maxTables;
-          if (tableLimit != null && realCount >= tableLimit) {
+          final tableLimit = effectiveLimit(config.maxTables ?? 999999, limits.tablesLimit);
+          if (tableLimit > 0 && realCount >= tableLimit) {
             return PlanCheckResult.blocked(
-              message:
-                  'You\'ve reached your table limit ($tableLimit). '
+              message: 'You\'ve reached your table limit ($tableLimit). '
                   'Upgrade to ${_nextPlanName(config.key)}.',
               suggestedPlan: _nextPlanKey(config.key),
             );
@@ -117,58 +157,54 @@ class PlanEnforcementService {
         }
         if (limits.canAddTable) return const PlanCheckResult.allowed();
         return PlanCheckResult.blocked(
-          message:
-              'You\'ve reached your table limit (${config.maxTables ?? "∞"}). '
+          message: 'You\'ve reached your table limit (${config.maxTables ?? "∞"}). '
               'Upgrade to ${_nextPlanName(config.key)} for more.',
           suggestedPlan: _nextPlanKey(config.key),
         );
 
       case LimitType.staff:
         if (storeId != null) {
-          final counts = await Future.wait([
-            _firestore
-                .collection('users')
-                .doc(storeId)
-                .collection('staff')
-                .count()
-                .get(),
-            _firestore
-                .collection('users')
-                .doc(storeId)
+          final results = await Future.wait([
+            _firestore.collection('users').doc(storeId)
+                .collection('staff').count().get(),
+            // Exclude owner — owner does not count against staff limit
+            _firestore.collection('users').doc(storeId)
                 .collection('members')
+                .where('role', isNotEqualTo: 'owner')
                 .count()
                 .get(),
           ]);
-          final realStaffCount = (counts[0].count ?? 0) + (counts[1].count ?? 0);
-          final staffLimitMax = config.maxStaff;
-          if (staffLimitMax == 0) {
+          final realStaffCount = (results[0].count ?? 0) + (results[1].count ?? 0);
+          final staffLimit = effectiveLimit(config.maxStaff ?? 0, limits.staffLimit);
+
+          if (staffLimit == 0) {
             return PlanCheckResult.blocked(
-              message: 'Staff management requires a paid plan. Upgrade to ${_nextPlanName(config.key)}.',
+              message: 'Staff management requires a paid plan. '
+                  'Upgrade to ${_nextPlanName(config.key)}.',
               suggestedPlan: _nextPlanKey(config.key),
             );
           }
-          if (staffLimitMax != null && realStaffCount >= staffLimitMax) {
+          if (realStaffCount >= staffLimit) {
             return PlanCheckResult.blocked(
-              message: 'You\'ve reached your staff limit ($staffLimitMax). Upgrade to ${_nextPlanName(config.key)}.',
+              message: 'You\'ve reached your staff limit ($staffLimit). '
+                  'Upgrade to ${_nextPlanName(config.key)}.',
               suggestedPlan: _nextPlanKey(config.key),
             );
           }
           return const PlanCheckResult.allowed();
         }
         if (limits.canAddStaff) return const PlanCheckResult.allowed();
-        final staffLabel = config.maxStaff == 0
-            ? 'Staff management requires a paid plan.'
-            : 'You\'ve reached your staff limit (${config.maxStaff}).';
         return PlanCheckResult.blocked(
-          message: '$staffLabel Upgrade to ${_nextPlanName(config.key)}.',
+          message: config.maxStaff == 0
+              ? 'Staff management requires a paid plan. Upgrade to ${_nextPlanName(config.key)}.'
+              : 'You\'ve reached your staff limit (${config.maxStaff}). Upgrade to ${_nextPlanName(config.key)}.',
           suggestedPlan: _nextPlanKey(config.key),
         );
 
       case LimitType.customers:
         if (limits.canAddCustomer) return const PlanCheckResult.allowed();
         return PlanCheckResult.blocked(
-          message:
-              'You\'ve reached your customer limit (${config.maxCustomers ?? "∞"}). '
+          message: 'You\'ve reached your customer limit (${config.maxCustomers ?? "∞"}). '
               'Upgrade to ${_nextPlanName(config.key)} for more.',
           suggestedPlan: _nextPlanKey(config.key),
         );

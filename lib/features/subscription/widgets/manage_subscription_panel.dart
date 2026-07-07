@@ -53,10 +53,10 @@ class _ManageSubscriptionPanelState
     _resyncCounts();
   }
 
-  /// Resync counts from Firestore (runs on every panel open, debounced to 30s).
+  /// Resync counts from Firestore (debounced to 5s to avoid duplicate calls).
   Future<void> _resyncCounts() async {
     final now = DateTime.now();
-    if (_lastResync != null && now.difference(_lastResync!).inSeconds < 30) return;
+    if (_lastResync != null && now.difference(_lastResync!).inSeconds < 5) return;
     _lastResync = now;
 
     final storeId =
@@ -73,7 +73,8 @@ class _ManageSubscriptionPanelState
 
       final results = await Future.wait([
         db.collection('$base/tables').count().get(),
-        db.collection('$base/members').count().get(), // Firebase team members
+        // Exclude owner-role members — owner does not count against staff limit
+        db.collection('$base/members').where('role', isNotEqualTo: 'owner').count().get(),
         db.collection('$base/staff').count().get(),   // local PIN-based staff
         db.collection('$base/products').count().get(),
         db.collection('$base/customers').count().get(),
@@ -81,7 +82,7 @@ class _ManageSubscriptionPanelState
       final tablesCount = results[0].count ?? 0;
       final membersCount = results[1].count ?? 0;
       final localStaffCount = results[2].count ?? 0;
-      final staffCount = membersCount + localStaffCount; // combined total
+      final staffCount = membersCount + localStaffCount; // combined total (owner excluded)
       final productsCount = results[3].count ?? 0;
       final customersCount = results[4].count ?? 0;
 
@@ -92,21 +93,29 @@ class _ManageSubscriptionPanelState
         'limits.customersCount': customersCount,
       };
 
-      // Fix missing limits based on current plan (ensures CFs don't use wrong defaults)
+      // Always sync limits from plan config — ensures stale values (e.g., 0 from
+      // free plan) are corrected after a plan upgrade. Only update if the plan
+      // config gives a higher value than what's stored (never downgrade while active).
       final config = PlanConfig.fromKey(currentPlan);
-      if (currentLimits['staffLimit'] == null) {
+      final storedStaffLimit = (currentLimits['staffLimit'] as int?) ?? 0;
+      final storedTablesLimit = (currentLimits['tablesLimit'] as int?) ?? 0;
+      final storedBillsLimit = (currentLimits['billsLimit'] as int?) ?? 0;
+      final storedProductsLimit = (currentLimits['productsLimit'] as int?) ?? 0;
+      final storedCustomersLimit = (currentLimits['customersLimit'] as int?) ?? 0;
+
+      if (config.staffLimitFirestore > storedStaffLimit) {
         updates['limits.staffLimit'] = config.staffLimitFirestore;
       }
-      if (currentLimits['tablesLimit'] == null) {
+      if (config.tablesLimitFirestore > storedTablesLimit) {
         updates['limits.tablesLimit'] = config.tablesLimitFirestore;
       }
-      if (currentLimits['billsLimit'] == null) {
+      if (config.billsLimitFirestore > storedBillsLimit) {
         updates['limits.billsLimit'] = config.billsLimitFirestore;
       }
-      if (currentLimits['productsLimit'] == null) {
+      if (config.productsLimitFirestore > storedProductsLimit) {
         updates['limits.productsLimit'] = config.productsLimitFirestore;
       }
-      if (currentLimits['customersLimit'] == null) {
+      if (config.customersLimitFirestore > storedCustomersLimit) {
         updates['limits.customersLimit'] = config.customersLimitFirestore;
       }
 

@@ -107,8 +107,6 @@ Future<void> _initializeApp() async {
       if (!isWindows)
         _safeInit('FCM', NotificationService.setForegroundOptions),
 
-      // App Check disabled
-
       // Windows debug auth settings
       _safeInit('AuthSettings', () async {
         if (isWindows && kDebugMode) {

@@ -136,7 +136,9 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
           action: SnackBarAction(
             label: 'Upgrade',
             textColor: Colors.white,
-            onPressed: () => context.push(AppRoutes.subscription),
+            onPressed: () {
+              if (context.mounted) context.push(AppRoutes.subscription);
+            },
           ),
         ),
       );

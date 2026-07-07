@@ -24,6 +24,7 @@ import 'package:tulasihotels/l10n/app_localizations.dart';
 import 'package:tulasihotels/models/user_model.dart';
 import 'package:tulasihotels/router/app_router.dart';
 import 'package:tulasihotels/shared/widgets/shop_logo_widget.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class AppShell extends ConsumerStatefulWidget {
   final Widget child;
@@ -424,6 +425,40 @@ class _AppShellState extends ConsumerState<AppShell> {
                   // More Features sections (matching web shell)
                   ..._buildMoreFeaturesSections(context, ref),
 
+                  const Divider(height: 1),
+                  // Notifications
+                  _DrawerNavItem(
+                    icon: Icons.notifications_outlined,
+                    label: 'Notifications',
+                    isSelected: false,
+                    onTap: () {
+                      Navigator.pop(context);
+                      context.push('/notifications');
+                    },
+                  ),
+                  // Help & Support
+                  _DrawerNavItem(
+                    icon: Icons.help_outline,
+                    label: 'Help & Support',
+                    isSelected: false,
+                    onTap: () {
+                      Navigator.pop(context);
+                      context.push(AppRoutes.support);
+                    },
+                  ),
+                  // Visit Website
+                  _DrawerNavItem(
+                    icon: Icons.language_outlined,
+                    label: 'Visit Website',
+                    isSelected: false,
+                    onTap: () {
+                      Navigator.pop(context);
+                      launchUrl(
+                        Uri.parse('https://hotels.tulasierp.com'),
+                        mode: LaunchMode.externalApplication,
+                      );
+                    },
+                  ),
                   const Divider(height: 1),
                   // Settings
                   _DrawerNavItem(
