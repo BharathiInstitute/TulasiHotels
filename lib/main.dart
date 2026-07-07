@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:io' show Platform;
-import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
@@ -10,7 +9,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tulasihotels/app.dart';
-import 'package:tulasihotels/core/config/app_check_config.dart';
 import 'package:tulasihotels/core/services/analytics_service.dart';
 import 'package:tulasihotels/core/services/android_update_service.dart';
 import 'package:tulasihotels/core/services/app_health_service.dart';
@@ -109,19 +107,7 @@ Future<void> _initializeApp() async {
       if (!isWindows)
         _safeInit('FCM', NotificationService.setForegroundOptions),
 
-      // App Check
-      _safeInit('AppCheck', () async {
-        if (!isWindows && (!kIsWeb || AppCheckConfig.isWebConfigured)) {
-          await FirebaseAppCheck.instance.activate(
-            providerAndroid: kDebugMode
-                ? const AndroidDebugProvider()
-                : const AndroidPlayIntegrityProvider(),
-            providerWeb: AppCheckConfig.isWebConfigured
-                ? ReCaptchaEnterpriseProvider(AppCheckConfig.recaptchaSiteKey)
-                : null,
-          );
-        }
-      }),
+      // App Check disabled
 
       // Windows debug auth settings
       _safeInit('AuthSettings', () async {

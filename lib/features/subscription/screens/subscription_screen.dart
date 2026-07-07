@@ -284,7 +284,8 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
     final isWindows = !kIsWeb && defaultTargetPlatform == TargetPlatform.windows;
     if (kIsWeb || isWindows || defaultTargetPlatform == TargetPlatform.android ||
         defaultTargetPlatform == TargetPlatform.iOS) {
-      // Fetch phone from Firestore for prefill
+      // Fetch phone — try Firebase Auth first, then Firestore
+      // Note: ?? only skips null, not empty strings, so use explicit fallback
       String phone = user.phoneNumber ?? '';
       try {
         final doc = await FirebaseFirestore.instance
@@ -292,9 +293,13 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
             .doc(user.uid)
             .get();
         final data = doc.data();
-        phone = (data?['phone'] as String?) ??
-            (data?['phoneNumber'] as String?) ??
-            phone;
+        final stored =
+            ((data?['phone'] as String?) ?? '').trim().isNotEmpty
+                ? (data!['phone'] as String)
+                : ((data?['phoneNumber'] as String?) ?? '').trim().isNotEmpty
+                ? (data!['phoneNumber'] as String)
+                : phone;
+        if (stored.isNotEmpty) phone = stored;
       } catch (_) {}
       phone = phone.replaceAll(RegExp(r'[^0-9]'), '');
 
@@ -314,6 +319,8 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
       if (customToken != null) queryParams['token'] = customToken;
       if (email.isNotEmpty) queryParams['email'] = email;
       if (phone.isNotEmpty) queryParams['phone'] = phone;
+      final name = user.displayName ?? user.email?.split('@').first ?? '';
+      if (name.isNotEmpty) queryParams['name'] = name;
       final url = Uri(
         scheme: 'https',
         host: 'hotels.tulasierp.com',

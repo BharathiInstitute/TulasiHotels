@@ -527,6 +527,7 @@
     var userPhone = '';
     var paramEmail = '';
     var paramPhone = '';
+    var paramName = '';
     var pendingPlan = null;
     var isAnnual = false;
     var pendingOrder = null; // { orderId, plan, cycle } — for UPI fallback check
@@ -539,7 +540,9 @@
         db.collection('users').doc(user.uid).get().then(function(doc) {
           if (doc.exists) {
             var data = doc.data();
-            userPhone = data.phone || data.phoneNumber || data.contactNumber || '';
+            var fetchedPhone = data.phone || data.phoneNumber || data.contactNumber || '';
+            // Only override userPhone if we got a non-empty value from Firestore
+            if (fetchedPhone) userPhone = fetchedPhone;
           }
         }).catch(function() {});
       }
@@ -593,6 +596,7 @@
       var token = params.get('token');
       paramEmail = params.get('email') || '';
       paramPhone = params.get('phone') || '';
+      paramName = params.get('name') || '';
       if (paramPhone) userPhone = paramPhone;
 
       if (token) {
@@ -632,6 +636,13 @@
       document.getElementById('modal-forgot-view').style.display = 'none';
       document.getElementById('login-modal').style.display = 'flex';
       document.getElementById('login-error').style.display = 'none';
+      // Pre-fill email from URL params if available
+      if (paramEmail) {
+        var emailInput = document.getElementById('login-email');
+        if (emailInput && !emailInput.value) {
+          emailInput.value = paramEmail;
+        }
+      }
     }
     function closeLoginModal() {
       document.getElementById('login-modal').style.display = 'none';
@@ -789,12 +800,12 @@
         name: 'Tulasi Hotels',
         description: (plan === 'starter' ? 'Starter' : plan === 'pro' ? 'Pro' : 'Business') + ' Plan (' + (cycle === 'annual' ? 'Annual' : 'Monthly') + ')',
         prefill: {
-          email: (currentUser && currentUser.email) || paramEmail || 'user@tulasihotels.com',
+          name: (currentUser && currentUser.displayName) || paramName || '',
+          email: (currentUser && currentUser.email) || paramEmail || '',
           contact: phone,
-          name: (currentUser && currentUser.displayName) || '',
         },
-        // Pre-fill both email and phone — read-only so user sees them but can't edit
-        readonly: { email: 1, contact: 1 },
+        // Pre-fill name, email and phone — read-only so user sees them but can't edit
+        readonly: { name: 1, email: 1, contact: 1 },
         notes: {
           plan: plan,
           cycle: cycle,

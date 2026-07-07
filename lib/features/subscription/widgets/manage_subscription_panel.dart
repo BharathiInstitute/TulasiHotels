@@ -812,7 +812,10 @@ class _ManageSubscriptionPanelState
       setState(() => _isUpgrading = true);
       final user = FirebaseAuth.instance.currentUser;
       final email = user?.email ?? _userEmail ?? '';
-      final rawPhone = _userPhone ?? user?.phoneNumber ?? '';
+      // Use non-empty phone: Firebase Auth first, then stored _userPhone
+      final rawPhone = (user?.phoneNumber?.trim().isNotEmpty == true
+          ? user!.phoneNumber!
+          : (_userPhone?.trim().isNotEmpty == true ? _userPhone! : ''));
       final phone = rawPhone.replaceAll(RegExp(r'[^0-9]'), '');
 
       // Get a short-lived custom token so the pricing page auto-signs in
@@ -829,6 +832,8 @@ class _ManageSubscriptionPanelState
       if (customToken != null) queryParams['token'] = customToken;
       if (email.isNotEmpty) queryParams['email'] = email;
       if (phone.isNotEmpty) queryParams['phone'] = phone;
+      final name = user?.displayName ?? user?.email?.split('@').first ?? '';
+      if (name.isNotEmpty) queryParams['name'] = name;
       final url = Uri(
         scheme: 'https',
         host: 'hotels.tulasierp.com',

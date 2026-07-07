@@ -163,25 +163,31 @@ class _MyAttendanceBodyState extends ConsumerState<_MyAttendanceBody> {
 
           Row(
             children: [
-              _SummaryChip(
-                icon: Icons.calendar_today,
-                label: 'Days',
-                value: '$presentDays',
-                color: Colors.green,
+              Flexible(
+                child: _SummaryChip(
+                  icon: Icons.calendar_today,
+                  label: 'Days',
+                  value: '$presentDays',
+                  color: Colors.green,
+                ),
               ),
               const SizedBox(width: 8),
-              _SummaryChip(
-                icon: Icons.schedule,
-                label: 'Hours',
-                value: totalHours.toStringAsFixed(1),
-                color: Colors.blue,
+              Flexible(
+                child: _SummaryChip(
+                  icon: Icons.schedule,
+                  label: 'Hours',
+                  value: totalHours.toStringAsFixed(1),
+                  color: Colors.blue,
+                ),
               ),
               const SizedBox(width: 8),
-              _SummaryChip(
-                icon: Icons.receipt_long,
-                label: 'Records',
-                value: '${records.length}',
-                color: Colors.orange,
+              Flexible(
+                child: _SummaryChip(
+                  icon: Icons.receipt_long,
+                  label: 'Records',
+                  value: '${records.length}',
+                  color: Colors.orange,
+                ),
               ),
               const Spacer(),
               GestureDetector(

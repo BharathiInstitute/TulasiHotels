@@ -140,7 +140,6 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
           ),
         ),
       );
-      Future.delayed(const Duration(seconds: 3), ctrl.close);
       return;
     }
 
