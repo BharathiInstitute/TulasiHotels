@@ -805,10 +805,10 @@ class _ManageSubscriptionPanelState
       return;
     }
 
-    // On web or Windows, open the pricing page which uses Razorpay Checkout.js.
-    // The real-time Firestore listener will auto-update the UI after payment.
+    // On web, Windows, and Android: open pricing page in Chrome with auto sign-in.
     final isWindows = !kIsWeb && defaultTargetPlatform == TargetPlatform.windows;
-    if (kIsWeb || isWindows) {
+    if (kIsWeb || isWindows || defaultTargetPlatform == TargetPlatform.android ||
+        defaultTargetPlatform == TargetPlatform.iOS) {
       setState(() => _isUpgrading = true);
       final user = FirebaseAuth.instance.currentUser;
       final email = user?.email ?? _userEmail ?? '';

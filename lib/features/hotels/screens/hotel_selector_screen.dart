@@ -80,8 +80,10 @@ class _HotelSelectorScreenState extends ConsumerState<HotelSelectorScreen> {
                     radius: 22,
                     backgroundColor: theme.colorScheme.primaryContainer,
                     child: Text(
-                      (user?.displayName ?? user?.email ?? 'U')[0]
-                          .toUpperCase(),
+                      (() {
+                        final s = user?.displayName ?? user?.email ?? '';
+                        return s.isNotEmpty ? s[0].toUpperCase() : 'U';
+                      })(),
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,

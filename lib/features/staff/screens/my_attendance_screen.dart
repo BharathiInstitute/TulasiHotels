@@ -82,6 +82,14 @@ class _MyAttendanceBody extends ConsumerStatefulWidget {
 }
 
 class _MyAttendanceBodyState extends ConsumerState<_MyAttendanceBody> {
+  final _scrollController = ScrollController();
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     final range = ref.watch(_myAttendanceRangeProvider);
@@ -124,7 +132,7 @@ class _MyAttendanceBodyState extends ConsumerState<_MyAttendanceBody> {
         .toSet()
         .length;
 
-    final scrollController = ScrollController();
+    final scrollController = _scrollController;
     return Scrollbar(
       controller: scrollController,
       thumbVisibility: true,

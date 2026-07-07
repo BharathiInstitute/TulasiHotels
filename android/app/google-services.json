@@ -34,7 +34,7 @@
               "client_id": "883551466761-fn2nqoibtchckr3fokt70hag0lq3c5vk.apps.googleusercontent.com",
               "client_type": 2,
               "ios_info": {
-                "bundle_id": "com.example.tulasihotels"
+                "bundle_id": "com.example.retaillite"
               }
             }
           ]
@@ -49,6 +49,14 @@
         }
       },
       "oauth_client": [
+        {
+          "client_id": "883551466761-c3pn56r5sm9ojq865ipkadmcv29qs37r.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "in.liteapp.tulasihotels",
+            "certificate_hash": "636dcda365f8fa6eae1114806ddd333e3e3f0f3c"
+          }
+        },
         {
           "client_id": "883551466761-9s896hmfvmilcj85v70a90jhea1j8g90.apps.googleusercontent.com",
           "client_type": 3
@@ -70,7 +78,7 @@
               "client_id": "883551466761-fn2nqoibtchckr3fokt70hag0lq3c5vk.apps.googleusercontent.com",
               "client_type": 2,
               "ios_info": {
-                "bundle_id": "com.example.tulasihotels"
+                "bundle_id": "com.example.retaillite"
               }
             }
           ]

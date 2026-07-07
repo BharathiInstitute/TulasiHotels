@@ -280,9 +280,10 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
       return;
     }
 
-    // Web and Windows: open pricing page in browser with auto sign-in
+    // Web, Windows, and Android: open pricing page in browser with auto sign-in
     final isWindows = !kIsWeb && defaultTargetPlatform == TargetPlatform.windows;
-    if (kIsWeb || isWindows) {
+    if (kIsWeb || isWindows || defaultTargetPlatform == TargetPlatform.android ||
+        defaultTargetPlatform == TargetPlatform.iOS) {
       // Fetch phone from Firestore for prefill
       String phone = user.phoneNumber ?? '';
       try {
@@ -320,10 +321,11 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
         queryParameters: queryParams,
       );
       await launchUrl(url, mode: LaunchMode.externalApplication);
+      if (mounted) setState(() => _isLoading = false);
       return;
     }
 
-    // Mobile: check phone verification before native Razorpay
+    // Other platforms: native Razorpay SDK fallback
     final phoneVerified = await _isPhoneVerified();
     if (!phoneVerified) {
       if (mounted) {

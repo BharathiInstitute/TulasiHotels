@@ -835,7 +835,7 @@ class _AppShellState extends ConsumerState<AppShell> {
         .toList();
 
     final items = popularIndices.map((i) => allItems[i]!).toList();
-    // Add "More" as the 5th item
+    // Add "More" as the last item
     items.add(
       const BottomNavigationBarItem(
         icon: Icon(Icons.more_horiz_outlined),
@@ -844,11 +844,20 @@ class _AppShellState extends ConsumerState<AppShell> {
       ),
     );
 
+    // BottomNavigationBar requires at least 2 items — pad with a hidden
+    // placeholder while visible indices are still loading (empty list)
+    while (items.length < 2) {
+      items.insert(0, const BottomNavigationBarItem(
+        icon: SizedBox.shrink(),
+        label: '',
+      ));
+    }
+
     // Check if the current page is one of the popular ones
     final filteredSelectedIndex = popularIndices.indexOf(selectedIndex);
     // If current page is not in bottom nav, don't highlight any (show More as active)
     final clampedIndex = filteredSelectedIndex >= 0
-        ? filteredSelectedIndex
+        ? filteredSelectedIndex + (items.length - popularIndices.length - 1)
         : items.length - 1; // "More" index
 
     return Container(

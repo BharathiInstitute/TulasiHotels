@@ -79,17 +79,42 @@ class PhoneAuthNotifier extends StateNotifier<PhoneAuthState> {
       phoneNumber: formattedPhone,
     );
 
+    // Safety timeout — if Firebase never calls callbacks, unblock the UI
+    bool callbackCalled = false;
+    Future.delayed(const Duration(seconds: 30), () {
+      if (!callbackCalled && state.status == PhoneAuthStatus.sending) {
+        debugPrint('📱 Phone auth timeout — no callback after 30s');
+        state = state.copyWith(
+          status: PhoneAuthStatus.error,
+          error: 'OTP timed out. Please check your phone number and try again.',
+        );
+      }
+    });
+
     try {
       await _auth.verifyPhoneNumber(
         phoneNumber: formattedPhone,
         timeout: const Duration(seconds: 60),
         forceResendingToken: previousResendToken,
-        verificationCompleted: _onVerificationCompleted,
-        verificationFailed: _onVerificationFailed,
-        codeSent: _onCodeSent,
-        codeAutoRetrievalTimeout: _onAutoRetrievalTimeout,
+        verificationCompleted: (c) {
+          callbackCalled = true;
+          _onVerificationCompleted(c);
+        },
+        verificationFailed: (e) {
+          callbackCalled = true;
+          _onVerificationFailed(e);
+        },
+        codeSent: (id, token) {
+          callbackCalled = true;
+          _onCodeSent(id, token);
+        },
+        codeAutoRetrievalTimeout: (id) {
+          callbackCalled = true;
+          _onAutoRetrievalTimeout(id);
+        },
       );
     } catch (e) {
+      callbackCalled = true;
       debugPrint('📱 Phone auth error: $e');
       state = state.copyWith(
         status: PhoneAuthStatus.error,
