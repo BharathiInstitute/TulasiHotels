@@ -163,7 +163,7 @@ class _MyAttendanceBodyState extends ConsumerState<_MyAttendanceBody> {
 
           Row(
             children: [
-              Flexible(
+              Expanded(
                 child: _SummaryChip(
                   icon: Icons.calendar_today,
                   label: 'Days',
@@ -172,7 +172,7 @@ class _MyAttendanceBodyState extends ConsumerState<_MyAttendanceBody> {
                 ),
               ),
               const SizedBox(width: 8),
-              Flexible(
+              Expanded(
                 child: _SummaryChip(
                   icon: Icons.schedule,
                   label: 'Hours',
@@ -181,7 +181,7 @@ class _MyAttendanceBodyState extends ConsumerState<_MyAttendanceBody> {
                 ),
               ),
               const SizedBox(width: 8),
-              Flexible(
+              Expanded(
                 child: _SummaryChip(
                   icon: Icons.receipt_long,
                   label: 'Records',
@@ -491,22 +491,28 @@ class _SummaryChip extends StatelessWidget {
         border: Border.all(color: color.withValues(alpha: 0.2)),
       ),
       child: Row(
-        mainAxisSize: MainAxisSize.min,
+        mainAxisSize: MainAxisSize.max,
         children: [
           Icon(icon, size: 14, color: color),
           const SizedBox(width: 5),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w700,
-              color: color,
+          Flexible(
+            child: Text(
+              value,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                color: color,
+              ),
+              overflow: TextOverflow.ellipsis,
             ),
           ),
           const SizedBox(width: 4),
-          Text(
-            label,
-            style: TextStyle(fontSize: 10, color: color.withValues(alpha: 0.8)),
+          Flexible(
+            child: Text(
+              label,
+              style: TextStyle(fontSize: 10, color: color.withValues(alpha: 0.8)),
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
         ],
       ),

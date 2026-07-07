@@ -765,13 +765,19 @@ service cloud.firestore {
     
     // ===================
     // REFERRAL REWARDS (created by Cloud Functions)
-    // Users can read rewards where they are the referrer (for count display)
     // ===================
     match /referral_rewards/{rewardId} {
       allow read: if isAuthenticated() && resource.data.referrerId == request.auth.uid;
       allow write: if false;
     }
-    
+
+    // ===================
+    // NPS SURVEYS (user satisfaction surveys)
+    // ===================
+    match /users/{userId}/surveys/{surveyId} {
+      allow read, write: if isAuthenticated() && isOwner(userId);
+    }
+
     // Deny all other access by default
     match /{document=**} {
       allow read, write: if false;

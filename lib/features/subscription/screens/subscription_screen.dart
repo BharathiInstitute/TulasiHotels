@@ -304,6 +304,7 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
       phone = phone.replaceAll(RegExp(r'[^0-9]'), '');
 
       final email = user.email ?? '';
+      final name = user.displayName ?? user.email?.split('@').first ?? '';
 
       // Get custom token for auto sign-in on the pricing page
       String? customToken;
@@ -319,7 +320,6 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
       if (customToken != null) queryParams['token'] = customToken;
       if (email.isNotEmpty) queryParams['email'] = email;
       if (phone.isNotEmpty) queryParams['phone'] = phone;
-      final name = user.displayName ?? user.email?.split('@').first ?? '';
       if (name.isNotEmpty) queryParams['name'] = name;
       final url = Uri(
         scheme: 'https',
