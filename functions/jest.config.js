@@ -8,7 +8,7 @@ module.exports = {
   testPathIgnorePatterns: ["/node_modules/", "rules\\.test\\.ts$"],
   moduleFileExtensions: ["ts", "js", "json"],
   transform: {
-    "^.+\\.ts$": "ts-jest",
+    "^.+\\.ts$": ["ts-jest", { tsconfig: "tsconfig.test.json" }],
   },
   // Increase timeout for Firebase operations
   testTimeout: 10000,

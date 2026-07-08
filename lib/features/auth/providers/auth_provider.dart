@@ -1663,6 +1663,36 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
           .doc(user.uid)
           .set(data, SetOptions(merge: true));
 
+      // Sync hotel name — create the default entry if it doesn't exist yet,
+      // or update it if it does. This prevents the hotel selector from creating
+      // a duplicate ghost entry on next load.
+      try {
+        final hotelRef = _firestore
+            .collection('user_hotels/${user.uid}/hotels')
+            .doc(user.uid);
+        final hotelDoc = await hotelRef.get();
+        final slug = shopName.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '-');
+        if (hotelDoc.exists) {
+          await hotelRef.update({'name': shopName, 'slug': slug});
+        } else {
+          // Only create if user has NO hotels at all (prevent duplicate)
+          final anyHotels = await _firestore
+              .collection('user_hotels/${user.uid}/hotels')
+              .limit(1)
+              .get();
+          if (anyHotels.docs.isEmpty) {
+            await hotelRef.set({
+              'id': user.uid,
+              'name': shopName,
+              'slug': slug,
+              'role': 'owner',
+              'status': 'active',
+              'createdAt': FieldValue.serverTimestamp(),
+            });
+          }
+        }
+      } catch (_) {}
+
       // Generate referral code for this new user (idempotent — skips if exists)
       unawaited(ReferralService.getOrCreateCode());
 
@@ -1721,6 +1751,10 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
     final user = _auth.currentUser;
     if (user == null) return false;
 
+    // Determine which store doc to update: the currently selected restaurant,
+    // falling back to the owner's own doc (uid) for single-restaurant users.
+    final activeStoreId = ActiveStoreManager.storeId ?? user.uid;
+
     try {
       final updates = <String, dynamic>{};
       if (shopName != null) updates['shopName'] = shopName;
@@ -1741,8 +1775,32 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
 
       if (updates.isEmpty) return true;
 
-      // Use update() for dot-notation nested keys (e.g. settings.receiptFooter)
-      await _firestore.collection('users').doc(user.uid).update(updates);
+      // Update the active store doc (could be uid for default, or a different id
+      // for a multi-restaurant setup).
+      await _firestore.collection('users').doc(activeStoreId).update(updates);
+
+      // Sync restaurant name in user_hotels — target the SELECTED restaurant,
+      // not always the default uid entry. This prevents creating/updating the
+      // wrong entry and avoids duplicate restaurant appearance.
+      if (shopName != null && shopName.isNotEmpty) {
+        try {
+          final hotelDoc = await _firestore
+              .collection('user_hotels/${user.uid}/hotels')
+              .doc(activeStoreId)
+              .get();
+          if (hotelDoc.exists) {
+            await _firestore
+                .collection('user_hotels/${user.uid}/hotels')
+                .doc(activeStoreId)
+                .update({
+              'name': shopName,
+              'slug': shopName.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '-'),
+            });
+          }
+          // Do NOT create a new entry if it doesn't exist — that would cause
+          // the duplicate restaurant bug. Only update existing entries.
+        } catch (_) {}
+      }
 
       // Update in-memory PaymentLinkService so reminders use new UPI ID immediately
       if (upiId != null && upiId.isNotEmpty) {

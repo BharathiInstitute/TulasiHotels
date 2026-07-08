@@ -29,7 +29,6 @@ class HardwareSettingsScreen extends ConsumerStatefulWidget {
 
 class _HardwareSettingsScreenState
     extends ConsumerState<HardwareSettingsScreen> {
-  bool _offlineMode = true;
   bool _voiceInput = false;
   bool _isScanning = false;
   List<PrinterDevice> _scannedDevices = [];
@@ -465,12 +464,13 @@ class _HardwareSettingsScreenState
           Card(
             child: Column(
               children: [
-                SwitchListTile(
-                  secondary: const Icon(Icons.wifi_off),
-                  title: const Text('Offline Mode'),
-                  subtitle: const Text('Continue billing when offline'),
-                  value: _offlineMode,
-                  onChanged: (v) => setState(() => _offlineMode = v),
+                ListTile(
+                  leading: const Icon(Icons.wifi_off, color: Colors.green),
+                  title: const Text('Offline Billing'),
+                  subtitle: const Text(
+                    'Always enabled — bills are saved locally and sync automatically when back online.',
+                  ),
+                  trailing: const Icon(Icons.check_circle, color: Colors.green),
                 ),
                 const Divider(height: 1),
                 SwitchListTile(

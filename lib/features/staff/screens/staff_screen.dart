@@ -11,7 +11,6 @@ import 'package:tulasihotels/features/admin/providers/members_provider.dart';
 import 'package:tulasihotels/features/hotels/providers/hotel_provider.dart';
 import 'package:tulasihotels/features/staff/providers/staff_provider.dart';
 import 'package:tulasihotels/features/staff/screens/permission_manager_screen.dart';
-import 'package:tulasihotels/features/staff/screens/staff_attendance_correction_view.dart';
 import 'package:tulasihotels/features/staff/services/salary_service.dart';
 import 'package:tulasihotels/features/staff/services/staff_service.dart';
 import 'package:tulasihotels/models/staff_model.dart';
@@ -185,24 +184,22 @@ class StaffScreen extends ConsumerWidget {
                       ...staff.map(
                         (member) => _StaffCard(
                           staff: member,
-                          onAttendance: () => Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => StaffAttendanceCorrectionView(
-                                staffId: member.id,
-                                staffName: member.name,
-                                staffEmail: member.email,
-                                staffRole: member.role.displayName,
-                              ),
-                            ),
+                          onAttendance: () => context.push(
+                            AppRoutes.staffAttendanceDetail,
+                            extra: {
+                              'staffId': member.id,
+                              'staffName': member.name,
+                              'staffEmail': member.email,
+                              'staffRole': member.role.displayName,
+                            },
                           ),
                           onShiftTiming: () => context.push(AppRoutes.shifts),
-                          onPayroll: () => Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => StaffPayrollScreen(
-                                staffId: member.id,
-                                staffName: member.name,
-                              ),
-                            ),
+                          onPayroll: () => context.push(
+                            AppRoutes.staffPayrollDetail,
+                            extra: {
+                              'staffId': member.id,
+                              'staffName': member.name,
+                            },
                           ),
                           onCashRegister: () =>
                               context.push(AppRoutes.cashRegister),
@@ -252,7 +249,10 @@ class StaffScreen extends ConsumerWidget {
               await StaffService.deleteStaff(staff.id);
               if (context.mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('${staff.name} deleted')),
+                  SnackBar(
+                    content: Text('${staff.name} deleted'),
+                    duration: const Duration(seconds: 2),
+                  ),
                 );
               }
             },
@@ -699,15 +699,14 @@ class _MemberCard extends StatelessWidget {
                   icon: Icons.fact_check_outlined,
                   label: 'Attendance',
                   color: Colors.blue,
-                  onTap: () => Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => StaffAttendanceCorrectionView(
-                        staffId: member.uid,
-                        staffName: member.displayName,
-                        staffEmail: member.email,
-                        staffRole: roleLabel,
-                      ),
-                    ),
+                  onTap: () => context.push(
+                    AppRoutes.staffAttendanceDetail,
+                    extra: {
+                      'staffId': member.uid,
+                      'staffName': member.displayName,
+                      'staffEmail': member.email,
+                      'staffRole': roleLabel,
+                    },
                   ),
                 ),
                 _ActionBtn(
@@ -720,13 +719,12 @@ class _MemberCard extends StatelessWidget {
                   icon: Icons.account_balance_wallet_outlined,
                   label: 'Payroll',
                   color: Colors.green,
-                  onTap: () => Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => StaffPayrollScreen(
-                        staffId: member.uid,
-                        staffName: member.displayName,
-                      ),
-                    ),
+                  onTap: () => context.push(
+                    AppRoutes.staffPayrollDetail,
+                    extra: {
+                      'staffId': member.uid,
+                      'staffName': member.displayName,
+                    },
                   ),
                 ),
                 _ActionBtn(

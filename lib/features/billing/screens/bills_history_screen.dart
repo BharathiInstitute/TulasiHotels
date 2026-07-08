@@ -83,14 +83,6 @@ class BillsHistoryScreen extends ConsumerWidget {
                   ),
                   const SizedBox(width: 16),
 
-                  // Export CSV Button
-                  OutlinedButton.icon(
-                    onPressed: () => _showExportDialog(context),
-                    icon: const Icon(Icons.file_download_outlined, size: 18),
-                    label: const Text('Export CSV'),
-                  ),
-                  const SizedBox(width: 12),
-
                   // Print Report Button
                   OutlinedButton.icon(
                     onPressed: () {

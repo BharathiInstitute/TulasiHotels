@@ -1,6 +1,9 @@
 ﻿/// Hotel selector screen â€” shown after login to pick or create a hotel
 library;
 
+import 'dart:async';
+
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -98,7 +101,7 @@ class _HotelSelectorScreenState extends ConsumerState<HotelSelectorScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          isOwner ? 'My Hotels' : 'Accessible Hotels',
+                          isOwner ? 'My Restaurants' : 'Accessible Restaurants',
                           style: theme.textTheme.titleLarge?.copyWith(
                             fontWeight: FontWeight.bold,
                           ),
@@ -112,14 +115,44 @@ class _HotelSelectorScreenState extends ConsumerState<HotelSelectorScreen> {
                       ],
                     ),
                   ),
-                  // Create Hotel button — owners only
+                  // Create Hotel + Delete Hotel buttons — owners only
                   if (isOwner) ...[
                     FilledButton.icon(
                       icon: const Icon(Icons.hotel, size: 18),
-                      label: const Text('Create Hotel'),
+                      label: const Text('Create Restaurant'),
                       onPressed: () => _showCreateHotelDialog(context),
                     ),
                     const SizedBox(width: 8),
+                    // Delete Hotel — shown only when user has 2+ hotels
+                    hotelsAsync.whenOrNull(
+                      data: (hotels) {
+                        final ownedHotels =
+                            hotels.where((h) => h.isOwner).toList();
+                        if (ownedHotels.length < 2) return const SizedBox.shrink();
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: OutlinedButton.icon(
+                            icon: Icon(
+                              Icons.delete_outline,
+                              size: 18,
+                              color: theme.colorScheme.error,
+                            ),
+                            label: Text(
+                              'Delete Restaurant',
+                              style:
+                                  TextStyle(color: theme.colorScheme.error),
+                            ),
+                            style: OutlinedButton.styleFrom(
+                              side: BorderSide(
+                                  color: theme.colorScheme.error),
+                            ),
+                            onPressed: () => _showDeleteHotelDialog(
+                                context, ownedHotels),
+                          ),
+                        );
+                      },
+                    ) ??
+                        const SizedBox.shrink(),
                   ],
                   // Logout button
                   OutlinedButton.icon(
@@ -142,8 +175,8 @@ class _HotelSelectorScreenState extends ConsumerState<HotelSelectorScreen> {
                 alignment: Alignment.centerLeft,
                 child: Text(
                   isOwner
-                      ? 'Select a hotel to manage or create a new one'
-                      : 'Hotels you have been given access to',
+                      ? 'Select a restaurant to manage or create a new one'
+                      : 'Restaurants you have been given access to',
                   style: theme.textTheme.bodyMedium?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
@@ -174,13 +207,13 @@ class _HotelSelectorScreenState extends ConsumerState<HotelSelectorScreen> {
                                 ),
                                 const SizedBox(height: 16),
                                 Text(
-                                  'No hotels yet',
+                                  'No restaurants yet',
                                   style: theme.textTheme.titleMedium,
                                 ),
                                 const SizedBox(height: 24),
                                 FilledButton.icon(
                                   icon: const Icon(Icons.add),
-                                  label: const Text('Create Your First Hotel'),
+                                  label: const Text('Create Your First Restaurant'),
                                   onPressed: () =>
                                       _showCreateHotelDialog(context),
                                 ),
@@ -210,19 +243,111 @@ class _HotelSelectorScreenState extends ConsumerState<HotelSelectorScreen> {
     );
   }
 
+  Future<void> _showDeleteHotelDialog(
+      BuildContext context, List<HotelInfo> hotels) async {
+    HotelInfo? selected = hotels.first;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          title: const Text('Delete Restaurant'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Select the restaurant to permanently delete:'),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<HotelInfo>(
+                value: selected,
+                decoration: const InputDecoration(
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.hotel_outlined),
+                  contentPadding:
+                      EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                ),
+                items: hotels
+                    .map(
+                      (h) => DropdownMenuItem(
+                        value: h,
+                        child: Text(h.name),
+                      ),
+                    )
+                    .toList(),
+                onChanged: (h) => setDialogState(() => selected = h),
+              ),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.red.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.red.shade200),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.warning_amber_rounded,
+                        color: Colors.red.shade700, size: 18),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'This cannot be undone. All data for this hotel will be permanently removed.',
+                        style: TextStyle(
+                            color: Colors.red.shade700, fontSize: 12),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              style: FilledButton.styleFrom(
+                  backgroundColor: Colors.red.shade600),
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Delete'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (confirmed == true && selected != null && context.mounted) {
+      final hotelName = selected!.name;
+      try {
+        await HotelService.deleteHotel(selected!.id);
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('"$hotelName" deleted')),
+          );
+        }
+      } catch (e) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error: $e')),
+          );
+        }
+      }
+    }
+  }
+
   Future<void> _showCreateHotelDialog(BuildContext context) async {
     final nameController = TextEditingController();
     final result = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Create Hotel'),
+        title: const Text('Create Restaurant'),
         content: TextField(
           controller: nameController,
           autofocus: true,
           decoration: const InputDecoration(
-            labelText: 'Hotel Name',
+            labelText: 'Restaurant Name',
             hintText: 'e.g. Grand Palace',
-            prefixIcon: Icon(Icons.hotel_outlined),
+            prefixIcon: Icon(Icons.restaurant_outlined),
           ),
         ),
         actions: [
@@ -265,12 +390,65 @@ class _HotelSelectorScreenState extends ConsumerState<HotelSelectorScreen> {
     ActiveStoreManager.setActiveStore(hotel.id);
     OfflineStorageService.prefs?.setString('last_hotel_id', hotel.id);
 
+    // Pre-warm Firestore offline cache in the background so products,
+    // customers, and menu items are available when the device goes offline.
+    _prewarmOfflineCache(hotel.id);
+    unawaited(_syncPlanLimits(hotel.id));
+
     // Determine starting route based on member permissions.
     // Read the member doc synchronously (may be null on first load — router
     // redirect will correct the route once the stream resolves).
     final member = ref.read(currentMemberProvider).valueOrNull;
     final home = MemberPermissionGuard.homeRoute(member);
     context.go(home);
+  }
+
+  /// Ensures Firestore limits (tablesLimit, staffLimit, etc.) match the
+  /// current plan. Runs once per hotel open — fixes stale free-plan values
+  /// that cause Cloud Functions to incorrectly delete newly created items.
+  Future<void> _syncPlanLimits(String hotelId) async {
+    try {
+      final fs = FirebaseFirestore.instance;
+      final doc = await fs.collection('users').doc(hotelId).get();
+      if (!doc.exists) return;
+      final data = doc.data()!;
+      final sub = data['subscription'] as Map<String, dynamic>? ?? {};
+      final limits = data['limits'] as Map<String, dynamic>? ?? {};
+      final plan = (sub['plan'] as String?) ?? 'free';
+      final tablesDefault = plan == 'business' ? 999999 : plan == 'pro' ? 50 : plan == 'starter' ? 15 : 5;
+      final staffDefault  = plan == 'business' ? 999999 : plan == 'pro' ? 10 : plan == 'starter' ? 3  : 0;
+      final productsDefault = plan == 'business' ? 999999 : plan == 'pro' ? 999999 : plan == 'starter' ? 200 : 50;
+      final customersDefault = plan == 'business' ? 999999 : plan == 'pro' ? 999999 : plan == 'starter' ? 100 : 10;
+      final updates = <String, dynamic>{};
+      if ((limits['tablesLimit']  as int? ?? 0) < tablesDefault)   updates['limits.tablesLimit']   = tablesDefault;
+      if ((limits['staffLimit']   as int? ?? 0) < staffDefault)    updates['limits.staffLimit']    = staffDefault;
+      if ((limits['productsLimit'] as int? ?? 0) < productsDefault) updates['limits.productsLimit'] = productsDefault;
+      if ((limits['customersLimit'] as int? ?? 0) < customersDefault) updates['limits.customersLimit'] = customersDefault;
+      if (updates.isNotEmpty) {
+        await fs.collection('users').doc(hotelId).update(updates);
+        debugPrint('✅ Plan limits synced for $hotelId: $updates');
+      }
+    } catch (e) {
+      debugPrint('⚠️ _syncPlanLimits error: $e');
+    }
+  }
+
+  /// Triggers background Firestore reads so collections are cached locally.
+  /// Runs fire-and-forget — never blocks navigation.
+  void _prewarmOfflineCache(String hotelId) {
+    final fs = FirebaseFirestore.instance;
+    final base = 'users/$hotelId';
+    // All collections needed across every panel
+    unawaited(fs.collection('$base/products').limit(500).get());
+    unawaited(fs.collection('$base/customers').limit(500).get());
+    unawaited(fs.collection('$base/bills').orderBy('createdAt', descending: true).limit(200).get());
+    unawaited(fs.collection('$base/expenses').limit(100).get());
+    unawaited(fs.collection('$base/tables').get());
+    unawaited(fs.collection('$base/members').get());
+    unawaited(fs.collection('$base/staff').get());
+    unawaited(fs.doc('$base/counters/billing').get());
+    unawaited(fs.doc(base).get()); // user/shop doc (limits, subscription)
+    debugPrint('📦 Offline cache pre-warm started for hotel $hotelId');
   }
 
   Future<void> _logout(BuildContext context) async {

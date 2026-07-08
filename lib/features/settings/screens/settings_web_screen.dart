@@ -26,7 +26,6 @@ import 'package:tulasihotels/core/services/sync_settings_service.dart';
 import 'package:tulasihotels/core/services/image_service.dart';
 import 'package:tulasihotels/core/design/design_system.dart';
 import 'package:tulasihotels/core/services/privacy_consent_service.dart';
-import 'package:tulasihotels/core/services/user_metrics_service.dart';
 import 'package:tulasihotels/core/services/payment_link_service.dart';
 import 'package:tulasihotels/features/referral/services/referral_service.dart';
 import 'package:tulasihotels/features/settings/screens/attendance_settings_screen.dart';
@@ -80,8 +79,6 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
 
   String _referralCode = '';
   int _referralCount = 0;
-  UserSubscription _subscription = UserSubscription();
-  UserLimits _limits = UserLimits();
   StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _limitsSub;
 
   @override
@@ -143,15 +140,6 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
         .snapshots()
         .listen((doc) {
       if (!doc.exists || !mounted) return;
-      final data = doc.data()!;
-      setState(() {
-        _subscription = UserSubscription.fromMap(
-          data['subscription'] as Map<String, dynamic>?,
-        );
-        _limits = UserLimits.fromMap(
-          data['limits'] as Map<String, dynamic>?,
-        );
-      });
     }, onError: (_) {});
   }
 
@@ -1814,46 +1802,6 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
         ),
       ),
     ];
-
-    // Subscription
-    leftChildren.add(const SizedBox(height: 20));
-    leftChildren.add(
-      _SectionCard(
-        icon: Icons.workspace_premium,
-        iconColor: AppColors.primary,
-        title: 'Subscription',
-        child: ListTile(
-          contentPadding: EdgeInsets.zero,
-          leading: CircleAvatar(
-            backgroundColor: AppColors.primary.withValues(alpha: 0.12),
-            child: Icon(Icons.workspace_premium, color: AppColors.primary),
-          ),
-          title: Text(
-            '${_subscription.plan.name[0].toUpperCase()}${_subscription.plan.name.substring(1)} Plan',
-            style: const TextStyle(fontWeight: FontWeight.w600),
-          ),
-          subtitle: Text(
-            _limits.billsThisMonth < _limits.billsLimit
-                ? '${_limits.billsThisMonth} / ${_limits.billsLimit == 999999 ? "\u221e" : _limits.billsLimit} bills used this month'
-                : '\u26a0\ufe0f Bill limit reached — upgrade to continue',
-            style: TextStyle(
-              color: _limits.billsThisMonth >= _limits.billsLimit
-                  ? AppColors.error
-                  : null,
-            ),
-          ),
-          trailing: _subscription.plan == SubscriptionPlan.free
-              ? FilledButton(
-                  onPressed: () => context.push(AppRoutes.subscription),
-                  child: const Text('Upgrade'),
-                )
-              : TextButton(
-                  onPressed: () => context.go('/settings/subscription'),
-                  child: const Text('Manage'),
-                ),
-        ),
-      ),
-    );
 
     // Invite Friends (Referral)
     leftChildren.add(const SizedBox(height: 20));

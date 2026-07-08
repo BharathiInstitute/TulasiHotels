@@ -4,6 +4,7 @@ library;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
+import 'package:tulasihotels/core/services/active_store_manager.dart';
 import 'package:tulasihotels/features/hotels/models/hotel_info.dart';
 import 'package:tulasihotels/features/subscription/models/plan_config.dart';
 
@@ -58,14 +59,38 @@ class HotelService {
     if (userId == null) return;
 
     final doc = await _hotelsRef.doc(userId).get();
-    if (doc.exists) return; // Already registered
+    if (doc.exists) {
+      // Sync name only if the currently active store IS the default (uid-based).
+      // If the user is inside a different restaurant, don't overwrite the
+      // default entry's name with potentially stale account-level shopName.
+      final activeStore = ActiveStoreManager.storeId;
+      if (activeStore == null || activeStore == userId) {
+        final userDoc = await _firestore.collection('users').doc(userId).get();
+        final shopName = (userDoc.data()?['shopName'] as String?) ?? '';
+        if (shopName.isNotEmpty && doc.data()?['name'] != shopName) {
+          await _hotelsRef.doc(userId).update({
+            'name': shopName,
+            'slug': _generateSlug(shopName),
+          });
+        }
+      }
+      return;
+    }
+
+    // Don't create a duplicate — if the user already has any hotels, skip
+    final anyHotels = await _hotelsRef.limit(1).get();
+    if (anyHotels.docs.isNotEmpty) return;
 
     // Read the user's existing store doc
     final userDoc = await _firestore.collection('users').doc(userId).get();
     if (!userDoc.exists) return;
 
     final userData = userDoc.data() ?? {};
-    final shopName = (userData['shopName'] as String?) ?? 'My Hotel';
+    final shopName = (userData['shopName'] as String?) ?? '';
+
+    // Don't create a nameless ghost hotel — wait until the user has named
+    // their restaurant (via shop setup or settings).
+    if (shopName.isEmpty) return;
 
     // Register existing store as the default hotel
     final hotel = HotelInfo(
@@ -200,6 +225,23 @@ class HotelService {
   /// Archive a hotel (soft delete)
   static Future<void> archiveHotel(String hotelId) async {
     await _hotelsRef.doc(hotelId).update({'status': HotelStatus.archived.name});
+  }
+
+  /// Delete a hotel — removes the user_hotels entry and marks the store as
+  /// deleted so it no longer appears in the selector.
+  static Future<void> deleteHotel(String hotelId) async {
+    final userId = _userId;
+    if (userId == null) return;
+    // Remove from user's hotel list
+    await _hotelsRef.doc(hotelId).delete();
+    // Mark the store document as deleted (non-destructive to subcollections)
+    try {
+      await _firestore.collection('users').doc(hotelId).update({
+        'deleted': true,
+        'deletedAt': FieldValue.serverTimestamp(),
+        'deletedBy': userId,
+      });
+    } catch (_) {} // Store doc may not exist for staff-only entries
   }
 
   /// Remove user_hotels entries where the user has no valid member doc.

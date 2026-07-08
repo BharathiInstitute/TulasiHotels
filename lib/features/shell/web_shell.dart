@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart';
+﻿import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:tulasihotels/core/constants/app_constants.dart';
 import 'package:tulasihotels/features/notifications/providers/notification_provider.dart';
@@ -15,6 +15,8 @@ import 'package:tulasihotels/features/staff/services/staff_permissions.dart';
 import 'package:tulasihotels/features/admin/providers/current_member_provider.dart';
 import 'package:tulasihotels/features/admin/services/member_permission_guard.dart';
 import 'package:tulasihotels/features/hotels/providers/hotel_provider.dart';
+import 'package:tulasihotels/features/subscription/models/plan_config.dart';
+import 'package:tulasihotels/features/subscription/providers/subscription_provider.dart';
 import 'package:tulasihotels/router/app_router.dart';
 import 'package:tulasihotels/shared/widgets/shop_logo_widget.dart';
 import 'package:tulasihotels/shared/widgets/web_safe_image.dart';
@@ -288,6 +290,38 @@ class _WebSidebar extends ConsumerWidget {
                           );
                         }
 
+                        // Plan-gated route item — shows lock badge on Free plan
+                        final planConfig = ref.watch(planConfigProvider);
+                        Widget? routeItemGated(
+                          IconData icon,
+                          String label,
+                          String route,
+                          PlanFeature feature,
+                        ) {
+                          if (!StaffPermissions.canViewRoute(staff, route)) return null;
+                          if (staff == null && !isOwner && member != null &&
+                              !MemberPermissionGuard.canAccess(member, route)) return null;
+                          final hasFeature = planConfig.has(feature);
+                          if (hasFeature) {
+                            return _SidebarRouteItem(
+                              icon: icon,
+                              label: label,
+                              route: route,
+                              currentPath: currentPath,
+                              isCollapsed: isCollapsed,
+                            );
+                          }
+                          // Show locked item — tapping navigates to subscription page
+                          return _SidebarRouteItem(
+                            icon: icon,
+                            label: label,
+                            route: AppRoutes.subscription,
+                            currentPath: currentPath,
+                            isCollapsed: isCollapsed,
+                            lockBadge: true,
+                          );
+                        }
+
                         // Build sections, omit empty ones
                         final menuItems = [
                           routeItem(
@@ -319,10 +353,11 @@ class _WebSidebar extends ConsumerWidget {
                           ),
                         ].whereType<Widget>().toList();
                         final hospitalityItems = [
-                          routeItem(
+                          routeItemGated(
                             Icons.event_seat,
                             'Reservations',
                             AppRoutes.reservations,
+                            PlanFeature.reservations,
                           ),
                           routeItem(
                             Icons.local_offer,
@@ -829,6 +864,7 @@ class _SidebarItem extends StatelessWidget {
   final String label;
   final bool isSelected;
   final bool isCollapsed;
+  final bool lockBadge;
   final VoidCallback onTap;
 
   const _SidebarItem({
@@ -836,6 +872,7 @@ class _SidebarItem extends StatelessWidget {
     required this.label,
     required this.isSelected,
     this.isCollapsed = false,
+    this.lockBadge = false,
     required this.onTap,
   });
 
@@ -893,18 +930,26 @@ class _SidebarItem extends StatelessWidget {
                             : Theme.of(context).colorScheme.onSurfaceVariant,
                       ),
                       const SizedBox(width: 12),
-                      Text(
-                        label,
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: isSelected
-                              ? FontWeight.w600
-                              : FontWeight.w500,
-                          color: isSelected
-                              ? AppColors.primary
-                              : Theme.of(context).colorScheme.onSurfaceVariant,
+                      Expanded(
+                        child: Text(
+                          label,
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: isSelected
+                                ? FontWeight.w600
+                                : FontWeight.w500,
+                            color: isSelected
+                                ? AppColors.primary
+                                : Theme.of(context).colorScheme.onSurfaceVariant,
+                          ),
                         ),
                       ),
+                      // Lock badge for plan-gated features
+                      if (lockBadge)
+                        const Padding(
+                          padding: EdgeInsets.only(left: 4),
+                          child: Icon(Icons.lock_outline, size: 12, color: Colors.orange),
+                        ),
                     ],
                   ),
           ),
@@ -1005,6 +1050,7 @@ class _SidebarRouteItem extends StatelessWidget {
   final String route;
   final String currentPath;
   final bool isCollapsed;
+  final bool lockBadge;
 
   const _SidebarRouteItem({
     required this.icon,
@@ -1012,6 +1058,7 @@ class _SidebarRouteItem extends StatelessWidget {
     required this.route,
     required this.currentPath,
     required this.isCollapsed,
+    this.lockBadge = false,
   });
 
   @override
@@ -1022,6 +1069,7 @@ class _SidebarRouteItem extends StatelessWidget {
       label: label,
       isSelected: isSelected,
       isCollapsed: isCollapsed,
+      lockBadge: lockBadge,
       onTap: () => GoRouter.of(context).push(route),
     );
   }

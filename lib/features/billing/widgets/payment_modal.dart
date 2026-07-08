@@ -33,6 +33,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:tulasihotels/shared/widgets/onboarding_checklist.dart';
 import 'package:tulasihotels/features/billing/providers/billing_provider.dart';
 import 'package:tulasihotels/features/coupons/services/coupon_service.dart';
+import 'package:tulasihotels/features/products/providers/products_provider.dart';
 import 'package:tulasihotels/shared/widgets/app_button.dart';
 
 class PaymentModal extends ConsumerStatefulWidget {
@@ -203,6 +204,14 @@ class _PaymentModalState extends ConsumerState<PaymentModal> {
         );
       } else {
         await OfflineStorageService.saveBillLocally(bill);
+      }
+
+      // Decrement stock for each item sold
+      final productsService = ref.read(productsServiceProvider);
+      for (final item in bill.items) {
+        if (item.quantity > 0) {
+          unawaited(productsService.decrementStock(item.productId, item.quantity));
+        }
       }
 
       // Mark onboarding "first bill" step as done

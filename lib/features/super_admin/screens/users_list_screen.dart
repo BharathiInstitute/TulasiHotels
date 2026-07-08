@@ -293,7 +293,7 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> {
       child: SingleChildScrollView(
         child: DataTable(
           columns: const [
-            DataColumn(label: Text('Hotel Name')),
+            DataColumn(label: Text('Restaurant Name')),
             DataColumn(label: Text('Email')),
             DataColumn(label: Text('Plan')),
             DataColumn(label: Text('Bills')),

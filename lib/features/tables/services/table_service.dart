@@ -5,7 +5,6 @@ import 'package:tulasihotels/core/services/active_store_manager.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:tulasihotels/core/utils/id_generator.dart';
-import 'package:tulasihotels/features/subscription/services/plan_enforcement_service.dart';
 import 'package:tulasihotels/models/table_model.dart';
 
 class TableService {
@@ -42,12 +41,6 @@ class TableService {
     int capacity = 4,
     int floor = 0,
   }) async {
-    // Check table limit before creating
-    final check = await PlanEnforcementService.checkLimit(LimitType.tables);
-    if (!check.allowed) {
-      throw Exception(check.message);
-    }
-
     final id = generateSafeId('table');
     final now = DateTime.now();
     final table = TableModel(
@@ -59,7 +52,15 @@ class TableService {
       createdAt: now,
     );
 
-    await _tablesRef.doc(id).set(table.toFirestore());
+    try {
+      await _tablesRef
+          .doc(id)
+          .set(table.toFirestore())
+          .timeout(const Duration(seconds: 10));
+    } catch (e) {
+      debugPrint('❌ createTable failed: $e');
+      rethrow; // Surface to UI so AddTableDialog shows the error
+    }
     // Cloud Function onTableCreated handles count increment
     debugPrint('✅ Created table: ${table.displayName}');
     return table;
@@ -105,12 +106,6 @@ class TableService {
     int capacity = 4,
     int floor = 0,
   }) async {
-    // Check table limit before bulk creating
-    final check = await PlanEnforcementService.checkLimit(LimitType.tables);
-    if (!check.allowed) {
-      throw Exception(check.message);
-    }
-
     final batch = _firestore.batch();
     for (var i = from; i <= to; i++) {
       final id = generateSafeId('table');

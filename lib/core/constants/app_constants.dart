@@ -10,13 +10,13 @@ class AppConstants {
   static const String appTagline = 'भारत का सबसे स्मार्ट रेस्तरां मैनेजमेंट ऐप';
   static const String version = '2.0.0';
 
-  // ── FREE Tier Limits (enforced via UserSubscription.billsLimit / productsLimit) ──
-  static const int freeMaxBillsPerMonth = 50; // 50 bills / month
-  static const int freeMaxProducts = 100; // 100 products
+  // ── FREE Tier Limits (must match PlanConfig.free in plan_config.dart) ──
+  static const int freeMaxBillsPerMonth = 300; // 300 bills / month
+  static const int freeMaxProducts = 50; // 50 products
   static const int freeMaxCustomers = 10; // 10 customers
 
-  // ── PRO Tier Limits ──
-  static const int proMaxBillsPerMonth = 500;
+  // ── PRO Tier Limits (must match PlanConfig.pro in plan_config.dart) ──
+  static const int proMaxBillsPerMonth = 999999; // unlimited
   static const int proMaxProducts = 999999; // unlimited
   static const int proMaxCustomers = 999999; // unlimited
   static const int proPriceInrMonthly = 299;

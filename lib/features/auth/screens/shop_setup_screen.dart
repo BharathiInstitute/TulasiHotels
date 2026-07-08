@@ -307,7 +307,7 @@ class _ShopSetupScreenState extends ConsumerState<ShopSetupScreen> {
               textCapitalization: TextCapitalization.words,
               validator: (value) {
                 if (value == null || value.trim().isEmpty) {
-                  return 'Please enter your hotel name';
+                  return 'Please enter your restaurant name';
                 }
                 return null;
               },

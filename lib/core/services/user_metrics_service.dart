@@ -8,6 +8,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:tulasihotels/core/services/active_store_manager.dart';
+import 'package:tulasihotels/core/services/connectivity_service.dart';
 import 'package:tulasihotels/core/services/error_logging_service.dart';
 import 'package:tulasihotels/features/subscription/models/plan_config.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -323,9 +324,15 @@ class UserMetricsService {
     final userId = _getUserId();
     if (userId == null) return true; // Allow if not logged in
 
+    // When offline, allow billing immediately — don't wait for server
+    if (ConnectivityService.isOffline) return true;
+
     try {
       final userRef = _firestore.collection('users').doc(userId);
-      final snap = await userRef.get();
+      // Use cache-first read with a short timeout so we never hang offline
+      final snap = await userRef
+          .get(const GetOptions(source: Source.serverAndCache))
+          .timeout(const Duration(seconds: 3));
       final data = snap.data() ?? {};
       final limitsMap = data['limits'] as Map<String, dynamic>? ?? {};
       final now = DateTime.now();
@@ -344,7 +351,7 @@ class UserMetricsService {
       }
       return allowed;
     } catch (e, st) {
-      debugPrint('❌ UserMetrics: Failed to check bill limit: $e');
+      debugPrint('❌ UserMetrics: Failed to check bill limit (offline?): $e');
       ErrorLoggingService.logError(
         error: e,
         stackTrace: st,

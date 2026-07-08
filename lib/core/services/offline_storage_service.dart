@@ -4,6 +4,7 @@
 /// Firebase Firestore offline persistence handles all local caching.
 library;
 
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:tulasihotels/core/services/active_store_manager.dart';
@@ -21,6 +22,7 @@ import 'package:tulasihotels/models/expense_model.dart';
 import 'package:tulasihotels/models/product_model.dart';
 import 'package:tulasihotels/models/transaction_model.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:tulasihotels/core/services/connectivity_service.dart';
 
 /// Keys for SharedPreferences (for settings only)
 class SettingsKeys {
@@ -447,7 +449,22 @@ class OfflineStorageService {
   /// Save bill
   static Future<void> saveBill(BillModel bill) async {
     if (_basePath.isEmpty) return;
-    await _firestore.doc('$_basePath/bills/${bill.id}').set(bill.toFirestore());
+    final write = _firestore
+        .doc('$_basePath/bills/${bill.id}')
+        .set(bill.toFirestore());
+    if (ConnectivityService.isOffline) {
+      // Fire-and-forget when offline — SDK queues the write and syncs when online
+      unawaited(write);
+    } else {
+      // When online, await with timeout so we don't block indefinitely
+      await write.timeout(
+        const Duration(seconds: 8),
+        onTimeout: () {
+          // Timeout — write is still queued by SDK, proceed without blocking
+          debugPrint('⚠️ saveBill: write timeout, queued for sync');
+        },
+      );
+    }
     UserUsageService.trackWrite();
   }
 
@@ -458,10 +475,26 @@ class OfflineStorageService {
   static Future<int> getNextBillNumber() async {
     if (_basePath.isEmpty) return generateBillNumber();
 
+    // Scoped per hotel so multi-hotel bill counters do not collide
+    final counterKey = 'local_bill_counter_${_basePath.hashCode}';
+
+    // When offline, use local counter immediately — do not attempt server calls
+    // (runTransaction hangs indefinitely on web when offline)
+    if (ConnectivityService.isOffline) {
+      final local = prefs?.getInt(counterKey) ?? 0;
+      if (local > 0) {
+        final next = local + 1;
+        await prefs?.setInt(counterKey, next);
+        debugPrint('Offline bill number: $next (will sync when online)');
+        return next;
+      }
+      return generateBillNumber();
+    }
+
     try {
       final counterRef = _firestore.doc('$_basePath/counters/billing');
 
-      // On Windows, avoid runTransaction â€” the C++ Firestore SDK sends
+      // On Windows, avoid runTransaction — the C++ Firestore SDK sends
       // callbacks on non-platform threads, crashing Flutter.
       if (!kIsWeb && Platform.isWindows) {
         final snapshot = await counterRef.get();
@@ -470,6 +503,7 @@ class OfflineStorageService {
         await counterRef.set({'billNumber': next}, SetOptions(merge: true));
         UserUsageService.trackRead();
         UserUsageService.trackWrite();
+        await prefs?.setInt(counterKey, next);
         return next;
       }
 
@@ -483,17 +517,25 @@ class OfflineStorageService {
           'billNumber': next,
         }, SetOptions(merge: true));
         return next;
-      });
+      }).timeout(const Duration(seconds: 5));
       UserUsageService.trackRead();
       UserUsageService.trackWrite();
+      await prefs?.setInt(counterKey, newBillNumber);
       return newBillNumber;
     } catch (e) {
-      debugPrint('âš ï¸ Bill counter fallback: $e');
+      // Firestore unreachable — use locally cached counter for sequential numbers
+      debugPrint('Bill counter fallback (offline/timeout): $e');
+      final local = prefs?.getInt(counterKey) ?? 0;
+      if (local > 0) {
+        final next = local + 1;
+        await prefs?.setInt(counterKey, next);
+        return next;
+      }
       return generateBillNumber();
     }
   }
 
-  /// Save bill locally (alias for saveBill for backward compatibility)
+    /// Save bill locally (alias for saveBill for backward compatibility)
   static Future<void> saveBillLocally(BillModel bill) async {
     await saveBill(bill);
   }
@@ -535,8 +577,14 @@ class OfflineStorageService {
       transaction.toFirestore(),
     );
 
-    // Atomic commit â€” all three succeed or all fail
-    await batch.commit();
+    // Atomic commit — queued offline by SDK, synced when online
+    final batchCommit = batch.commit();
+    if (ConnectivityService.isOffline) {
+      unawaited(batchCommit);
+    } else {
+      await batchCommit.timeout(const Duration(seconds: 8),
+          onTimeout: () => debugPrint('udhar batch timeout, queued'));
+    }
   }
 
   /// Stream of all bills (real-time updates from Firestore)
@@ -685,7 +733,7 @@ class OfflineStorageService {
     }
   }
 
-  /// Delete expense
+    /// Delete expense
   static Future<void> deleteExpense(String expenseId) async {
     if (_basePath.isEmpty) return;
     await _firestore.doc('$_basePath/expenses/$expenseId').delete();
@@ -841,10 +889,16 @@ class OfflineStorageService {
     double delta,
   ) async {
     if (_basePath.isEmpty) return;
-    await _firestore.doc('$_basePath/customers/$customerId').update({
+    final write = _firestore.doc('$_basePath/customers/$customerId').update({
       'balance': FieldValue.increment(delta),
       'updatedAt': FieldValue.serverTimestamp(),
     });
+    if (ConnectivityService.isOffline) {
+      unawaited(write);
+    } else {
+      await write.timeout(const Duration(seconds: 8),
+          onTimeout: () => debugPrint('updateCustomerBalance timeout, queued'));
+    }
     UserUsageService.trackWrite();
   }
 
@@ -1011,9 +1065,15 @@ class OfflineStorageService {
       createdAt: DateTime.now(),
     );
 
-    await _firestore
+    final write = _firestore
         .doc('$_basePath/transactions/${transaction.id}')
         .set(transaction.toFirestore());
+    if (ConnectivityService.isOffline) {
+      unawaited(write);
+    } else {
+      await write.timeout(const Duration(seconds: 8),
+          onTimeout: () => debugPrint('saveTransaction timeout, queued'));
+    }
     UserUsageService.trackWrite();
   }
 

@@ -76,6 +76,20 @@ service cloud.firestore {
       return 'customersLimit' in limits && limits.customersCount < limits.customersLimit;
     }
 
+    // Check if user can add a table (tablesCount < tablesLimit).
+    // Reads from the user doc directly to safely handle missing limits map.
+    // If limits or tablesLimit is not yet initialized, allow the write —
+    // Cloud Function onTableCreated uses actual collection count as safety-net.
+    function canAddTable(userId) {
+      let userDoc = get(/databases/$(database)/documents/users/$(userId)).data;
+      let hasLimits = 'limits' in userDoc;
+      let hasTableLimit = hasLimits && 'tablesLimit' in userDoc.limits;
+      let limit = hasTableLimit ? userDoc.limits.tablesLimit : 0;
+      let count = hasLimits && 'tablesCount' in userDoc.limits ? userDoc.limits.tablesCount : 0;
+      // limit == 0 means uninitialised → allow; Cloud Function enforces actual count.
+      return limit == 0 || count < limit;
+    }
+
     // Check if user's subscription is active
     function hasActiveSubscription(userId) {
       let sub = get(/databases/$(database)/documents/users/$(userId)).data.subscription;
@@ -310,14 +324,14 @@ service cloud.firestore {
 
       // ===================
       // TABLES (sub-collection for restaurant floor management)
+      // Limit enforcement handled by onTableCreated Cloud Function (uses real count).
       // ===================
       match /tables/{tableId} {
         allow read: if isAuthenticated() && (isMemberOrOwner(userId) || isAdmin());
         allow create: if isAuthenticated() && isMemberOrOwner(userId)
           && request.resource.data.number is int
           && request.resource.data.number >= 0
-          && isReasonableSize()
-          && isNotRateLimited(userId);
+          && isReasonableSize();
         allow update: if isAuthenticated() && isMemberOrOwner(userId)
           && isReasonableSize();
         allow delete: if isAuthenticated() && isMemberOrOwner(userId);

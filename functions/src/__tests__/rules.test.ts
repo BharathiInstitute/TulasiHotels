@@ -74,6 +74,8 @@ async function seedUser(
         productsLimit: 100,
         customersCount: 0,
         customersLimit: 10,
+        tablesCount: 0,
+        tablesLimit: 5,
       },
       ...data,
     });
@@ -658,5 +660,160 @@ describe("App health collection", () => {
   test("non-admin cannot read health docs", async () => {
     const db = testEnv.authenticatedContext("user1").firestore();
     await assertFails(getDoc(doc(db, "app_health", "h1")));
+  });
+});
+
+// ═════════════════════════════════════════════════════════════════════════════
+// TABLES — canAddTable limit enforcement (Phase 2 fix: block before write)
+// ═════════════════════════════════════════════════════════════════════════════
+
+describe("Tables — canAddTable limit enforcement", () => {
+  // ── FREE PLAN (limit = 5) ──
+  test("free: limit-1 (4/5) → create allowed", async () => {
+    await seedUser("u1", {
+      limits: {
+        tablesCount: 4, tablesLimit: 5,
+        billsThisMonth: 0, billsLimit: 50,
+        productsCount: 0, productsLimit: 100,
+        customersCount: 0, customersLimit: 10,
+      },
+    });
+    const db = testEnv.authenticatedContext("u1").firestore();
+    await assertSucceeds(
+      setDoc(doc(db, "users", "u1", "tables", "t1"), { number: 5, capacity: 4 })
+    );
+  });
+
+  test("free: at limit (5/5) → create denied — no disappear possible", async () => {
+    await seedUser("u1", {
+      limits: {
+        tablesCount: 5, tablesLimit: 5,
+        billsThisMonth: 0, billsLimit: 50,
+        productsCount: 0, productsLimit: 100,
+        customersCount: 0, customersLimit: 10,
+      },
+    });
+    const db = testEnv.authenticatedContext("u1").firestore();
+    await assertFails(
+      setDoc(doc(db, "users", "u1", "tables", "t1"), { number: 6, capacity: 4 })
+    );
+  });
+
+  // ── STARTER PLAN (limit = 15) ──
+  test("starter: limit-1 (14/15) → create allowed", async () => {
+    await seedUser("u1", {
+      subscription: { plan: "starter", status: "active" },
+      limits: {
+        tablesCount: 14, tablesLimit: 15,
+        billsThisMonth: 0, billsLimit: 999999,
+        productsCount: 0, productsLimit: 200,
+        customersCount: 0, customersLimit: 100,
+      },
+    });
+    const db = testEnv.authenticatedContext("u1").firestore();
+    await assertSucceeds(
+      setDoc(doc(db, "users", "u1", "tables", "t1"), { number: 15, capacity: 4 })
+    );
+  });
+
+  test("starter: at limit (15/15) → create denied — no disappear possible", async () => {
+    await seedUser("u1", {
+      subscription: { plan: "starter", status: "active" },
+      limits: {
+        tablesCount: 15, tablesLimit: 15,
+        billsThisMonth: 0, billsLimit: 999999,
+        productsCount: 0, productsLimit: 200,
+        customersCount: 0, customersLimit: 100,
+      },
+    });
+    const db = testEnv.authenticatedContext("u1").firestore();
+    await assertFails(
+      setDoc(doc(db, "users", "u1", "tables", "t1"), { number: 16, capacity: 4 })
+    );
+  });
+
+  test("starter: stale counter (15/15) with only 7 real tables → create denied until repaired", async () => {
+    // This simulates the exact bug: counter is 15 but real count is 7.
+    // After repairTableLimits callable, counter becomes 7 and create works again.
+    await seedUser("u1", {
+      subscription: { plan: "starter", status: "active" },
+      limits: {
+        tablesCount: 15, tablesLimit: 15, // stale counter
+        billsThisMonth: 0, billsLimit: 999999,
+        productsCount: 0, productsLimit: 200,
+        customersCount: 0, customersLimit: 100,
+      },
+    });
+    const db = testEnv.authenticatedContext("u1").firestore();
+    // Denied by rule (stale counter) — table does NOT appear then disappear
+    await assertFails(
+      setDoc(doc(db, "users", "u1", "tables", "t1"), { number: 8, capacity: 4 })
+    );
+  });
+
+  // ── PRO PLAN (limit = 50) ──
+  test("pro: limit-1 (49/50) → create allowed", async () => {
+    await seedUser("u1", {
+      subscription: { plan: "pro", status: "active" },
+      limits: {
+        tablesCount: 49, tablesLimit: 50,
+        billsThisMonth: 0, billsLimit: 999999,
+        productsCount: 0, productsLimit: 999999,
+        customersCount: 0, customersLimit: 999999,
+      },
+    });
+    const db = testEnv.authenticatedContext("u1").firestore();
+    await assertSucceeds(
+      setDoc(doc(db, "users", "u1", "tables", "t1"), { number: 50, capacity: 6 })
+    );
+  });
+
+  test("pro: at limit (50/50) → create denied", async () => {
+    await seedUser("u1", {
+      subscription: { plan: "pro", status: "active" },
+      limits: {
+        tablesCount: 50, tablesLimit: 50,
+        billsThisMonth: 0, billsLimit: 999999,
+        productsCount: 0, productsLimit: 999999,
+        customersCount: 0, customersLimit: 999999,
+      },
+    });
+    const db = testEnv.authenticatedContext("u1").firestore();
+    await assertFails(
+      setDoc(doc(db, "users", "u1", "tables", "t1"), { number: 51, capacity: 6 })
+    );
+  });
+
+  // ── BUSINESS PLAN (limit = 999999, unlimited) ──
+  test("business: unlimited → create always allowed", async () => {
+    await seedUser("u1", {
+      subscription: { plan: "business", status: "active" },
+      limits: {
+        tablesCount: 1000, tablesLimit: 999999,
+        billsThisMonth: 0, billsLimit: 999999,
+        productsCount: 0, productsLimit: 999999,
+        customersCount: 0, customersLimit: 999999,
+      },
+    });
+    const db = testEnv.authenticatedContext("u1").firestore();
+    await assertSucceeds(
+      setDoc(doc(db, "users", "u1", "tables", "t1"), { number: 1001, capacity: 8 })
+    );
+  });
+
+  // ── MISSING tablesLimit field (uninitialized user) ──
+  test("missing tablesLimit field → create denied (prevents bypass)", async () => {
+    await seedUser("u1", {
+      limits: {
+        billsThisMonth: 0, billsLimit: 50,
+        productsCount: 0, productsLimit: 100,
+        customersCount: 0, customersLimit: 10,
+        // tablesCount and tablesLimit intentionally omitted
+      },
+    });
+    const db = testEnv.authenticatedContext("u1").firestore();
+    await assertFails(
+      setDoc(doc(db, "users", "u1", "tables", "t1"), { number: 1, capacity: 4 })
+    );
   });
 });

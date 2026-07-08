@@ -1,4 +1,4 @@
-/// Khata Web Screen - Redesigned with master-detail layout
+﻿/// Khata Web Screen - Redesigned with master-detail layout
 library;
 
 import 'dart:async';
@@ -19,6 +19,11 @@ import 'package:tulasihotels/l10n/app_localizations.dart';
 import 'package:tulasihotels/models/customer_model.dart';
 import 'package:tulasihotels/models/transaction_model.dart';
 import 'package:tulasihotels/features/subscription/services/plan_enforcement_service.dart';
+import 'package:tulasihotels/features/subscription/models/plan_config.dart';
+import 'package:tulasihotels/core/services/user_metrics_service.dart';
+import 'package:tulasihotels/features/subscription/providers/usage_limits_provider.dart';
+import 'package:tulasihotels/features/subscription/providers/subscription_provider.dart';
+import 'package:tulasihotels/features/subscription/widgets/plan_usage_bar.dart';
 import 'package:tulasihotels/router/app_router.dart';
 import 'package:tulasihotels/shared/widgets/loading_states.dart';
 import 'package:tulasihotels/core/services/payment_link_service.dart';
@@ -49,20 +54,31 @@ class _KhataWebScreenState extends ConsumerState<KhataWebScreen> {
     final isDesktop = ResponsiveHelper.isDesktop(context);
     final isTablet = ResponsiveHelper.isTablet(context);
     final screenWidth = MediaQuery.of(context).size.width;
-    // At narrow tablet (< 768px), master-detail layout is too cramped.
-    // Use mobile layout (list only) instead.
     final useMasterDetail = (isDesktop || isTablet) && screenWidth >= 768;
     final isMobile = !useMasterDetail;
+    final limits = ref.watch(currentLimitsProvider);
+    final config = ref.watch(planConfigProvider);
+    final customerMax = config.maxCustomers ?? 999999;
+    final atCustomerLimit = customerMax < 999999 && limits.customersCount >= customerMax;
 
     return Container(
       color: Theme.of(context).scaffoldBackgroundColor,
-      child: Padding(
+      child: Column(
+        children: [
+          // Usage bar — visible when approaching/at customer limit
+          PlanUsageBar(
+            label: 'Customers',
+            getCurrent: (l) => l.customersCount,
+            getLimit: (c) => c.customersLimitFirestore,
+          ),
+          Expanded(
+            child: Padding(
         padding: EdgeInsets.all(isMobile ? 12 : 16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Header
-            _buildHeader(l10n, isMobile),
+            _buildHeader(l10n, isMobile, atCustomerLimit: atCustomerLimit, limits: limits, config: config),
             SizedBox(height: isMobile ? 10 : 12),
 
             // Summary Cards
@@ -129,10 +145,21 @@ class _KhataWebScreenState extends ConsumerState<KhataWebScreen> {
           ],
         ),
       ),
+    ),
+  ],
+),
     );
   }
 
-  Widget _buildHeader(AppLocalizations l10n, bool isMobile) {
+  Widget _buildHeader(AppLocalizations l10n, bool isMobile, {
+    bool atCustomerLimit = false,
+    UserLimits? limits,
+    PlanConfig? config,
+  }) {
+    final customerMax = config?.maxCustomers ?? 999999;
+    final countLabel = customerMax < 999999
+        ? ' (${limits?.customersCount ?? 0}/$customerMax)'
+        : '';
     if (isMobile) {
       return Row(
         children: [
@@ -140,34 +167,25 @@ class _KhataWebScreenState extends ConsumerState<KhataWebScreen> {
             child: OutlinedButton.icon(
               onPressed: () => _downloadReport(),
               icon: const Icon(Icons.download, size: 16),
-              label: const Text(
-                'Download Report',
-                style: TextStyle(fontSize: 12),
-              ),
+              label: const Text('Download Report', style: TextStyle(fontSize: 12)),
               style: OutlinedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 10,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
               ),
             ),
           ),
           const SizedBox(width: 8),
           Expanded(
             child: ElevatedButton.icon(
-              onPressed: _showAddCustomerModal,
-              icon: const Icon(Icons.person_add, size: 16),
-              label: const Text(
-                'Add New Customer',
-                style: TextStyle(fontSize: 12),
+              onPressed: atCustomerLimit ? null : _showAddCustomerModal,
+              icon: Icon(atCustomerLimit ? Icons.lock_outline : Icons.person_add, size: 16),
+              label: Text(
+                atCustomerLimit ? 'Limit$countLabel' : 'Add Customer',
+                style: const TextStyle(fontSize: 12),
               ),
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
+                backgroundColor: atCustomerLimit ? Colors.grey : AppColors.primary,
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 10,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
               ),
             ),
           ),
@@ -187,11 +205,14 @@ class _KhataWebScreenState extends ConsumerState<KhataWebScreen> {
         ),
         const SizedBox(width: 8),
         ElevatedButton.icon(
-          onPressed: _showAddCustomerModal,
-          icon: const Icon(Icons.person_add, size: 16),
-          label: const Text('Add New Customer', style: TextStyle(fontSize: 13)),
+          onPressed: atCustomerLimit ? null : _showAddCustomerModal,
+          icon: Icon(atCustomerLimit ? Icons.lock_outline : Icons.person_add, size: 16),
+          label: Text(
+            atCustomerLimit ? 'Limit reached$countLabel' : 'Add New Customer',
+            style: const TextStyle(fontSize: 13),
+          ),
           style: ElevatedButton.styleFrom(
-            backgroundColor: AppColors.primary,
+            backgroundColor: atCustomerLimit ? Colors.grey : AppColors.primary,
             foregroundColor: Colors.white,
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           ),

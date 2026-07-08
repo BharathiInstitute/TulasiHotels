@@ -199,7 +199,7 @@ void main() {
     test('Free â†’ Pro â†’ Business upgrade path', () {
       // Start as free
       const free = UserSubscription();
-      expect(free.billsLimit, 50);
+      expect(free.billsLimit, 300);
       expect(free.planPrice, 0);
       expect(free.isActive, true);
 
@@ -211,7 +211,7 @@ void main() {
       const pro = UserSubscription(
         plan: SubscriptionPlan.pro,
       );
-      expect(pro.billsLimit, 500);
+      expect(pro.billsLimit, 999999);
       expect(pro.planPrice, 299);
       expect(pro.isActive, true);
 
@@ -243,7 +243,7 @@ void main() {
       );
       expect(expired.isActive, false);
       // Bills limit still reflects plan (for display), but isActive blocks new bills
-      expect(expired.billsLimit, 500);
+      expect(expired.billsLimit, 999999);
 
       // Renewed
       const renewed = UserSubscription(

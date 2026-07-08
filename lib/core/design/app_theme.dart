@@ -226,6 +226,7 @@ class AppTheme {
       backgroundColor: AppColors.textPrimary,
       contentTextStyle: GoogleFonts.inter(color: Colors.white, fontSize: 14),
       behavior: SnackBarBehavior.floating,
+      showCloseIcon: false,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(AppSizes.radiusSm),
       ),

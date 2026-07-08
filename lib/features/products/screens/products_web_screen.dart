@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -16,6 +16,9 @@ import 'package:tulasihotels/shared/widgets/loading_states.dart';
 import 'package:tulasihotels/shared/widgets/sync_badge.dart';
 import 'package:tulasihotels/shared/widgets/upgrade_prompt_modal.dart';
 import 'package:tulasihotels/features/subscription/services/plan_enforcement_service.dart';
+import 'package:tulasihotels/features/subscription/providers/usage_limits_provider.dart';
+import 'package:tulasihotels/features/subscription/providers/subscription_provider.dart';
+import 'package:tulasihotels/features/subscription/widgets/plan_usage_bar.dart';
 
 class ProductsWebScreen extends ConsumerStatefulWidget {
   const ProductsWebScreen({super.key});
@@ -37,10 +40,24 @@ class _ProductsWebScreenState extends ConsumerState<ProductsWebScreen> {
     final syncStatus = ref.watch(productsSyncStatusProvider).valueOrNull ?? {};
     final isMobile = ResponsiveHelper.isMobile(context);
     final isTablet = ResponsiveHelper.isTablet(context);
+    final limits = ref.watch(currentLimitsProvider);
+    final config = ref.watch(planConfigProvider);
+    final atProductLimit = (config.maxProducts != null) &&
+        (config.maxProducts! < 999999) &&
+        limits.productsCount >= config.maxProducts!;
 
     return Scaffold(
-      backgroundColor: Colors.transparent, // Background handled by shell
-      body: Padding(
+      backgroundColor: Colors.transparent,
+      body: Column(
+        children: [
+          // Usage bar — only visible when approaching/at limit
+          PlanUsageBar(
+            label: 'Products',
+            getCurrent: (l) => l.productsCount,
+            getLimit: (c) => c.productsLimitFirestore,
+          ),
+          Expanded(
+        child: Padding(
         padding: EdgeInsets.all(isMobile ? 12.0 : (isTablet ? 16.0 : 16.0)),
         child: Column(
           children: [
@@ -95,9 +112,11 @@ class _ProductsWebScreenState extends ConsumerState<ProductsWebScreen> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: ElevatedButton.icon(
-                      onPressed: () => _showAddProductModal(),
-                      icon: const Icon(Icons.add, size: 18),
-                      label: Text(l10n.addProduct),
+                      onPressed: atProductLimit ? null : () => _showAddProductModal(),
+                      icon: Icon(atProductLimit ? Icons.lock_outline : Icons.add, size: 18),
+                      label: Text(atProductLimit
+                          ? '${limits.productsCount}/${config.maxProducts ?? "∞"}'
+                          : l10n.addProduct),
                       style: ElevatedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 12),
                       ),
@@ -182,9 +201,11 @@ class _ProductsWebScreenState extends ConsumerState<ProductsWebScreen> {
                   ),
                   const SizedBox(width: 12),
                   ElevatedButton.icon(
-                    onPressed: () => _showAddProductModal(),
-                    icon: const Icon(Icons.add),
-                    label: Text(l10n.addProduct),
+                    onPressed: atProductLimit ? null : () => _showAddProductModal(),
+                    icon: Icon(atProductLimit ? Icons.lock_outline : Icons.add),
+                    label: Text(atProductLimit
+                        ? 'Limit reached (${limits.productsCount}/${config.maxProducts ?? "∞"})'
+                        : l10n.addProduct),
                   ),
                 ],
               ),
@@ -681,6 +702,9 @@ class _ProductsWebScreenState extends ConsumerState<ProductsWebScreen> {
           ],
         ),
       ),
+    ),
+  ],
+),
     );
   }
 

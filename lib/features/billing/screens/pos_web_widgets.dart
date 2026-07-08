@@ -343,6 +343,14 @@ class _WebCartSectionState extends ConsumerState<_WebCartSection> {
 
       await OfflineStorageService.saveBillLocally(bill);
 
+      // Decrement stock for each item sold
+      final productsService = ref.read(productsServiceProvider);
+      for (final item in bill.items) {
+        if (item.quantity > 0) {
+          unawaited(productsService.decrementStock(item.productId, item.quantity));
+        }
+      }
+
       if (_selectedPayment == PaymentMethod.udhar &&
           _selectedCustomer != null) {
         final udharAmount = _udharAmount;

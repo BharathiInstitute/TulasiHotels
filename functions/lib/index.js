@@ -48,8 +48,8 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.razorpayReconciliation = exports.onStockUpdate = exports.onNewOrderKitchenAlert = exports.onWastageLogged = exports.onComplaintCreated = exports.equipmentServiceReminder = exports.licenseExpiryReminder = exports.onNewReservation = exports.onNewFeedback = exports.onLowIngredientStock = exports.onOrderReady = exports.onCustomerOrderCreated = exports.onRushOrderCreated = exports.seedUserUsage = exports.scheduledFirestoreBackup = exports.sendNotificationToPlan = exports.sendNotificationToAll = exports.getSubscriptionLimits = exports.seedAdmins = exports.onLocalStaffDeleted = exports.onLocalStaffCreated = exports.onStaffDeleted = exports.onStaffCreated = exports.onTableDeleted = exports.onTableCreated = exports.onCustomerDeleted = exports.onCustomerCreated = exports.onProductDeleted = exports.onProductCreated = exports.onBillCreated = exports.processReferralReward = exports.redeemReferralCode = exports.onSubscriptionWrite = exports.generateMonthlyReport = exports.exchangeIdToken = exports.sendDailySalesSummary = exports.checkChurnedUsers = exports.checkSubscriptionExpiry = exports.activateSubscription = exports.checkLowStock = exports.cleanupOldNotifications = exports.sendPushNotification = exports.onNewUserSignup = exports.generateDesktopToken = exports.deleteUserAccount = exports.onUserDeleted = exports.verifyRegistrationOTP = exports.sendRegistrationOTP = exports.razorpayWebhook = exports.createPaymentLink = void 0;
-exports.sendOrderReadySMS = exports.sendDailySummaryWhatsApp = exports.sendReservationReminder = exports.sendFeedbackRequest = exports.sendOrderConfirmation = exports.verifyPayment = exports.checkOrderStatus = exports.createOrder = exports.createPaymentToken = void 0;
+exports.onStockUpdate = exports.onNewOrderKitchenAlert = exports.onWastageLogged = exports.onComplaintCreated = exports.equipmentServiceReminder = exports.licenseExpiryReminder = exports.onNewReservation = exports.onNewFeedback = exports.onLowIngredientStock = exports.onOrderReady = exports.onCustomerOrderCreated = exports.onRushOrderCreated = exports.seedUserUsage = exports.scheduledFirestoreBackup = exports.sendNotificationToPlan = exports.sendNotificationToAll = exports.getSubscriptionLimits = exports.seedAdmins = exports.repairTableLimits = exports.onLocalStaffDeleted = exports.onLocalStaffCreated = exports.onStaffDeleted = exports.onStaffCreated = exports.onTableDeleted = exports.onTableCreated = exports.onCustomerDeleted = exports.onCustomerCreated = exports.onProductDeleted = exports.onProductCreated = exports.onBillCreated = exports.processReferralReward = exports.redeemReferralCode = exports.onSubscriptionWrite = exports.generateMonthlyReport = exports.exchangeIdToken = exports.sendDailySalesSummary = exports.checkChurnedUsers = exports.checkSubscriptionExpiry = exports.activateSubscription = exports.checkLowStock = exports.cleanupOldNotifications = exports.sendPushNotification = exports.onNewUserSignup = exports.generateDesktopToken = exports.deleteUserAccount = exports.onUserDeleted = exports.verifyRegistrationOTP = exports.sendRegistrationOTP = exports.razorpayWebhook = exports.createPaymentLink = void 0;
+exports.sendOrderReadySMS = exports.sendDailySummaryWhatsApp = exports.sendReservationReminder = exports.sendFeedbackRequest = exports.sendOrderConfirmation = exports.verifyPayment = exports.checkOrderStatus = exports.createOrder = exports.createPaymentToken = exports.razorpayReconciliation = void 0;
 const functions = __importStar(require("firebase-functions"));
 const admin = __importStar(require("firebase-admin"));
 const crypto = __importStar(require("crypto"));
@@ -1962,32 +1962,39 @@ exports.onTableCreated = functions
     .region("asia-south1")
     .firestore.document("users/{userId}/tables/{tableId}")
     .onCreate(async (snap, context) => {
+    var _a;
     const db = admin.firestore();
     const userId = context.params.userId;
     const tableId = context.params.tableId;
     const userRef = db.collection("users").doc(userId);
     try {
-        await db.runTransaction(async (txn) => {
-            var _a;
-            const userDoc = await txn.get(userRef);
-            if (!userDoc.exists)
-                return;
-            const data = userDoc.data();
-            const limits = data.limits || {};
-            const sub = data.subscription || {};
-            const plan = sub.plan || "free";
-            const tablesCount = limits.tablesCount || 0;
-            // Default tablesLimit based on plan if not explicitly set
-            const defaultTablesLimit = plan === "business" ? 999999 : plan === "pro" ? 50 : plan === "starter" ? 15 : 5;
-            const tablesLimit = (_a = limits.tablesLimit) !== null && _a !== void 0 ? _a : defaultTablesLimit;
-            if (tablesCount >= tablesLimit) {
-                console.warn(`⚠️ onTableCreated: User ${userId} OVER table limit (${tablesCount}/${tablesLimit}). Deleting table ${tableId}.`);
-                txn.delete(snap.ref);
-                return;
-            }
-            txn.update(userRef, {
-                "limits.tablesCount": tablesCount + 1,
+        const userDoc = await userRef.get();
+        if (!userDoc.exists)
+            return;
+        const data = userDoc.data();
+        const limits = data.limits || {};
+        const sub = data.subscription || {};
+        const plan = sub.plan || "free";
+        // Always derive limit from plan — never let stale stored value block creation
+        const defaultTablesLimit = plan === "business" ? 999999 : plan === "pro" ? 50 : plan === "starter" ? 15 : 5;
+        const storedTablesLimit = (_a = limits.tablesLimit) !== null && _a !== void 0 ? _a : 0;
+        // Use whichever is higher: plan config OR stored limit (guards against stale Firestore values)
+        const tablesLimit = Math.max(defaultTablesLimit, storedTablesLimit);
+        // Count actual table docs after this create event to self-heal stale counters.
+        const actualTablesSnapshot = await db.collection(`users/${userId}/tables`).count().get();
+        const actualTablesCount = actualTablesSnapshot.data().count;
+        if (tablesLimit < 999999 && actualTablesCount > tablesLimit) {
+            console.warn(`⚠️ onTableCreated: User ${userId} OVER table limit (${actualTablesCount}/${tablesLimit}). Deleting table ${tableId}.`);
+            await snap.ref.delete();
+            await userRef.update({
+                "limits.tablesCount": Math.max(0, actualTablesCount - 1),
+                "limits.tablesLimit": tablesLimit,
             });
+            return;
+        }
+        await userRef.update({
+            "limits.tablesCount": actualTablesCount,
+            "limits.tablesLimit": tablesLimit,
         });
     }
     catch (e) {
@@ -2098,6 +2105,68 @@ exports.onLocalStaffDeleted = functions
     catch (e) {
         console.error(`❌ onLocalStaffDeleted: Failed for user ${userId}:`, e);
     }
+});
+/**
+ * repairTableLimits — Callable that recounts actual tables from Firestore
+ * and repairs stale limits.tablesCount / limits.tablesLimit values.
+ *
+ * Fixes the "table appears then disappears" bug caused by stale counters:
+ * - If tablesCount is wrong (too high), onTableCreated deletes new tables.
+ * - This callable resets the counter to the real subcollection count.
+ *
+ * Call:  CloudFunctionHelper.call('repairTableLimits')
+ * Or admin repair: CloudFunctionHelper.call('repairTableLimits', { userId: 'uid' })
+ */
+exports.repairTableLimits = functions
+    .region("asia-south1")
+    .runWith({ timeoutSeconds: 30, maxInstances: 10 })
+    .https.onCall(async (data, context) => {
+    var _a, _b, _c, _d, _e;
+    if (!context.auth) {
+        throw new functions.https.HttpsError("unauthenticated", "Must be authenticated");
+    }
+    const db = admin.firestore();
+    const targetUserId = (data === null || data === void 0 ? void 0 : data.userId) || context.auth.uid;
+    // Only allow self-repair or admin repair
+    if (targetUserId !== context.auth.uid) {
+        const adminDoc = await db.collection("admins").doc(context.auth.token.email || "").get();
+        if (!adminDoc.exists) {
+            throw new functions.https.HttpsError("permission-denied", "Only admins can repair other users");
+        }
+    }
+    const userRef = db.collection("users").doc(targetUserId);
+    const userDoc = await userRef.get();
+    if (!userDoc.exists) {
+        throw new functions.https.HttpsError("not-found", "User not found");
+    }
+    const userData = userDoc.data();
+    const sub = userData.subscription || {};
+    const plan = sub.plan || "free";
+    // Recount actual tables from subcollection (source of truth)
+    const tablesSnap = await db.collection(`users/${targetUserId}/tables`).count().get();
+    const actualTablesCount = tablesSnap.data().count;
+    // Compute correct tablesLimit from plan config
+    const planTablesLimit = plan === "business" ? 999999 :
+        plan === "pro" ? 50 :
+            plan === "starter" ? 15 : 5; // free default
+    const storedTablesLimit = ((_a = userData.limits) === null || _a === void 0 ? void 0 : _a.tablesLimit) || 0;
+    // Never downgrade a stored limit that was intentionally set higher
+    const correctTablesLimit = Math.max(planTablesLimit, storedTablesLimit);
+    const prevCount = (_c = (_b = userData.limits) === null || _b === void 0 ? void 0 : _b.tablesCount) !== null && _c !== void 0 ? _c : "unknown";
+    const prevLimit = (_e = (_d = userData.limits) === null || _d === void 0 ? void 0 : _d.tablesLimit) !== null && _e !== void 0 ? _e : "unknown";
+    await userRef.update({
+        "limits.tablesCount": actualTablesCount,
+        "limits.tablesLimit": correctTablesLimit,
+    });
+    console.log(`✅ repairTableLimits: User ${targetUserId} (plan=${plan}) — ` +
+        `tablesCount: ${prevCount} → ${actualTablesCount}, ` +
+        `tablesLimit: ${prevLimit} → ${correctTablesLimit}`);
+    return {
+        success: true,
+        plan,
+        before: { tablesCount: prevCount, tablesLimit: prevLimit },
+        after: { tablesCount: actualTablesCount, tablesLimit: correctTablesLimit },
+    };
 });
 /**
  * seedAdmins — One-time callable to populate the /admins collection

@@ -128,18 +128,11 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
       if (!context.mounted) return;
       final messenger = ScaffoldMessenger.of(context);
       messenger.removeCurrentSnackBar();
-      final ctrl = messenger.showSnackBar(
+      messenger.showSnackBar(
         SnackBar(
           content: Text(planCheck.message ?? 'Upgrade your plan to add staff.'),
           backgroundColor: Colors.orange,
-          duration: const Duration(seconds: 3),
-          action: SnackBarAction(
-            label: 'Upgrade',
-            textColor: Colors.white,
-            onPressed: () {
-              if (context.mounted) context.push(AppRoutes.subscription);
-            },
-          ),
+          duration: const Duration(seconds: 2),
         ),
       );
       return;
@@ -288,17 +281,17 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
       final sm = ScaffoldMessenger.of(context);
       if (email.isEmpty) {
         sm.clearSnackBars();
-        sm.showSnackBar(const SnackBar(content: Text('Email is required'), duration: Duration(seconds: 3)));
+        sm.showSnackBar(const SnackBar(content: Text('Email is required'), duration: Duration(seconds: 2)));
         return;
       }
       if (password.isNotEmpty && password.length < 6) {
         sm.clearSnackBars();
-        sm.showSnackBar(const SnackBar(content: Text('Password must be at least 6 characters'), duration: Duration(seconds: 3)));
+        sm.showSnackBar(const SnackBar(content: Text('Password must be at least 6 characters'), duration: Duration(seconds: 2)));
         return;
       }
       if (password.isNotEmpty && password != confirm) {
         sm.clearSnackBars();
-        sm.showSnackBar(const SnackBar(content: Text('Passwords do not match'), duration: Duration(seconds: 3)));
+        sm.showSnackBar(const SnackBar(content: Text('Passwords do not match'), duration: Duration(seconds: 2)));
         return;
       }
 
@@ -313,7 +306,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
           sm.clearSnackBars();
           sm.showSnackBar(SnackBar(
             content: Text('Added $email as ${roleText.isNotEmpty ? roleText : 'Team Member'}'),
-            duration: const Duration(seconds: 3),
+            duration: const Duration(seconds: 2),
           ));
         }
       } on FirebaseAuthException catch (e) {
@@ -325,12 +318,12 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
             _ => e.message ?? e.code,
           };
           sm.clearSnackBars();
-          sm.showSnackBar(SnackBar(content: Text(msg), duration: const Duration(seconds: 3)));
+          sm.showSnackBar(SnackBar(content: Text(msg), duration: const Duration(seconds: 2)));
         }
       } catch (e) {
         if (context.mounted) {
           sm.clearSnackBars();
-          sm.showSnackBar(SnackBar(content: Text('Error: $e'), duration: const Duration(seconds: 3)));
+          sm.showSnackBar(SnackBar(content: Text('Error: $e'), duration: const Duration(seconds: 2)));
         }
       }
     }
@@ -389,9 +382,11 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
     if (result != null && result != member.role && context.mounted) {
       await MemberService.updateRole(member.uid, result);
       if (context.mounted) {
+        ScaffoldMessenger.of(context).removeCurrentSnackBar();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('${member.displayName} is now ${result.displayName}'),
+            duration: const Duration(seconds: 2),
           ),
         );
       }
@@ -426,8 +421,12 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
     if (confirm == true && context.mounted) {
       await MemberService.removeMember(member.uid);
       if (context.mounted) {
+        ScaffoldMessenger.of(context).removeCurrentSnackBar();
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${member.displayName} removed')),
+          SnackBar(
+            content: Text('${member.displayName} removed'),
+            duration: const Duration(seconds: 2),
+          ),
         );
       }
     }
@@ -553,17 +552,6 @@ class _MemberTile extends StatelessWidget {
                   child: ListTile(
                     leading: Icon(Icons.security_outlined),
                     title: Text('Permissions'),
-                    dense: true,
-                    contentPadding: EdgeInsets.zero,
-                  ),
-                ),
-                PopupMenuItem(
-                  value: 'toggle',
-                  child: ListTile(
-                    leading: Icon(
-                      isDisabled ? Icons.check_circle_outline : Icons.block,
-                    ),
-                    title: Text(isDisabled ? 'Enable' : 'Disable'),
                     dense: true,
                     contentPadding: EdgeInsets.zero,
                   ),

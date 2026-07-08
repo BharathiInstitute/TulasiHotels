@@ -84,6 +84,7 @@ import 'package:tulasihotels/features/customer/screens/customer_reservation_scre
 import 'package:tulasihotels/features/customer/screens/order_status_screen.dart';
 import 'package:tulasihotels/features/feedback/screens/feedback_dashboard_screen.dart';
 import 'package:tulasihotels/features/staff/screens/salary_screen.dart';
+import 'package:tulasihotels/features/staff/screens/staff_attendance_correction_view.dart';
 import 'package:tulasihotels/features/admin/screens/members_screen.dart';
 import 'package:tulasihotels/features/admin/screens/member_permissions_screen.dart';
 import 'package:tulasihotels/features/admin/screens/permissions_overview_screen.dart';
@@ -171,6 +172,8 @@ class AppRoutes {
   static const String events = '/events';
   static const String splitBill = '/orders/:id/split';
   static const String salary = '/salary';
+  static const String staffAttendanceDetail = '/staff/attendance-detail';
+  static const String staffPayrollDetail = '/staff/payroll-detail';
   static const String feedbackDashboard = '/feedback-dashboard';
   static const String menuPerformance = '/reports/menu-performance';
   static const String weeklyReport = '/reports/weekly';
@@ -838,6 +841,28 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: AppRoutes.salary,
             builder: (context, state) => const SalaryScreen(),
+          ),
+          GoRoute(
+            path: AppRoutes.staffAttendanceDetail,
+            builder: (context, state) {
+              final extra = state.extra! as Map<String, dynamic>;
+              return StaffAttendanceCorrectionView(
+                staffId: extra['staffId'] as String,
+                staffName: extra['staffName'] as String,
+                staffEmail: extra['staffEmail'] as String,
+                staffRole: extra['staffRole'] as String,
+              );
+            },
+          ),
+          GoRoute(
+            path: AppRoutes.staffPayrollDetail,
+            builder: (context, state) {
+              final extra = state.extra! as Map<String, dynamic>;
+              return StaffPayrollScreen(
+                staffId: extra['staffId'] as String,
+                staffName: extra['staffName'] as String,
+              );
+            },
           ),
         ],
       ),

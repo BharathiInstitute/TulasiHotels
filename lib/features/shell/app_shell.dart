@@ -69,6 +69,12 @@ class _AppShellState extends ConsumerState<AppShell> {
 
   void _onItemTapped(BuildContext context, int index, List<String> routes) {
     if (index >= 0 && index < routes.length) {
+      // Dismiss any active snackbar so it doesn't persist across screens.
+      ScaffoldMessenger.of(context).removeCurrentSnackBar();
+      // Pop any locally-pushed Navigator routes (e.g. attendance/payroll detail
+      // panels) so they don't persist over the newly-selected screen.
+      final nav = Navigator.of(context);
+      if (nav.canPop()) nav.popUntil((route) => route.isFirst);
       context.go(routes[index]);
     }
   }

@@ -6,6 +6,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:tulasihotels/core/design/design_system.dart';
 import 'package:tulasihotels/features/subscription/services/plan_enforcement_service.dart';
+import 'package:tulasihotels/features/subscription/providers/usage_limits_provider.dart';
+import 'package:tulasihotels/features/subscription/providers/subscription_provider.dart';
+import 'package:tulasihotels/features/subscription/widgets/plan_usage_bar.dart';
 import 'package:tulasihotels/features/tables/providers/table_provider.dart';
 import 'package:tulasihotels/features/tables/services/table_service.dart';
 import 'package:tulasihotels/features/tables/widgets/add_table_dialog.dart';
@@ -27,12 +30,15 @@ class _TablesScreenState extends ConsumerState<TablesScreen> {
     final floors = ref.watch(availableFloorsProvider);
     final selectedFloor = ref.watch(selectedFloorProvider);
     final statusSummary = ref.watch(tableStatusSummaryProvider);
+    final limits = ref.watch(currentLimitsProvider);
+    final config = ref.watch(planConfigProvider);
+    final tableMax = config.maxTables ?? 999999;
+    final atTableLimit = tableMax < 999999 && limits.tablesCount >= tableMax;
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Tables'),
         actions: [
-          // Floor filter chips
           if (floors.length > 1)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -49,30 +55,31 @@ class _TablesScreenState extends ConsumerState<TablesScreen> {
                     ),
                   ),
                 ],
-                onChanged: (value) {
-                  ref.read(selectedFloorProvider.notifier).state = value;
-                },
+                onChanged: (value) =>
+                    ref.read(selectedFloorProvider.notifier).state = value,
               ),
             ),
           IconButton(
-            icon: const Icon(Icons.add),
-            tooltip: 'Add Table',
-            onPressed: _showAddTableDialog,
+            icon: Icon(atTableLimit ? Icons.lock_outline : Icons.add),
+            tooltip: atTableLimit ? 'Table limit reached — upgrade to add more' : 'Add Table',
+            onPressed: atTableLimit ? null : _showAddTableDialog,
           ),
         ],
       ),
       body: Column(
         children: [
-          // Status summary bar
+          PlanUsageBar(
+            label: 'Tables',
+            getCurrent: (l) => l.tablesCount,
+            getLimit: (c) => c.tablesLimitFirestore,
+          ),
           _StatusBar(summary: statusSummary),
-
-          // Table grid
           Expanded(
             child: tablesAsync.when(
               data: (tables) {
                 if (tables.isEmpty) {
                   return _EmptyState(
-                    onAddTables: _showAddTableDialog,
+                    onAddTables: atTableLimit ? () {} : _showAddTableDialog,
                   );
                 }
                 return _TableGrid(tables: tables);
@@ -87,25 +94,8 @@ class _TablesScreenState extends ConsumerState<TablesScreen> {
   }
 
   Future<void> _showAddTableDialog() async {
-    // Check plan limit BEFORE opening dialog
-    final check = await PlanEnforcementService.checkLimit(LimitType.tables);
+    // Button is already disabled when atTableLimit — no server call needed here
     if (!mounted) return;
-    if (!check.allowed) {
-      ScaffoldMessenger.of(context).removeCurrentSnackBar();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(check.message ?? 'Upgrade your plan to add more tables.'),
-          backgroundColor: Colors.orange,
-          duration: const Duration(seconds: 3),
-          action: SnackBarAction(
-            label: 'Upgrade',
-            textColor: Colors.white,
-            onPressed: () => context.push(AppRoutes.subscription),
-          ),
-        ),
-      );
-      return;
-    }
     showDialog(
       context: context,
       builder: (context) => const AddTableDialog(),

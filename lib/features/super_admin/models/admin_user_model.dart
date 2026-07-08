@@ -65,17 +65,17 @@ class UserSubscription {
     }
   }
 
-  /// Get plan price
+  /// Get plan price (monthly, INR) — must match AppConstants pricing
   int get planPrice {
     switch (plan) {
       case SubscriptionPlan.free:
         return 0;
       case SubscriptionPlan.starter:
-        return 500;
+        return 199;
       case SubscriptionPlan.pro:
-        return 1000;
+        return 299;
       case SubscriptionPlan.business:
-        return 2000;
+        return 999;
     }
   }
 

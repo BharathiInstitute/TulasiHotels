@@ -2230,28 +2230,46 @@ export const onTableCreated = functions
         const userRef = db.collection("users").doc(userId);
 
         try {
-            await db.runTransaction(async (txn) => {
-                const userDoc = await txn.get(userRef);
-                if (!userDoc.exists) return;
+            const userDoc = await userRef.get();
+            if (!userDoc.exists) return;
 
-                const data = userDoc.data()!;
-                const limits = data.limits || {};
-                const sub = data.subscription || {};
-                const plan = (sub.plan as string) || "free";
-                const tablesCount = (limits.tablesCount as number) || 0;
-                // Default tablesLimit based on plan if not explicitly set
-                const defaultTablesLimit = plan === "business" ? 999999 : plan === "pro" ? 50 : plan === "starter" ? 15 : 5;
-                const tablesLimit = (limits.tablesLimit as number) ?? defaultTablesLimit;
+            const data = userDoc.data()!;
+            const limits = data.limits || {};
+           let sub = data.subscription || {};
+// If store doc has ownerUid different from storeId, read subscription
+// from the owner's auth document (where activateSubscription writes it).
+const ownerUid = data.ownerUid as string | undefined;
+if (ownerUid && ownerUid !== userId) {
+    const ownerDoc = await db.collection("users").doc(ownerUid).get();
+    if (ownerDoc.exists && ownerDoc.data()?.subscription) {
+        sub = ownerDoc.data()!.subscription;
+    }
+}
+const plan = (sub.plan as string) || "free";
 
-                if (tablesCount >= tablesLimit) {
-                    console.warn(`⚠️ onTableCreated: User ${userId} OVER table limit (${tablesCount}/${tablesLimit}). Deleting table ${tableId}.`);
-                    txn.delete(snap.ref);
-                    return;
-                }
+            // Always derive limit from plan — never let stale stored value block creation
+            const defaultTablesLimit = plan === "business" ? 999999 : plan === "pro" ? 50 : plan === "starter" ? 15 : 5;
+            const storedTablesLimit = (limits.tablesLimit as number) ?? 0;
+            // Use whichever is higher: plan config OR stored limit (guards against stale Firestore values)
+            const tablesLimit = Math.max(defaultTablesLimit, storedTablesLimit);
 
-                txn.update(userRef, {
-                    "limits.tablesCount": tablesCount + 1,
+            // Count actual table docs after this create event to self-heal stale counters.
+            const actualTablesSnapshot = await db.collection(`users/${userId}/tables`).count().get();
+            const actualTablesCount = actualTablesSnapshot.data().count;
+
+            if (tablesLimit < 999999 && actualTablesCount > tablesLimit) {
+                console.warn(`⚠️ onTableCreated: User ${userId} OVER table limit (${actualTablesCount}/${tablesLimit}). Deleting table ${tableId}.`);
+                await snap.ref.delete();
+                await userRef.update({
+                    "limits.tablesCount": Math.max(0, actualTablesCount - 1),
+                    "limits.tablesLimit": tablesLimit,
                 });
+                return;
+            }
+
+            await userRef.update({
+                "limits.tablesCount": actualTablesCount,
+                "limits.tablesLimit": tablesLimit,
             });
         } catch (e) {
             console.error(`❌ onTableCreated: Failed for user ${userId}, table ${tableId}:`, e);
@@ -2362,6 +2380,81 @@ export const onLocalStaffDeleted = functions
         } catch (e) {
             console.error(`❌ onLocalStaffDeleted: Failed for user ${userId}:`, e);
         }
+    });
+
+/**
+ * repairTableLimits — Callable that recounts actual tables from Firestore
+ * and repairs stale limits.tablesCount / limits.tablesLimit values.
+ *
+ * Fixes the "table appears then disappears" bug caused by stale counters:
+ * - If tablesCount is wrong (too high), onTableCreated deletes new tables.
+ * - This callable resets the counter to the real subcollection count.
+ *
+ * Call:  CloudFunctionHelper.call('repairTableLimits')
+ * Or admin repair: CloudFunctionHelper.call('repairTableLimits', { userId: 'uid' })
+ */
+export const repairTableLimits = functions
+    .region("asia-south1")
+    .runWith({ timeoutSeconds: 30, maxInstances: 10 })
+    .https.onCall(async (data, context) => {
+        if (!context.auth) {
+            throw new functions.https.HttpsError("unauthenticated", "Must be authenticated");
+        }
+
+        const db = admin.firestore();
+        const targetUserId = (data?.userId as string) || context.auth.uid;
+
+        // Only allow self-repair or admin repair
+        if (targetUserId !== context.auth.uid) {
+            const adminDoc = await db.collection("admins").doc(context.auth.token.email || "").get();
+            if (!adminDoc.exists) {
+                throw new functions.https.HttpsError("permission-denied", "Only admins can repair other users");
+            }
+        }
+
+        const userRef = db.collection("users").doc(targetUserId);
+        const userDoc = await userRef.get();
+        if (!userDoc.exists) {
+            throw new functions.https.HttpsError("not-found", "User not found");
+        }
+
+        const userData = userDoc.data()!;
+        const sub = userData.subscription || {};
+        const plan = (sub.plan as string) || "free";
+
+        // Recount actual tables from subcollection (source of truth)
+        const tablesSnap = await db.collection(`users/${targetUserId}/tables`).count().get();
+        const actualTablesCount = tablesSnap.data().count;
+
+        // Compute correct tablesLimit from plan config
+        const planTablesLimit =
+            plan === "business" ? 999999 :
+            plan === "pro"      ? 50 :
+            plan === "starter"  ? 15 : 5; // free default
+        const storedTablesLimit = (userData.limits?.tablesLimit as number) || 0;
+        // Never downgrade a stored limit that was intentionally set higher
+        const correctTablesLimit = Math.max(planTablesLimit, storedTablesLimit);
+
+        const prevCount = (userData.limits?.tablesCount as number) ?? "unknown";
+        const prevLimit = (userData.limits?.tablesLimit as number) ?? "unknown";
+
+        await userRef.update({
+            "limits.tablesCount": actualTablesCount,
+            "limits.tablesLimit": correctTablesLimit,
+        });
+
+        console.log(
+            `✅ repairTableLimits: User ${targetUserId} (plan=${plan}) — ` +
+            `tablesCount: ${prevCount} → ${actualTablesCount}, ` +
+            `tablesLimit: ${prevLimit} → ${correctTablesLimit}`
+        );
+
+        return {
+            success: true,
+            plan,
+            before: { tablesCount: prevCount, tablesLimit: prevLimit },
+            after: { tablesCount: actualTablesCount, tablesLimit: correctTablesLimit },
+        };
     });
 
 /**
