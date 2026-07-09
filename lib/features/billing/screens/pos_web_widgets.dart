@@ -35,7 +35,7 @@ class _WebProductCard extends StatelessWidget {
                       borderRadius: const BorderRadius.vertical(
                         top: Radius.circular(12),
                       ),
-                      image: product.imageUrl != null
+                      image: product.imageUrl != null && product.imageUrl!.startsWith('http')
                           ? DecorationImage(
                               image: NetworkImage(product.imageUrl!),
                               fit: BoxFit.cover,
@@ -44,7 +44,7 @@ class _WebProductCard extends StatelessWidget {
                     ),
                     child: Stack(
                       children: [
-                        if (product.imageUrl == null)
+                        if (product.imageUrl == null || !product.imageUrl!.startsWith('http'))
                           Center(
                             child: Padding(
                               padding: const EdgeInsets.all(4),

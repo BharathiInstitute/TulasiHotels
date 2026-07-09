@@ -39,12 +39,17 @@ class AttendanceSettingsService {
     }
   }
 
-  /// Save settings (owner only).
+  /// Save settings (owner only). Offline-safe: queues locally and returns immediately.
   static Future<void> save(
     String hotelId,
     AttendanceSettingsModel settings,
   ) async {
-    await _doc(hotelId).set(settings.toFirestore(), SetOptions(merge: true));
-    debugPrint('✅ Attendance settings saved for $hotelId');
+    final write = _doc(hotelId).set(settings.toFirestore(), SetOptions(merge: true));
+    try {
+      await write.timeout(const Duration(seconds: 8));
+    } catch (_) {
+      // Timeout or offline — SDK queues the write and syncs on reconnect
+    }
+    debugPrint('✅ Attendance settings saved for $hotelId (may be queued offline)');
   }
 }

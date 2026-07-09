@@ -1775,31 +1775,35 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
 
       if (updates.isEmpty) return true;
 
-      // Update the active store doc (could be uid for default, or a different id
-      // for a multi-restaurant setup).
-      await _firestore.collection('users').doc(activeStoreId).update(updates);
+      // Update the active store doc — offline-safe with 8s timeout.
+      final write = _firestore.collection('users').doc(activeStoreId).update(updates);
+      try {
+        await write.timeout(const Duration(seconds: 8));
+      } catch (_) {
+        // Timeout or offline — SDK queues the write and syncs when online
+      }
 
-      // Sync restaurant name in user_hotels — target the SELECTED restaurant,
-      // not always the default uid entry. This prevents creating/updating the
-      // wrong entry and avoids duplicate restaurant appearance.
+      // Sync restaurant name in user_hotels — fire-and-forget so it never
+      // blocks the UI or hangs during offline/slow-network scenarios.
       if (shopName != null && shopName.isNotEmpty) {
-        try {
-          final hotelDoc = await _firestore
-              .collection('user_hotels/${user.uid}/hotels')
-              .doc(activeStoreId)
-              .get();
-          if (hotelDoc.exists) {
-            await _firestore
+        unawaited(() async {
+          try {
+            final hotelDoc = await _firestore
                 .collection('user_hotels/${user.uid}/hotels')
                 .doc(activeStoreId)
-                .update({
-              'name': shopName,
-              'slug': shopName.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '-'),
-            });
-          }
-          // Do NOT create a new entry if it doesn't exist — that would cause
-          // the duplicate restaurant bug. Only update existing entries.
-        } catch (_) {}
+                .get()
+                .timeout(const Duration(seconds: 8));
+            if (hotelDoc.exists) {
+              await _firestore
+                  .collection('user_hotels/${user.uid}/hotels')
+                  .doc(activeStoreId)
+                  .update({
+                'name': shopName,
+                'slug': shopName.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '-'),
+              }).timeout(const Duration(seconds: 8));
+            }
+          } catch (_) {}
+        }());
       }
 
       // Update in-memory PaymentLinkService so reminders use new UPI ID immediately

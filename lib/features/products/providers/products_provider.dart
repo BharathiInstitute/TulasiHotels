@@ -33,6 +33,17 @@ String _productsPath([String? storeId]) {
   return 'users/$uid/products';
 }
 
+bool _isValidImageUrl(String? url) {
+  if (url == null) return false;
+  final trimmed = url.trim();
+  return trimmed.startsWith('http://') || trimmed.startsWith('https://');
+}
+
+String? _sanitizeImageUrl(String? url) {
+  if (!_isValidImageUrl(url)) return null;
+  return url!.trim();
+}
+
 /// Products list provider - reads from Firestore OR demo data
 /// Per-product sync status cache — updated by productsProvider
 Map<String, bool> _lastProductSyncStatus = {};
@@ -181,6 +192,7 @@ class ProductsService {
     final data = <String, dynamic>{
       ...product.toFirestore(),
       'createdAt': Timestamp.fromDate(DateTime.now()),
+      'imageUrl': _sanitizeImageUrl(product.imageUrl),
     };
     await _collection!.doc(id).set(data);
     unawaited(UserMetricsService.trackProductAdded());
@@ -230,7 +242,46 @@ class ProductsService {
       DemoDataService.updateProduct(product);
       return;
     }
-    await _collection!.doc(product.id).update(product.toFirestore());
+    final data = <String, dynamic>{
+      ...product.toFirestore(),
+      'imageUrl': _sanitizeImageUrl(product.imageUrl),
+    };
+    await _collection!.doc(product.id).update(data);
+  }
+
+  /// One-time repair utility: clears malformed image URLs on product docs.
+  /// Returns the number of repaired products.
+  Future<int> cleanupInvalidImageUrls() async {
+    if (_isDemoMode) return 0;
+    final collection = _collection;
+    if (collection == null) return 0;
+
+    final snapshot = await collection.limit(2000).get();
+    if (snapshot.docs.isEmpty) return 0;
+
+    int repaired = 0;
+    WriteBatch? batch;
+    int batchOps = 0;
+
+    for (final doc in snapshot.docs) {
+      final imageUrl = (doc.data() as Map<String, dynamic>?)?['imageUrl'] as String?;
+      if (imageUrl != null && !_isValidImageUrl(imageUrl)) {
+        batch ??= _firestore.batch();
+        batch.update(doc.reference, {'imageUrl': null});
+        repaired++;
+        batchOps++;
+        if (batchOps >= 450) {
+          await batch.commit();
+          batch = null;
+          batchOps = 0;
+        }
+      }
+    }
+
+    if (batch != null && batchOps > 0) {
+      await batch.commit();
+    }
+    return repaired;
   }
 
   /// Delete product

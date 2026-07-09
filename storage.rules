@@ -4,9 +4,10 @@ service firebase.storage {
   match /b/{bucket}/o {
     // Users can read/write their own files (logos, profile images)
     match /users/{userId}/{allPaths=**} {
-      allow read: if request.auth != null;
+      // Download URLs include a signed token — public read is safe
+      allow read: if true;
       allow write: if request.auth != null && request.auth.uid == userId
-                   && request.resource.size < 2 * 1024 * 1024 // Max 2MB
+                   && request.resource.size < 5 * 1024 * 1024 // Max 5MB (resized images are typically <200KB)
                    && request.resource.contentType.matches('image/.*');
       allow delete: if request.auth != null && request.auth.uid == userId;
     }

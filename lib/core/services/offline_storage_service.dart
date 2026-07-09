@@ -865,9 +865,15 @@ class OfflineStorageService {
   /// Save customer
   static Future<void> saveCustomer(CustomerModel customer) async {
     if (_basePath.isEmpty) return;
-    await _firestore
+    final write = _firestore
         .doc('$_basePath/customers/${customer.id}')
         .set(customer.toFirestore());
+    if (ConnectivityService.isOffline) {
+      unawaited(write);
+    } else {
+      await write.timeout(const Duration(seconds: 8),
+          onTimeout: () => debugPrint('saveCustomer timeout, queued'));
+    }
     UserUsageService.trackWrite();
   }
 
@@ -935,8 +941,14 @@ class OfflineStorageService {
       transaction.toFirestore(),
     );
 
-    // Atomic commit â€” both succeed or both fail
-    await batch.commit();
+    // Atomic commit — queued offline by SDK, synced when online
+    final commit = batch.commit();
+    if (ConnectivityService.isOffline) {
+      unawaited(commit);
+    } else {
+      await commit.timeout(const Duration(seconds: 8),
+          onTimeout: () => debugPrint('recordPaymentAtomic timeout, queued'));
+    }
     UserUsageService.trackWrite(count: 2);
   }
 
@@ -972,8 +984,14 @@ class OfflineStorageService {
       transaction.toFirestore(),
     );
 
-    // Atomic commit
-    await batch.commit();
+    // Atomic commit — queued offline by SDK, synced when online
+    final commit = batch.commit();
+    if (ConnectivityService.isOffline) {
+      unawaited(commit);
+    } else {
+      await commit.timeout(const Duration(seconds: 8),
+          onTimeout: () => debugPrint('addCreditAtomic timeout, queued'));
+    }
     UserUsageService.trackWrite(count: 2);
   }
 

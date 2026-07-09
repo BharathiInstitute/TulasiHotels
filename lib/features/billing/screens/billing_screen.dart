@@ -812,7 +812,7 @@ class _BillingScreenState extends ConsumerState<BillingScreen> {
                         color: Theme.of(
                           context,
                         ).colorScheme.surfaceContainerHighest,
-                        child: product.imageUrl != null
+                        child: product.imageUrl != null && product.imageUrl!.startsWith('http')
                             ? CachedNetworkImage(
                                 imageUrl: product.imageUrl!,
                                 fit: BoxFit.cover,

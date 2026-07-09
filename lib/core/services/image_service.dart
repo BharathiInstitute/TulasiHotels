@@ -94,23 +94,23 @@ class ImageService {
   /// Uploads to Firebase Storage under users/$uid/products/
   /// Returns the download URL string on success, null on cancel/error
   static Future<String?> pickAndUploadProductImage() async {
-    try {
-      final uid = FirebaseAuth.instance.currentUser?.uid;
-      if (uid == null) return null;
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) throw Exception('Not signed in. Please log in and try again.');
 
+    try {
       final result = await FilePicker.platform.pickFiles(
         type: FileType.image,
         withData: true,
       );
 
-      if (result == null || result.files.isEmpty) return null;
+      if (result == null || result.files.isEmpty) return null; // user cancelled
       final file = result.files.first;
 
       Uint8List? bytes = file.bytes;
       if (bytes == null && !kIsWeb && file.path != null) {
         bytes = await File(file.path!).readAsBytes();
       }
-      if (bytes == null) return null;
+      if (bytes == null) throw Exception('Could not read image file.');
 
       // Reject files larger than 15 MB to avoid memory issues
       if (bytes.length > ImageSizes.maxFileSizeBytes) {
@@ -143,17 +143,24 @@ class ImageService {
         'users/$uid/products/product_$timestamp.jpg',
       );
 
-      await storageRef.putData(
-        resizedBytes,
-        SettableMetadata(contentType: 'image/jpeg'),
-      );
+      await storageRef
+          .putData(
+            resizedBytes,
+            SettableMetadata(contentType: 'image/jpeg'),
+          )
+          .timeout(const Duration(seconds: 20));
       UserUsageService.trackStorageUpload(bytes: resizedBytes.length);
 
-      final downloadUrl = await storageRef.getDownloadURL();
+      final downloadUrl = await storageRef
+          .getDownloadURL()
+          .timeout(const Duration(seconds: 10));
       return downloadUrl;
+    } on FirebaseException catch (e) {
+      debugPrint('Storage error uploading product image: ${e.code} ${e.message}');
+      throw Exception('Upload failed (${e.code}): ${e.message}');
     } catch (e) {
       debugPrint('Error picking/uploading product image: $e');
-      return null;
+      rethrow;
     }
   }
 

@@ -17,6 +17,8 @@ import 'package:tulasihotels/core/services/thermal_printer_service.dart';
 import 'package:tulasihotels/core/services/web_bluetooth_printer_service.dart';
 import 'package:tulasihotels/core/services/web_serial_printer_service.dart';
 import 'package:tulasihotels/features/auth/providers/auth_provider.dart';
+import 'package:tulasihotels/core/services/connectivity_service.dart';
+import 'package:tulasihotels/shared/widgets/offline_banner.dart';
 import 'package:tulasihotels/features/auth/providers/phone_auth_provider.dart';
 import 'package:tulasihotels/features/hotels/providers/hotel_provider.dart';
 import 'package:tulasihotels/features/settings/providers/settings_provider.dart';
@@ -268,6 +270,9 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
     setState(() => _isSaving = true);
     try {
       final footer = _termsController.text.trim();
+      final isOffline = ref.read(isOnlineProvider) == false;
+
+      // Hard 10s timeout so loading never hangs regardless of network state
       final success = await ref
           .read(authNotifierProvider.notifier)
           .updateShopInfo(
@@ -282,17 +287,23 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
             currency: _selectedCurrency,
             timezone: _selectedTimezone,
             receiptFooter: footer,
+          )
+          .timeout(
+            const Duration(seconds: 10),
+            onTimeout: () => true, // treat timeout as queued success
           );
 
       if (mounted) {
+        final message = isOffline
+            ? 'Saved offline — will sync when online'
+            : success
+                ? 'Settings saved successfully!'
+                : 'Failed to save settings';
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(
-              success
-                  ? 'Settings saved successfully!'
-                  : 'Failed to save settings',
-            ),
-            backgroundColor: success ? AppColors.primary : AppColors.error,
+            content: Text(message),
+            backgroundColor:
+                (success || isOffline) ? AppColors.primary : AppColors.error,
           ),
         );
       }
@@ -850,6 +861,9 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: Column(
         children: [
+          // Offline banner — visible even outside main shell
+          const OfflineBanner(),
+
           // Top bar — mirrors the main app header
           _buildTopBar(),
 

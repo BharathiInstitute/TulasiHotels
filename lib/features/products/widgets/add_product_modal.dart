@@ -84,7 +84,11 @@ class _AddProductModalState extends ConsumerState<AddProductModal> {
     _spiceLevel = p?.spiceLevel;
     _allergens = List<String>.from(p?.allergens ?? []);
     _isAvailable = p?.isAvailable ?? true;
-    _imageUrl = p?.imageUrl;
+    // Only use imageUrl if it's a valid HTTPS URL — local paths from mobile don't work on web
+    final rawImageUrl = p?.imageUrl;
+    _imageUrl = (rawImageUrl != null && rawImageUrl.startsWith('http'))
+        ? rawImageUrl
+        : null;
   }
 
   @override
@@ -697,14 +701,78 @@ class _AddProductModalState extends ConsumerState<AddProductModal> {
                                 Center(
                                   child: ClipRRect(
                                     borderRadius: BorderRadius.circular(12),
-                                    child: CachedNetworkImage(
-                                      imageUrl: _imageUrl!,
+                                    child: Image.network(
+                                      _imageUrl!,
+                                      key: ValueKey(_imageUrl),
                                       height: 120,
                                       fit: BoxFit.contain,
-                                      errorWidget: (_, url, error) =>
-                                          const Icon(
-                                            Icons.broken_image,
-                                            size: 40,
+                                      loadingBuilder: (_, child, progress) =>
+                                          progress == null
+                                              ? child
+                                              : const Center(child: CircularProgressIndicator()),
+                                      errorBuilder: (_, error, __) =>
+                                          Column(
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.center,
+                                            children: [
+                                              const Icon(
+                                                Icons.broken_image,
+                                                size: 32,
+                                                color: Colors.grey,
+                                              ),
+                                              const SizedBox(height: 4),
+                                              Text(
+                                                'Image unavailable',
+                                                style: TextStyle(
+                                                  fontSize: 11,
+                                                  color: Theme.of(context)
+                                                      .colorScheme
+                                                      .onSurfaceVariant,
+                                                ),
+                                              ),
+                                              const SizedBox(height: 6),
+                                              TextButton.icon(
+                                                style: TextButton.styleFrom(
+                                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                                  visualDensity: VisualDensity.compact,
+                                                ),
+                                                icon: const Icon(Icons.upload, size: 14),
+                                                label: const Text('Re-upload', style: TextStyle(fontSize: 12)),
+                                                onPressed: () async {
+                                                  setState(() {
+                                                    _imageUrl = null;
+                                                    _isUploadingImage = true;
+                                                  });
+                                                  try {
+                                                    final url = await ImageService.pickAndUploadProductImage();
+                                                    if (url != null && context.mounted) {
+                                                      setState(() => _imageUrl = url);
+                                                      ScaffoldMessenger.of(context).showSnackBar(
+                                                        const SnackBar(
+                                                          content: Text('✅ Image uploaded'),
+                                                          backgroundColor: AppColors.success,
+                                                        ),
+                                                      );
+                                                    } else {
+                                                      setState(() => _imageUrl = null);
+                                                    }
+                                                  } catch (e) {
+                                                    if (context.mounted) {
+                                                      ScaffoldMessenger.of(context).showSnackBar(
+                                                        SnackBar(
+                                                          content: Text('Upload failed: ${e.toString().replaceAll('Exception: ', '')}'),
+                                                          backgroundColor: AppColors.error,
+                                                          duration: const Duration(seconds: 5),
+                                                        ),
+                                                      );
+                                                    }
+                                                    setState(() => _imageUrl = null);
+                                                  } finally {
+                                                    if (mounted) setState(() => _isUploadingImage = false);
+                                                  }
+                                                },
+                                              ),
+                                            ],
                                           ),
                                     ),
                                   ),
@@ -742,14 +810,16 @@ class _AddProductModalState extends ConsumerState<AddProductModal> {
                                       ),
                                     );
                                   }
+                                  // url == null means user cancelled — no message needed
                                 } catch (e) {
                                   if (context.mounted) {
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       SnackBar(
                                         content: Text(
-                                          'Image upload failed: $e',
+                                          'Upload failed: ${e.toString().replaceAll('Exception: ', '')}',
                                         ),
                                         backgroundColor: AppColors.error,
+                                        duration: const Duration(seconds: 5),
                                       ),
                                     );
                                   }
