@@ -1401,6 +1401,8 @@ class OfflineStorageService {
       'theme_use_system',
       // Route persistence (each user may have different last page)
       'last_route',
+      // Active hotel selection must not leak across accounts
+      'last_hotel_id',
     ];
 
     // Also clear any usage metrics and sync metadata

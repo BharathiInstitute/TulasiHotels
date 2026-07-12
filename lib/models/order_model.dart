@@ -47,9 +47,9 @@ enum OrderItemStatus {
 
 /// Order type
 enum OrderType {
-  dineIn('Dine-in', '???'),
-  takeaway('Takeaway', '??'),
-  delivery('Delivery', '??');
+  dineIn('Dine-in', '\u{1F374}'),
+  takeaway('Takeaway', '\u{1F4E6}'),
+  delivery('Delivery', '\u{1F6F5}');
 
   final String displayName;
   final String emoji;

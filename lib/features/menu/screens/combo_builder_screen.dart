@@ -91,149 +91,154 @@ class _ComboBuilderScreenState extends ConsumerState<ComboBuilderScreen> {
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setModalState) {
-            final productsAsync = ref.watch(productsProvider);
-            return DraggableScrollableSheet(
-              initialChildSize: 0.85,
-              maxChildSize: 0.95,
-              minChildSize: 0.5,
-              expand: false,
-              builder: (context, scrollController) {
-                return Padding(
-                  padding: EdgeInsets.only(
-                    bottom: MediaQuery.of(context).viewInsets.bottom,
-                    left: 16,
-                    right: 16,
-                    top: 16,
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Text('New Combo',
-                          style: Theme.of(context).textTheme.headlineSmall),
-                      const SizedBox(height: 16),
-                      TextField(
-                        controller: nameController,
-                        decoration: const InputDecoration(
-                          labelText: 'Combo Name',
-                          border: OutlineInputBorder(),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      TextField(
-                        controller: priceController,
-                        keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(
-                          labelText: 'Combo Price (₹)',
-                          border: OutlineInputBorder(),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
+            return Consumer(
+              builder: (context, ref, _) {
+                final productsAsync = ref.watch(productsProvider);
 
-                      // Selected items chips
-                      if (selectedItems.isNotEmpty) ...[
-                        Text('Selected Items (${selectedItems.length})',
-                            style: Theme.of(context).textTheme.titleSmall),
-                        const SizedBox(height: 8),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 4,
-                          children: selectedItems.map((p) {
-                            return Chip(
-                              label: Text(p.name),
-                              deleteIcon: const Icon(Icons.close, size: 18),
-                              onDeleted: () {
-                                setModalState(() => selectedItems.remove(p));
-                              },
-                            );
-                          }).toList(),
-                        ),
-                        const SizedBox(height: 12),
-                      ],
-
-                      // Search menu items
-                      TextField(
-                        decoration: const InputDecoration(
-                          hintText: 'Search menu items...',
-                          prefixIcon: Icon(Icons.search),
-                          border: OutlineInputBorder(),
-                        ),
-                        onChanged: (value) {
-                          setModalState(() => searchQuery = value.toLowerCase());
-                        },
+                return DraggableScrollableSheet(
+                  initialChildSize: 0.85,
+                  maxChildSize: 0.95,
+                  minChildSize: 0.5,
+                  expand: false,
+                  builder: (context, scrollController) {
+                    return Padding(
+                      padding: EdgeInsets.only(
+                        bottom: MediaQuery.of(context).viewInsets.bottom,
+                        left: 16,
+                        right: 16,
+                        top: 16,
                       ),
-                      const SizedBox(height: 8),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Text('New Combo',
+                              style: Theme.of(context).textTheme.headlineSmall),
+                          const SizedBox(height: 16),
+                          TextField(
+                            controller: nameController,
+                            decoration: const InputDecoration(
+                              labelText: 'Combo Name',
+                              border: OutlineInputBorder(),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          TextField(
+                            controller: priceController,
+                            keyboardType: TextInputType.number,
+                            decoration: const InputDecoration(
+                              labelText: 'Combo Price (₹)',
+                              border: OutlineInputBorder(),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
 
-                      // Menu items list
-                      Expanded(
-                        child: productsAsync.when(
-                          loading: () => const Center(child: CircularProgressIndicator()),
-                          error: (e, _) => Center(child: Text('Error: $e')),
-                          data: (products) {
-                            var filtered = products.where((p) => p.isAvailable).toList();
-                            if (searchQuery.isNotEmpty) {
-                              filtered = filtered.where((p) =>
-                                  p.name.toLowerCase().contains(searchQuery)).toList();
-                            }
-                            if (filtered.isEmpty) {
-                              return const Center(child: Text('No items found'));
-                            }
-                            return ListView.builder(
-                              controller: scrollController,
-                              itemCount: filtered.length,
-                              itemBuilder: (context, index) {
-                                final product = filtered[index];
-                                final isSelected = selectedItems.any((p) => p.id == product.id);
-                                return ListTile(
-                                  leading: CircleAvatar(
-                                    child: Text(
-                                      product.dietaryTag.emoji.isNotEmpty
-                                          ? product.dietaryTag.emoji
-                                          : '🍽️',
-                                    ),
-                                  ),
-                                  title: Text(product.name),
-                                  subtitle: Text('₹${product.price.toStringAsFixed(0)}'),
-                                  trailing: isSelected
-                                      ? const Icon(Icons.check_circle, color: Colors.green)
-                                      : const Icon(Icons.add_circle_outline),
-                                  onTap: () {
-                                    setModalState(() {
-                                      if (isSelected) {
-                                        selectedItems.removeWhere((p) => p.id == product.id);
-                                      } else {
-                                        selectedItems.add(product);
-                                      }
-                                    });
+                          // Selected items chips
+                          if (selectedItems.isNotEmpty) ...[
+                            Text('Selected Items (${selectedItems.length})',
+                                style: Theme.of(context).textTheme.titleSmall),
+                            const SizedBox(height: 8),
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 4,
+                              children: selectedItems.map((p) {
+                                return Chip(
+                                  label: Text(p.name),
+                                  deleteIcon: const Icon(Icons.close, size: 18),
+                                  onDeleted: () {
+                                    setModalState(() => selectedItems.remove(p));
+                                  },
+                                );
+                              }).toList(),
+                            ),
+                            const SizedBox(height: 12),
+                          ],
+
+                          // Search menu items
+                          TextField(
+                            decoration: const InputDecoration(
+                              hintText: 'Search menu items...',
+                              prefixIcon: Icon(Icons.search),
+                              border: OutlineInputBorder(),
+                            ),
+                            onChanged: (value) {
+                              setModalState(() => searchQuery = value.toLowerCase());
+                            },
+                          ),
+                          const SizedBox(height: 8),
+
+                          // Menu items list
+                          Expanded(
+                            child: productsAsync.when(
+                              loading: () => const Center(child: CircularProgressIndicator()),
+                              error: (e, _) => Center(child: Text('Error: $e')),
+                              data: (products) {
+                                var filtered = products.where((p) => p.isAvailable).toList();
+                                if (searchQuery.isNotEmpty) {
+                                  filtered = filtered.where((p) =>
+                                      p.name.toLowerCase().contains(searchQuery)).toList();
+                                }
+                                if (filtered.isEmpty) {
+                                  return const Center(child: Text('No items found'));
+                                }
+                                return ListView.builder(
+                                  controller: scrollController,
+                                  itemCount: filtered.length,
+                                  itemBuilder: (context, index) {
+                                    final product = filtered[index];
+                                    final isSelected = selectedItems.any((p) => p.id == product.id);
+                                    return ListTile(
+                                      leading: CircleAvatar(
+                                        child: Text(
+                                          product.dietaryTag.emoji.isNotEmpty
+                                              ? product.dietaryTag.emoji
+                                              : '🍽️',
+                                        ),
+                                      ),
+                                      title: Text(product.name),
+                                      subtitle: Text('₹${product.price.toStringAsFixed(0)}'),
+                                      trailing: isSelected
+                                          ? const Icon(Icons.check_circle, color: Colors.green)
+                                          : const Icon(Icons.add_circle_outline),
+                                      onTap: () {
+                                        setModalState(() {
+                                          if (isSelected) {
+                                            selectedItems.removeWhere((p) => p.id == product.id);
+                                          } else {
+                                            selectedItems.add(product);
+                                          }
+                                        });
+                                      },
+                                    );
                                   },
                                 );
                               },
-                            );
-                          },
-                        ),
-                      ),
+                            ),
+                          ),
 
-                      const SizedBox(height: 12),
-                      FilledButton(
-                        onPressed: () {
-                          if (nameController.text.isEmpty) return;
-                          final combo = ComboModel(
-                            id: generateSafeId('combo'),
-                            name: nameController.text,
-                            price: double.tryParse(priceController.text) ?? 0,
-                            items: selectedItems.map((p) => ComboItem(
-                              productId: p.id,
-                              name: p.name,
-                            )).toList(),
-                            createdAt: DateTime.now(),
-                          );
-                          ComboService.createCombo(combo);
-                          Navigator.of(context).pop();
-                        },
-                        child: const Text('Create Combo'),
+                          const SizedBox(height: 12),
+                          FilledButton(
+                            onPressed: () {
+                              if (nameController.text.isEmpty) return;
+                              final combo = ComboModel(
+                                id: generateSafeId('combo'),
+                                name: nameController.text,
+                                price: double.tryParse(priceController.text) ?? 0,
+                                items: selectedItems.map((p) => ComboItem(
+                                  productId: p.id,
+                                  name: p.name,
+                                )).toList(),
+                                createdAt: DateTime.now(),
+                              );
+                              ComboService.createCombo(combo);
+                              Navigator.of(context).pop();
+                            },
+                            child: const Text('Create Combo'),
+                          ),
+                          const SizedBox(height: 16),
+                        ],
                       ),
-                      const SizedBox(height: 16),
-                    ],
-                  ),
+                    );
+                  },
                 );
               },
             );

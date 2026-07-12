@@ -110,7 +110,7 @@ class AttendanceService {
           geoSettings.storeLongitude!,
         );
         if (distance > geoSettings.geoFenceRadius) {
-          throw Exception(
+        throw Exception(
             'You are ${distance.toStringAsFixed(0)}m away from the store. '
             'Must be within ${geoSettings.geoFenceRadius}m to clock in.',
           );

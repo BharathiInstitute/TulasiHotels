@@ -385,7 +385,19 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
         // Save phone number if verified during registration
         if (_phoneVerified && _phoneController.text.trim().isNotEmpty) {
           final phone = '${AppConstants.countryCode}${_phoneController.text.trim()}';
-          await ref.read(authNotifierProvider.notifier).updatePhoneVerified(phone: phone);
+          final synced = await ref
+              .read(authNotifierProvider.notifier)
+              .updatePhoneVerified(phone: phone);
+          if (!synced && mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text(
+                  'Phone verification sync is delayed. Please verify once in Settings after login.',
+                ),
+                backgroundColor: Colors.orange,
+              ),
+            );
+          }
         }
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(

@@ -829,9 +829,10 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
       });
 
       // 3. Set login URL in state — UI shows embedded WebView (no browser needed)
-      const webAppUrl = 'https://app.tulasihotels.com/app/desktop-login';
-      final autoParam = autoGoogle ? '&auto=google' : '';
-      final fullUrl = '$webAppUrl?code=$linkCode$autoParam';
+      // app.tulasihotels.com may not resolve on some networks/devices.
+      // Use Firebase Hosting canonical domain for reliable desktop auth.
+      const webAppUrl = 'https://login1-aa21c.web.app/desktop-login';
+      final fullUrl = '$webAppUrl?code=$linkCode';
 
       state = state.copyWith(
         isLoading: true,
@@ -889,7 +890,29 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
 
                 try {
                   // Sign in with the custom token
-                  await _auth.signInWithCustomToken(customToken);
+                  final credential = await _auth.signInWithCustomToken(
+                    customToken,
+                  );
+
+                  // Desktop auth stream callbacks can occasionally be delayed or
+                  // dropped due platform-channel timing. Load profile directly to
+                  // guarantee loading state resolves and router can continue.
+                  if (credential.user != null) {
+                    _authResolved = true;
+                    _pendingReauth = false;
+                    _profileLoaded = true;
+                    await _loadUserProfile(credential.user!);
+                  } else {
+                    state = state.copyWith(
+                      isLoading: false,
+                      desktopLoginUrl: null,
+                      error: 'Sign-in failed. Please try again.',
+                    );
+                    _desktopAuthTimer?.cancel();
+                    unawaited(_desktopAuthSub?.cancel());
+                    if (!completer.isCompleted) completer.complete(false);
+                    return;
+                  }
 
                   // Clean up the session document
                   await _firestore
@@ -1643,6 +1666,9 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
     if (user == null) return false;
 
     try {
+      final alreadyVerified = state.user?.phoneVerified ?? false;
+      final effectivePhoneVerified = phoneVerified || alreadyVerified;
+
       final data = <String, dynamic>{
         'shopName': shopName,
         'ownerName': ownerName,
@@ -1652,8 +1678,8 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
       };
       if (phone != null && phone.isNotEmpty) {
         data['phone'] = phone;
-        data['phoneVerified'] = phoneVerified;
-        if (phoneVerified) {
+        data['phoneVerified'] = effectivePhoneVerified;
+        if (effectivePhoneVerified) {
           data['phoneVerifiedAt'] = FieldValue.serverTimestamp();
         }
       }
@@ -1702,7 +1728,7 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
           shopName: shopName,
           ownerName: ownerName,
           phone: phone ?? state.user?.phone,
-          phoneVerified: phoneVerified,
+          phoneVerified: effectivePhoneVerified,
           address: address,
           gstNumber: gstNumber,
         ),
@@ -2055,9 +2081,9 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
   }
 
   /// Update phone verified status in Firestore
-  Future<void> updatePhoneVerified({required String phone}) async {
+  Future<bool> updatePhoneVerified({required String phone}) async {
     final user = _auth.currentUser;
-    if (user == null) return;
+    if (user == null) return false;
 
     try {
       await _firestore.collection('users').doc(user.uid).update({
@@ -2075,8 +2101,10 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
           ),
         );
       }
+      return true;
     } catch (e) {
       debugPrint('🔐 Error updating phone verified status: $e');
+      return false;
     }
   }
 

@@ -13,6 +13,7 @@ import 'package:tulasihotels/features/products/widgets/add_product_modal.dart';
 import 'package:tulasihotels/l10n/app_localizations.dart';
 import 'package:tulasihotels/models/product_model.dart';
 import 'package:tulasihotels/shared/widgets/loading_states.dart';
+import 'package:tulasihotels/shared/widgets/web_safe_image.dart';
 import 'package:tulasihotels/shared/widgets/sync_badge.dart';
 import 'package:tulasihotels/shared/widgets/upgrade_prompt_modal.dart';
 import 'package:tulasihotels/features/subscription/services/plan_enforcement_service.dart';
@@ -467,25 +468,30 @@ class _ProductsWebScreenState extends ConsumerState<ProductsWebScreen> {
                                                             BorderRadius.circular(
                                                               6,
                                                             ),
-                                                        image:
-                                                            product.imageUrl !=
-                                                                null
-                                                            ? DecorationImage(
-                                                                image: NetworkImage(
-                                                                  product
-                                                                      .imageUrl!,
-                                                                ),
-                                                                fit: BoxFit
-                                                                    .cover,
-                                                              )
-                                                            : null,
                                                       ),
-                                                      child:
-                                                          product.imageUrl ==
-                                                              null
-                                                          ? Icon(
-                                                              Icons
-                                                                  .image_not_supported_outlined,
+                                                      child: product.imageUrl != null &&
+                                                              product.imageUrl!.startsWith('http')
+                                                          ? ClipRRect(
+                                                              borderRadius:
+                                                                  BorderRadius.circular(
+                                                                    6,
+                                                                  ),
+                                                              child: WebSafeImage(
+                                                                url: product.imageUrl!,
+                                                                width: 32,
+                                                                height: 32,
+                                                                fit: BoxFit.cover,
+                                                                errorWidget: Icon(
+                                                                  Icons.image_not_supported_outlined,
+                                                                  color: Theme.of(context)
+                                                                      .colorScheme
+                                                                      .outline,
+                                                                  size: 16,
+                                                                ),
+                                                              ),
+                                                            )
+                                                          : Icon(
+                                                              Icons.image_not_supported_outlined,
                                                               color:
                                                                   Theme.of(
                                                                         context,
@@ -493,8 +499,7 @@ class _ProductsWebScreenState extends ConsumerState<ProductsWebScreen> {
                                                                       .colorScheme
                                                                       .outline,
                                                               size: 16,
-                                                            )
-                                                          : null,
+                                                            ),
                                                     ),
                                                     const SizedBox(width: 10),
                                                     Flexible(
@@ -1106,20 +1111,28 @@ class _MobileProductCard extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: Theme.of(context).scaffoldBackgroundColor,
                   borderRadius: BorderRadius.circular(8),
-                  image: product.imageUrl != null
-                      ? DecorationImage(
-                          image: NetworkImage(product.imageUrl!),
-                          fit: BoxFit.cover,
-                        )
-                      : null,
                 ),
-                child: product.imageUrl == null
-                    ? Icon(
+                child: product.imageUrl != null &&
+                        product.imageUrl!.startsWith('http')
+                    ? ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: WebSafeImage(
+                          url: product.imageUrl!,
+                          width: 48,
+                          height: 48,
+                          fit: BoxFit.cover,
+                          errorWidget: Icon(
+                            Icons.image_not_supported_outlined,
+                            color: Theme.of(context).colorScheme.outline,
+                            size: 20,
+                          ),
+                        ),
+                      )
+                    : Icon(
                         Icons.image_not_supported_outlined,
                         color: Theme.of(context).colorScheme.outline,
                         size: 20,
-                      )
-                    : null,
+                      ),
               ),
               const SizedBox(width: 12),
               // Product Details
@@ -1286,20 +1299,28 @@ class _GridProductCard extends StatelessWidget {
                       decoration: BoxDecoration(
                         color: Theme.of(context).scaffoldBackgroundColor,
                         borderRadius: BorderRadius.circular(8),
-                        image: product.imageUrl != null
-                            ? DecorationImage(
-                                image: NetworkImage(product.imageUrl!),
-                                fit: BoxFit.cover,
-                              )
-                            : null,
                       ),
-                      child: product.imageUrl == null
-                          ? Icon(
+                      child: product.imageUrl != null &&
+                              product.imageUrl!.startsWith('http')
+                          ? ClipRRect(
+                              borderRadius: BorderRadius.circular(8),
+                              child: WebSafeImage(
+                                url: product.imageUrl!,
+                                width: double.infinity,
+                                height: double.infinity,
+                                fit: BoxFit.cover,
+                                errorWidget: Icon(
+                                  Icons.image_not_supported_outlined,
+                                  color: Theme.of(context).colorScheme.outline,
+                                  size: 32,
+                                ),
+                              ),
+                            )
+                          : Icon(
                               Icons.image_not_supported_outlined,
                               color: Theme.of(context).colorScheme.outline,
                               size: 32,
-                            )
-                          : null,
+                            ),
                     ),
                   ),
                 ),

@@ -769,12 +769,15 @@ service cloud.firestore {
       // Note: sessionId acts as a secret — only the creator knows it
       allow read: if true;
       
-      // Only authenticated users can update (web login page sets the token)
-      // Cloud Functions also update via Admin SDK (bypasses rules)
-      allow update: if isAuthenticated() && request.resource.size() < 5000;
+      // Client updates are blocked. Token writes happen via Cloud Functions
+      // using Admin SDK, which bypasses security rules.
+      allow update: if false;
       
-      // Only authenticated users or admins can delete sessions
-      allow delete: if isAuthenticated();
+      // Allow cleanup by the authenticated user after token handoff.
+      allow delete: if isAuthenticated() && (
+        resource.data.uid == request.auth.uid ||
+        resource.data.status == 'pending'
+      );
     }
     
     // ===================

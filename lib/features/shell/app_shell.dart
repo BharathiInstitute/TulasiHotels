@@ -460,7 +460,7 @@ class _AppShellState extends ConsumerState<AppShell> {
                     onTap: () {
                       Navigator.pop(context);
                       launchUrl(
-                        Uri.parse('https://hotels.tulasierp.com'),
+                        Uri.parse('https://restaurants.tulasierp.com'),
                         mode: LaunchMode.externalApplication,
                       );
                     },

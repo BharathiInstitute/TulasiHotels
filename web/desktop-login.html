@@ -285,7 +285,7 @@
             <div class="step active" id="step-1">
                 <h2>Step 1: Sign In</h2>
 
-                <button class="btn btn-google" onclick="signInGoogle()">
+                <button class="btn btn-google" id="btn-google" onclick="signInGoogle()">
                     <svg width="18" height="18" viewBox="0 0 24 24">
                         <path fill="#4285F4"
                             d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" />
@@ -469,15 +469,33 @@
         }
 
         // â”€â”€â”€ STEP 1: Auth â”€â”€â”€
+        let googleSignInInProgress = false;
+
         async function signInGoogle() {
+            if (googleSignInInProgress) return;
             hideError();
+            googleSignInInProgress = true;
+            setLoading('btn-google', true);
+            const provider = new firebase.auth.GoogleAuthProvider();
+            // Always show account chooser (same UX expectation as web/mobile)
+            provider.setCustomParameters({ prompt: 'select_account' });
             try {
-                const provider = new firebase.auth.GoogleAuthProvider();
                 const result = await auth.signInWithPopup(provider);
                 currentUser = result.user;
                 await onAuthSuccess();
             } catch (e) {
-                showError(e.message || 'Google sign-in failed');
+                const code = e && e.code ? e.code : '';
+                if (code === 'auth/cancelled-popup-request') {
+                    showError('Google sign-in was opened more than once. Please click once and complete the account chooser popup.');
+                } else if (code === 'auth/popup-blocked') {
+                    // Fallback to redirect in the same tab when popup is blocked.
+                    await auth.signInWithRedirect(provider);
+                } else {
+                    showError(e.message || 'Google sign-in failed');
+                }
+            } finally {
+                googleSignInInProgress = false;
+                setLoading('btn-google', false);
             }
         }
 

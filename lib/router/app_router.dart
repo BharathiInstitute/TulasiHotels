@@ -246,10 +246,15 @@ void _persistRoute(String fullUri) {
 String _getRestoredInitialLocation() {
   final saved = OfflineStorageService.prefs?.getString(_lastRouteKey);
   if (saved != null && saved.isNotEmpty && saved.startsWith('/')) {
-    debugPrint(
-      'ðŸ”„ Restoring initial location from SharedPreferences: $saved',
-    );
-    return saved;
+    // Volatile detail routes are NOT restored on launch - the item
+    // may be deleted or belong to a different session.
+    const volatilePrefixes = ['/product/', '/orders/', '/bills/', '/customers/', '/staff/'];
+    final isVolatile = volatilePrefixes.any((p) => saved.startsWith(p));
+    if (!isVolatile) {
+      debugPrint('Restoring route: $saved');
+      return saved;
+    }
+    debugPrint('Skipping volatile route: $saved');
   }
   return AppRoutes.hotelSelector;
 }
@@ -281,6 +286,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       final isLoggedIn = authState.isLoggedIn;
       final isShopSetupComplete = authState.isShopSetupComplete;
       final isLoading = authState.isLoading;
+      final isDesktopAuthInProgress = authState.desktopLoginUrl != null;
       final isSuperAdminUser = ref.read(isSuperAdminProvider);
 
       final currentPath = state.matchedLocation;
@@ -290,6 +296,15 @@ final routerProvider = Provider<GoRouter>((ref) {
       // While auth is initializing, show the loading screen.
       // Capture the current URL so we can restore after auth resolves.
       if (isLoading) {
+        // Windows desktop auth runs inside login UI (embedded WebView or browser
+        // fallback). Do not redirect to global loading route during this flow,
+        // otherwise users get stuck on the splash/logo page.
+        if (isDesktopAuthInProgress) {
+          if (isLoadingRoute) {
+            return AppRoutes.login;
+          }
+          return null;
+        }
         if (!isLoadingRoute) {
           pendingRedirect = fullUri;
         }
@@ -572,6 +587,15 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: AppRoutes.products,
             pageBuilder: (context, state) =>
                 const NoTransitionPage(child: ProductsWebScreen()),
+            routes: [
+              // Redirect /products/:id → /product/:id (fixes persisted bad routes
+              // and any deep-links using the plural form)
+              GoRoute(
+                path: ':id',
+                redirect: (context, state) =>
+                    '/product/${state.pathParameters['id']}',
+              ),
+            ],
           ),
           GoRoute(
             path: AppRoutes.dashboard,
@@ -791,7 +815,8 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: AppRoutes.orderDetail,
             builder: (context, state) {
               final orderId = state.pathParameters['id']!;
-              return OrderDetailScreen(orderId: orderId);
+              final tableId = state.uri.queryParameters['tableId'];
+              return OrderDetailScreen(orderId: orderId, tableId: tableId);
             },
           ),
           GoRoute(

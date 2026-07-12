@@ -520,7 +520,7 @@
     var functions = firebase.app().functions('asia-south1');
 
     // ─── Razorpay Key (live or test) ───
-    var RAZORPAY_KEY = 'rzp_live_T1qs5zRrCgB0LR';
+    var RAZORPAY_KEY = 'rzp_live_TBlERFq0TtYIed';
 
     // ─── State ───
     var currentUser = null;
@@ -531,6 +531,7 @@
     var pendingPlan = null;
     var isAnnual = false;
     var pendingOrder = null; // { orderId, plan, cycle } — for UPI fallback check
+    var platformParam = new URLSearchParams(window.location.search).get('platform') || 'web'; // web | windows | android
 
     // ─── Auth State ───
     auth.onAuthStateChanged(function(user) {
@@ -728,9 +729,32 @@
       icon.textContent = '🎉'; icon.style.display = 'block';
       var pName = plan === 'starter' ? 'Starter' : plan === 'pro' ? 'Pro' : 'Business';
       document.getElementById('payment-title').textContent = pName + ' Plan Activated!';
-      document.getElementById('payment-message').textContent = 'Your subscription is now active. Enjoy your upgraded features!';
-      document.getElementById('payment-open-app').style.display = 'inline-flex';
-      document.getElementById('payment-close').style.display = 'none';
+
+      // Platform-specific redirect
+      if (platformParam === 'android') {
+        document.getElementById('payment-message').textContent = 'Returning you to the app...';
+        document.getElementById('payment-open-app').style.display = 'none';
+        document.getElementById('payment-close').style.display = 'none';
+        document.getElementById('payment-overlay').style.display = 'flex';
+        // Redirect back to Android app via deep link
+        setTimeout(function () {
+          var intentUrl = 'intent://payment-success?plan=' + encodeURIComponent(plan)
+            + '#Intent;scheme=tulasihotels;package=in.liteapp.tulasihotels;end';
+          window.location.href = intentUrl;
+        }, 1500);
+      } else if (platformParam === 'windows') {
+        document.getElementById('payment-message').textContent = 'Your subscription is now active. You can close this tab — the app has updated automatically.';
+        document.getElementById('payment-open-app').style.display = 'none';
+        document.getElementById('payment-close').style.display = 'inline-flex';
+        document.getElementById('payment-close').textContent = 'Close Tab';
+        document.getElementById('payment-close').onclick = function () { window.close(); };
+        document.getElementById('payment-overlay').style.display = 'flex';
+      } else {
+        document.getElementById('payment-message').textContent = 'Your subscription is now active. Enjoy your upgraded features!';
+        document.getElementById('payment-open-app').style.display = 'inline-flex';
+        document.getElementById('payment-close').style.display = 'none';
+        document.getElementById('payment-overlay').style.display = 'flex';
+      }
     }
     function showPaymentError(message) {
       document.getElementById('payment-spinner').style.display = 'none';

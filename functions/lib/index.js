@@ -82,10 +82,20 @@ const sendBrevoEmail = async (to, subject, htmlContent) => {
 // ─── Razorpay Config ───
 // Set in functions/.env file (auto-loaded by Firebase)
 const getRazorpayConfig = () => {
+    var _a;
+    // Backward compatibility: fall back to legacy runtime config
+    // (firebase functions:config:set razorpay.key_id=...)
+    let legacyRazorpay = {};
+    try {
+        legacyRazorpay = (((_a = functions.config()) === null || _a === void 0 ? void 0 : _a.razorpay) || {});
+    }
+    catch (_b) {
+        legacyRazorpay = {};
+    }
     return {
-        keyId: process.env.RAZORPAY_KEY_ID || "",
-        keySecret: process.env.RAZORPAY_KEY_SECRET || "",
-        webhookSecret: process.env.RAZORPAY_WEBHOOK_SECRET || "",
+        keyId: (process.env.RAZORPAY_KEY_ID || legacyRazorpay.key_id || "").trim(),
+        keySecret: (process.env.RAZORPAY_KEY_SECRET || legacyRazorpay.key_secret || "").trim(),
+        webhookSecret: (process.env.RAZORPAY_WEBHOOK_SECRET || legacyRazorpay.webhook_secret || "").trim(),
     };
 };
 /**
@@ -710,13 +720,15 @@ exports.generateDesktopToken = functions
     .region("asia-south1")
     .runWith({ timeoutSeconds: 15, memory: "256MB", maxInstances: 10 })
     .https.onCall(async (data, context) => {
-    var _a;
+    var _a, _b, _c;
     // Must be authenticated (web user just signed in)
     if (!context.auth) {
         throw new functions.https.HttpsError("unauthenticated", "User must be authenticated");
     }
-    const { linkCode } = data;
-    if (!linkCode || linkCode.length !== 6) {
+    const linkCode = (data.linkCode || "").toString().trim().toUpperCase();
+    // Desktop app generates 8-char codes using A-HJ-NP-Z and 2-9.
+    const linkCodePattern = /^[A-HJ-NP-Z2-9]{8}$/;
+    if (!linkCode || !linkCodePattern.test(linkCode)) {
         throw new functions.https.HttpsError("invalid-argument", "Invalid link code");
     }
     const uid = context.auth.uid;
@@ -738,6 +750,12 @@ exports.generateDesktopToken = functions
             await sessionRef.delete();
             throw new functions.https.HttpsError("deadline-exceeded", "Session expired. Please try again from the desktop app.");
         }
+        // Prefer explicit server-side expiry when available.
+        const expiresAt = (_b = sessionData.expiresAt) === null || _b === void 0 ? void 0 : _b.toDate();
+        if (expiresAt && expiresAt.getTime() <= Date.now()) {
+            await sessionRef.delete();
+            throw new functions.https.HttpsError("deadline-exceeded", "Session expired. Please try again from the desktop app.");
+        }
         // Generate custom auth token
         const customToken = await admin.auth().createCustomToken(uid);
         // Store token in Firestore for desktop to pick up
@@ -753,6 +771,11 @@ exports.generateDesktopToken = functions
     catch (error) {
         if (error instanceof functions.https.HttpsError)
             throw error;
+        const err = error;
+        const authCode = ((_c = err.errorInfo) === null || _c === void 0 ? void 0 : _c.code) || err.code;
+        if (authCode === "auth/insufficient-permission") {
+            throw new functions.https.HttpsError("failed-precondition", "Auth token signing is not configured for this project yet. Please contact support.");
+        }
         console.error("Error generating desktop token:", error);
         throw new functions.https.HttpsError("internal", "Failed to generate auth token");
     }
@@ -1962,7 +1985,7 @@ exports.onTableCreated = functions
     .region("asia-south1")
     .firestore.document("users/{userId}/tables/{tableId}")
     .onCreate(async (snap, context) => {
-    var _a;
+    var _a, _b;
     const db = admin.firestore();
     const userId = context.params.userId;
     const tableId = context.params.tableId;
@@ -1973,11 +1996,20 @@ exports.onTableCreated = functions
             return;
         const data = userDoc.data();
         const limits = data.limits || {};
-        const sub = data.subscription || {};
+        let sub = data.subscription || {};
+        // If store doc has ownerUid different from storeId, read subscription
+        // from the owner's auth document (where activateSubscription writes it).
+        const ownerUid = data.ownerUid;
+        if (ownerUid && ownerUid !== userId) {
+            const ownerDoc = await db.collection("users").doc(ownerUid).get();
+            if (ownerDoc.exists && ((_a = ownerDoc.data()) === null || _a === void 0 ? void 0 : _a.subscription)) {
+                sub = ownerDoc.data().subscription;
+            }
+        }
         const plan = sub.plan || "free";
         // Always derive limit from plan — never let stale stored value block creation
         const defaultTablesLimit = plan === "business" ? 999999 : plan === "pro" ? 50 : plan === "starter" ? 15 : 5;
-        const storedTablesLimit = (_a = limits.tablesLimit) !== null && _a !== void 0 ? _a : 0;
+        const storedTablesLimit = (_b = limits.tablesLimit) !== null && _b !== void 0 ? _b : 0;
         // Use whichever is higher: plan config OR stored limit (guards against stale Firestore values)
         const tablesLimit = Math.max(defaultTablesLimit, storedTablesLimit);
         // Count actual table docs after this create event to self-heal stale counters.

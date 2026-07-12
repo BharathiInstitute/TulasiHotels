@@ -1,7 +1,6 @@
 /// Main billing screen
 library;
 
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -23,6 +22,7 @@ import 'package:tulasihotels/shared/widgets/loading_states.dart';
 import 'package:tulasihotels/shared/widgets/nps_survey_dialog.dart';
 import 'package:tulasihotels/shared/widgets/privacy_consent_dialog.dart';
 import 'package:tulasihotels/shared/widgets/onboarding_checklist.dart';
+import 'package:tulasihotels/shared/widgets/web_safe_image.dart';
 import 'package:tulasihotels/features/coupons/providers/coupon_provider.dart';
 import 'package:tulasihotels/features/coupons/services/coupon_service.dart';
 import 'package:tulasihotels/models/coupon_model.dart';
@@ -813,10 +813,12 @@ class _BillingScreenState extends ConsumerState<BillingScreen> {
                           context,
                         ).colorScheme.surfaceContainerHighest,
                         child: product.imageUrl != null && product.imageUrl!.startsWith('http')
-                            ? CachedNetworkImage(
-                                imageUrl: product.imageUrl!,
+                            ? WebSafeImage(
+                                url: product.imageUrl!,
+                                width: double.infinity,
+                                height: double.infinity,
                                 fit: BoxFit.cover,
-                                errorWidget: (_, url, error) => const Center(
+                                errorWidget: const Center(
                                   child: Icon(
                                     Icons.broken_image_outlined,
                                     size: 40,
@@ -1004,10 +1006,12 @@ class _BillingScreenState extends ConsumerState<BillingScreen> {
                           context,
                         ).colorScheme.surfaceContainerHighest,
                         child: product.imageUrl != null
-                            ? CachedNetworkImage(
-                                imageUrl: product.imageUrl!,
+                            ? WebSafeImage(
+                                url: product.imageUrl!,
+                                width: double.infinity,
+                                height: double.infinity,
                                 fit: BoxFit.cover,
-                                errorWidget: (_, url, error) => const Center(
+                                errorWidget: const Center(
                                   child: Icon(
                                     Icons.broken_image_outlined,
                                     size: 32,

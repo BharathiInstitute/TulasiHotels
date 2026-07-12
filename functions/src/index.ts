@@ -52,10 +52,23 @@ const sendBrevoEmail = async (to: string, subject: string, htmlContent: string) 
 // ─── Razorpay Config ───
 // Set in functions/.env file (auto-loaded by Firebase)
 const getRazorpayConfig = () => {
+    // Backward compatibility: fall back to legacy runtime config
+    // (firebase functions:config:set razorpay.key_id=...)
+    let legacyRazorpay: { key_id?: string; key_secret?: string; webhook_secret?: string } = {};
+    try {
+        legacyRazorpay = (functions.config()?.razorpay || {}) as {
+            key_id?: string;
+            key_secret?: string;
+            webhook_secret?: string;
+        };
+    } catch {
+        legacyRazorpay = {};
+    }
+
     return {
-        keyId: process.env.RAZORPAY_KEY_ID || "",
-        keySecret: process.env.RAZORPAY_KEY_SECRET || "",
-        webhookSecret: process.env.RAZORPAY_WEBHOOK_SECRET || "",
+        keyId: (process.env.RAZORPAY_KEY_ID || legacyRazorpay.key_id || "").trim(),
+        keySecret: (process.env.RAZORPAY_KEY_SECRET || legacyRazorpay.key_secret || "").trim(),
+        webhookSecret: (process.env.RAZORPAY_WEBHOOK_SECRET || legacyRazorpay.webhook_secret || "").trim(),
     };
 };
 
@@ -794,8 +807,10 @@ export const generateDesktopToken = functions
             );
         }
 
-        const { linkCode } = data;
-        if (!linkCode || linkCode.length !== 6) {
+        const linkCode = (data.linkCode || "").toString().trim().toUpperCase();
+        // Desktop app generates 8-char codes using A-HJ-NP-Z and 2-9.
+        const linkCodePattern = /^[A-HJ-NP-Z2-9]{8}$/;
+        if (!linkCode || !linkCodePattern.test(linkCode)) {
             throw new functions.https.HttpsError(
                 "invalid-argument",
                 "Invalid link code"
@@ -835,6 +850,16 @@ export const generateDesktopToken = functions
                 );
             }
 
+            // Prefer explicit server-side expiry when available.
+            const expiresAt = sessionData.expiresAt?.toDate();
+            if (expiresAt && expiresAt.getTime() <= Date.now()) {
+                await sessionRef.delete();
+                throw new functions.https.HttpsError(
+                    "deadline-exceeded",
+                    "Session expired. Please try again from the desktop app."
+                );
+            }
+
             // Generate custom auth token
             const customToken = await admin.auth().createCustomToken(uid);
 
@@ -851,6 +876,14 @@ export const generateDesktopToken = functions
             return { success: true };
         } catch (error) {
             if (error instanceof functions.https.HttpsError) throw error;
+            const err = error as { code?: string; errorInfo?: { code?: string } };
+            const authCode = err.errorInfo?.code || err.code;
+            if (authCode === "auth/insufficient-permission") {
+                throw new functions.https.HttpsError(
+                    "failed-precondition",
+                    "Auth token signing is not configured for this project yet. Please contact support."
+                );
+            }
             console.error("Error generating desktop token:", error);
             throw new functions.https.HttpsError(
                 "internal",

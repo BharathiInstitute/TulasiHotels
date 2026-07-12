@@ -566,14 +566,14 @@ describe("Desktop auth sessions", () => {
     );
   });
 
-  test("authenticated user can update session", async () => {
+  test("authenticated user cannot update session directly", async () => {
     await testEnv.withSecurityRulesDisabled(async (context) => {
       await setDoc(doc(context.firestore(), "desktop_auth_sessions", "sess1"), {
         status: "pending",
       });
     });
     const db = testEnv.authenticatedContext("user1").firestore();
-    await assertSucceeds(
+    await assertFails(
       setDoc(
         doc(db, "desktop_auth_sessions", "sess1"),
         { status: "authenticated", uid: "user1" },

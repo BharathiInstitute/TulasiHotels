@@ -64,7 +64,14 @@ class LiteApp extends ConsumerWidget {
             data: MediaQuery.of(
               context,
             ).copyWith(textScaler: TextScaler.linear(fontScale)),
-            child: child ?? const SizedBox.shrink(),
+            // Apply NotoSansDevanagari fallback globally so ₹ and other
+            // glyphs not in the primary Google Font always render.
+            child: DefaultTextStyle.merge(
+              style: const TextStyle(
+                fontFamilyFallback: ['NotoSansDevanagari'],
+              ),
+              child: child ?? const SizedBox.shrink(),
+            ),
           ),
         );
 

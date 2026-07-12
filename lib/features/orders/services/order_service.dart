@@ -1,6 +1,7 @@
 ﻿/// Order management service â€” Firestore CRUD for orders
 library;
 
+import 'dart:async';
 import 'package:tulasihotels/core/services/active_store_manager.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
@@ -16,6 +17,26 @@ class OrderService {
 
   static CollectionReference<Map<String, dynamic>> get _ordersRef =>
       _firestore.collection('$_basePath/orders');
+
+  /// Firestore writes should not block UX in offline/flaky networks.
+  /// If the write doesn't resolve quickly, we assume it is queued locally.
+  static Future<void> _commitWithOfflineFallback(Future<void> write) async {
+    try {
+      await write.timeout(const Duration(seconds: 8));
+    } on TimeoutException {
+      debugPrint('⚠️ Order write timed out; treating as queued local write');
+    }
+  }
+
+  /// Stream a single order document by ID.
+  /// Fetches the document directly so it works offline (Firestore caches
+  /// individual documents) and returns closed/billed orders too.
+  static Stream<OrderModel?> streamOrderById(String orderId) {
+    return _ordersRef.doc(orderId).snapshots().map((doc) {
+      if (!doc.exists) return null;
+      return OrderModel.fromFirestore(doc);
+    });
+  }
 
   /// Stream all active (non-billed, non-cancelled) orders
   static Stream<List<OrderModel>> activeOrdersStream() {
@@ -101,15 +122,22 @@ class OrderService {
       updatedAt: now,
     );
 
-    await _ordersRef.doc(id).set(order.toFirestore());
+    await _commitWithOfflineFallback(_ordersRef.doc(id).set(order.toFirestore()));
 
-    // Update table status to occupied if dine-in
+    // Update table status to occupied if dine-in.
+    // Non-fatal: the order is already saved. If the table status update fails
+    // (e.g. offline and doc not in cache), the order still goes through and
+    // the table status will be corrected when back online or on next open.
     if (tableId != null && orderType == OrderType.dineIn) {
-      await TableService.updateTableStatus(
-        tableId,
-        TableStatus.occupied,
-        currentOrderId: id,
-      );
+      try {
+        await TableService.updateTableStatus(
+          tableId,
+          TableStatus.occupied,
+          currentOrderId: id,
+        );
+      } catch (e) {
+        debugPrint('⚠️ updateTableStatus failed (order still saved): $e');
+      }
     }
 
     debugPrint('âœ… Created order #$orderNumber for ${tableName ?? orderType.displayName}');

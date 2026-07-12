@@ -5,24 +5,24 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:tulasihotels/features/orders/services/order_service.dart';
+import 'package:tulasihotels/features/tables/services/table_service.dart';
 import 'package:tulasihotels/models/order_model.dart';
+import 'package:tulasihotels/models/table_model.dart';
 
-/// Provider that streams a single order by ID
+/// Provider that streams a single order by ID.
+/// Uses a direct document stream so it works offline and shows closed orders.
 final orderDetailProvider = StreamProvider.autoDispose
     .family<OrderModel?, String>((ref, orderId) {
-      return OrderService.activeOrdersStream().map((orders) {
-        try {
-          return orders.firstWhere((o) => o.id == orderId);
-        } catch (_) {
-          return null;
-        }
-      });
+      return OrderService.streamOrderById(orderId);
     });
 
 class OrderDetailScreen extends ConsumerWidget {
   final String orderId;
+  /// When opened from the tables screen, this lets the "not found" state
+  /// offer to reset the stale table status.
+  final String? tableId;
 
-  const OrderDetailScreen({super.key, required this.orderId});
+  const OrderDetailScreen({super.key, required this.orderId, this.tableId});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -46,8 +46,50 @@ class OrderDetailScreen extends ConsumerWidget {
               ),
               title: const Text('Order'),
             ),
-            body: const Center(
-              child: Text('Order not found or already closed'),
+            body: Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.receipt_long_outlined,
+                        size: 56, color: Colors.grey),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'Order not found or already closed',
+                      textAlign: TextAlign.center,
+                    ),
+                    if (tableId != null) ...[
+                      const SizedBox(height: 24),
+                      FilledButton.icon(
+                        icon: const Icon(Icons.add_circle_outline),
+                        label: const Text('Start New Order for Table'),
+                        onPressed: () {
+                          // Reset stale occupied status then open new order
+                          TableService.updateTableStatus(
+                            tableId!,
+                            TableStatus.available,
+                          );
+                          context.replace(
+                            '/orders/new?tableId=$tableId',
+                          );
+                        },
+                      ),
+                      const SizedBox(height: 8),
+                      TextButton(
+                        onPressed: () {
+                          TableService.updateTableStatus(
+                            tableId!,
+                            TableStatus.available,
+                          );
+                          if (context.canPop()) context.pop();
+                        },
+                        child: const Text('Mark Table as Available'),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
             ),
           );
         }

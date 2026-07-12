@@ -177,7 +177,16 @@ class _NewOrderScreenState extends ConsumerState<NewOrderScreen> {
                       ),
               ),
               // Rush/VIP + Notes + Total + Place Order
-              _buildOrderFooter(theme),
+              _buildOrderFooter(
+                theme,
+                onOrderSuccess: () {
+                  // From bottom sheet: close sheet first, then return to table/list.
+                  Navigator.of(ctx).pop();
+                  if (mounted && Navigator.of(context).canPop()) {
+                    Navigator.of(context).pop();
+                  }
+                },
+              ),
             ],
           ),
         ),
@@ -395,7 +404,10 @@ class _NewOrderScreenState extends ConsumerState<NewOrderScreen> {
   }
 
   /// Order footer: Rush/VIP, Notes, Total, Place Order (shared)
-  Widget _buildOrderFooter(ThemeData theme) {
+  Widget _buildOrderFooter(
+    ThemeData theme, {
+    VoidCallback? onOrderSuccess,
+  }) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -471,7 +483,7 @@ class _NewOrderScreenState extends ConsumerState<NewOrderScreen> {
                 child: FilledButton.icon(
                   onPressed: _items.isEmpty || _isPlacingOrder
                       ? null
-                      : _placeOrder,
+                      : () => _placeOrder(onSuccess: onOrderSuccess),
                   icon: _isPlacingOrder
                       ? const SizedBox(
                           width: 16,
@@ -545,7 +557,11 @@ class _NewOrderScreenState extends ConsumerState<NewOrderScreen> {
     });
   }
 
-  Future<void> _placeOrder() async {
+  Future<void> _placeOrder({VoidCallback? onSuccess}) async {
+    // Method-level guard prevents duplicate orders from rapid multi-taps,
+    // even if the bottom sheet UI hasn't rebuilt yet.
+    if (_isPlacingOrder || _items.isEmpty) return;
+
     setState(() => _isPlacingOrder = true);
     try {
       final order = await OrderService.createOrder(
@@ -558,8 +574,12 @@ class _NewOrderScreenState extends ConsumerState<NewOrderScreen> {
         isVip: _isVip,
       );
 
-      // Print KOT to kitchen printer
-      _printKOT(order);
+      // Printing is best-effort; never block order completion/navigation.
+      try {
+        _printKOT(order);
+      } catch (e) {
+        debugPrint('⚠️ KOT print failed (order already placed): $e');
+      }
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -570,7 +590,11 @@ class _NewOrderScreenState extends ConsumerState<NewOrderScreen> {
             backgroundColor: Colors.green,
           ),
         );
-        Navigator.pop(context);
+        if (onSuccess != null) {
+          onSuccess();
+        } else {
+          Navigator.pop(context);
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -745,7 +769,7 @@ class _OrderItemTile extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              '?${item.price.toStringAsFixed(0)} × ${item.quantity} = ?${item.total.toStringAsFixed(0)}',
+              '₹${item.price.toStringAsFixed(0)} × ${item.quantity} = ₹${item.total.toStringAsFixed(0)}',
               style: theme.textTheme.bodySmall,
             ),
             if (item.itemNotes != null)

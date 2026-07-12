@@ -220,13 +220,36 @@ ThemeData _buildTheme(ThemeSettingsModel settings, Brightness brightness) {
         fontSize: 11 * settings.fontSizeScale,
       ),
     );
+    // Apply font fallback to NotoSansDevanagari (registered in pubspec.yaml)
+    // so glyphs missing from the selected font (e.g. ₹ U+20B9) render correctly.
+    TextStyle? withFallback(TextStyle? s) => s?.copyWith(
+          fontFamilyFallback: const ['NotoSansDevanagari'],
+        );
+    TextTheme applyFallback(TextTheme t) => t.copyWith(
+          displayLarge: withFallback(t.displayLarge),
+          displayMedium: withFallback(t.displayMedium),
+          displaySmall: withFallback(t.displaySmall),
+          headlineLarge: withFallback(t.headlineLarge),
+          headlineMedium: withFallback(t.headlineMedium),
+          headlineSmall: withFallback(t.headlineSmall),
+          titleLarge: withFallback(t.titleLarge),
+          titleMedium: withFallback(t.titleMedium),
+          titleSmall: withFallback(t.titleSmall),
+          bodyLarge: withFallback(t.bodyLarge),
+          bodyMedium: withFallback(t.bodyMedium),
+          bodySmall: withFallback(t.bodySmall),
+          labelLarge: withFallback(t.labelLarge),
+          labelMedium: withFallback(t.labelMedium),
+          labelSmall: withFallback(t.labelSmall),
+        );
     try {
-      return GoogleFonts.getTextTheme(settings.fontFamily, scaled);
+      return applyFallback(
+          GoogleFonts.getTextTheme(settings.fontFamily, scaled));
     } catch (e) {
       debugPrint(
         '⚠️ Font "${settings.fontFamily}" unavailable, falling back to default: $e',
       );
-      return scaled;
+      return applyFallback(scaled);
     }
   }
 

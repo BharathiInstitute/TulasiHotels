@@ -36,6 +36,27 @@ class _DesktopLoginBridgeScreenState
   bool _tokenGenerated = false;
   String? _error;
 
+  String _mapDesktopTokenError(Object error) {
+    final msg = error.toString().toLowerCase();
+    if (msg.contains('invalid link code')) {
+      return 'Invalid sign-in code. Please restart sign-in from the desktop app.';
+    }
+    if (msg.contains('session not found')) {
+      return 'Session not found. Please restart sign-in from the desktop app.';
+    }
+    if (msg.contains('already been used')) {
+      return 'This sign-in code was already used. Please start again.';
+    }
+    if (msg.contains('session expired') || msg.contains('deadline-exceeded')) {
+      return 'Sign-in session expired. Please restart sign-in from the desktop app.';
+    }
+    if (msg.contains('unauthenticated') ||
+        msg.contains('must be authenticated')) {
+      return 'Please complete login first, then retry linking your desktop app.';
+    }
+    return 'Failed to link desktop app. Please try again.';
+  }
+
   @override
   void dispose() {
     _emailController.dispose();
@@ -53,10 +74,19 @@ class _DesktopLoginBridgeScreenState
       );
       return;
     }
+    final normalizedCode = code.trim().toUpperCase();
+    final isValidCode = RegExp(r'^[A-HJ-NP-Z2-9]{8}$').hasMatch(normalizedCode);
+    if (!isValidCode) {
+      setState(
+        () =>
+            _error = 'Invalid sign-in code. Please restart sign-in from the desktop app.',
+      );
+      return;
+    }
 
     try {
       final data = await CloudFunctionHelper.call('generateDesktopToken', {
-        'linkCode': code,
+        'linkCode': normalizedCode,
       });
 
       if (data['success'] == true) {
@@ -73,7 +103,7 @@ class _DesktopLoginBridgeScreenState
       }
     } catch (e) {
       debugPrint('Desktop token error: $e');
-      setState(() => _error = 'Failed to link desktop app: $e');
+      setState(() => _error = _mapDesktopTokenError(e));
     }
   }
 

@@ -386,10 +386,25 @@ class UserMetricsService {
     if (userId == null) return UserLimits();
 
     try {
-      final doc = await _firestore.collection('users').doc(userId).get();
+      // Try cache first so this never hangs offline.
+      // Falls through to server if not cached yet.
+      DocumentSnapshot doc;
+      try {
+        doc = await _firestore
+            .collection('users')
+            .doc(userId)
+            .get(const GetOptions(source: Source.cache));
+      } catch (_) {
+        // Not in cache — try server with a short timeout.
+        doc = await _firestore
+            .collection('users')
+            .doc(userId)
+            .get(const GetOptions(source: Source.server))
+            .timeout(const Duration(seconds: 5));
+      }
       if (!doc.exists) return UserLimits();
 
-      final data = doc.data();
+      final data = doc.data() as Map<String, dynamic>?;
       return UserLimits.fromMap(data?['limits'] as Map<String, dynamic>?);
     } catch (e, st) {
       debugPrint('❌ UserMetrics: Failed to get limits: $e');
@@ -399,7 +414,7 @@ class UserMetricsService {
         severity: ErrorSeverity.warning,
         metadata: {'context': 'getUserLimits'},
       ).ignore();
-      return UserLimits();
+      return UserLimits(); // permissive defaults — offline or error
     }
   }
 

@@ -11,6 +11,7 @@ import 'package:tulasihotels/core/constants/app_constants.dart';
 import 'package:tulasihotels/core/utils/id_generator.dart';
 import 'package:tulasihotels/core/services/user_metrics_service.dart';
 import 'package:tulasihotels/core/services/demo_data_service.dart';
+import 'package:tulasihotels/core/services/connectivity_service.dart';
 import 'package:tulasihotels/core/services/sync_status_service.dart';
 import 'package:tulasihotels/core/utils/windows_firestore_helper.dart';
 import 'package:tulasihotels/features/auth/providers/auth_provider.dart';
@@ -176,16 +177,29 @@ class ProductsService {
           ? null
           : _firestore.collection(_productsPath(storeId));
 
+  /// Firestore writes should not block the UI when offline/unstable.
+  /// If the write doesn't resolve quickly, we assume it is queued locally and
+  /// allow the caller to continue (sync status badges will reflect pending).
+  Future<void> _commitWithOfflineFallback(Future<void> write) async {
+    try {
+      await write.timeout(const Duration(seconds: 8));
+    } on TimeoutException {
+      debugPrint('⚠️ Product write timed out; treating as queued local write');
+    }
+  }
+
   /// Add new product
   Future<String> addProduct(ProductModel product) async {
     if (_isDemoMode) {
       return DemoDataService.addProduct(product);
     }
 
-    // Check plan limit before adding
-    final check = await PlanEnforcementService.checkLimit(LimitType.products);
-    if (!check.allowed) {
-      throw PlanLimitException(check.message ?? 'Product limit reached');
+    // Check plan limit before adding (skip hard block when offline).
+    if (!ConnectivityService.isOffline) {
+      final check = await PlanEnforcementService.checkLimit(LimitType.products);
+      if (!check.allowed) {
+        throw PlanLimitException(check.message ?? 'Product limit reached');
+      }
     }
 
     final id = generateSafeId('product');
@@ -194,7 +208,7 @@ class ProductsService {
       'createdAt': Timestamp.fromDate(DateTime.now()),
       'imageUrl': _sanitizeImageUrl(product.imageUrl),
     };
-    await _collection!.doc(id).set(data);
+    await _commitWithOfflineFallback(_collection!.doc(id).set(data));
     unawaited(UserMetricsService.trackProductAdded());
     return id;
   }
@@ -246,7 +260,7 @@ class ProductsService {
       ...product.toFirestore(),
       'imageUrl': _sanitizeImageUrl(product.imageUrl),
     };
-    await _collection!.doc(product.id).update(data);
+    await _commitWithOfflineFallback(_collection!.doc(product.id).update(data));
   }
 
   /// One-time repair utility: clears malformed image URLs on product docs.

@@ -158,6 +158,21 @@ jobs:
       - name: Run Cloud Functions tests
         run: cd functions && npm test
 
+      - name: Validate Razorpay secrets
+        run: |
+          [ -n "${{ secrets.RAZORPAY_KEY_ID }}" ] || (echo "Missing GitHub secret: RAZORPAY_KEY_ID" && exit 1)
+          [ -n "${{ secrets.RAZORPAY_KEY_SECRET }}" ] || (echo "Missing GitHub secret: RAZORPAY_KEY_SECRET" && exit 1)
+          [ -n "${{ secrets.RAZORPAY_WEBHOOK_SECRET }}" ] || (echo "Missing GitHub secret: RAZORPAY_WEBHOOK_SECRET" && exit 1)
+
+      - name: Create functions .env from secrets
+        run: |
+          cat > functions/.env <<EOF
+          BREVO_EMAIL=support@restaurants.tulasierp.com
+          RAZORPAY_KEY_ID=${{ secrets.RAZORPAY_KEY_ID }}
+          RAZORPAY_KEY_SECRET=${{ secrets.RAZORPAY_KEY_SECRET }}
+          RAZORPAY_WEBHOOK_SECRET=${{ secrets.RAZORPAY_WEBHOOK_SECRET }}
+          EOF
+
       - name: Deploy Cloud Functions
         uses: w9jds/firebase-action@master
         with:

@@ -49,6 +49,7 @@ class _StaffAttendanceCorrectionViewState
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final isCompact = MediaQuery.of(context).size.width < 760;
 
     return Scaffold(
       appBar: AppBar(
@@ -71,74 +72,113 @@ class _StaffAttendanceCorrectionViewState
               ),
           ],
         ),
-        actions: [
-          // Clock In always visible; Clock Out always visible (disabled when not applicable)
-          TextButton.icon(
-            onPressed: (_isClockedIn || _isClockingIn) ? null : _clockIn,
-            icon: _isClockingIn
-                ? const SizedBox(
-                    width: 14,
-                    height: 14,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.login, size: 16),
-            label: const Text('Clock In'),
-            style: TextButton.styleFrom(foregroundColor: Colors.green),
-          ),
-          TextButton.icon(
-            onPressed: (!_isClockedIn || _isClockingOut)
-                ? null
-                : () => _clockOut(_activeRecordId),
-            icon: _isClockingOut
-                ? const SizedBox(
-                    width: 14,
-                    height: 14,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Colors.red,
-                    ),
-                  )
-                : const Icon(Icons.logout, size: 16),
-            label: const Text('Clock Out'),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-          ),
-          if (widget.staffRole != null)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
-              child: Chip(
-                label: Text(
-                  widget.staffRole!,
-                  style: const TextStyle(fontSize: 11),
+        actions: isCompact
+            ? [
+                IconButton(
+                  tooltip: 'Clock In',
+                  onPressed: (_isClockedIn || _isClockingIn) ? null : _clockIn,
+                  icon: _isClockingIn
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.login, color: Colors.green),
                 ),
-                visualDensity: VisualDensity.compact,
-                backgroundColor: cs.primaryContainer.withValues(alpha: 0.5),
-              ),
-            ),
-          // Date range chip
-          GestureDetector(
-            onTap: () => _pickRange(context),
-            child: Container(
-              margin: const EdgeInsets.symmetric(vertical: 10),
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(
-                border: Border.all(color: cs.outlineVariant),
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.calendar_month, size: 14, color: cs.primary),
-                  const SizedBox(width: 6),
-                  Text(
-                    '${_fmt(_range.start)} – ${_fmt(_range.end)}',
-                    style: TextStyle(fontSize: 12, color: cs.onSurface),
+                IconButton(
+                  tooltip: 'Clock Out',
+                  onPressed: (!_isClockedIn || _isClockingOut)
+                      ? null
+                      : () => _clockOut(_activeRecordId),
+                  icon: _isClockingOut
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.red,
+                          ),
+                        )
+                      : const Icon(Icons.logout, color: Colors.red),
+                ),
+                IconButton(
+                  tooltip: 'Pick Date Range',
+                  onPressed: () => _pickRange(context),
+                  icon: const Icon(Icons.calendar_month),
+                ),
+                const SizedBox(width: 4),
+              ]
+            : [
+                // Clock In always visible; Clock Out always visible (disabled when not applicable)
+                TextButton.icon(
+                  onPressed: (_isClockedIn || _isClockingIn) ? null : _clockIn,
+                  icon: _isClockingIn
+                      ? const SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.login, size: 16),
+                  label: const Text('Clock In'),
+                  style: TextButton.styleFrom(foregroundColor: Colors.green),
+                ),
+                TextButton.icon(
+                  onPressed: (!_isClockedIn || _isClockingOut)
+                      ? null
+                      : () => _clockOut(_activeRecordId),
+                  icon: _isClockingOut
+                      ? const SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.red,
+                          ),
+                        )
+                      : const Icon(Icons.logout, size: 16),
+                  label: const Text('Clock Out'),
+                  style: TextButton.styleFrom(foregroundColor: Colors.red),
+                ),
+                if (widget.staffRole != null)
+                  Padding(
+                    padding:
+                        const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
+                    child: Chip(
+                      label: Text(
+                        widget.staffRole!,
+                        style: const TextStyle(fontSize: 11),
+                      ),
+                      visualDensity: VisualDensity.compact,
+                      backgroundColor:
+                          cs.primaryContainer.withValues(alpha: 0.5),
+                    ),
                   ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-        ],
+                // Date range chip
+                GestureDetector(
+                  onTap: () => _pickRange(context),
+                  child: Container(
+                    margin: const EdgeInsets.symmetric(vertical: 10),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: cs.outlineVariant),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.calendar_month, size: 14, color: cs.primary),
+                        const SizedBox(width: 6),
+                        Text(
+                          '${_fmt(_range.start)} – ${_fmt(_range.end)}',
+                          style: TextStyle(fontSize: 12, color: cs.onSurface),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+              ],
       ),
       body: StreamBuilder<List<AttendanceModel>>(
         stream: AttendanceService.staffAttendanceStream(
@@ -227,12 +267,12 @@ class _StaffAttendanceCorrectionViewState
                     ),
                   ),
                 ),
-                child: Row(
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
                   children: [
                     _Chip(label: 'Days: $uniqueDays'),
-                    const SizedBox(width: 8),
                     _Chip(label: 'Hours: $hh:$mm'),
-                    const SizedBox(width: 8),
                     _Chip(label: 'Records: ${records.length}'),
                   ],
                 ),

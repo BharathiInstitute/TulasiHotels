@@ -25,7 +25,24 @@ class ProductDetailScreen extends ConsumerWidget {
         if (product == null) {
           return Scaffold(
             appBar: AppBar(title: const Text('Product Details')),
-            body: const ErrorState(message: 'Product not found'),
+            body: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.error_outline, size: 48, color: Colors.red),
+                  const SizedBox(height: 12),
+                  const Text('Product not found'),
+                  const SizedBox(height: 16),
+                  FilledButton.icon(
+                    icon: const Icon(Icons.arrow_back),
+                    label: const Text('Back to Products'),
+                    onPressed: () => context.canPop()
+                        ? context.pop()
+                        : context.go('/products'),
+                  ),
+                ],
+              ),
+            ),
           );
         }
 

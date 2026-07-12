@@ -62,12 +62,41 @@ class _HotelSelectorScreenState extends ConsumerState<HotelSelectorScreen> {
     final user = FirebaseAuth.instance.currentUser;
     final theme = Theme.of(context);
 
-    // Determine if the current user owns any hotel
+    // Determine if the current user owns any hotel.
+    // Default to false (not true) during loading so non-owners never see
+    // a "My Restaurants" flicker before the data arrives.
     final isOwner =
         hotelsAsync.whenOrNull(
           data: (hotels) => hotels.any((h) => h.isOwner),
         ) ??
-        true; // default true while loading to avoid flicker
+        false;
+
+    final deleteHotelButton = isOwner
+        ? (hotelsAsync.whenOrNull(
+                data: (hotels) {
+                  final ownedHotels = hotels.where((h) => h.isOwner).toList();
+                  if (ownedHotels.length < 2) {
+                    return const SizedBox.shrink();
+                  }
+                  return OutlinedButton.icon(
+                    icon: Icon(
+                      Icons.delete_outline,
+                      size: 18,
+                      color: theme.colorScheme.error,
+                    ),
+                    label: Text(
+                      'Delete Restaurant',
+                      style: TextStyle(color: theme.colorScheme.error),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      side: BorderSide(color: theme.colorScheme.error),
+                    ),
+                    onPressed: () => _showDeleteHotelDialog(context, ownedHotels),
+                  );
+                },
+              ) ??
+              const SizedBox.shrink())
+        : const SizedBox.shrink();
 
     return Scaffold(
       body: SafeArea(
@@ -76,95 +105,98 @@ class _HotelSelectorScreenState extends ConsumerState<HotelSelectorScreen> {
             // Header
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
-              child: Row(
-                children: [
-                  // User avatar
-                  CircleAvatar(
-                    radius: 22,
-                    backgroundColor: theme.colorScheme.primaryContainer,
-                    child: Text(
-                      (() {
-                        final s = user?.displayName ?? user?.email ?? '';
-                        return s.isNotEmpty ? s[0].toUpperCase() : 'U';
-                      })(),
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: theme.colorScheme.onPrimaryContainer,
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final isNarrow = constraints.maxWidth < 860;
+
+                  final profileBlock = Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 22,
+                        backgroundColor: theme.colorScheme.primaryContainer,
+                        child: Text(
+                          (() {
+                            final s = user?.displayName ?? user?.email ?? '';
+                            return s.isNotEmpty ? s[0].toUpperCase() : 'U';
+                          })(),
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: theme.colorScheme.onPrimaryContainer,
+                          ),
+                        ),
                       ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  // Title + email
-                  Expanded(
-                    child: Column(
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              isOwner
+                                  ? 'My Restaurants'
+                                  : 'Accessible Restaurants',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.titleLarge?.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            Text(
+                              user?.email ?? '',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  );
+
+                  final actionsWrap = Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      if (isOwner)
+                        FilledButton.icon(
+                          icon: const Icon(Icons.hotel, size: 18),
+                          label: const Text('Create Restaurant'),
+                          onPressed: () => _showCreateHotelDialog(context),
+                        ),
+                      if (isOwner) deleteHotelButton,
+                      OutlinedButton.icon(
+                        icon: const Icon(Icons.logout, size: 18),
+                        label: const Text('Logout'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: theme.colorScheme.error,
+                          side: BorderSide(color: theme.colorScheme.error),
+                        ),
+                        onPressed: () => _logout(context),
+                      ),
+                    ],
+                  );
+
+                  if (isNarrow) {
+                    return Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          isOwner ? 'My Restaurants' : 'Accessible Restaurants',
-                          style: theme.textTheme.titleLarge?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        Text(
-                          user?.email ?? '',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
-                        ),
+                        profileBlock,
+                        const SizedBox(height: 12),
+                        actionsWrap,
                       ],
-                    ),
-                  ),
-                  // Create Hotel + Delete Hotel buttons — owners only
-                  if (isOwner) ...[
-                    FilledButton.icon(
-                      icon: const Icon(Icons.hotel, size: 18),
-                      label: const Text('Create Restaurant'),
-                      onPressed: () => _showCreateHotelDialog(context),
-                    ),
-                    const SizedBox(width: 8),
-                    // Delete Hotel — shown only when user has 2+ hotels
-                    hotelsAsync.whenOrNull(
-                      data: (hotels) {
-                        final ownedHotels =
-                            hotels.where((h) => h.isOwner).toList();
-                        if (ownedHotels.length < 2) return const SizedBox.shrink();
-                        return Padding(
-                          padding: const EdgeInsets.only(right: 8),
-                          child: OutlinedButton.icon(
-                            icon: Icon(
-                              Icons.delete_outline,
-                              size: 18,
-                              color: theme.colorScheme.error,
-                            ),
-                            label: Text(
-                              'Delete Restaurant',
-                              style:
-                                  TextStyle(color: theme.colorScheme.error),
-                            ),
-                            style: OutlinedButton.styleFrom(
-                              side: BorderSide(
-                                  color: theme.colorScheme.error),
-                            ),
-                            onPressed: () => _showDeleteHotelDialog(
-                                context, ownedHotels),
-                          ),
-                        );
-                      },
-                    ) ??
-                        const SizedBox.shrink(),
-                  ],
-                  // Logout button
-                  OutlinedButton.icon(
-                    icon: const Icon(Icons.logout, size: 18),
-                    label: const Text('Logout'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: theme.colorScheme.error,
-                      side: BorderSide(color: theme.colorScheme.error),
-                    ),
-                    onPressed: () => _logout(context),
-                  ),
-                ],
+                    );
+                  }
+
+                  return Row(
+                    children: [
+                      Expanded(child: profileBlock),
+                      const SizedBox(width: 12),
+                      Flexible(child: actionsWrap),
+                    ],
+                  );
+                },
               ),
             ),
 

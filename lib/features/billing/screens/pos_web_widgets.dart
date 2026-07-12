@@ -35,15 +35,31 @@ class _WebProductCard extends StatelessWidget {
                       borderRadius: const BorderRadius.vertical(
                         top: Radius.circular(12),
                       ),
-                      image: product.imageUrl != null && product.imageUrl!.startsWith('http')
-                          ? DecorationImage(
-                              image: NetworkImage(product.imageUrl!),
-                              fit: BoxFit.cover,
-                            )
-                          : null,
                     ),
                     child: Stack(
                       children: [
+                        if (product.imageUrl != null &&
+                            product.imageUrl!.startsWith('http'))
+                          Positioned.fill(
+                            child: ClipRRect(
+                              borderRadius: const BorderRadius.vertical(
+                                top: Radius.circular(12),
+                              ),
+                              child: WebSafeImage(
+                                url: product.imageUrl!,
+                                width: double.infinity,
+                                height: double.infinity,
+                                fit: BoxFit.cover,
+                                errorWidget: Padding(
+                                  padding: const EdgeInsets.all(4),
+                                  child: Image.asset(
+                                    'assets/images/restaurant_logo.png',
+                                    fit: BoxFit.contain,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
                         if (product.imageUrl == null || !product.imageUrl!.startsWith('http'))
                           Center(
                             child: Padding(
@@ -418,7 +434,7 @@ class _WebCartSectionState extends ConsumerState<_WebCartSection> {
                       targetUserId: userId,
                       createdAt: DateTime.now(),
                       sentBy: 'system',
-                      data: {'route': '/products/${product.id}'},
+                      data: {'route': '/product/${product.id}'},
                     ),
                   ),
                 );
@@ -947,22 +963,32 @@ class _WebCartSectionState extends ConsumerState<_WebCartSection> {
                                     context,
                                   ).scaffoldBackgroundColor,
                                   borderRadius: BorderRadius.circular(8),
-                                  image: imageUrl != null
-                                      ? DecorationImage(
-                                          image: NetworkImage(imageUrl),
-                                          fit: BoxFit.cover,
-                                        )
-                                      : null,
                                 ),
-                                child: imageUrl == null
-                                    ? Padding(
+                                child: imageUrl != null &&
+                                        imageUrl.startsWith('http')
+                                    ? ClipRRect(
+                                        borderRadius: BorderRadius.circular(8),
+                                        child: WebSafeImage(
+                                          url: imageUrl,
+                                          width: 40,
+                                          height: 40,
+                                          fit: BoxFit.cover,
+                                          errorWidget: Padding(
+                                            padding: const EdgeInsets.all(2),
+                                            child: Image.asset(
+                                              'assets/images/restaurant_logo.png',
+                                              fit: BoxFit.contain,
+                                            ),
+                                          ),
+                                        ),
+                                      )
+                                    : Padding(
                                         padding: const EdgeInsets.all(2),
                                         child: Image.asset(
                                           'assets/images/restaurant_logo.png',
                                           fit: BoxFit.contain,
                                         ),
-                                      )
-                                    : null,
+                                      ),
                               ),
                               const SizedBox(width: 10),
                               Expanded(
@@ -1518,16 +1544,33 @@ class _MobileProductCard extends StatelessWidget {
                     borderRadius: const BorderRadius.vertical(
                       top: Radius.circular(10),
                     ),
-                    image: product.imageUrl != null
-                        ? DecorationImage(
-                            image: NetworkImage(product.imageUrl!),
-                            fit: BoxFit.cover,
-                          )
-                        : null,
                   ),
                   child: Stack(
                     children: [
-                      if (product.imageUrl == null)
+                      if (product.imageUrl != null &&
+                          product.imageUrl!.startsWith('http'))
+                        Positioned.fill(
+                          child: ClipRRect(
+                            borderRadius: const BorderRadius.vertical(
+                              top: Radius.circular(10),
+                            ),
+                            child: WebSafeImage(
+                              url: product.imageUrl!,
+                              width: double.infinity,
+                              height: double.infinity,
+                              fit: BoxFit.cover,
+                              errorWidget: Padding(
+                                padding: const EdgeInsets.all(6),
+                                child: Image.asset(
+                                  'assets/images/restaurant_logo.png',
+                                  fit: BoxFit.contain,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      if (product.imageUrl == null ||
+                          !product.imageUrl!.startsWith('http'))
                         Center(
                           child: Padding(
                             padding: const EdgeInsets.all(6),
@@ -1579,19 +1622,23 @@ class _MobileProductCard extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
+                    const SizedBox(height: 2),
+                    Text(
+                      product.unit.displayName,
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
                     const SizedBox(height: 4),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Flexible(
-                          child: Text(
-                            product.price.asCurrency,
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.primary,
-                            ),
-                            overflow: TextOverflow.ellipsis,
+                        Text(
+                          Formatters.currency(product.price),
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
                           ),
                         ),
                         Container(

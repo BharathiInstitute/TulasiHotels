@@ -98,18 +98,28 @@ class _KitchenDisplayScreenState extends ConsumerState<KitchenDisplayScreen> {
             );
           }
 
-          return GridView.builder(
-            padding: const EdgeInsets.all(12),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 3,
-              mainAxisSpacing: 10,
-              crossAxisSpacing: 10,
-              childAspectRatio: 0.75,
-            ),
-            itemCount: orders.length,
-            itemBuilder: (context, index) => _KitchenOrderCard(
-              order: orders[index],
-            ),
+          return LayoutBuilder(
+            builder: (context, constraints) {
+              final width = constraints.maxWidth;
+              final crossAxisCount = width < 700
+                  ? 2
+                  : (width < 1100 ? 3 : 4);
+              final childAspectRatio = width < 700 ? 0.68 : 0.75;
+
+              return GridView.builder(
+                padding: const EdgeInsets.all(12),
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: crossAxisCount,
+                  mainAxisSpacing: 10,
+                  crossAxisSpacing: 10,
+                  childAspectRatio: childAspectRatio,
+                ),
+                itemCount: orders.length,
+                itemBuilder: (context, index) => _KitchenOrderCard(
+                  order: orders[index],
+                ),
+              );
+            },
           );
         },
         loading: () => Center(
@@ -185,6 +195,8 @@ class _KitchenOrderCard extends StatelessWidget {
                     children: [
                       Text(
                         order.tableName ?? '#${order.orderNumber}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.bold,
@@ -346,6 +358,8 @@ class _KitchenItemRow extends StatelessWidget {
                 children: [
                   Text(
                     item.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       color: color,
                       fontWeight: FontWeight.w500,
@@ -357,6 +371,8 @@ class _KitchenItemRow extends StatelessWidget {
                   if (item.itemNotes != null)
                     Text(
                       item.itemNotes!,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: colorScheme.tertiary,
                         fontStyle: FontStyle.italic,

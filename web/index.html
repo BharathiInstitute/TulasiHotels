@@ -129,7 +129,7 @@
   <script>
     // Register custom Tulasi Hotels service worker for offline caching
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/tulasihotels-sw.js')
+      navigator.serviceWorker.register('tulasihotels-sw.js')
         .then(function(reg) { console.log('[Tulasi Hotels] SW registered'); })
         .catch(function(err) { console.warn('[Tulasi Hotels] SW failed:', err); });
     }

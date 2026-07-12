@@ -5,10 +5,10 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 /// Table status types
 enum TableStatus {
-  available('Available', '??'),
-  occupied('Occupied', '??'),
-  reserved('Reserved', '??'),
-  billing('Billing', '??');
+  available('Available', '\u2705'),
+  occupied('Occupied', '\u{1F534}'),
+  reserved('Reserved', '\u{1F7E1}'),
+  billing('Billing', '\u{1F535}');
 
   final String displayName;
   final String emoji;

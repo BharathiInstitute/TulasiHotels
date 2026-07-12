@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:tulasihotels/core/design/design_system.dart';
-import 'package:tulasihotels/features/subscription/services/plan_enforcement_service.dart';
 import 'package:tulasihotels/features/subscription/providers/usage_limits_provider.dart';
 import 'package:tulasihotels/features/subscription/providers/subscription_provider.dart';
 import 'package:tulasihotels/features/subscription/widgets/plan_usage_bar.dart';
@@ -303,8 +302,49 @@ class _TableCard extends StatelessWidget {
       // Open new order for this table
       context.push('${AppRoutes.orders}/new?tableId=${table.id}&tableName=${Uri.encodeComponent(table.displayName)}');
     } else if (table.hasActiveOrder) {
-      // View existing order
-      context.push('${AppRoutes.orders}/${table.currentOrderId}');
+      // View existing order — pass tableId so "not found" state can recover
+      context.push(
+        '${AppRoutes.orders}/${table.currentOrderId}?tableId=${table.id}',
+      );
+    } else {
+      // Table marked occupied/reserved but has no linked order (stale state) —
+      // let the user fix it directly from the grid
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: Text('${table.displayName} has no active order'),
+          content: const Text(
+            'This table is marked as occupied but has no linked order.\n'
+            'Would you like to start a new order or mark it as available?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.pop(ctx);
+                TableService.updateTableStatus(
+                  table.id,
+                  TableStatus.available,
+                );
+              },
+              child: const Text('Mark Available'),
+            ),
+            FilledButton(
+              onPressed: () {
+                Navigator.pop(ctx);
+                context.push(
+                  '${AppRoutes.orders}/new?tableId=${table.id}'
+                  '&tableName=${Uri.encodeComponent(table.displayName)}',
+                );
+              },
+              child: const Text('New Order'),
+            ),
+          ],
+        ),
+      );
     }
   }
 

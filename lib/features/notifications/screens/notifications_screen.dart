@@ -9,6 +9,7 @@ import 'package:tulasihotels/features/auth/providers/auth_provider.dart';
 import 'package:tulasihotels/features/notifications/models/notification_model.dart';
 import 'package:tulasihotels/features/notifications/providers/notification_provider.dart';
 import 'package:tulasihotels/features/notifications/services/notification_firestore_service.dart';
+import 'package:tulasihotels/router/app_router.dart';
 
 class NotificationsScreen extends ConsumerWidget {
   const NotificationsScreen({super.key});
@@ -111,11 +112,7 @@ class _NotificationTile extends StatelessWidget {
           if (!notification.read) {
             NotificationFirestoreService.markAsRead(userId, notification.id);
           }
-          // Navigate if data has a route
-          final route = notification.data?['route'] as String?;
-          if (route != null && route.isNotEmpty) {
-            context.push(route);
-          }
+          _showNotificationPopup(context);
         },
         tileColor: notification.read
             ? null
@@ -165,6 +162,75 @@ class _NotificationTile extends StatelessWidget {
                 ),
               ),
       ),
+    );
+  }
+
+  void _showNotificationPopup(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) {
+        final cs = Theme.of(ctx).colorScheme;
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    CircleAvatar(
+                      backgroundColor: _getTypeColor(
+                        notification.type,
+                      ).withValues(alpha: 0.15),
+                      child: Icon(
+                        _getTypeIcon(notification.type),
+                        color: _getTypeColor(notification.type),
+                        size: 20,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        notification.title,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  notification.body,
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: cs.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  DateFormat('dd MMM yyyy, hh:mm a').format(notification.createdAt),
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: cs.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: 14),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    child: const Text('Close'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 

@@ -34,6 +34,7 @@ class WindowsWebViewLogin extends StatefulWidget {
 
 class _WindowsWebViewLoginState extends State<WindowsWebViewLogin> {
   final _controller = WebviewController();
+  bool _controllerInitialized = false;
   bool _isInitializing = true;
   bool _isLoading = true;
   String? _initError;
@@ -42,12 +43,15 @@ class _WindowsWebViewLoginState extends State<WindowsWebViewLogin> {
   @override
   void initState() {
     super.initState();
-    _initWebView();
+    // Use the system browser by default so Google Sign-In can reuse existing
+    // logged-in accounts (same expectation as Android/Web account chooser).
+    unawaited(_openInBrowser());
   }
 
   Future<void> _initWebView() async {
     try {
       await _controller.initialize();
+      _controllerInitialized = true;
 
       // Set user agent to match real Edge browser — Google blocks embedded
       // WebView user agents but allows Edge. WebView2 IS Edge's engine, so
@@ -86,7 +90,12 @@ class _WindowsWebViewLoginState extends State<WindowsWebViewLogin> {
   /// Open sign-in in the system browser as fallback.
   /// Edge is always present on Windows 10/11 (it's a system component).
   Future<void> _openInBrowser() async {
-    setState(() => _openedInBrowser = true);
+    if (mounted) {
+      setState(() {
+        _openedInBrowser = true;
+        _isInitializing = false;
+      });
+    }
 
     // Try Edge app mode first (clean window, no address bar)
     try {
@@ -105,15 +114,22 @@ class _WindowsWebViewLoginState extends State<WindowsWebViewLogin> {
     } catch (_) {}
 
     // Final fallback: whatever default browser exists
-    await launchUrl(
+    final launched = await launchUrl(
       Uri.parse(widget.url),
       mode: LaunchMode.externalApplication,
     );
+    if (!launched && mounted) {
+      setState(() {
+        _initError = 'Could not open browser. Please check default browser settings.';
+      });
+    }
   }
 
   @override
   void dispose() {
-    _controller.dispose();
+    if (_controllerInitialized) {
+      _controller.dispose();
+    }
     super.dispose();
   }
 
@@ -202,8 +218,8 @@ class _WindowsWebViewLoginState extends State<WindowsWebViewLogin> {
             const SizedBox(height: 8),
             Text(
               'A sign-in window has been opened.\n'
-              'Complete the login there — this screen will '
-              'update automatically.',
+              'Complete the login there with your existing Google accounts — '
+              'this screen will update automatically.',
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),

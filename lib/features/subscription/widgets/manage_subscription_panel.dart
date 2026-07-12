@@ -814,10 +814,10 @@ class _ManageSubscriptionPanelState
       return;
     }
 
-    // On web, Windows, and Android: open pricing page in Chrome with auto sign-in.
+    // On web, Windows and Android: open pricing page in browser with auto sign-in.
     final isWindows = !kIsWeb && defaultTargetPlatform == TargetPlatform.windows;
-    if (kIsWeb || isWindows || defaultTargetPlatform == TargetPlatform.android ||
-        defaultTargetPlatform == TargetPlatform.iOS) {
+    final isAndroid = !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+    if (kIsWeb || isWindows || isAndroid) {
       setState(() => _isUpgrading = true);
       final user = FirebaseAuth.instance.currentUser;
       final email = user?.email ?? _userEmail ?? '';
@@ -837,7 +837,8 @@ class _ManageSubscriptionPanelState
         // Fall back gracefully — user will see sign-in on the page
       }
 
-      final queryParams = <String, String>{'plan': planKey};
+      final platform = kIsWeb ? 'web' : isWindows ? 'windows' : 'android';
+      final queryParams = <String, String>{'plan': planKey, 'platform': platform};
       if (customToken != null) queryParams['token'] = customToken;
       if (email.isNotEmpty) queryParams['email'] = email;
       if (phone.isNotEmpty) queryParams['phone'] = phone;
@@ -845,7 +846,7 @@ class _ManageSubscriptionPanelState
       if (name.isNotEmpty) queryParams['name'] = name;
       final url = Uri(
         scheme: 'https',
-        host: 'hotels.tulasierp.com',
+        host: 'restaurants.tulasierp.com',
         path: '/src/pages/pricing.html',
         queryParameters: queryParams,
       );
@@ -856,7 +857,7 @@ class _ManageSubscriptionPanelState
       return;
     }
 
-    // On mobile, use the native Razorpay Flutter SDK
+    // Other platforms: native Razorpay Flutter SDK fallback
     setState(() => _isUpgrading = true);
     const cycle = 'monthly';
 

@@ -280,10 +280,10 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
       return;
     }
 
-    // Web, Windows, and Android: open pricing page in browser with auto sign-in
+    // Web, Windows and Android: open pricing page in browser with auto sign-in
     final isWindows = !kIsWeb && defaultTargetPlatform == TargetPlatform.windows;
-    if (kIsWeb || isWindows || defaultTargetPlatform == TargetPlatform.android ||
-        defaultTargetPlatform == TargetPlatform.iOS) {
+    final isAndroid = !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+    if (kIsWeb || isWindows || isAndroid) {
       // Fetch phone — try Firebase Auth first, then Firestore
       // Note: ?? only skips null, not empty strings, so use explicit fallback
       String phone = user.phoneNumber ?? '';
@@ -316,14 +316,15 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
       if (!mounted) return;
       setState(() => _isLoading = false);
 
-      final queryParams = <String, String>{'plan': planKey, 'cycle': cycle};
+      final platform = kIsWeb ? 'web' : isWindows ? 'windows' : 'android';
+      final queryParams = <String, String>{'plan': planKey, 'cycle': cycle, 'platform': platform};
       if (customToken != null) queryParams['token'] = customToken;
       if (email.isNotEmpty) queryParams['email'] = email;
       if (phone.isNotEmpty) queryParams['phone'] = phone;
       if (name.isNotEmpty) queryParams['name'] = name;
       final url = Uri(
         scheme: 'https',
-        host: 'hotels.tulasierp.com',
+        host: 'restaurants.tulasierp.com',
         path: '/src/pages/pricing.html',
         queryParameters: queryParams,
       );
