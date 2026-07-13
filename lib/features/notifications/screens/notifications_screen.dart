@@ -9,7 +9,6 @@ import 'package:tulasihotels/features/auth/providers/auth_provider.dart';
 import 'package:tulasihotels/features/notifications/models/notification_model.dart';
 import 'package:tulasihotels/features/notifications/providers/notification_provider.dart';
 import 'package:tulasihotels/features/notifications/services/notification_firestore_service.dart';
-import 'package:tulasihotels/router/app_router.dart';
 
 class NotificationsScreen extends ConsumerWidget {
   const NotificationsScreen({super.key});

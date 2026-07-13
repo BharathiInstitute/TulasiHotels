@@ -346,7 +346,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       return;
     }
     setState(() => _phoneError = null);
-    ref.read(phoneAuthProvider.notifier).sendOtp(phone);
+    unawaited(ref.read(phoneAuthProvider.notifier).sendOtp(phone));
   }
 
   /// Verify phone OTP
@@ -399,6 +399,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
             );
           }
         }
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Account created & verified! ✅'),

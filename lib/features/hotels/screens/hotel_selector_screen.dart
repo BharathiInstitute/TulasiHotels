@@ -290,7 +290,7 @@ class _HotelSelectorScreenState extends ConsumerState<HotelSelectorScreen> {
               const Text('Select the restaurant to permanently delete:'),
               const SizedBox(height: 12),
               DropdownButtonFormField<HotelInfo>(
-                value: selected,
+                initialValue: selected,
                 decoration: const InputDecoration(
                   border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.hotel_outlined),

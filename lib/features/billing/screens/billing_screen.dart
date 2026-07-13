@@ -817,7 +817,6 @@ class _BillingScreenState extends ConsumerState<BillingScreen> {
                                 url: product.imageUrl!,
                                 width: double.infinity,
                                 height: double.infinity,
-                                fit: BoxFit.cover,
                                 errorWidget: const Center(
                                   child: Icon(
                                     Icons.broken_image_outlined,
@@ -1010,7 +1009,6 @@ class _BillingScreenState extends ConsumerState<BillingScreen> {
                                 url: product.imageUrl!,
                                 width: double.infinity,
                                 height: double.infinity,
-                                fit: BoxFit.cover,
                                 errorWidget: const Center(
                                   child: Icon(
                                     Icons.broken_image_outlined,

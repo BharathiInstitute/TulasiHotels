@@ -146,6 +146,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
     var showPassword = false;
     var showConfirm = false;
 
+    if (!context.mounted) return;
     final result = await showDialog<bool>(
       context: context,
       builder: (ctx) => StatefulBuilder(

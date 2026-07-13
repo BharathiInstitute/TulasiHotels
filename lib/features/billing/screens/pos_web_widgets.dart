@@ -49,7 +49,6 @@ class _WebProductCard extends StatelessWidget {
                                 url: product.imageUrl!,
                                 width: double.infinity,
                                 height: double.infinity,
-                                fit: BoxFit.cover,
                                 errorWidget: Padding(
                                   padding: const EdgeInsets.all(4),
                                   child: Image.asset(
@@ -972,7 +971,6 @@ class _WebCartSectionState extends ConsumerState<_WebCartSection> {
                                           url: imageUrl,
                                           width: 40,
                                           height: 40,
-                                          fit: BoxFit.cover,
                                           errorWidget: Padding(
                                             padding: const EdgeInsets.all(2),
                                             child: Image.asset(
@@ -1558,7 +1556,6 @@ class _MobileProductCard extends StatelessWidget {
                               url: product.imageUrl!,
                               width: double.infinity,
                               height: double.infinity,
-                              fit: BoxFit.cover,
                               errorWidget: Padding(
                                 padding: const EdgeInsets.all(6),
                                 child: Image.asset(

@@ -491,7 +491,6 @@ class _SummaryChip extends StatelessWidget {
         border: Border.all(color: color.withValues(alpha: 0.2)),
       ),
       child: Row(
-        mainAxisSize: MainAxisSize.max,
         children: [
           Icon(icon, size: 14, color: color),
           const SizedBox(width: 5),

@@ -48,45 +48,6 @@ class _WindowsWebViewLoginState extends State<WindowsWebViewLogin> {
     unawaited(_openInBrowser());
   }
 
-  Future<void> _initWebView() async {
-    try {
-      await _controller.initialize();
-      _controllerInitialized = true;
-
-      // Set user agent to match real Edge browser — Google blocks embedded
-      // WebView user agents but allows Edge. WebView2 IS Edge's engine, so
-      // this is accurate, not spoofing.
-      await _controller.setUserAgent(
-        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
-        'AppleWebKit/537.36 (KHTML, like Gecko) '
-        'Chrome/130.0.0.0 Safari/537.36 Edg/130.0.0.0',
-      );
-
-      // Allow popups — needed for Google Sign-In consent window
-      await _controller.setPopupWindowPolicy(WebviewPopupWindowPolicy.allow);
-
-      _controller.loadingState.listen((loadingState) {
-        if (mounted) {
-          setState(() => _isLoading = loadingState == LoadingState.loading);
-        }
-      });
-
-      if (mounted) {
-        await _controller.loadUrl(widget.url);
-        setState(() => _isInitializing = false);
-      }
-    } catch (e) {
-      debugPrint('WebView2 init failed: $e');
-      if (mounted) {
-        setState(() {
-          _isInitializing = false;
-          _initError = e.toString();
-        });
-        unawaited(_openInBrowser());
-      }
-    }
-  }
-
   /// Open sign-in in the system browser as fallback.
   /// Edge is always present on Windows 10/11 (it's a system component).
   Future<void> _openInBrowser() async {

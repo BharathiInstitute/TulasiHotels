@@ -95,7 +95,7 @@ class _TablesScreenState extends ConsumerState<TablesScreen> {
   Future<void> _showAddTableDialog() async {
     // Button is already disabled when atTableLimit — no server call needed here
     if (!mounted) return;
-    showDialog(
+    await showDialog(
       context: context,
       builder: (context) => const AddTableDialog(),
     );

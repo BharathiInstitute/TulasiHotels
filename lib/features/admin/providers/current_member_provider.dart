@@ -30,7 +30,7 @@ final currentMemberProvider = StreamProvider<StoreMember?>((ref) {
   final canAccessSelectedStore = hotelsAsync.when(
     data: (hotels) => hotels.any((h) => h.id == storeId),
     loading: () => true,
-    error: (_, __) => false,
+    error: (_, _) => false,
   );
   if (!canAccessSelectedStore) {
     debugPrint(

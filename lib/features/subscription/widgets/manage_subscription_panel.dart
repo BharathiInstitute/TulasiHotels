@@ -793,7 +793,7 @@ class _ManageSubscriptionPanelState
     final phoneVerified = (doc.data()?['phoneVerified'] as bool?) ?? false;
     if (!phoneVerified) {
       if (mounted) {
-        showDialog(
+        unawaited(showDialog(
           context: context,
           builder: (ctx) => AlertDialog(
             icon: const Icon(Icons.phone_android, size: 40, color: Colors.orange),
@@ -809,7 +809,7 @@ class _ManageSubscriptionPanelState
               ),
             ],
           ),
-        );
+        ));
       }
       return;
     }
@@ -944,6 +944,7 @@ class _ManageSubscriptionPanelState
           // Check if user needs to select active items
           await _promptActiveItemSelection(planKey);
 
+          if (!mounted) return;
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Downgraded to $planName successfully.')),
           );
