@@ -87,6 +87,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   bool get _isWindowsDesktop =>
       !kIsWeb && defaultTargetPlatform == TargetPlatform.windows;
 
+  bool get _isPhoneVerificationRequired => !_isWindowsDesktop;
+
   Future<void> _handleGoogleRegister() async {
     setState(() => _isGoogleLoading = true);
     ref.read(authNotifierProvider.notifier).clearError();
@@ -699,13 +701,18 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   ],
 
                   // ── Phone Number Verification (only after email verified) ──
-                  if (_emailVerified) ...[
+                  if (_emailVerified && _isPhoneVerificationRequired) ...[
                     const SizedBox(height: AppSizes.md),
                     _buildPhoneVerificationSection(),
                   ],
 
+                  if (_emailVerified && !_isPhoneVerificationRequired) ...[
+                    const SizedBox(height: AppSizes.md),
+                    _buildWindowsPhoneInfo(),
+                  ],
+
                   // ── Password (only after phone verified) ──
-                  if (_phoneVerified) ...[
+                  if (_phoneVerified || !_isPhoneVerificationRequired) ...[
                     const SizedBox(height: AppSizes.md),
 
                     // Password
@@ -783,7 +790,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   SizedBox(
                     height: AppSizes.buttonHeight(context),
                     child: ElevatedButton.icon(
-                      onPressed: (_isLoading || !_emailVerified || !_phoneVerified)
+                      onPressed: (_isLoading ||
+                              !_emailVerified ||
+                              (_isPhoneVerificationRequired && !_phoneVerified))
                           ? null
                           : _handleRegister,
                       icon: _isLoading
@@ -801,7 +810,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                             ? 'Creating account...'
                             : !_emailVerified
                             ? 'Verify email first'
-                            : !_phoneVerified
+                          : _isPhoneVerificationRequired && !_phoneVerified
                             ? 'Verify phone first'
                             : 'Create Account',
                         style: AppTypography.button,
@@ -1062,6 +1071,31 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
           ),
         ],
       ],
+    );
+  }
+
+  Widget _buildWindowsPhoneInfo() {
+    return Container(
+      padding: const EdgeInsets.all(AppSizes.cardPadding),
+      decoration: BoxDecoration(
+        color: Colors.amber.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(AppSizes.radiusMd),
+        border: Border.all(color: Colors.amber.withValues(alpha: 0.35)),
+      ),
+      child: const Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.info_outline, color: Colors.amber, size: 20),
+          SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'Phone OTP is not fully supported on Windows desktop app. '
+              'Create your account now and verify phone later from web/mobile in Settings.',
+              style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary),
+            ),
+          ),
+        ],
+      ),
     );
   }
 

@@ -4,7 +4,8 @@ library;
 
 import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/foundation.dart'
+    show TargetPlatform, debugPrint, defaultTargetPlatform, kIsWeb;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tulasihotels/core/constants/app_constants.dart';
 
@@ -73,6 +74,32 @@ class PhoneAuthNotifier extends StateNotifier<PhoneAuthState> {
   /// Send OTP to phone number
   Future<void> sendOtp(String phoneNumber) async {
     final formattedPhone = _formatPhoneNumber(phoneNumber);
+
+    // Native Windows desktop does not reliably support Firebase phone OTP.
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.windows) {
+      state = state.copyWith(
+        status: PhoneAuthStatus.error,
+        error:
+            'Phone OTP is not available on Windows desktop app. Use web/mobile to verify phone.',
+      );
+      return;
+    }
+
+    // Web phone auth requires either HTTPS or localhost/127.0.0.1.
+    if (kIsWeb) {
+      final base = Uri.base;
+      final host = base.host.toLowerCase();
+      final isLocalHost = host == 'localhost' || host == '127.0.0.1';
+      final isSecure = base.scheme == 'https';
+      if (!isSecure && !isLocalHost) {
+        state = state.copyWith(
+          status: PhoneAuthStatus.error,
+          error: 'Phone OTP on web requires HTTPS (or localhost).',
+        );
+        return;
+      }
+    }
+
     final previousResendToken = state.resendToken;
     state = state.copyWith(
       status: PhoneAuthStatus.sending,
@@ -113,12 +140,16 @@ class PhoneAuthNotifier extends StateNotifier<PhoneAuthState> {
           _onAutoRetrievalTimeout(id);
         },
       );
+    } on FirebaseAuthException catch (e) {
+      callbackCalled = true;
+      _onVerificationFailed(e);
     } catch (e) {
       callbackCalled = true;
       debugPrint('📱 Phone auth error: $e');
       state = state.copyWith(
         status: PhoneAuthStatus.error,
-        error: 'Failed to send OTP. Please try again.',
+        error:
+            'Failed to send OTP. Check Phone Auth settings and authorized domain in Firebase Console.',
       );
     }
   }
@@ -329,8 +360,28 @@ class PhoneAuthNotifier extends StateNotifier<PhoneAuthState> {
         message =
             'Phone authentication is not enabled. Please contact support.';
         break;
+      case 'operation-not-allowed':
+        message =
+            'Phone provider is disabled in Firebase Auth. Enable it in Console.';
+        break;
+      case 'invalid-app-credential':
+        message =
+            'App verification failed. For web, ensure domain is authorized and reCAPTCHA can load.';
+        break;
+      case 'missing-client-identifier':
+        message =
+            'Browser verification missing. Reload and try again (disable strict blockers).';
+        break;
       case 'captcha-check-failed':
         message = 'reCAPTCHA verification failed. Please try again.';
+        break;
+      case 'web-context-cancelled':
+        message =
+            'Verification popup was closed. Please retry and complete reCAPTCHA.';
+        break;
+      case 'network-request-failed':
+        message =
+            'Network error while sending OTP. Check internet/VPN and try again.';
         break;
       case 'missing-phone-number':
         message = 'Phone number is missing. Please enter your number.';

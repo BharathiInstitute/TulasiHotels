@@ -58,7 +58,7 @@ class LicenseService {
     await _licensesRef.doc(licenseId).update({
       'issueDate': Timestamp.fromDate(newIssueDate),
       'expiryDate': Timestamp.fromDate(newExpiryDate),
-      ?'licenseNumber': newLicenseNumber,
+      'licenseNumber': newLicenseNumber,
       'updatedAt': FieldValue.serverTimestamp(),
     });
   }

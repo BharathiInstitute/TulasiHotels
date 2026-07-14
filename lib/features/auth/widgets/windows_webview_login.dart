@@ -34,9 +34,9 @@ class WindowsWebViewLogin extends StatefulWidget {
 
 class _WindowsWebViewLoginState extends State<WindowsWebViewLogin> {
   final _controller = WebviewController();
-  bool _controllerInitialized = false;
+  final bool _controllerInitialized = false;
   bool _isInitializing = true;
-  bool _isLoading = true;
+  final bool _isLoading = true;
   String? _initError;
   bool _openedInBrowser = false;
 

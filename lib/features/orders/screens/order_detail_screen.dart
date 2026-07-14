@@ -262,7 +262,7 @@ class OrderDetailScreen extends ConsumerWidget {
   void _handleAction(BuildContext context, String action, OrderModel order) {
     switch (action) {
       case 'add_items':
-        // TODO: Navigate to add items screen
+        // Planned: Navigate to add items screen
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(const SnackBar(content: Text('Add items coming soon')));
