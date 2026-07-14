@@ -384,7 +384,7 @@ class _OrderBillingScreenState extends ConsumerState<OrderBillingScreen> {
       }
 
       // Mark order as billed and free the table
-      unawaited(OrderService.completeOrder(order.id));
+      await OrderService.completeOrder(order.id);
 
       if (mounted) {
         final printerState = ref.read(printerProvider);
