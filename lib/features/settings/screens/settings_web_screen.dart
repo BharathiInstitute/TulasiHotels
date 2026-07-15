@@ -36,6 +36,7 @@ import 'package:tulasihotels/main.dart' show appVersion, appBuildNumber;
 import 'package:tulasihotels/router/app_router.dart';
 import 'package:tulasihotels/shared/widgets/shop_logo_widget.dart';
 import 'package:tulasihotels/shared/widgets/web_safe_image.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 /// Settings tab enum
 enum SettingsTab {
@@ -3738,6 +3739,8 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
 
   /// Show phone OTP verification dialog
   void _showPhoneVerificationDialog() {
+    ref.read(phoneAuthProvider.notifier).reset();
+
     final phoneController = TextEditingController(
       text: ref.read(currentUserProvider)?.phone ?? '',
     );
@@ -3749,11 +3752,154 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
       builder: (dialogContext) {
         return Consumer(
           builder: (ctx, dialogRef, _) {
+            final isWindowsDesktop = !kIsWeb && Platform.isWindows;
             final phoneState = dialogRef.watch(phoneAuthProvider);
             final isCodeSent = phoneState.status == PhoneAuthStatus.codeSent;
             final isSending = phoneState.status == PhoneAuthStatus.sending;
             final isVerifying = phoneState.status == PhoneAuthStatus.verifying;
             final isVerified = phoneState.status == PhoneAuthStatus.verified;
+
+            if (isWindowsDesktop) {
+              Future<void> openBrowserVerification() async {
+                final user = FirebaseAuth.instance.currentUser;
+                if (user == null) {
+                  if (ctx.mounted) {
+                    ScaffoldMessenger.of(ctx).showSnackBar(
+                      const SnackBar(content: Text('Please sign in again.')),
+                    );
+                  }
+                  return;
+                }
+
+                String? token;
+                String? nonce;
+                try {
+                  final result = await CloudFunctionHelper.call(
+                    'createPhoneVerificationHandoff',
+                    {
+                      'phone': phoneController.text.trim(),
+                      'platform': 'windows',
+                    },
+                  );
+                  token = result['token'] as String?;
+                  nonce = result['nonce'] as String?;
+                } catch (_) {
+                  if (ctx.mounted) {
+                    ScaffoldMessenger.of(ctx).showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                          'Could not start phone verification. Try again.',
+                        ),
+                      ),
+                    );
+                  }
+                  return;
+                }
+
+                final phoneDigits = phoneController.text
+                    .trim()
+                    .replaceAll(RegExp(r'[^0-9]'), '');
+                final query = <String, String>{
+                  'source': 'windows',
+                  'uid': user.uid,
+                };
+                if (token != null && token.isNotEmpty) query['token'] = token;
+                if (nonce != null && nonce.isNotEmpty) query['nonce'] = nonce;
+                if (user.email != null && user.email!.isNotEmpty) {
+                  query['email'] = user.email!;
+                }
+                if (phoneDigits.length >= 10) {
+                  query['phone'] =
+                      '${AppConstants.countryCode}${phoneDigits.substring(phoneDigits.length - 10)}';
+                }
+
+                final uri = Uri(
+                  scheme: 'https',
+                  host: 'login1-aa21c.web.app',
+                  path: '/src/pages/verify-phone.html',
+                  queryParameters: query,
+                );
+                final opened = await launchUrl(
+                  uri,
+                  mode: LaunchMode.externalApplication,
+                );
+                if (!opened && ctx.mounted) {
+                  ScaffoldMessenger.of(ctx).showSnackBar(
+                    const SnackBar(
+                      content: Text('Could not open browser. Please retry.'),
+                    ),
+                  );
+                }
+              }
+
+              Future<void> refreshVerificationStatus() async {
+                final uid = FirebaseAuth.instance.currentUser?.uid;
+                if (uid == null) return;
+
+                final doc = await FirebaseFirestore.instance
+                    .collection('users')
+                    .doc(uid)
+                    .get();
+                final verified = (doc.data()?['phoneVerified'] as bool?) ?? false;
+                if (!ctx.mounted) return;
+
+                if (verified) {
+                  Navigator.of(ctx).pop();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Phone verified successfully!'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                } else {
+                  ScaffoldMessenger.of(ctx).showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        'Phone is not verified yet. Complete OTP in browser, then refresh.',
+                      ),
+                    ),
+                  );
+                }
+              }
+
+              return AlertDialog(
+                title: const Text('Phone Verification'),
+                content: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const Text(
+                      'Windows desktop uses browser OTP. Open verification in browser, complete OTP, then refresh status here.',
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: phoneController,
+                      keyboardType: TextInputType.phone,
+                      decoration: const InputDecoration(
+                        labelText: 'Phone Number',
+                        hintText: '10-digit mobile number',
+                        border: OutlineInputBorder(),
+                        prefixText: '+91 ',
+                      ),
+                    ),
+                  ],
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: openBrowserVerification,
+                    child: const Text('Verify in Browser'),
+                  ),
+                  TextButton(
+                    onPressed: refreshVerificationStatus,
+                    child: const Text('I Verified, Refresh'),
+                  ),
+                  TextButton(
+                    onPressed: () => Navigator.of(ctx).pop(),
+                    child: const Text('Close'),
+                  ),
+                ],
+              );
+            }
 
             // Auto-close on successful verification
             if (isVerified) {

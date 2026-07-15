@@ -342,6 +342,18 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
   /// Send phone OTP
   Future<void> _handleSendPhoneOtp() async {
+    if (_isWindowsDesktop) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Phone OTP is not supported on Windows app. Continue without it.',
+          ),
+        ),
+      );
+      return;
+    }
+
     final phone = _phoneController.text.trim();
     if (phone.isEmpty || phone.length < 10) {
       setState(() => _phoneError = 'Enter a valid 10-digit phone number');
@@ -353,6 +365,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
   /// Verify phone OTP
   Future<void> _handleVerifyPhoneOtp() async {
+    if (_isWindowsDesktop) {
+      setState(() => _phoneVerified = true);
+      return;
+    }
+
     final otp = _phoneOtpController.text.trim();
     if (otp.length != 6) {
       setState(() => _phoneError = 'Enter the 6-digit code');
@@ -385,7 +402,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
       if (success && mounted) {
         // Save phone number if verified during registration
-        if (_phoneVerified && _phoneController.text.trim().isNotEmpty) {
+        if (!_isWindowsDesktop &&
+            _phoneVerified &&
+            _phoneController.text.trim().isNotEmpty) {
           final phone = '${AppConstants.countryCode}${_phoneController.text.trim()}';
           final synced = await ref
               .read(authNotifierProvider.notifier)

@@ -262,10 +262,16 @@ class OrderDetailScreen extends ConsumerWidget {
   void _handleAction(BuildContext context, String action, OrderModel order) {
     switch (action) {
       case 'add_items':
-        // Planned: Navigate to add items screen
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Add items coming soon')));
+        final uri = Uri(
+          path: '/orders/new',
+          queryParameters: {
+            'orderId': order.id,
+            'orderNumber': order.orderNumber,
+            if (order.tableId != null) 'tableId': order.tableId!,
+            if (order.tableName != null) 'tableName': order.tableName!,
+          },
+        );
+        context.push(uri.toString());
         break;
       case 'generate_bill':
         context.push('/orders/${order.id}/bill');

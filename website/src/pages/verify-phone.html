@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Verify Phone - Tulasi Restaurants</title>
+  <link rel="icon" type="image/png" sizes="32x32" href="../../favicon.png?v=3">
+  <style>
+    body {
+      margin: 0;
+      font-family: Inter, Segoe UI, Arial, sans-serif;
+      background: linear-gradient(180deg, #f8fafc 0%, #eef2ff 100%);
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      color: #0f172a;
+    }
+    .card {
+      width: min(460px, 92vw);
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: 16px;
+      padding: 24px;
+      box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+    }
+    h1 {
+      margin: 0 0 8px 0;
+      font-size: 24px;
+    }
+    .subtitle {
+      margin: 0 0 18px 0;
+      color: #475569;
+      font-size: 14px;
+      line-height: 1.45;
+    }
+    label {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 6px;
+      color: #334155;
+    }
+    input {
+      width: 100%;
+      box-sizing: border-box;
+      border: 1px solid #cbd5e1;
+      border-radius: 10px;
+      padding: 12px;
+      font-size: 15px;
+      margin-bottom: 12px;
+      outline: none;
+    }
+    input:focus {
+      border-color: #16a34a;
+      box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.14);
+    }
+    .row {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    button {
+      border: none;
+      border-radius: 10px;
+      padding: 11px 14px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .primary {
+      background: #16a34a;
+      color: #fff;
+    }
+    .secondary {
+      background: #e2e8f0;
+      color: #0f172a;
+    }
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+    .status {
+      margin-top: 14px;
+      font-size: 13px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      display: none;
+      line-height: 1.4;
+    }
+    .status.info {
+      background: #eff6ff;
+      color: #1d4ed8;
+      border: 1px solid #bfdbfe;
+      display: block;
+    }
+    .status.error {
+      background: #fef2f2;
+      color: #b91c1c;
+      border: 1px solid #fecaca;
+      display: block;
+    }
+    .status.success {
+      background: #f0fdf4;
+      color: #166534;
+      border: 1px solid #bbf7d0;
+      display: block;
+    }
+    .hint {
+      font-size: 12px;
+      color: #64748b;
+      margin-top: 8px;
+    }
+  </style>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-functions-compat.js"></script>
+</head>
+<body>
+  <div class="card">
+    <h1>Verify Phone</h1>
+    <p class="subtitle">Complete OTP verification in browser, then return to your Windows app and click <b>I Verified, Refresh Status</b>.</p>
+
+    <label for="phoneInput">Phone Number</label>
+    <input id="phoneInput" type="tel" maxlength="10" placeholder="10-digit mobile number">
+
+    <div class="row">
+      <button id="sendOtpBtn" class="primary">Send OTP</button>
+      <button id="resendOtpBtn" class="secondary" disabled>Resend OTP</button>
+    </div>
+
+    <div id="otpSection" style="display:none;margin-top:12px;">
+      <label for="otpInput">OTP</label>
+      <input id="otpInput" type="text" maxlength="6" placeholder="Enter 6-digit OTP">
+      <button id="verifyOtpBtn" class="primary">Verify OTP</button>
+    </div>
+
+    <div id="statusBox" class="status"></div>
+    <p class="hint">For safety: session expires in 10 minutes. Max 5 OTP checks per session.</p>
+  </div>
+
+  <script>
+    var firebaseConfig = {
+      apiKey: "AIzaSyBPk0ATdBY6g_cGEJerP1m2RSEICWe7Qpc",
+      authDomain: "login1-aa21c.firebaseapp.com",
+      projectId: "login1-aa21c",
+      storageBucket: "login1-aa21c.firebasestorage.app",
+      messagingSenderId: "883551466761",
+      appId: "1:883551466761:web:c79809059abc26268b8fd8",
+      measurementId: "G-H1LN6C5CQW"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    var auth = firebase.auth();
+    var functions = firebase.app().functions('asia-south1');
+
+    var params = new URLSearchParams(window.location.search);
+    var token = params.get('token') || '';
+    var nonce = params.get('nonce') || '';
+    var prefillPhone = (params.get('phone') || '').replace(/\D/g, '').slice(-10);
+
+    var verificationId = '';
+    var verificationAttempts = 0;
+    var resendCooldown = 0;
+    var resendTimer = null;
+
+    var phoneInput = document.getElementById('phoneInput');
+    var sendBtn = document.getElementById('sendOtpBtn');
+    var resendBtn = document.getElementById('resendOtpBtn');
+    var verifyBtn = document.getElementById('verifyOtpBtn');
+    var otpInput = document.getElementById('otpInput');
+    var otpSection = document.getElementById('otpSection');
+    var statusBox = document.getElementById('statusBox');
+
+    if (prefillPhone) {
+      phoneInput.value = prefillPhone;
+    }
+
+    function setStatus(type, text) {
+      statusBox.className = 'status ' + type;
+      statusBox.textContent = text;
+    }
+
+    function normalizePhone(input) {
+      var digits = (input || '').replace(/\D/g, '');
+      if (digits.length < 10) return '';
+      return '+91' + digits.slice(-10);
+    }
+
+    function startCooldown() {
+      resendCooldown = 30;
+      resendBtn.disabled = true;
+      if (resendTimer) clearInterval(resendTimer);
+      resendTimer = setInterval(function() {
+        resendCooldown -= 1;
+        if (resendCooldown <= 0) {
+          clearInterval(resendTimer);
+          resendTimer = null;
+          resendBtn.disabled = false;
+          resendBtn.textContent = 'Resend OTP';
+          return;
+        }
+        resendBtn.textContent = 'Resend in ' + resendCooldown + 's';
+      }, 1000);
+    }
+
+    async function ensureSignedIn() {
+      if (!token) {
+        setStatus('error', 'Missing verification token. Please restart verification from the app.');
+        throw new Error('missing_token');
+      }
+
+      try {
+        await auth.signInWithCustomToken(token);
+        var clean = new URL(window.location.href);
+        clean.searchParams.delete('token');
+        window.history.replaceState({}, '', clean.toString());
+      } catch (e) {
+        console.error('Token sign-in failed:', e);
+        setStatus('error', 'Session expired. Please restart verification from app.');
+        throw e;
+      }
+    }
+
+    async function sendOtp() {
+      var fullPhone = normalizePhone(phoneInput.value);
+      if (!fullPhone) {
+        setStatus('error', 'Enter a valid 10-digit phone number.');
+        return;
+      }
+
+      sendBtn.disabled = true;
+      setStatus('info', 'Sending OTP...');
+
+      try {
+        if (window.recaptchaVerifier) {
+          try { window.recaptchaVerifier.clear(); } catch (_) {}
+        }
+
+        window.recaptchaVerifier = new firebase.auth.RecaptchaVerifier('sendOtpBtn', {
+          size: 'invisible'
+        });
+        await window.recaptchaVerifier.render();
+
+        var provider = new firebase.auth.PhoneAuthProvider();
+        verificationId = await provider.verifyPhoneNumber(fullPhone, window.recaptchaVerifier);
+        verificationAttempts = 0;
+        otpSection.style.display = 'block';
+        setStatus('success', 'OTP sent. Enter the 6-digit code below.');
+        startCooldown();
+      } catch (e) {
+        console.error('OTP send failed:', e);
+        setStatus('error', e.message || 'Failed to send OTP. Try again.');
+      } finally {
+        sendBtn.disabled = false;
+      }
+    }
+
+    async function verifyOtp() {
+      if (!verificationId) {
+        setStatus('error', 'Session expired. Send OTP again.');
+        return;
+      }
+
+      var code = (otpInput.value || '').trim();
+      if (code.length !== 6) {
+        setStatus('error', 'Enter the 6-digit OTP.');
+        return;
+      }
+
+      if (verificationAttempts >= 5) {
+        setStatus('error', 'Too many OTP checks. Resend OTP and try again.');
+        return;
+      }
+
+      verificationAttempts += 1;
+      verifyBtn.disabled = true;
+      setStatus('info', 'Verifying OTP...');
+
+      var fullPhone = normalizePhone(phoneInput.value);
+      try {
+        var credential = firebase.auth.PhoneAuthProvider.credential(verificationId, code);
+
+        try {
+          await auth.currentUser.updatePhoneNumber(credential);
+        } catch (linkErr) {
+          if (
+            linkErr.code !== 'auth/credential-already-in-use' &&
+            linkErr.code !== 'auth/account-exists-with-different-credential' &&
+            linkErr.code !== 'auth/provider-already-linked'
+          ) {
+            throw linkErr;
+          }
+        }
+
+        if (!nonce) {
+          throw new Error('missing_nonce');
+        }
+
+        var markFn = functions.httpsCallable('markPhoneVerifiedFromWeb');
+        await markFn({ phone: fullPhone, nonce: nonce });
+
+        setStatus('success', 'Phone verified successfully. Return to app and click I Verified, Refresh Status.');
+      } catch (e) {
+        console.error('OTP verify failed:', e);
+        var msg = e.message || 'Verification failed. Try again.';
+        if (e.code === 'auth/invalid-verification-code') msg = 'Invalid OTP. Please try again.';
+        if (e.code === 'auth/code-expired') msg = 'OTP expired. Please resend OTP.';
+        if (msg === 'missing_nonce') msg = 'Verification session missing. Restart from app.';
+        setStatus('error', msg);
+      } finally {
+        verifyBtn.disabled = false;
+      }
+    }
+
+    sendBtn.addEventListener('click', function() {
+      sendOtp();
+    });
+
+    resendBtn.addEventListener('click', function() {
+      if (resendCooldown > 0) return;
+      sendOtp();
+    });
+
+    verifyBtn.addEventListener('click', function() {
+      verifyOtp();
+    });
+
+    (async function init() {
+      await ensureSignedIn();
+      setStatus('info', 'Signed in securely. Enter your phone and request OTP.');
+    })();
+  </script>
+</body>
+</html>

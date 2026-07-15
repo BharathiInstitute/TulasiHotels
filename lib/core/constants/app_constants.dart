@@ -33,6 +33,7 @@ class AppConstants {
   static const int otpLength = 4;
   static const int otpResendSeconds = 30;
   static const int otpTimeoutSeconds = 60;
+  static const bool windowsPhoneVerificationHandoffEnabled = true;
 
   // Bill Settings
   static const String currencySymbol = '\u{20B9}';

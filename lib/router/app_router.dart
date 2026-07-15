@@ -322,7 +322,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           return AppRoutes.loading; // _AuthChangeNotifier re-fires when loaded
         }
 
-        // Planned: Re-enable shop setup redirect when ready
+        // Re-enable shop setup redirect when ready.
         final destination = !isLoggedIn
             ? AppRoutes.login
             : (pendingRedirect ?? restoredLocation);
@@ -442,7 +442,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         return AppRoutes.hotelSelector; // confirmed not an admin
       }
 
-      // Planned: Re-enable shop setup after OTP/phone auth is configured
+      // Re-enable shop setup after OTP/phone auth is configured.
       // Regular user: Logged in but shop setup not complete
       // Super admins bypass shop setup entirely
       // if (!isShopSetupComplete && !isSuperAdminUser) {
@@ -622,7 +622,14 @@ final routerProvider = Provider<GoRouter>((ref) {
             builder: (context, state) {
               final tableId = state.uri.queryParameters['tableId'];
               final tableName = state.uri.queryParameters['tableName'];
-              return NewOrderScreen(tableId: tableId, tableName: tableName);
+              final orderId = state.uri.queryParameters['orderId'];
+              final orderNumber = state.uri.queryParameters['orderNumber'];
+              return NewOrderScreen(
+                tableId: tableId,
+                tableName: tableName,
+                existingOrderId: orderId,
+                existingOrderNumber: orderNumber,
+              );
             },
           ),
           GoRoute(

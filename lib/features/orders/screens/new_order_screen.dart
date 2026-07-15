@@ -15,8 +15,16 @@ import 'package:tulasihotels/models/product_model.dart';
 class NewOrderScreen extends ConsumerStatefulWidget {
   final String? tableId;
   final String? tableName;
+  final String? existingOrderId;
+  final String? existingOrderNumber;
 
-  const NewOrderScreen({super.key, this.tableId, this.tableName});
+  const NewOrderScreen({
+    super.key,
+    this.tableId,
+    this.tableName,
+    this.existingOrderId,
+    this.existingOrderNumber,
+  });
 
   @override
   ConsumerState<NewOrderScreen> createState() => _NewOrderScreenState();
@@ -32,6 +40,8 @@ class _NewOrderScreenState extends ConsumerState<NewOrderScreen> {
   bool _isPlacingOrder = false;
   bool _isRush = false;
   bool _isVip = false;
+
+  bool get _isAmendmentMode => widget.existingOrderId != null;
 
   @override
   void initState() {
@@ -57,7 +67,9 @@ class _NewOrderScreenState extends ConsumerState<NewOrderScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          widget.tableName != null
+          _isAmendmentMode
+              ? 'Add Items — Order #${widget.existingOrderNumber ?? ''}'
+              : widget.tableName != null
               ? 'New Order — ${widget.tableName}'
               : 'New ${_orderType.displayName} Order',
         ),
@@ -494,7 +506,7 @@ class _NewOrderScreenState extends ConsumerState<NewOrderScreen> {
                           ),
                         )
                       : const Icon(Icons.send),
-                  label: const Text('Place Order'),
+                  label: Text(_isAmendmentMode ? 'Add Items' : 'Place Order'),
                 ),
               ),
             ],
@@ -564,28 +576,44 @@ class _NewOrderScreenState extends ConsumerState<NewOrderScreen> {
 
     setState(() => _isPlacingOrder = true);
     try {
-      final order = await OrderService.createOrder(
-        items: _items,
-        orderType: _orderType,
-        tableId: widget.tableId,
-        tableName: widget.tableName,
-        notes: _notes,
-        isRush: _isRush,
-        isVip: _isVip,
-      );
+      if (_isAmendmentMode) {
+        final updatedOrder = await OrderService.addItemsToOrder(
+          orderId: widget.existingOrderId!,
+          newItems: _items,
+        );
 
-      // Printing is best-effort; never block order completion/navigation.
-      try {
-        _printKOT(order);
-      } catch (e) {
-        debugPrint('⚠️ KOT print failed (order already placed): $e');
+        // Printing is best-effort; never block order completion/navigation.
+        try {
+          _printAmendmentKOT(updatedOrder, _items);
+        } catch (e) {
+          debugPrint('⚠️ Amendment KOT print failed (items already added): $e');
+        }
+      } else {
+        final order = await OrderService.createOrder(
+          items: _items,
+          orderType: _orderType,
+          tableId: widget.tableId,
+          tableName: widget.tableName,
+          notes: _notes,
+          isRush: _isRush,
+          isVip: _isVip,
+        );
+
+        // Printing is best-effort; never block order completion/navigation.
+        try {
+          _printKOT(order);
+        } catch (e) {
+          debugPrint('⚠️ KOT print failed (order already placed): $e');
+        }
       }
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              'Order placed for ${widget.tableName ?? _orderType.displayName}!',
+              _isAmendmentMode
+                  ? 'Items added to order #${widget.existingOrderNumber ?? ''}!'
+                  : 'Order placed for ${widget.tableName ?? _orderType.displayName}!',
             ),
             backgroundColor: Colors.green,
           ),
@@ -609,6 +637,21 @@ class _NewOrderScreenState extends ConsumerState<NewOrderScreen> {
 
   /// Fire-and-forget KOT print to the configured thermal printer.
   void _printKOT(OrderModel order) {
+    final bytes = KotPrinter.buildKOT(order: order);
+    _sendBytesToConfiguredPrinter(bytes);
+  }
+
+  /// Fire-and-forget amendment KOT print for newly added items.
+  void _printAmendmentKOT(OrderModel order, List<OrderItem> newItems) {
+    final bytes = KotPrinter.buildAmendmentKOT(
+      order: order,
+      newItems: newItems,
+      kotNumber: order.currentKotNumber,
+    );
+    _sendBytesToConfiguredPrinter(bytes);
+  }
+
+  void _sendBytesToConfiguredPrinter(List<int> bytes) {
     final printerState = ref.read(printerProvider);
     // Only print KOT if a thermal printer is configured
     if (printerState.printerType != PrinterTypeOption.bluetooth &&
@@ -616,8 +659,6 @@ class _NewOrderScreenState extends ConsumerState<NewOrderScreen> {
         printerState.printerType != PrinterTypeOption.usb) {
       return;
     }
-
-    final bytes = KotPrinter.buildKOT(order: order);
 
     switch (printerState.printerType) {
       case PrinterTypeOption.bluetooth:

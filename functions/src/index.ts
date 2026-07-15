@@ -3445,6 +3445,141 @@ export const createPaymentToken = functions
     });
 
 /**
+ * createPhoneVerificationHandoff — Returns a short-lived custom token + nonce
+ * for Windows desktop browser handoff phone verification.
+ */
+export const createPhoneVerificationHandoff = functions
+    .region("asia-south1")
+    .runWith({ timeoutSeconds: 10, memory: "256MB", maxInstances: 20 })
+    .https.onCall(async (data: { phone?: string; platform?: string }, context) => {
+        if (!context.auth) {
+            throw new functions.https.HttpsError(
+                "unauthenticated",
+                "User must be authenticated"
+            );
+        }
+
+        const rawPhone = (data?.phone || "").toString().trim();
+        const digits = rawPhone.replace(/\D/g, "");
+        const normalizedPhone = digits.length >= 10 ? `+91${digits.slice(-10)}` : "";
+
+        const nonce = crypto.randomBytes(16).toString("hex");
+        const nowMs = Date.now();
+        const expiresAt = admin.firestore.Timestamp.fromMillis(nowMs + 10 * 60 * 1000);
+        const uid = context.auth.uid;
+
+        await admin
+            .firestore()
+            .collection("users")
+            .doc(uid)
+            .collection("verification_handoffs")
+            .doc(nonce)
+            .set({
+                createdAt: admin.firestore.FieldValue.serverTimestamp(),
+                expiresAt,
+                used: false,
+                platform: (data?.platform || "unknown").toString(),
+                phoneHint: normalizedPhone || null,
+            });
+
+        try {
+            const token = await admin.auth().createCustomToken(uid);
+            return {
+                success: true,
+                token,
+                nonce,
+                expiresAtMs: nowMs + 10 * 60 * 1000,
+            };
+        } catch (error) {
+            console.error("Error creating phone verification handoff token:", error);
+            throw new functions.https.HttpsError(
+                "internal",
+                "Failed to create phone verification handoff"
+            );
+        }
+    });
+
+/**
+ * markPhoneVerifiedFromWeb — Marks phone verified after browser OTP success.
+ * Requires an authenticated user and a valid unused nonce.
+ */
+export const markPhoneVerifiedFromWeb = functions
+    .region("asia-south1")
+    .runWith({ timeoutSeconds: 10, memory: "256MB", maxInstances: 30 })
+    .https.onCall(async (data: { phone?: string; nonce?: string }, context) => {
+        if (!context.auth) {
+            throw new functions.https.HttpsError("unauthenticated", "Login required");
+        }
+
+        const uid = context.auth.uid;
+        const nonce = (data?.nonce || "").toString().trim();
+        if (!nonce) {
+            throw new functions.https.HttpsError("invalid-argument", "nonce is required");
+        }
+
+        const phoneRaw = (data?.phone || "").toString().trim();
+        const phoneDigits = phoneRaw.replace(/\D/g, "");
+        if (phoneDigits.length < 10) {
+            throw new functions.https.HttpsError("invalid-argument", "valid phone is required");
+        }
+        const normalizedPhone = `+91${phoneDigits.slice(-10)}`;
+
+        const handoffRef = admin
+            .firestore()
+            .collection("users")
+            .doc(uid)
+            .collection("verification_handoffs")
+            .doc(nonce);
+
+        const handoffDoc = await handoffRef.get();
+        if (!handoffDoc.exists) {
+            throw new functions.https.HttpsError("permission-denied", "Invalid verification session");
+        }
+
+        const handoff = handoffDoc.data() || {};
+        if (handoff.used === true) {
+            throw new functions.https.HttpsError("failed-precondition", "Verification session already used");
+        }
+
+        const expiresAt = handoff.expiresAt as admin.firestore.Timestamp | undefined;
+        if (!expiresAt || expiresAt.toMillis() < Date.now()) {
+            throw new functions.https.HttpsError("deadline-exceeded", "Verification session expired");
+        }
+
+        const phoneHint = (handoff.phoneHint || "").toString();
+        if (phoneHint && phoneHint !== normalizedPhone) {
+            throw new functions.https.HttpsError(
+                "permission-denied",
+                "Phone mismatch for this verification session"
+            );
+        }
+
+        await admin
+            .firestore()
+            .collection("users")
+            .doc(uid)
+            .set(
+                {
+                    phone: normalizedPhone,
+                    phoneVerified: true,
+                    phoneVerifiedAt: admin.firestore.FieldValue.serverTimestamp(),
+                },
+                { merge: true }
+            );
+
+        await handoffRef.set(
+            {
+                used: true,
+                usedAt: admin.firestore.FieldValue.serverTimestamp(),
+                verifiedPhone: normalizedPhone,
+            },
+            { merge: true }
+        );
+
+        return { success: true };
+    });
+
+/**
  * createOrder — Creates a Razorpay order for subscription payment.
  * Called from the website pricing page after user is authenticated.
  *

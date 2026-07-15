@@ -3,6 +3,8 @@
 /// On Windows desktop, phone OTP is skipped (Firebase Phone Auth unsupported)
 library;
 
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart'
     show defaultTargetPlatform, kIsWeb, TargetPlatform;
 import 'package:flutter/material.dart';
@@ -10,11 +12,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:tulasihotels/core/design/design_system.dart';
 import 'package:tulasihotels/core/constants/app_constants.dart';
+import 'package:tulasihotels/core/services/cloud_function_helper.dart';
 import 'package:tulasihotels/features/auth/providers/auth_provider.dart';
 import 'package:tulasihotels/features/auth/providers/phone_auth_provider.dart';
 import 'package:tulasihotels/features/auth/widgets/auth_layout.dart';
 import 'package:tulasihotels/l10n/app_localizations.dart';
 import 'package:tulasihotels/models/user_model.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class ShopSetupScreen extends ConsumerStatefulWidget {
   const ShopSetupScreen({super.key});
@@ -33,10 +37,16 @@ class _ShopSetupScreenState extends ConsumerState<ShopSetupScreen> {
   final _gstController = TextEditingController();
   bool _isLoading = false;
   bool _phoneVerified = false;
+  bool _isOpeningBrowserVerification = false;
+  bool _isRefreshingPhoneStatus = false;
+  String? _activeWindowsHandoffNonce;
 
   /// Desktop platforms don't support Firebase Phone Auth
   bool get _isDesktop =>
       !kIsWeb && defaultTargetPlatform == TargetPlatform.windows;
+
+    bool get _windowsWebPhoneHandoffEnabled =>
+      AppConstants.windowsPhoneVerificationHandoffEnabled;
 
   @override
   void initState() {
@@ -60,11 +70,8 @@ class _ShopSetupScreenState extends ConsumerState<ShopSetupScreen> {
         _phoneVerified = true;
       }
     }
-    // On Windows desktop, auto-skip phone verification
-    // (Firebase Phone Auth is not supported on desktop)
-    if (_isDesktop) {
-      _phoneVerified = true;
-    }
+    // On Windows desktop, we do not auto-mark phone as verified.
+    // Users can verify via browser handoff flow.
   }
 
   @override
@@ -198,6 +205,143 @@ class _ShopSetupScreenState extends ConsumerState<ShopSetupScreen> {
         setState(() => _isLoading = false);
       }
     }
+  }
+
+  Future<void> _openWindowsPhoneVerificationInBrowser() async {
+    if (!_windowsWebPhoneHandoffEnabled) return;
+    if (_isOpeningBrowserVerification) return;
+    setState(() => _isOpeningBrowserVerification = true);
+
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please sign in again and retry.')),
+        );
+        return;
+      }
+
+      String? token;
+      String? nonce;
+      try {
+        final result = await CloudFunctionHelper.call(
+          'createPhoneVerificationHandoff',
+          {
+            'phone': _phoneController.text.trim(),
+            'platform': 'windows',
+          },
+        );
+        token = result['token'] as String?;
+        nonce = result['nonce'] as String?;
+      } catch (_) {
+        // Keep fallback behavior below.
+      }
+
+      final phone = _phoneController.text.trim();
+      final query = <String, String>{
+        'source': 'windows',
+        'uid': user.uid,
+      };
+      if (token != null && token.isNotEmpty) query['token'] = token;
+      if (nonce != null && nonce.isNotEmpty) {
+        query['nonce'] = nonce;
+        _activeWindowsHandoffNonce = nonce;
+      }
+      if (user.email != null && user.email!.isNotEmpty) {
+        query['email'] = user.email!;
+      }
+      if (phone.isNotEmpty) {
+        query['phone'] = '${AppConstants.countryCode}$phone';
+      }
+
+      final uri = Uri(
+        scheme: 'https',
+        host: 'restaurants.tulasierp.com',
+        path: '/src/pages/verify-phone.html',
+        queryParameters: query,
+      );
+
+      final opened = await launchUrl(
+        uri,
+        mode: LaunchMode.externalApplication,
+      );
+      if (!opened && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Could not open browser. Please try again.'),
+          ),
+        );
+      }
+
+      await _logWindowsPhoneHandoffEvent(
+        opened ? 'browser_opened' : 'browser_open_failed',
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isOpeningBrowserVerification = false);
+      }
+    }
+  }
+
+  Future<void> _refreshWindowsPhoneVerificationStatus() async {
+    if (_isRefreshingPhoneStatus) return;
+    setState(() => _isRefreshingPhoneStatus = true);
+
+    try {
+      final uid = FirebaseAuth.instance.currentUser?.uid;
+      if (uid == null) return;
+
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .get();
+      final data = doc.data();
+      final verified = (data?['phoneVerified'] as bool?) ?? false;
+
+      if (!mounted) return;
+      if (verified) {
+        setState(() => _phoneVerified = true);
+        await _logWindowsPhoneHandoffEvent('verification_synced');
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Phone verification synced successfully.'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      } else {
+        await _logWindowsPhoneHandoffEvent('verification_pending');
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Phone is not verified yet. Complete OTP in browser and retry.',
+            ),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isRefreshingPhoneStatus = false);
+      }
+    }
+  }
+
+  Future<void> _logWindowsPhoneHandoffEvent(String event) async {
+    try {
+      final uid = FirebaseAuth.instance.currentUser?.uid;
+      if (uid == null) return;
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .collection('verification_events')
+          .add({
+            'event': event,
+            'platform': 'windows',
+            if (_activeWindowsHandoffNonce != null)
+              'nonce': _activeWindowsHandoffNonce,
+            'createdAt': FieldValue.serverTimestamp(),
+          });
+    } catch (_) {}
   }
 
   @override
@@ -458,8 +602,50 @@ class _ShopSetupScreenState extends ConsumerState<ShopSetupScreen> {
                     ),
                   ),
                 ],
+                if (_isDesktop && _windowsWebPhoneHandoffEnabled && !_phoneVerified) ...[
+                  const SizedBox(width: 8),
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: SizedBox(
+                      height: 48,
+                      child: OutlinedButton.icon(
+                        onPressed: _isOpeningBrowserVerification
+                            ? null
+                            : _openWindowsPhoneVerificationInBrowser,
+                        icon: _isOpeningBrowserVerification
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : const Icon(Icons.open_in_browser, size: 18),
+                        label: const Text('Verify in Browser'),
+                      ),
+                    ),
+                  ),
+                ],
               ],
             ),
+
+            if (_isDesktop && _windowsWebPhoneHandoffEnabled && !_phoneVerified) ...[
+              const SizedBox(height: 8),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: OutlinedButton.icon(
+                  onPressed: _isRefreshingPhoneStatus
+                      ? null
+                      : _refreshWindowsPhoneVerificationStatus,
+                  icon: _isRefreshingPhoneStatus
+                      ? const SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.refresh, size: 16),
+                  label: const Text('I Verified, Refresh Status'),
+                ),
+              ),
+            ],
 
             // OTP input
             if ((phoneState.status == PhoneAuthStatus.codeSent ||
@@ -569,12 +755,43 @@ class _ShopSetupScreenState extends ConsumerState<ShopSetupScreen> {
                     const SizedBox(width: 8),
                     Text(
                       _isDesktop
-                          ? 'Phone OTP not available on desktop — number will be saved'
+                          ? 'Phone verified via web and synced to desktop'
                           : 'Phone number verified & linked to your account',
                       style: TextStyle(
                         color: _isDesktop ? Colors.blue : Colors.green,
                         fontSize: 13,
                         fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+
+            if (_isDesktop && !_windowsWebPhoneHandoffEnabled) ...[
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.blue.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.blue.withValues(alpha: 0.3)),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(Icons.info_outline, color: Colors.blue, size: 18),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Desktop phone verification handoff is disabled by rollout flag.',
+                        style: TextStyle(
+                          color: Colors.blue,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
                     ),
                   ],

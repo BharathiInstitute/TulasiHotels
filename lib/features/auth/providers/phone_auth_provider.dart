@@ -57,8 +57,16 @@ class PhoneAuthState {
 class PhoneAuthNotifier extends StateNotifier<PhoneAuthState> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   Timer? _resendTimer;
+  ConfirmationResult? _webConfirmationResult;
+  bool _webIsLinkFlow = false;
 
   PhoneAuthNotifier() : super(const PhoneAuthState());
+
+  bool get _isWindowsDesktop =>
+      !kIsWeb && defaultTargetPlatform == TargetPlatform.windows;
+
+  String get _windowsUnsupportedMessage =>
+      'Phone OTP is not supported on Windows desktop. Use web or mobile for phone verification.';
 
   /// Format phone number to E.164 format
   /// Accepts optional [countryCode] for international support (defaults to AppConstants.countryCode)
@@ -73,6 +81,14 @@ class PhoneAuthNotifier extends StateNotifier<PhoneAuthState> {
 
   /// Send OTP to phone number
   Future<void> sendOtp(String phoneNumber) async {
+    if (_isWindowsDesktop) {
+      state = state.copyWith(
+        status: PhoneAuthStatus.error,
+        error: _windowsUnsupportedMessage,
+      );
+      return;
+    }
+
     final formattedPhone = _formatPhoneNumber(phoneNumber);
 
     // Native Windows desktop does not reliably support Firebase phone OTP.
@@ -105,6 +121,39 @@ class PhoneAuthNotifier extends StateNotifier<PhoneAuthState> {
       status: PhoneAuthStatus.sending,
       phoneNumber: formattedPhone,
     );
+
+    // Web flow: always use reCAPTCHA-based confirmation APIs.
+    // verifyPhoneNumber is unreliable/unsupported in browser environments.
+    if (kIsWeb) {
+      try {
+        if (_auth.currentUser != null) {
+          _webConfirmationResult = await _auth.currentUser!
+              .linkWithPhoneNumber(formattedPhone);
+          _webIsLinkFlow = true;
+        } else {
+          _webConfirmationResult = await _auth.signInWithPhoneNumber(
+            formattedPhone,
+          );
+          _webIsLinkFlow = false;
+        }
+
+        state = state.copyWith(
+          status: PhoneAuthStatus.codeSent,
+          canResend: false,
+          resendCountdown: 30,
+        );
+        _startResendTimer();
+      } on FirebaseAuthException catch (e) {
+        _onVerificationFailed(e);
+      } catch (e) {
+        debugPrint('📱 Web phone auth error: $e');
+        state = state.copyWith(
+          status: PhoneAuthStatus.error,
+          error: 'Failed to send OTP. Please try again.',
+        );
+      }
+      return;
+    }
 
     // Safety timeout — if Firebase never calls callbacks, unblock the UI
     bool callbackCalled = false;
@@ -158,6 +207,19 @@ class PhoneAuthNotifier extends StateNotifier<PhoneAuthState> {
   Future<void> resendOtp() async {
     if (!state.canResend || state.phoneNumber == null) return;
 
+    if (_isWindowsDesktop) {
+      state = state.copyWith(
+        status: PhoneAuthStatus.error,
+        error: _windowsUnsupportedMessage,
+      );
+      return;
+    }
+
+    if (kIsWeb) {
+      await sendOtp(state.phoneNumber!);
+      return;
+    }
+
     state = state.copyWith(status: PhoneAuthStatus.sending);
 
     try {
@@ -187,6 +249,40 @@ class PhoneAuthNotifier extends StateNotifier<PhoneAuthState> {
 
   /// Verify OTP code entered by user
   Future<bool> verifyOtp(String smsCode) async {
+    if (_isWindowsDesktop) {
+      state = state.copyWith(
+        status: PhoneAuthStatus.error,
+        error: _windowsUnsupportedMessage,
+      );
+      return false;
+    }
+
+    if (kIsWeb && _webConfirmationResult != null) {
+      state = state.copyWith(status: PhoneAuthStatus.verifying);
+      try {
+        await _webConfirmationResult!.confirm(smsCode.trim());
+        // In sign-in flow (no existing user), web OTP may create a temporary
+        // auth session. Clear it so email/password flow can continue.
+        if (!_webIsLinkFlow && _auth.currentUser != null) {
+          await _auth.signOut();
+        }
+        _webConfirmationResult = null;
+        _webIsLinkFlow = false;
+        state = state.copyWith(status: PhoneAuthStatus.verified);
+        _cancelResendTimer();
+        return true;
+      } on FirebaseAuthException catch (e) {
+        _onVerificationFailed(e);
+        return false;
+      } catch (_) {
+        state = state.copyWith(
+          status: PhoneAuthStatus.codeSent,
+          error: 'Verification failed. Please try again or resend OTP.',
+        );
+        return false;
+      }
+    }
+
     if (state.verificationId == null) {
       state = state.copyWith(
         status: PhoneAuthStatus.error,
@@ -254,6 +350,38 @@ class PhoneAuthNotifier extends StateNotifier<PhoneAuthState> {
 
   /// Link phone credential to existing email account (for re-verification)
   Future<bool> verifyAndLinkPhone(String smsCode) async {
+    if (_isWindowsDesktop) {
+      state = state.copyWith(
+        status: PhoneAuthStatus.error,
+        error: _windowsUnsupportedMessage,
+      );
+      return false;
+    }
+
+    if (kIsWeb && _webConfirmationResult != null) {
+      state = state.copyWith(status: PhoneAuthStatus.verifying);
+      try {
+        await _webConfirmationResult!.confirm(smsCode.trim());
+        if (!_webIsLinkFlow && _auth.currentUser != null) {
+          await _auth.signOut();
+        }
+        _webConfirmationResult = null;
+        _webIsLinkFlow = false;
+        state = state.copyWith(status: PhoneAuthStatus.verified);
+        _cancelResendTimer();
+        return true;
+      } on FirebaseAuthException catch (e) {
+        _onVerificationFailed(e);
+        return false;
+      } catch (_) {
+        state = state.copyWith(
+          status: PhoneAuthStatus.codeSent,
+          error: 'Verification failed. Please try again or resend OTP.',
+        );
+        return false;
+      }
+    }
+
     if (state.verificationId == null) {
       state = state.copyWith(
         status: PhoneAuthStatus.error,
@@ -382,6 +510,10 @@ class PhoneAuthNotifier extends StateNotifier<PhoneAuthState> {
       case 'network-request-failed':
         message =
             'Network error while sending OTP. Check internet/VPN and try again.';
+      case 'unauthorized-domain':
+        message =
+            'This domain is not authorized for phone sign-in. Add it in Firebase Auth settings.';
+        break;
         break;
       case 'missing-phone-number':
         message = 'Phone number is missing. Please enter your number.';
@@ -439,6 +571,8 @@ class PhoneAuthNotifier extends StateNotifier<PhoneAuthState> {
   void reset() {
     _cancelResendTimer();
     _lastVerifiedCredential = null;
+    _webConfirmationResult = null;
+    _webIsLinkFlow = false;
     state = const PhoneAuthState();
   }
 
