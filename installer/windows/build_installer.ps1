@@ -7,14 +7,73 @@
 #      Default: "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
 #
 # Usage: .\build_installer.ps1
+#        .\build_installer.ps1 -Clean
 
 param(
     [switch]$SkipFlutterBuild,
+    [switch]$Clean,
     [string]$InnoSetupPath = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
 )
 
 $ErrorActionPreference = "Stop"
 $ProjectRoot = Resolve-Path "$PSScriptRoot\..\.."
+
+function Invoke-CheckedCommand {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Command,
+        [Parameter(ValueFromRemainingArguments = $true)]
+        [string[]]$Arguments
+    )
+
+    & $Command @Arguments
+    if ($LASTEXITCODE -ne 0) {
+        throw "Command failed with exit code $LASTEXITCODE`: $Command $($Arguments -join ' ')"
+    }
+}
+
+function Clear-WindowsCMakeCache {
+    $WindowsBuildDir = Join-Path $ProjectRoot "build\windows"
+    $StaleCMakeItems = @(
+        (Join-Path $WindowsBuildDir "x64\CMakeCache.txt"),
+        (Join-Path $WindowsBuildDir "x64\CMakeFiles"),
+        (Join-Path $WindowsBuildDir "CMakeCache.txt"),
+        (Join-Path $WindowsBuildDir "CMakeFiles")
+    )
+
+    foreach ($Item in $StaleCMakeItems) {
+        if (Test-Path $Item) {
+            Remove-Item $Item -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+}
+
+function Ensure-NuGet {
+    if (Get-Command "nuget.exe" -ErrorAction SilentlyContinue) {
+        return
+    }
+
+    $NuGetDir = Join-Path $ProjectRoot ".tools\nuget"
+    $NuGetPath = Join-Path $NuGetDir "nuget.exe"
+    $NuGetUrl = "https://dist.nuget.org/win-x86-commandline/v5.10.0/nuget.exe"
+    $ExpectedHash = "852b71cc8c8c2d40d09ea49d321ff56fd2397b9d6ea9f96e532530307bbbafd3"
+
+    if (-not (Test-Path $NuGetPath)) {
+        Write-Host "  NuGet not found. Downloading NuGet CLI..." -ForegroundColor Yellow
+        if (-not (Test-Path $NuGetDir)) {
+            New-Item -ItemType Directory -Path $NuGetDir -Force | Out-Null
+        }
+        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+        Invoke-WebRequest -Uri $NuGetUrl -OutFile $NuGetPath -UseBasicParsing
+    }
+
+    $ActualHash = (Get-FileHash -Path $NuGetPath -Algorithm SHA256).Hash.ToLowerInvariant()
+    if ($ActualHash -ne $ExpectedHash) {
+        throw "NuGet integrity check failed for $NuGetPath"
+    }
+
+    $env:Path = "$NuGetDir;$env:Path"
+}
 
 Write-Host "============================================" -ForegroundColor Cyan
 Write-Host "  Tulasi Restaurants - Windows Installer Build" -ForegroundColor Cyan
@@ -48,9 +107,13 @@ if (-not $SkipFlutterBuild) {
     Write-Host "[1/3] Building Flutter Windows release..." -ForegroundColor Green
     Push-Location $ProjectRoot
     try {
-        flutter clean
-        flutter pub get
-        flutter build windows --release
+        if ($Clean) {
+            Invoke-CheckedCommand "flutter" "clean"
+        }
+        Clear-WindowsCMakeCache
+        Invoke-CheckedCommand "flutter" "pub" "get"
+        Ensure-NuGet
+        Invoke-CheckedCommand "flutter" "build" "windows" "--release"
     }
     finally {
         Pop-Location

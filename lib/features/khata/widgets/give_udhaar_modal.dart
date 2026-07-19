@@ -7,8 +7,10 @@ import 'package:tulasihotels/core/services/offline_storage_service.dart';
 import 'package:tulasihotels/core/utils/formatters.dart';
 import 'package:tulasihotels/features/auth/providers/auth_provider.dart';
 import 'package:tulasihotels/features/khata/providers/khata_provider.dart';
+import 'package:tulasihotels/features/permissions/providers/route_permission_provider.dart';
 import 'package:tulasihotels/models/customer_model.dart';
 import 'package:tulasihotels/models/transaction_model.dart';
+import 'package:tulasihotels/router/app_router.dart';
 import 'package:tulasihotels/shared/widgets/app_button.dart';
 
 /// Modal to give Udhaar (credit) to a customer
@@ -39,6 +41,16 @@ class _GiveUdhaarModalState extends ConsumerState<GiveUdhaarModal> {
   }
 
   Future<void> _giveUdhaar() async {
+    final permissions = ref.read(routePermissionProvider(AppRoutes.khata));
+    if (!permissions.canCreate) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('You do not have permission to give udhaar.'),
+        ),
+      );
+      return;
+    }
+
     if (_amount <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please enter a valid amount')),
@@ -134,6 +146,7 @@ class _GiveUdhaarModalState extends ConsumerState<GiveUdhaarModal> {
   @override
   Widget build(BuildContext context) {
     final balance = widget.customer.balance;
+    final permissions = ref.watch(routePermissionProvider(AppRoutes.khata));
 
     return Container(
       decoration: BoxDecoration(
@@ -317,7 +330,9 @@ class _GiveUdhaarModalState extends ConsumerState<GiveUdhaarModal> {
               // Submit button
               AppButton(
                 label: '➖ GIVE UDHAAR',
-                onPressed: _amount > 0 ? _giveUdhaar : null,
+                onPressed: permissions.canCreate && _amount > 0
+                    ? _giveUdhaar
+                    : null,
                 isLoading: _isLoading,
                 backgroundColor: AppColors.error,
               ),

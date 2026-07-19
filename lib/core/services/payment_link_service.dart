@@ -103,7 +103,7 @@ class PaymentLinkService {
     if (transactionNote != null && transactionNote.isNotEmpty) {
       parts.add('tn=${Uri.encodeComponent(transactionNote)}');
     }
-    return 'https://stores.tulasierp.com/pay?${parts.join('&')}';
+    return 'https://restaurants.tulasierp.com/pay?${parts.join('&')}';
   }
 
   /// Generate the UPI QR code data string (same as deep link, for QR rendering)

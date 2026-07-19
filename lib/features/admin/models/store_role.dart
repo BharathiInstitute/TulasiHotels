@@ -27,24 +27,26 @@ enum StoreRole {
 
   /// Default permission template for this role
   Map<String, List<String>> get defaultPermissions {
-    final allActions =
-        PermissionAction.values.map((a) => a.key).toList();
+    final allActions = PermissionAction.values.map((a) => a.key).toList();
     final viewOnly = [PermissionAction.view.key];
+
+    final Map<String, List<String>> template;
 
     switch (this) {
       case StoreRole.owner:
-        return {
-          for (final s in PermissionConfig.allScreens) s.route: allActions,
+        template = {
+          for (final s in PermissionConfig.allScreens)
+            s.route: s.supportedActionKeys,
         };
-
+        break;
       case StoreRole.manager:
-        // Everything except user management routes
-        return {
-          for (final s in PermissionConfig.allScreens) s.route: allActions,
+        template = {
+          for (final s in PermissionConfig.allScreens)
+            s.route: s.supportedActionKeys,
         };
-
+        break;
       case StoreRole.cashier:
-        return {
+        template = {
           AppRoutes.billing: allActions,
           AppRoutes.khata: allActions,
           AppRoutes.bills: [
@@ -61,9 +63,9 @@ enum StoreRole {
           AppRoutes.attendance: viewOnly,
           AppRoutes.myAttendance: viewOnly,
         };
-
+        break;
       case StoreRole.accountant:
-        return {
+        template = {
           AppRoutes.billing: viewOnly,
           AppRoutes.khata: allActions,
           AppRoutes.bills: allActions,
@@ -74,18 +76,20 @@ enum StoreRole {
           AppRoutes.salary: allActions,
           AppRoutes.myAttendance: viewOnly,
         };
-
+        break;
       case StoreRole.staff:
-        return {
+        template = {
           AppRoutes.tables: viewOnly,
           AppRoutes.orders: viewOnly,
           AppRoutes.kitchen: viewOnly,
           AppRoutes.myAttendance: viewOnly,
         };
-
+        break;
       case StoreRole.custom:
-        // Empty — must be manually configured
-        return {};
+        template = {};
+        break;
     }
+
+    return PermissionConfig.normalizePermissions(template);
   }
 }

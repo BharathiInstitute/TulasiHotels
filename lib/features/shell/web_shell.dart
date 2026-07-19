@@ -536,6 +536,7 @@ class _WebSidebar extends ConsumerWidget {
                       onTap: () {
                         launchUrl(
                           Uri.parse(websiteUrl),
+                          mode: LaunchMode.externalApplication,
                           webOnlyWindowName: '_self',
                         );
                       },

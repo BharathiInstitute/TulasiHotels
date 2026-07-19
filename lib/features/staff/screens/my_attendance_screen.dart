@@ -123,9 +123,9 @@ class _MyAttendanceBodyState extends ConsumerState<_MyAttendanceBody> {
         ? openRecord.first
         : (todayRecords.isNotEmpty ? todayRecords.first : null);
 
-    double totalHours = 0;
+    int totalMinutes = 0;
     for (final r in records) {
-      totalHours += r.hoursWorked;
+      totalMinutes += r.workedMinutes;
     }
     final presentDays = records
         .map((r) => '${r.date.year}-${r.date.month}-${r.date.day}')
@@ -176,7 +176,7 @@ class _MyAttendanceBodyState extends ConsumerState<_MyAttendanceBody> {
                 child: _SummaryChip(
                   icon: Icons.schedule,
                   label: 'Hours',
-                  value: totalHours.toStringAsFixed(1),
+                  value: AttendanceModel.formatMinutes(totalMinutes),
                   color: Colors.blue,
                 ),
               ),
@@ -401,7 +401,7 @@ class _UserClockCard extends StatelessWidget {
                       ),
                       const Spacer(),
                       Text(
-                        '${todayRecord!.hoursWorked.toStringAsFixed(1)}h',
+                        todayRecord!.workedDurationLabel,
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w700,
@@ -539,9 +539,9 @@ class _DayRecord extends StatelessWidget {
     final dayLabel =
         '${_dayName(dt.weekday)}, ${dt.day} ${_monthName(dt.month)}';
 
-    double dayHours = 0;
+    int dayMinutes = 0;
     for (final r in records) {
-      dayHours += r.hoursWorked;
+      dayMinutes += r.workedMinutes;
     }
 
     return Container(
@@ -573,7 +573,7 @@ class _DayRecord extends StatelessWidget {
                 ),
                 const Spacer(),
                 Text(
-                  '${dayHours.toStringAsFixed(1)}h',
+                  AttendanceModel.formatMinutes(dayMinutes),
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w700,
@@ -638,7 +638,7 @@ class _DayRecord extends StatelessWidget {
                   const Spacer(),
                   if (r.clockOut != null)
                     Text(
-                      '${r.hoursWorked.toStringAsFixed(1)}h',
+                      r.workedDurationLabel,
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,

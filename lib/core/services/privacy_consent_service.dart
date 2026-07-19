@@ -25,8 +25,10 @@ class LegalDocVersions {
   static const String termsOfService = '1.0.0';
 
   /// URLs for full legal documents
-  static const String privacyPolicyUrl = 'https://tulasihotels.com/privacy';
-  static const String termsOfServiceUrl = 'https://tulasihotels.com/terms';
+    static const String privacyPolicyUrl =
+      'https://restaurants.tulasierp.com/src/pages/privacy.html';
+    static const String termsOfServiceUrl =
+      'https://restaurants.tulasierp.com/src/pages/terms.html';
 }
 
 /// Consent record stored in Firestore

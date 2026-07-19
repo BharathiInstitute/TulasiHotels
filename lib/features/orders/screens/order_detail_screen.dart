@@ -4,7 +4,9 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:tulasihotels/features/permissions/providers/route_permission_provider.dart';
 import 'package:tulasihotels/features/orders/services/order_service.dart';
+import 'package:tulasihotels/router/app_router.dart';
 import 'package:tulasihotels/features/tables/services/table_service.dart';
 import 'package:tulasihotels/models/order_model.dart';
 import 'package:tulasihotels/models/table_model.dart';
@@ -28,6 +30,10 @@ class OrderDetailScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final orderAsync = ref.watch(orderDetailProvider(orderId));
     final theme = Theme.of(context);
+    final orderPermissions = ref.watch(routePermissionProvider(AppRoutes.orders));
+    final billingPermissions = ref.watch(
+      routePermissionProvider(AppRoutes.billing),
+    );
 
     return orderAsync.when(
       data: (order) {
@@ -94,6 +100,12 @@ class OrderDetailScreen extends ConsumerWidget {
           );
         }
 
+        final canAddItems = orderPermissions.canUpdate;
+        final canCancelOrder = orderPermissions.canDelete;
+        final canGenerateBill = billingPermissions.canCreate &&
+            (order.allItemsServed || order.status == OrderStatus.served);
+        final showActionMenu = canAddItems || canCancelOrder || canGenerateBill;
+
         return Scaffold(
           appBar: AppBar(
             leading: IconButton(
@@ -108,27 +120,28 @@ class OrderDetailScreen extends ConsumerWidget {
             ),
             title: Text('Order #${order.orderNumber}'),
             actions: [
-              if (order.isActive)
+              if (order.isActive && showActionMenu)
                 PopupMenuButton<String>(
-                  onSelected: (action) => _handleAction(context, action, order),
+                  onSelected: (action) => _handleAction(context, ref, action, order),
                   itemBuilder: (context) => [
-                    if (order.status != OrderStatus.served)
+                    if (canAddItems && order.status != OrderStatus.served)
                       const PopupMenuItem(
                         value: 'add_items',
                         child: Text('Add Items'),
                       ),
-                    if (order.allItemsServed)
+                    if (canGenerateBill)
                       const PopupMenuItem(
                         value: 'generate_bill',
                         child: Text('Generate Bill'),
                       ),
-                    const PopupMenuItem(
-                      value: 'cancel',
-                      child: Text(
-                        'Cancel Order',
-                        style: TextStyle(color: Colors.red),
+                    if (canCancelOrder)
+                      const PopupMenuItem(
+                        value: 'cancel',
+                        child: Text(
+                          'Cancel Order',
+                          style: TextStyle(color: Colors.red),
+                        ),
                       ),
-                    ),
                   ],
                 ),
             ],
@@ -222,13 +235,12 @@ class OrderDetailScreen extends ConsumerWidget {
                             label: const Text('Mark Served'),
                           ),
                         ),
-                      if (order.allItemsServed ||
-                          order.status == OrderStatus.served) ...[
+                      if (canGenerateBill) ...[
                         const SizedBox(width: 8),
                         Expanded(
                           child: FilledButton.icon(
                             onPressed: () =>
-                                _handleAction(context, 'generate_bill', order),
+                                _handleAction(context, ref, 'generate_bill', order),
                             icon: const Icon(Icons.receipt),
                             label: const Text('Generate Bill'),
                           ),
@@ -259,9 +271,23 @@ class OrderDetailScreen extends ConsumerWidget {
     return '$h:$m';
   }
 
-  void _handleAction(BuildContext context, String action, OrderModel order) {
+  void _handleAction(
+    BuildContext context,
+    WidgetRef ref,
+    String action,
+    OrderModel order,
+  ) {
     switch (action) {
       case 'add_items':
+        final permissions = ref.read(routePermissionProvider(AppRoutes.orders));
+        if (!permissions.canUpdate) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('You do not have permission to update orders.'),
+            ),
+          );
+          return;
+        }
         final uri = Uri(
           path: '/orders/new',
           queryParameters: {
@@ -274,9 +300,29 @@ class OrderDetailScreen extends ConsumerWidget {
         context.push(uri.toString());
         break;
       case 'generate_bill':
+        final billingPermissions = ref.read(
+          routePermissionProvider(AppRoutes.billing),
+        );
+        if (!billingPermissions.canCreate) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('You do not have permission to create bills.'),
+            ),
+          );
+          return;
+        }
         context.push('/orders/${order.id}/bill');
         break;
       case 'cancel':
+        final permissions = ref.read(routePermissionProvider(AppRoutes.orders));
+        if (!permissions.canDelete) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('You do not have permission to cancel orders.'),
+            ),
+          );
+          return;
+        }
         _confirmCancel(context, order);
         break;
     }

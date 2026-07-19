@@ -313,6 +313,16 @@ class _WebCartSectionState extends ConsumerState<_WebCartSection> {
   }
 
   Future<void> _completeBill() async {
+    final permissions = ref.read(routePermissionProvider(AppRoutes.billing));
+    if (!permissions.canCreate) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('You do not have permission to create bills.'),
+        ),
+      );
+      return;
+    }
+
     final cart = ref.read(cartProvider);
     if (cart.isEmpty) return;
 
@@ -590,6 +600,9 @@ class _WebCartSectionState extends ConsumerState<_WebCartSection> {
   @override
   Widget build(BuildContext context) {
     final cart = ref.watch(cartProvider);
+    final billingPermissions = ref.watch(
+      routePermissionProvider(AppRoutes.billing),
+    );
     final productsAsync = ref.watch(productsProvider);
     final customersAsync = ref.watch(customersProvider);
     final user = ref.watch(currentUserProvider);
@@ -1394,7 +1407,8 @@ class _WebCartSectionState extends ConsumerState<_WebCartSection> {
                           onPressed:
                               cart.isNotEmpty &&
                                   !(_selectedPayment == PaymentMethod.udhar &&
-                                      _selectedCustomer == null)
+                                  _selectedCustomer == null) &&
+                                billingPermissions.canCreate
                               ? _completeBill
                               : null,
                           style: ElevatedButton.styleFrom(

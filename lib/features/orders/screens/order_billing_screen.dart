@@ -9,11 +9,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tulasihotels/core/services/print_helper.dart';
 import 'package:tulasihotels/features/auth/providers/auth_provider.dart';
 import 'package:tulasihotels/features/billing/services/billing_service.dart';
+import 'package:tulasihotels/features/permissions/providers/route_permission_provider.dart';
 import 'package:tulasihotels/features/orders/screens/order_detail_screen.dart';
 import 'package:tulasihotels/features/orders/services/order_service.dart';
 import 'package:tulasihotels/features/settings/providers/printer_provider.dart';
 import 'package:tulasihotels/features/coupons/providers/coupon_provider.dart';
 import 'package:tulasihotels/features/coupons/services/coupon_service.dart';
+import 'package:tulasihotels/router/app_router.dart';
 import 'package:tulasihotels/models/bill_model.dart';
 import 'package:tulasihotels/models/coupon_model.dart';
 import 'package:tulasihotels/models/order_model.dart';
@@ -44,6 +46,9 @@ class _OrderBillingScreenState extends ConsumerState<OrderBillingScreen> {
   Widget build(BuildContext context) {
     final orderAsync = ref.watch(orderDetailProvider(widget.orderId));
     final theme = Theme.of(context);
+    final billingPermissions = ref.watch(
+      routePermissionProvider(AppRoutes.billing),
+    );
 
     return orderAsync.when(
       data: (order) {
@@ -325,7 +330,7 @@ class _OrderBillingScreenState extends ConsumerState<OrderBillingScreen> {
 
               // Generate Bill button
               FilledButton.icon(
-                onPressed: _isProcessing
+                onPressed: _isProcessing || !billingPermissions.canCreate
                     ? null
                     : () => _generateBill(order, total),
                 icon: _isProcessing
@@ -361,6 +366,16 @@ class _OrderBillingScreenState extends ConsumerState<OrderBillingScreen> {
   }
 
   Future<void> _generateBill(OrderModel order, double total) async {
+    final permissions = ref.read(routePermissionProvider(AppRoutes.billing));
+    if (!permissions.canCreate) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('You do not have permission to create bills.'),
+        ),
+      );
+      return;
+    }
+
     if (total <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Bill total must be greater than zero')),

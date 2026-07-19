@@ -55,14 +55,14 @@ class _StaffClockWidgetState extends ConsumerState<StaffClockWidget> {
         final isClockedIn = activeRecord.isNotEmpty;
         final currentRecord = isClockedIn ? activeRecord.first : null;
 
-        // Calculate today's total hours
-        double todayHours = 0;
+        // Calculate today's total time
+        int todayMinutes = 0;
         for (final r in myRecords) {
           if (r.status == AttendanceStatus.clockedOut) {
-            todayHours += r.hoursWorked;
+            todayMinutes += r.workedMinutes;
           } else if (r.status == AttendanceStatus.clockedIn) {
             // Still active — calculate running time
-            todayHours += DateTime.now().difference(r.clockIn).inMinutes / 60.0;
+            todayMinutes += DateTime.now().difference(r.clockIn).inMinutes;
           }
         }
 
@@ -137,7 +137,7 @@ class _StaffClockWidgetState extends ConsumerState<StaffClockWidget> {
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Text(
-                        'Today: ${todayHours.toStringAsFixed(1)}h',
+                        'Today: ${_formatMinutes(todayMinutes)}',
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
@@ -221,7 +221,7 @@ class _StaffClockWidgetState extends ConsumerState<StaffClockWidget> {
                             currentRecordId: currentRecord?.id,
                             staffId: staff.id,
                             staffName: staff.name,
-                            todayHours: todayHours,
+                            todayMinutes: todayMinutes,
                           ),
                     icon: _isActioning
                         ? const SizedBox(
@@ -272,7 +272,7 @@ class _StaffClockWidgetState extends ConsumerState<StaffClockWidget> {
     String? currentRecordId,
     required String staffId,
     required String staffName,
-    required double todayHours,
+    required int todayMinutes,
   }) async {
     if (isClockedIn) {
       // Confirm clock-out
@@ -281,7 +281,7 @@ class _StaffClockWidgetState extends ConsumerState<StaffClockWidget> {
         builder: (ctx) => AlertDialog(
           title: const Text('Clock Out'),
           content: Text(
-            'You have worked ${todayHours.toStringAsFixed(1)} hours today.\n'
+            'You have worked ${_formatMinutes(todayMinutes)} today.\n'
             'Are you sure you want to clock out?',
           ),
           actions: [
@@ -340,5 +340,11 @@ class _StaffClockWidgetState extends ConsumerState<StaffClockWidget> {
     final minute = dt.minute.toString().padLeft(2, '0');
     final period = dt.hour >= 12 ? 'PM' : 'AM';
     return '$hour:$minute $period';
+  }
+
+  static String _formatMinutes(int totalMinutes) {
+    final hours = (totalMinutes ~/ 60).toString().padLeft(2, '0');
+    final minutes = (totalMinutes % 60).toString().padLeft(2, '0');
+    return '$hours:$minutes';
   }
 }

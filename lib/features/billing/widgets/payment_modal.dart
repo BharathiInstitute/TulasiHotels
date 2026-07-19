@@ -18,6 +18,7 @@ import 'package:tulasihotels/router/app_router.dart';
 import 'package:tulasihotels/core/utils/formatters.dart';
 import 'package:tulasihotels/features/auth/providers/auth_provider.dart';
 import 'package:tulasihotels/features/billing/providers/cart_provider.dart';
+import 'package:tulasihotels/features/permissions/providers/route_permission_provider.dart';
 import 'package:tulasihotels/features/settings/providers/settings_provider.dart';
 
 import 'package:tulasihotels/features/khata/providers/khata_provider.dart';
@@ -115,6 +116,17 @@ class _PaymentModalState extends ConsumerState<PaymentModal> {
   }
 
   Future<void> _completeBill() async {
+    final permissions = ref.read(routePermissionProvider(AppRoutes.billing));
+    if (!permissions.canCreate) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('You do not have permission to create bills.'),
+          backgroundColor: AppColors.warning,
+        ),
+      );
+      return;
+    }
+
     final cart = ref.read(cartProvider);
 
     if (cart.isEmpty) {
@@ -641,6 +653,9 @@ class _PaymentModalState extends ConsumerState<PaymentModal> {
   @override
   Widget build(BuildContext context) {
     final cart = ref.watch(cartProvider);
+    final billingPermissions = ref.watch(
+      routePermissionProvider(AppRoutes.billing),
+    );
 
     return Container(
       decoration: BoxDecoration(
@@ -1073,11 +1088,11 @@ class _PaymentModalState extends ConsumerState<PaymentModal> {
               // Complete button
               AppButton(
                 label: 'COMPLETE BILL',
-                onPressed:
-                    (_selectedMethod == PaymentMethod.udhar &&
-                        _selectedCustomer == null)
-                    ? null
-                    : _completeBill,
+                onPressed: (_selectedMethod == PaymentMethod.udhar &&
+                      _selectedCustomer == null) ||
+                    !billingPermissions.canCreate
+                  ? null
+                  : _completeBill,
                 isLoading: _isLoading,
                 backgroundColor: AppColors.success,
               ),

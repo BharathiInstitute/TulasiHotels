@@ -107,9 +107,9 @@ Future<void> _initializeApp() async {
       if (!isWindows)
         _safeInit('FCM', NotificationService.setForegroundOptions),
 
-      // Windows debug auth settings
+      // Debug auth settings (disable reCAPTCHA on web & Windows to avoid test issues)
       _safeInit('AuthSettings', () async {
-        if (isWindows && kDebugMode) {
+        if (kDebugMode && (isWindows || kIsWeb)) {
           await FirebaseAuth.instance.setSettings(
             appVerificationDisabledForTesting: true,
           );

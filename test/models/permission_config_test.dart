@@ -37,6 +37,15 @@ void main() {
       expect(def.label, 'Test Screen');
       expect(def.category, 'Core');
     });
+
+    test('defaults to full CRUD supported actions', () {
+      const def = ScreenDef(
+        route: '/test',
+        label: 'Test Screen',
+        category: 'Core',
+      );
+      expect(def.supportedActionKeys, ['view', 'create', 'update', 'delete']);
+    });
   });
 
   group('PermissionConfig.categories', () {
@@ -70,6 +79,29 @@ void main() {
         );
       }
     });
+
+    test('view-only modules only expose view action', () {
+      expect(
+        PermissionConfig.screenForRoute(AppRoutes.dashboard)?.supportedActionKeys,
+        ['view'],
+      );
+      expect(
+        PermissionConfig.screenForRoute(AppRoutes.advancedReports)
+            ?.supportedActionKeys,
+        ['view'],
+      );
+    });
+
+    test('partial modules expose only supported actions', () {
+      expect(
+        PermissionConfig.screenForRoute(AppRoutes.kitchen)?.supportedActionKeys,
+        ['view', 'update'],
+      );
+      expect(
+        PermissionConfig.screenForRoute(AppRoutes.wastage)?.supportedActionKeys,
+        ['view', 'create'],
+      );
+    });
   });
 
   group('PermissionConfig.screensForCategory', () {
@@ -95,14 +127,14 @@ void main() {
   });
 
   group('PermissionConfig.defaultTemplate', () {
-    test('manager gets all screens with full CRUD', () {
+    test('manager gets all screens with each screen\'s supported actions', () {
       final perms = PermissionConfig.defaultTemplate(StaffRole.manager);
       expect(perms.length, PermissionConfig.allScreens.length);
-      for (final entry in perms.entries) {
+      for (final screen in PermissionConfig.allScreens) {
         expect(
-          entry.value,
-          containsAll(['view', 'create', 'update', 'delete']),
-          reason: '${entry.key} missing actions',
+          perms[screen.route],
+          equals(screen.supportedActionKeys),
+          reason: '${screen.route} should match supported actions',
         );
       }
     });
@@ -153,20 +185,58 @@ void main() {
       expect(perms.containsKey(AppRoutes.staff), isFalse);
     });
 
-    test('all roles include attendance and myAttendance', () {
+    test('all roles include myAttendance', () {
       for (final role in StaffRole.values) {
         final perms = PermissionConfig.defaultTemplate(role);
-        expect(
-          perms.containsKey(AppRoutes.attendance),
-          isTrue,
-          reason: '$role missing attendance',
-        );
         expect(
           perms.containsKey(AppRoutes.myAttendance),
           isTrue,
           reason: '$role missing myAttendance',
         );
       }
+    });
+
+    test('attendance is only included for roles that manage attendance', () {
+      expect(
+        PermissionConfig.defaultTemplate(StaffRole.manager)
+            .containsKey(AppRoutes.attendance),
+        isTrue,
+      );
+      expect(
+        PermissionConfig.defaultTemplate(StaffRole.cashier)
+            .containsKey(AppRoutes.attendance),
+        isFalse,
+      );
+      expect(
+        PermissionConfig.defaultTemplate(StaffRole.waiter)
+            .containsKey(AppRoutes.attendance),
+        isFalse,
+      );
+      expect(
+        PermissionConfig.defaultTemplate(StaffRole.chef)
+            .containsKey(AppRoutes.attendance),
+        isFalse,
+      );
+    });
+  });
+
+  group('PermissionConfig.normalizePermissions', () {
+    test('removes unsupported actions from known routes', () {
+      final normalized = PermissionConfig.normalizePermissions({
+        AppRoutes.dashboard: ['view', 'create', 'delete'],
+        AppRoutes.kitchen: ['view', 'create', 'update'],
+      });
+
+      expect(normalized[AppRoutes.dashboard], ['view']);
+      expect(normalized[AppRoutes.kitchen], ['view', 'update']);
+    });
+
+    test('preserves unknown routes', () {
+      final normalized = PermissionConfig.normalizePermissions({
+        '/custom-route': ['view', 'create'],
+      });
+
+      expect(normalized['/custom-route'], ['view', 'create']);
     });
   });
 

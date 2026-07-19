@@ -9,6 +9,7 @@ import 'package:tulasihotels/core/theme/responsive_helper.dart';
 import 'package:tulasihotels/core/utils/formatters.dart';
 import 'package:tulasihotels/features/auth/providers/auth_provider.dart';
 import 'package:tulasihotels/features/billing/providers/cart_provider.dart';
+import 'package:tulasihotels/features/permissions/providers/route_permission_provider.dart';
 import 'package:tulasihotels/features/billing/widgets/payment_modal.dart';
 import 'package:tulasihotels/features/billing/screens/pos_web_screen.dart';
 import 'package:tulasihotels/features/products/providers/products_provider.dart';
@@ -75,6 +76,16 @@ class _BillingScreenState extends ConsumerState<BillingScreen> {
   }
 
   void _showPaymentModal() {
+    final permissions = ref.read(routePermissionProvider(AppRoutes.billing));
+    if (!permissions.canCreate) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('You do not have permission to create bills.'),
+        ),
+      );
+      return;
+    }
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,

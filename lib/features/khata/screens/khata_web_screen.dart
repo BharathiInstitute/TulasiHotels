@@ -21,6 +21,7 @@ import 'package:tulasihotels/models/transaction_model.dart';
 import 'package:tulasihotels/features/subscription/services/plan_enforcement_service.dart';
 import 'package:tulasihotels/features/subscription/models/plan_config.dart';
 import 'package:tulasihotels/core/services/user_metrics_service.dart';
+import 'package:tulasihotels/features/permissions/providers/route_permission_provider.dart';
 import 'package:tulasihotels/features/subscription/providers/usage_limits_provider.dart';
 import 'package:tulasihotels/features/subscription/providers/subscription_provider.dart';
 import 'package:tulasihotels/features/subscription/widgets/plan_usage_bar.dart';
@@ -60,6 +61,17 @@ class _KhataWebScreenState extends ConsumerState<KhataWebScreen> {
     final config = ref.watch(planConfigProvider);
     final customerMax = config.maxCustomers ?? 999999;
     final atCustomerLimit = customerMax < 999999 && limits.customersCount >= customerMax;
+    final khataPermissions = ref.watch(routePermissionProvider(AppRoutes.khata));
+
+    if (khataPermissions.isResolved && !khataPermissions.canView) {
+      return const Center(
+        child: EmptyState(
+          icon: Icons.lock_outline,
+          title: 'Access Restricted',
+          subtitle: 'You do not have permission to view the Khata ledger.',
+        ),
+      );
+    }
 
     return Container(
       color: Theme.of(context).scaffoldBackgroundColor,
@@ -78,7 +90,14 @@ class _KhataWebScreenState extends ConsumerState<KhataWebScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Header
-            _buildHeader(l10n, isMobile, atCustomerLimit: atCustomerLimit, limits: limits, config: config),
+            _buildHeader(
+              l10n,
+              isMobile,
+              atCustomerLimit: atCustomerLimit,
+              limits: limits,
+              config: config,
+              canCreateCustomers: khataPermissions.canCreate,
+            ),
             SizedBox(height: isMobile ? 10 : 12),
 
             // Summary Cards
@@ -101,7 +120,10 @@ class _KhataWebScreenState extends ConsumerState<KhataWebScreen> {
                   final filtered = _filterCustomers(customers);
 
                   if (filtered.isEmpty) {
-                    return _buildEmptyState(l10n);
+                    return _buildEmptyState(
+                      l10n,
+                      canCreateCustomers: khataPermissions.canCreate,
+                    );
                   }
 
                   // Mobile: List only
@@ -155,6 +177,7 @@ class _KhataWebScreenState extends ConsumerState<KhataWebScreen> {
     bool atCustomerLimit = false,
     UserLimits? limits,
     PlanConfig? config,
+    required bool canCreateCustomers,
   }) {
     final customerMax = config?.maxCustomers ?? 999999;
     final countLabel = customerMax < 999999
@@ -176,7 +199,9 @@ class _KhataWebScreenState extends ConsumerState<KhataWebScreen> {
           const SizedBox(width: 8),
           Expanded(
             child: ElevatedButton.icon(
-              onPressed: atCustomerLimit ? null : _showAddCustomerModal,
+              onPressed: atCustomerLimit || !canCreateCustomers
+                  ? null
+                  : _showAddCustomerModal,
               icon: Icon(atCustomerLimit ? Icons.lock_outline : Icons.person_add, size: 16),
               label: Text(
                 atCustomerLimit ? 'Limit$countLabel' : 'Add Customer',
@@ -205,7 +230,9 @@ class _KhataWebScreenState extends ConsumerState<KhataWebScreen> {
         ),
         const SizedBox(width: 8),
         ElevatedButton.icon(
-          onPressed: atCustomerLimit ? null : _showAddCustomerModal,
+          onPressed: atCustomerLimit || !canCreateCustomers
+              ? null
+              : _showAddCustomerModal,
           icon: Icon(atCustomerLimit ? Icons.lock_outline : Icons.person_add, size: 16),
           label: Text(
             atCustomerLimit ? 'Limit reached$countLabel' : 'Add New Customer',
@@ -504,14 +531,17 @@ class _KhataWebScreenState extends ConsumerState<KhataWebScreen> {
     );
   }
 
-  Widget _buildEmptyState(AppLocalizations l10n) {
+  Widget _buildEmptyState(
+    AppLocalizations l10n, {
+    required bool canCreateCustomers,
+  }) {
     return Center(
       child: EmptyState(
         icon: Icons.people_outline,
         title: l10n.noCustomers,
         subtitle: l10n.addFirstCustomer,
-        actionLabel: l10n.addCustomer,
-        onAction: _showAddCustomerModal,
+        actionLabel: canCreateCustomers ? l10n.addCustomer : null,
+        onAction: canCreateCustomers ? _showAddCustomerModal : null,
       ),
     );
   }
@@ -525,6 +555,23 @@ class _KhataWebScreenState extends ConsumerState<KhataWebScreen> {
   }
 
   Future<void> _showAddCustomerModal({CustomerModel? customer}) async {
+    final permissions = ref.read(routePermissionProvider(AppRoutes.khata));
+    final canManageCustomers = customer == null
+        ? permissions.canCreate
+        : permissions.canUpdate;
+    if (!canManageCustomers) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            customer == null
+                ? 'You do not have permission to add customers.'
+                : 'You do not have permission to update customers.',
+          ),
+        ),
+      );
+      return;
+    }
+
     if (customer == null) {
       final check = await PlanEnforcementService.checkLimit(LimitType.customers);
       if (!mounted) return;
@@ -886,6 +933,7 @@ class _CustomerDetailPanelState extends ConsumerState<_CustomerDetailPanel> {
   }
 
   Widget _buildCustomerHeader(BuildContext context, CustomerModel customer) {
+    final khataPermissions = ref.watch(routePermissionProvider(AppRoutes.khata));
     final avatarColor = _getAvatarColor(customer.name);
 
     return Padding(
@@ -942,39 +990,59 @@ class _CustomerDetailPanelState extends ConsumerState<_CustomerDetailPanel> {
           ),
           // Edit button
           IconButton(
-            onPressed: () => _showAddCustomerModal(customer: customer),
+            onPressed: khataPermissions.canUpdate
+                ? () => _showAddCustomerModal(customer: customer)
+                : null,
             icon: const Icon(Icons.edit),
             tooltip: 'Edit Details',
           ),
           // Delete menu
-          PopupMenuButton<String>(
-            onSelected: (value) {
-              if (value == 'delete') {
-                _showDeleteConfirmation(context, ref, customer);
-              }
-            },
-            itemBuilder: (context) => [
-              const PopupMenuItem(
-                value: 'delete',
-                child: Row(
-                  children: [
-                    Icon(Icons.delete, color: AppColors.error),
-                    SizedBox(width: 8),
-                    Text(
-                      'Delete Customer',
-                      style: TextStyle(color: AppColors.error),
-                    ),
-                  ],
+          if (khataPermissions.canDelete)
+            PopupMenuButton<String>(
+              onSelected: (value) {
+                if (value == 'delete') {
+                  _showDeleteConfirmation(context, ref, customer);
+                }
+              },
+              itemBuilder: (context) => [
+                const PopupMenuItem(
+                  value: 'delete',
+                  child: Row(
+                    children: [
+                      Icon(Icons.delete, color: AppColors.error),
+                      SizedBox(width: 8),
+                      Text(
+                        'Delete Customer',
+                        style: TextStyle(color: AppColors.error),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
-          ),
+              ],
+            ),
         ],
       ),
     );
   }
 
   void _showAddCustomerModal({CustomerModel? customer}) {
+    final permissions = ref.read(routePermissionProvider(AppRoutes.khata));
+    final canManageCustomers = customer == null
+        ? permissions.canCreate
+        : permissions.canUpdate;
+    if (!canManageCustomers) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            customer == null
+                ? 'You do not have permission to add customers.'
+                : 'You do not have permission to update customers.',
+          ),
+        ),
+      );
+      return;
+    }
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -988,6 +1056,16 @@ class _CustomerDetailPanelState extends ConsumerState<_CustomerDetailPanel> {
     WidgetRef ref,
     CustomerModel customer,
   ) {
+    final permissions = ref.read(routePermissionProvider(AppRoutes.khata));
+    if (!permissions.canDelete) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('You do not have permission to delete customers.'),
+        ),
+      );
+      return;
+    }
+
     final scaffoldMessenger = ScaffoldMessenger.of(context);
 
     showDialog(
@@ -1125,6 +1203,7 @@ class _CustomerDetailPanelState extends ConsumerState<_CustomerDetailPanel> {
   }
 
   Widget _buildActionButtons(BuildContext context, CustomerModel customer) {
+    final khataPermissions = ref.watch(routePermissionProvider(AppRoutes.khata));
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       decoration: BoxDecoration(
@@ -1134,7 +1213,9 @@ class _CustomerDetailPanelState extends ConsumerState<_CustomerDetailPanel> {
         children: [
           Expanded(
             child: OutlinedButton.icon(
-              onPressed: () => _showUdhaarModal(context, customer),
+              onPressed: khataPermissions.canCreate
+                  ? () => _showUdhaarModal(context, customer)
+                  : null,
               icon: const Icon(Icons.remove_circle_outline, size: 16),
               label: const Text('Give Udhaar'),
               style: OutlinedButton.styleFrom(
@@ -1147,7 +1228,9 @@ class _CustomerDetailPanelState extends ConsumerState<_CustomerDetailPanel> {
           const SizedBox(width: 10),
           Expanded(
             child: ElevatedButton.icon(
-              onPressed: () => _showPaymentModal(context, customer),
+              onPressed: khataPermissions.canUpdate
+                  ? () => _showPaymentModal(context, customer)
+                  : null,
               icon: const Icon(Icons.check_circle_outline, size: 16),
               label: const Text('Receive Pay'),
               style: ElevatedButton.styleFrom(
@@ -1163,6 +1246,16 @@ class _CustomerDetailPanelState extends ConsumerState<_CustomerDetailPanel> {
   }
 
   void _showPaymentModal(BuildContext context, CustomerModel customer) {
+    final permissions = ref.read(routePermissionProvider(AppRoutes.khata));
+    if (!permissions.canUpdate) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('You do not have permission to record payments.'),
+        ),
+      );
+      return;
+    }
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -1172,6 +1265,16 @@ class _CustomerDetailPanelState extends ConsumerState<_CustomerDetailPanel> {
   }
 
   void _showUdhaarModal(BuildContext context, CustomerModel customer) {
+    final permissions = ref.read(routePermissionProvider(AppRoutes.khata));
+    if (!permissions.canCreate) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('You do not have permission to give udhaar.'),
+        ),
+      );
+      return;
+    }
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,

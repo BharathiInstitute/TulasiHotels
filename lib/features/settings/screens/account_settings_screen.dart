@@ -425,14 +425,18 @@ class _AccountSettingsScreenState extends ConsumerState<AccountSettingsScreen> {
                   leading: const Icon(Icons.privacy_tip_outlined),
                   title: const Text('Privacy Policy'),
                   trailing: const Icon(Icons.open_in_new, size: 18),
-                  onTap: () => _openUrl('https://tulasihotels.com/privacy'),
+                  onTap: () => _openUrl(
+                    'https://restaurants.tulasierp.com/src/pages/privacy.html',
+                  ),
                 ),
                 const Divider(height: 1),
                 ListTile(
                   leading: const Icon(Icons.description_outlined),
                   title: const Text('Terms of Service'),
                   trailing: const Icon(Icons.open_in_new, size: 18),
-                  onTap: () => _openUrl('https://tulasihotels.com/terms'),
+                  onTap: () => _openUrl(
+                    'https://restaurants.tulasierp.com/src/pages/terms.html',
+                  ),
                 ),
               ],
             ),

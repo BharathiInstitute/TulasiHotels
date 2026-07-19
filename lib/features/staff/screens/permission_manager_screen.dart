@@ -3,9 +3,11 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:tulasihotels/features/permissions/providers/route_permission_provider.dart';
 import 'package:tulasihotels/features/staff/models/permission_config.dart';
 import 'package:tulasihotels/features/staff/services/staff_service.dart';
 import 'package:tulasihotels/models/staff_model.dart';
+import 'package:tulasihotels/router/app_router.dart';
 
 class PermissionManagerScreen extends ConsumerStatefulWidget {
   final StaffModel staff;
@@ -27,7 +29,7 @@ class _PermissionManagerScreenState
   void initState() {
     super.initState();
     // Initialize from existing custom permissions or the role default template
-    _permissions = Map<String, List<String>>.from(
+    _permissions = PermissionConfig.normalizePermissions(
       (widget.staff.permissions ??
               PermissionConfig.defaultTemplate(widget.staff.role))
           .map((k, v) => MapEntry(k, List<String>.from(v))),
@@ -39,6 +41,11 @@ class _PermissionManagerScreenState
   }
 
   void _togglePermission(String route, String action) {
+    if (!PermissionConfig.supportedActionsForRoute(route)
+        .any((item) => item.key == action)) {
+      return;
+    }
+
     setState(() {
       _hasChanges = true;
       final actions = _permissions[route] ?? <String>[];
@@ -52,15 +59,18 @@ class _PermissionManagerScreenState
       } else {
         _permissions[route] = [...actions, action];
       }
+
+      _permissions = PermissionConfig.normalizePermissions(_permissions);
     });
   }
 
   void _toggleScreenAll(String route, bool grantAll) {
+    final supportedActions = PermissionConfig.supportedActionsForRoute(route);
+
     setState(() {
       _hasChanges = true;
       if (grantAll) {
-        _permissions[route] =
-            PermissionAction.values.map((a) => a.key).toList();
+        _permissions[route] = supportedActions.map((a) => a.key).toList();
       } else {
         _permissions.remove(route);
       }
@@ -82,7 +92,7 @@ class _PermissionManagerScreenState
       _hasChanges = true;
       _permissions = {
         for (final s in PermissionConfig.allScreens)
-          s.route: PermissionAction.values.map((a) => a.key).toList(),
+          s.route: s.supportedActionKeys,
       };
     });
   }
@@ -95,6 +105,18 @@ class _PermissionManagerScreenState
   }
 
   Future<void> _save() async {
+    final permissions = ref.read(routePermissionProvider(AppRoutes.staff));
+    if (!permissions.canUpdate) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('You do not have permission to update staff permissions.'),
+          ),
+        );
+      }
+      return;
+    }
+
     setState(() => _isSaving = true);
     try {
       await StaffService.updatePermissions(widget.staff.id, _permissions);
@@ -123,6 +145,7 @@ class _PermissionManagerScreenState
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
+    final permissions = ref.watch(routePermissionProvider(AppRoutes.staff));
 
     return Scaffold(
       appBar: AppBar(
@@ -189,7 +212,7 @@ class _PermissionManagerScreenState
             Padding(
               padding: const EdgeInsets.only(right: 8),
               child: FilledButton.icon(
-                onPressed: _isSaving ? null : _save,
+                onPressed: _isSaving || !permissions.canUpdate ? null : _save,
                 icon: _isSaving
                     ? const SizedBox(
                         width: 16,
@@ -224,7 +247,7 @@ class _PermissionManagerScreenState
       // Floating save button for mobile accessibility
       floatingActionButton: _hasChanges
           ? FloatingActionButton.extended(
-              onPressed: _isSaving ? null : _save,
+            onPressed: _isSaving || !permissions.canUpdate ? null : _save,
               icon: _isSaving
                   ? const SizedBox(
                       width: 20,
@@ -309,9 +332,10 @@ class _PermissionManagerScreenState
   }
 
   Widget _buildScreenRow(ScreenDef screen, ThemeData theme) {
+    final supportedActions = screen.supportedActions;
     final hasAny = _permissions.containsKey(screen.route) &&
         (_permissions[screen.route]?.isNotEmpty ?? false);
-    final hasAll = _permissions[screen.route]?.length == PermissionAction.values.length;
+    final hasAll = _permissions[screen.route]?.length == supportedActions.length;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -344,8 +368,28 @@ class _PermissionManagerScreenState
 
           // CRUD toggles
           for (final action in PermissionAction.values)
-            _buildActionChip(screen.route, action, theme),
+            supportedActions.contains(action)
+                ? _buildActionChip(screen.route, action, theme)
+                : _buildUnsupportedActionChip(theme),
         ],
+      ),
+    );
+  }
+
+  Widget _buildUnsupportedActionChip(ThemeData theme) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 2),
+      child: Container(
+        width: 56,
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        alignment: Alignment.center,
+        child: Text(
+          '—',
+          style: TextStyle(
+            color: theme.colorScheme.outline.withValues(alpha: 0.7),
+            fontSize: 12,
+          ),
+        ),
       ),
     );
   }

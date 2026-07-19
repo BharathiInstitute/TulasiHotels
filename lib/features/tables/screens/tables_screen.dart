@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:tulasihotels/core/design/design_system.dart';
+import 'package:tulasihotels/features/permissions/providers/route_permission_provider.dart';
 import 'package:tulasihotels/features/subscription/providers/usage_limits_provider.dart';
 import 'package:tulasihotels/features/subscription/providers/subscription_provider.dart';
 import 'package:tulasihotels/features/subscription/widgets/plan_usage_bar.dart';
@@ -31,6 +32,8 @@ class _TablesScreenState extends ConsumerState<TablesScreen> {
     final statusSummary = ref.watch(tableStatusSummaryProvider);
     final limits = ref.watch(currentLimitsProvider);
     final config = ref.watch(planConfigProvider);
+    final tablePermissions = ref.watch(routePermissionProvider(AppRoutes.tables));
+    final canCreateTables = tablePermissions.canCreate;
     final tableMax = config.maxTables ?? 999999;
     final atTableLimit = tableMax < 999999 && limits.tablesCount >= tableMax;
 
@@ -61,7 +64,7 @@ class _TablesScreenState extends ConsumerState<TablesScreen> {
           IconButton(
             icon: Icon(atTableLimit ? Icons.lock_outline : Icons.add),
             tooltip: atTableLimit ? 'Table limit reached — upgrade to add more' : 'Add Table',
-            onPressed: atTableLimit ? null : _showAddTableDialog,
+            onPressed: atTableLimit || !canCreateTables ? null : _showAddTableDialog,
           ),
         ],
       ),
@@ -78,7 +81,9 @@ class _TablesScreenState extends ConsumerState<TablesScreen> {
               data: (tables) {
                 if (tables.isEmpty) {
                   return _EmptyState(
-                    onAddTables: atTableLimit ? () {} : _showAddTableDialog,
+                    onAddTables: atTableLimit || !canCreateTables
+                        ? null
+                        : _showAddTableDialog,
                   );
                 }
                 return _TableGrid(tables: tables);
@@ -93,6 +98,18 @@ class _TablesScreenState extends ConsumerState<TablesScreen> {
   }
 
   Future<void> _showAddTableDialog() async {
+    final permissions = ref.read(routePermissionProvider(AppRoutes.tables));
+    if (!permissions.canCreate) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('You do not have permission to create tables.'),
+          ),
+        );
+      }
+      return;
+    }
+
     // Button is already disabled when atTableLimit — no server call needed here
     if (!mounted) return;
     await showDialog(
@@ -213,7 +230,7 @@ class _TableGrid extends StatelessWidget {
 }
 
 /// Individual table card
-class _TableCard extends StatelessWidget {
+class _TableCard extends ConsumerWidget {
   final TableModel table;
 
   const _TableCard({required this.table});
@@ -228,9 +245,13 @@ class _TableCard extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final color = _statusColor(table.status);
+    final tablePermissions = ref.watch(routePermissionProvider(AppRoutes.tables));
+    final canUpdateTables = tablePermissions.canUpdate;
+    final canDeleteTables = tablePermissions.canDelete;
+    final canOpenOptions = canUpdateTables || canDeleteTables;
 
     return Card(
       elevation: 2,
@@ -241,7 +262,7 @@ class _TableCard extends StatelessWidget {
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
         onTap: () => _onTableTap(context),
-        onLongPress: () => _showTableOptions(context),
+        onLongPress: canOpenOptions ? () => _showTableOptions(context, ref) : null,
         child: Container(
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(12),
@@ -348,22 +369,27 @@ class _TableCard extends StatelessWidget {
     }
   }
 
-  void _showTableOptions(BuildContext context) {
+  void _showTableOptions(BuildContext context, WidgetRef ref) {
+    final tablePermissions = ref.read(routePermissionProvider(AppRoutes.tables));
+    final canUpdateTables = tablePermissions.canUpdate;
+    final canDeleteTables = tablePermissions.canDelete;
+
     showModalBottomSheet(
       context: context,
       builder: (context) => SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            ListTile(
-              leading: const Icon(Icons.edit),
-              title: const Text('Edit Table'),
-              onTap: () {
-                Navigator.pop(context);
-                _showEditDialog(context);
-              },
-            ),
-            if (table.status == TableStatus.available)
+            if (canUpdateTables)
+              ListTile(
+                leading: const Icon(Icons.edit),
+                title: const Text('Edit Table'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _showEditDialog(context, ref);
+                },
+              ),
+            if (canUpdateTables && table.status == TableStatus.available)
               ListTile(
                 leading: const Icon(Icons.event_seat),
                 title: const Text('Mark Reserved'),
@@ -375,7 +401,7 @@ class _TableCard extends StatelessWidget {
                   );
                 },
               ),
-            if (table.status == TableStatus.reserved)
+            if (canUpdateTables && table.status == TableStatus.reserved)
               ListTile(
                 leading: const Icon(Icons.check_circle),
                 title: const Text('Mark Available'),
@@ -387,22 +413,23 @@ class _TableCard extends StatelessWidget {
                   );
                 },
               ),
-            ListTile(
-              leading: const Icon(Icons.person_add),
-              title: const Text('Assign Server'),
-              onTap: () {
-                Navigator.pop(context);
-                _showAssignServerDialog(context);
-              },
-            ),
-            if (table.status == TableStatus.available)
+            if (canUpdateTables)
+              ListTile(
+                leading: const Icon(Icons.person_add),
+                title: const Text('Assign Server'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _showAssignServerDialog(context);
+                },
+              ),
+            if (canDeleteTables && table.status == TableStatus.available)
               ListTile(
                 leading: const Icon(Icons.delete, color: Colors.red),
                 title: const Text('Delete Table',
                     style: TextStyle(color: Colors.red)),
                 onTap: () {
                   Navigator.pop(context);
-                  _confirmDelete(context);
+                  _confirmDelete(context, ref);
                 },
               ),
           ],
@@ -411,14 +438,34 @@ class _TableCard extends StatelessWidget {
     );
   }
 
-  void _showEditDialog(BuildContext context) {
+  void _showEditDialog(BuildContext context, WidgetRef ref) {
+    final permissions = ref.read(routePermissionProvider(AppRoutes.tables));
+    if (!permissions.canUpdate) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('You do not have permission to update tables.'),
+        ),
+      );
+      return;
+    }
+
     showDialog(
       context: context,
       builder: (context) => AddTableDialog(editTable: table),
     );
   }
 
-  void _confirmDelete(BuildContext context) {
+  void _confirmDelete(BuildContext context, WidgetRef ref) {
+    final permissions = ref.read(routePermissionProvider(AppRoutes.tables));
+    if (!permissions.canDelete) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('You do not have permission to delete tables.'),
+        ),
+      );
+      return;
+    }
+
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -504,7 +551,7 @@ class _TableCard extends StatelessWidget {
 
 /// Empty state when no tables exist
 class _EmptyState extends StatelessWidget {
-  final VoidCallback onAddTables;
+  final VoidCallback? onAddTables;
 
   const _EmptyState({required this.onAddTables});
 

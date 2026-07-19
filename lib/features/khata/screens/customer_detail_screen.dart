@@ -10,12 +10,14 @@ import 'package:tulasihotels/core/services/payment_link_service.dart';
 import 'package:tulasihotels/core/utils/formatters.dart';
 import 'package:tulasihotels/features/auth/providers/auth_provider.dart';
 import 'package:tulasihotels/features/khata/providers/khata_provider.dart';
+import 'package:tulasihotels/features/permissions/providers/route_permission_provider.dart';
 import 'package:tulasihotels/features/khata/widgets/add_customer_modal.dart';
 import 'package:tulasihotels/features/khata/widgets/give_udhaar_modal.dart';
 import 'package:tulasihotels/features/khata/widgets/record_payment_modal.dart';
 import 'package:tulasihotels/l10n/app_localizations.dart';
 import 'package:tulasihotels/models/customer_model.dart';
 import 'package:tulasihotels/models/transaction_model.dart';
+import 'package:tulasihotels/router/app_router.dart';
 import 'package:tulasihotels/shared/widgets/loading_states.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -30,6 +32,16 @@ class CustomerDetailScreen extends ConsumerWidget {
     final transactionsAsync = ref.watch(
       customerTransactionsProvider(customerId),
     );
+    final khataPermissions = ref.watch(routePermissionProvider(AppRoutes.khata));
+
+    if (khataPermissions.isResolved && !khataPermissions.canView) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Customer Details')),
+        body: const Center(
+          child: Text('You do not have permission to view Khata customers.'),
+        ),
+      );
+    }
 
     return customerAsync.when(
       data: (customer) {
@@ -62,31 +74,34 @@ class CustomerDetailScreen extends ConsumerWidget {
             actions: [
               IconButton(
                 icon: const Icon(Icons.edit),
-                onPressed: () => _showEditModal(context, customer),
+                onPressed: khataPermissions.canUpdate
+                    ? () => _showEditModal(context, ref, customer)
+                    : null,
                 tooltip: 'Edit Details',
               ),
-              PopupMenuButton<String>(
-                onSelected: (value) {
-                  if (value == 'delete') {
-                    _showDeleteConfirmation(context, ref, customer);
-                  }
-                },
-                itemBuilder: (context) => [
-                  const PopupMenuItem(
-                    value: 'delete',
-                    child: Row(
-                      children: [
-                        Icon(Icons.delete, color: AppColors.error),
-                        SizedBox(width: 8),
-                        Text(
-                          'Delete Customer',
-                          style: TextStyle(color: AppColors.error),
-                        ),
-                      ],
+              if (khataPermissions.canDelete)
+                PopupMenuButton<String>(
+                  onSelected: (value) {
+                    if (value == 'delete') {
+                      _showDeleteConfirmation(context, ref, customer);
+                    }
+                  },
+                  itemBuilder: (context) => [
+                    const PopupMenuItem(
+                      value: 'delete',
+                      child: Row(
+                        children: [
+                          Icon(Icons.delete, color: AppColors.error),
+                          SizedBox(width: 8),
+                          Text(
+                            'Delete Customer',
+                            style: TextStyle(color: AppColors.error),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                ],
-              ),
+                  ],
+                ),
             ],
           ),
           body: Center(
@@ -432,7 +447,12 @@ class CustomerDetailScreen extends ConsumerWidget {
                     ),
             ),
           ),
-          bottomNavigationBar: _buildCombinedBottomBar(context, ref, customer),
+          bottomNavigationBar: _buildCombinedBottomBar(
+            context,
+            ref,
+            customer,
+            khataPermissions,
+          ),
         );
       },
       loading: () => Scaffold(
@@ -450,6 +470,7 @@ class CustomerDetailScreen extends ConsumerWidget {
     BuildContext context,
     WidgetRef ref,
     CustomerModel customer,
+    RoutePermissionState khataPermissions,
   ) {
     final isMobile = ResponsiveHelper.isMobile(context);
     final l10n = context.l10n;
@@ -496,7 +517,9 @@ class CustomerDetailScreen extends ConsumerWidget {
                   if (customer.hasDue) const SizedBox(width: 6),
                   Expanded(
                     child: _ActionButton(
-                      onPressed: () => _showUdhaarModal(context, customer),
+                      onPressed: khataPermissions.canCreate
+                          ? () => _showUdhaarModal(context, ref, customer)
+                          : null,
                       icon: Icons.add_circle_outline,
                       label: 'Udhaar',
                       isOutlined: true,
@@ -506,7 +529,9 @@ class CustomerDetailScreen extends ConsumerWidget {
                   const SizedBox(width: 6),
                   Expanded(
                     child: _ActionButton(
-                      onPressed: () => _showPaymentModal(context, customer),
+                      onPressed: khataPermissions.canUpdate
+                          ? () => _showPaymentModal(context, ref, customer)
+                          : null,
                       icon: Icons.currency_rupee,
                       label: 'Pay',
                       isOutlined: false,
@@ -656,7 +681,21 @@ class CustomerDetailScreen extends ConsumerWidget {
     }
   }
 
-  void _showEditModal(BuildContext context, CustomerModel customer) {
+  void _showEditModal(
+    BuildContext context,
+    WidgetRef ref,
+    CustomerModel customer,
+  ) {
+    final permissions = ref.read(routePermissionProvider(AppRoutes.khata));
+    if (!permissions.canUpdate) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('You do not have permission to update customers.'),
+        ),
+      );
+      return;
+    }
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -665,7 +704,21 @@ class CustomerDetailScreen extends ConsumerWidget {
     );
   }
 
-  void _showPaymentModal(BuildContext context, CustomerModel customer) {
+  void _showPaymentModal(
+    BuildContext context,
+    WidgetRef ref,
+    CustomerModel customer,
+  ) {
+    final permissions = ref.read(routePermissionProvider(AppRoutes.khata));
+    if (!permissions.canUpdate) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('You do not have permission to record payments.'),
+        ),
+      );
+      return;
+    }
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -674,7 +727,21 @@ class CustomerDetailScreen extends ConsumerWidget {
     );
   }
 
-  void _showUdhaarModal(BuildContext context, CustomerModel customer) {
+  void _showUdhaarModal(
+    BuildContext context,
+    WidgetRef ref,
+    CustomerModel customer,
+  ) {
+    final permissions = ref.read(routePermissionProvider(AppRoutes.khata));
+    if (!permissions.canCreate) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('You do not have permission to give udhaar.'),
+        ),
+      );
+      return;
+    }
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -756,6 +823,16 @@ class CustomerDetailScreen extends ConsumerWidget {
     WidgetRef ref,
     CustomerModel customer,
   ) {
+    final permissions = ref.read(routePermissionProvider(AppRoutes.khata));
+    if (!permissions.canDelete) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('You do not have permission to delete customers.'),
+        ),
+      );
+      return;
+    }
+
     final scaffoldMessenger = ScaffoldMessenger.of(context);
     final navigator = Navigator.of(context);
 
@@ -864,7 +941,7 @@ class _TransactionTile extends StatelessWidget {
 }
 
 class _ActionButton extends StatelessWidget {
-  final VoidCallback onPressed;
+  final VoidCallback? onPressed;
   final IconData icon;
   final String label;
   final bool isOutlined;

@@ -9,6 +9,7 @@ import 'package:tulasihotels/features/admin/models/store_member.dart';
 import 'package:tulasihotels/features/admin/models/store_role.dart';
 import 'package:tulasihotels/features/admin/providers/members_provider.dart';
 import 'package:tulasihotels/features/admin/services/member_service.dart';
+import 'package:tulasihotels/features/permissions/providers/route_permission_provider.dart';
 import 'package:tulasihotels/features/subscription/services/plan_enforcement_service.dart';
 import 'package:tulasihotels/router/app_router.dart';
 
@@ -31,6 +32,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
   Widget build(BuildContext context) {
     final membersAsync = ref.watch(filteredMembersProvider);
     final roleFilter = ref.watch(memberRoleFilterProvider);
+    final memberPermissions = ref.watch(routePermissionProvider(AppRoutes.members));
     final theme = Theme.of(context);
 
     return Scaffold(
@@ -58,7 +60,9 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
           IconButton(
             icon: const Icon(Icons.person_add),
             tooltip: 'Add User',
-            onPressed: () => _showInviteDialog(context),
+            onPressed: memberPermissions.canCreate
+                ? () => _showInviteDialog(context)
+                : null,
           ),
         ],
       ),
@@ -89,7 +93,9 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
                   FilledButton.icon(
                     icon: const Icon(Icons.person_add),
                     label: const Text('Add User'),
-                    onPressed: () => _showInviteDialog(context),
+                    onPressed: memberPermissions.canCreate
+                        ? () => _showInviteDialog(context)
+                        : null,
                   ),
                 ],
               ),
@@ -113,6 +119,8 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
                 onToggleStatus: member.isOwner
                     ? null
                     : () => _toggleStatus(member),
+                canUpdate: memberPermissions.canUpdate,
+                canDelete: memberPermissions.canDelete,
               );
             },
           );
@@ -122,6 +130,18 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
   }
 
   Future<void> _showInviteDialog(BuildContext context) async {
+    final permissions = ref.read(routePermissionProvider(AppRoutes.members));
+    if (!permissions.canCreate) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('You do not have permission to add members.'),
+          ),
+        );
+      }
+      return;
+    }
+
     // ── Check plan BEFORE opening the dialog ──
     final planCheck = await PlanEnforcementService.checkLimit(LimitType.staff);
     if (!planCheck.allowed) {
@@ -339,6 +359,18 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
     BuildContext context,
     StoreMember member,
   ) async {
+    final permissions = ref.read(routePermissionProvider(AppRoutes.members));
+    if (!permissions.canUpdate) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('You do not have permission to update members.'),
+          ),
+        );
+      }
+      return;
+    }
+
     if (member.isOwner) return; // Can't change owner role
 
     var selectedRole = member.role;
@@ -395,6 +427,18 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
   }
 
   Future<void> _confirmRemove(BuildContext context, StoreMember member) async {
+    final permissions = ref.read(routePermissionProvider(AppRoutes.members));
+    if (!permissions.canDelete) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('You do not have permission to remove members.'),
+          ),
+        );
+      }
+      return;
+    }
+
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -434,6 +478,18 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
   }
 
   Future<void> _toggleStatus(StoreMember member) async {
+    final permissions = ref.read(routePermissionProvider(AppRoutes.members));
+    if (!permissions.canUpdate) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('You do not have permission to update members.'),
+          ),
+        );
+      }
+      return;
+    }
+
     if (member.status == MemberStatus.active) {
       await MemberService.disableMember(member.uid);
     } else {
@@ -452,6 +508,8 @@ class _MemberTile extends StatelessWidget {
   final VoidCallback onPermissions;
   final VoidCallback? onRemove;
   final VoidCallback? onToggleStatus;
+  final bool canUpdate;
+  final bool canDelete;
 
   const _MemberTile({
     required this.member,
@@ -459,6 +517,8 @@ class _MemberTile extends StatelessWidget {
     required this.onPermissions,
     this.onRemove,
     this.onToggleStatus,
+    required this.canUpdate,
+    required this.canDelete,
   });
 
   @override
@@ -530,42 +590,49 @@ class _MemberTile extends StatelessWidget {
                 switch (action) {
                   case 'role':
                     onChangeRole();
+                    break;
                   case 'permissions':
                     onPermissions();
+                    break;
                   case 'toggle':
                     onToggleStatus?.call();
+                    break;
                   case 'remove':
                     onRemove?.call();
+                    break;
                 }
               },
               itemBuilder: (_) => [
-                const PopupMenuItem(
-                  value: 'role',
-                  child: ListTile(
-                    leading: Icon(Icons.badge_outlined),
-                    title: Text('Change Role'),
-                    dense: true,
-                    contentPadding: EdgeInsets.zero,
+                if (canUpdate)
+                  const PopupMenuItem(
+                    value: 'role',
+                    child: ListTile(
+                      leading: Icon(Icons.badge_outlined),
+                      title: Text('Change Role'),
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                    ),
                   ),
-                ),
-                const PopupMenuItem(
-                  value: 'permissions',
-                  child: ListTile(
-                    leading: Icon(Icons.security_outlined),
-                    title: Text('Permissions'),
-                    dense: true,
-                    contentPadding: EdgeInsets.zero,
+                if (canUpdate)
+                  const PopupMenuItem(
+                    value: 'permissions',
+                    child: ListTile(
+                      leading: Icon(Icons.security_outlined),
+                      title: Text('Permissions'),
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                    ),
                   ),
-                ),
-                const PopupMenuItem(
-                  value: 'remove',
-                  child: ListTile(
-                    leading: Icon(Icons.delete_outline, color: Colors.red),
-                    title: Text('Remove', style: TextStyle(color: Colors.red)),
-                    dense: true,
-                    contentPadding: EdgeInsets.zero,
+                if (canDelete)
+                  const PopupMenuItem(
+                    value: 'remove',
+                    child: ListTile(
+                      leading: Icon(Icons.delete_outline, color: Colors.red),
+                      title: Text('Remove', style: TextStyle(color: Colors.red)),
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                    ),
                   ),
-                ),
               ],
             ),
     );

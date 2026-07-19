@@ -396,6 +396,14 @@ service cloud.firestore {
       }
 
       // ===================
+      // SURVEYS (sub-collection for NPS and in-app surveys)
+      // ===================
+      match /surveys/{surveyId} {
+        allow read: if isAuthenticated() && isOwner(userId);
+        allow write: if isAuthenticated() && isOwner(userId) && isReasonableSize();
+      }
+
+      // ===================
       // COUPONS (sub-collection)
       // ===================
       match /coupons/{couponId} {
@@ -789,6 +797,14 @@ service cloud.firestore {
     }
 
     // ===================
+    // ===================
+    // CONNECTIVITY CHECK (used by offline detection — no sensitive data)
+    // ===================
+    match /_ping/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if false;
+    }
+
     // NPS SURVEYS (user satisfaction surveys)
     // ===================
     match /users/{userId}/surveys/{surveyId} {

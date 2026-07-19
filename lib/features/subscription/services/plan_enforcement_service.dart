@@ -55,10 +55,10 @@ class PlanEnforcementService {
 
   /// Get the store's current [PlanConfig] from Firestore.
   static Future<PlanConfig> getCurrentPlanConfig() async {
-    final storeId = _storeId;
-    if (storeId == null) return PlanConfig.free;
+    final ownerUid = _ownerUid;
+    if (ownerUid == null) return PlanConfig.free;
 
-    final doc = await _firestore.collection('users').doc(storeId).get();
+    final doc = await _firestore.collection('users').doc(ownerUid).get();
     final planKey =
         (doc.data()?['subscription'] as Map<String, dynamic>?)?['plan']
             as String? ??
@@ -68,10 +68,10 @@ class PlanEnforcementService {
 
   /// Get the store's current [UserLimits] from Firestore.
   static Future<UserLimits> getCurrentLimits() async {
-    final storeId = _storeId;
-    if (storeId == null) return UserLimits();
+    final ownerUid = _ownerUid;
+    if (ownerUid == null) return UserLimits();
 
-    final doc = await _firestore.collection('users').doc(storeId).get();
+    final doc = await _firestore.collection('users').doc(ownerUid).get();
     return UserLimits.fromMap(doc.data()?['limits'] as Map<String, dynamic>?);
   }
 

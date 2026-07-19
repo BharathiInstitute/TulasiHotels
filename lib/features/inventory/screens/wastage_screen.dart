@@ -7,6 +7,8 @@ import 'package:tulasihotels/core/utils/id_generator.dart';
 import 'package:tulasihotels/features/inventory/providers/inventory_provider.dart';
 import 'package:tulasihotels/models/wastage_model.dart';
 import 'package:tulasihotels/features/inventory/services/wastage_service.dart';
+import 'package:tulasihotels/features/permissions/providers/route_permission_provider.dart';
+import 'package:tulasihotels/router/app_router.dart';
 
 class WastageScreen extends ConsumerStatefulWidget {
   const WastageScreen({super.key});
@@ -34,11 +36,12 @@ class _WastageScreenState extends ConsumerState<WastageScreen> {
   @override
   Widget build(BuildContext context) {
     final wastageAsync = ref.watch(wastageProvider);
+    final wastagePermissions = ref.watch(routePermissionProvider(AppRoutes.wastage));
 
     return Scaffold(
       appBar: AppBar(title: const Text('Wastage Log')),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: _showWastageForm,
+        onPressed: wastagePermissions.canCreate ? _showWastageForm : null,
         icon: const Icon(Icons.add),
         label: const Text('Log Wastage'),
       ),
@@ -81,6 +84,16 @@ class _WastageScreenState extends ConsumerState<WastageScreen> {
   }
 
   void _showWastageForm() {
+    final permissions = ref.read(routePermissionProvider(AppRoutes.wastage));
+    if (!permissions.canCreate) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('You do not have permission to log wastage.'),
+        ),
+      );
+      return;
+    }
+
     _nameCtrl.clear();
     _qtyCtrl.clear();
     _costCtrl.clear();
@@ -177,6 +190,16 @@ class _WastageScreenState extends ConsumerState<WastageScreen> {
   }
 
   Future<void> _submitWastage(BuildContext ctx) async {
+    final permissions = ref.read(routePermissionProvider(AppRoutes.wastage));
+    if (!permissions.canCreate) {
+      ScaffoldMessenger.of(ctx).showSnackBar(
+        const SnackBar(
+          content: Text('You do not have permission to log wastage.'),
+        ),
+      );
+      return;
+    }
+
     final name = _nameCtrl.text.trim();
     final qty = double.tryParse(_qtyCtrl.text.trim()) ?? 0;
     final cost = double.tryParse(_costCtrl.text.trim()) ?? 0;

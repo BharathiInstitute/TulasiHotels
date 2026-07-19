@@ -6,7 +6,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tulasihotels/core/utils/id_generator.dart';
 import 'package:tulasihotels/features/inventory/providers/inventory_provider.dart';
 import 'package:tulasihotels/features/inventory/services/ingredient_service.dart';
+import 'package:tulasihotels/features/permissions/providers/route_permission_provider.dart';
 import 'package:tulasihotels/models/ingredient_model.dart';
+import 'package:tulasihotels/router/app_router.dart';
 
 class IngredientsScreen extends ConsumerWidget {
   const IngredientsScreen({super.key});
@@ -14,12 +16,17 @@ class IngredientsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final ingredientsAsync = ref.watch(ingredientsProvider);
+    final ingredientPermissions = ref.watch(
+      routePermissionProvider(AppRoutes.ingredients),
+    );
     final theme = Theme.of(context);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Ingredients')),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showIngredientForm(context),
+        onPressed: ingredientPermissions.canCreate
+            ? () => _showIngredientForm(context, ref)
+            : null,
         icon: const Icon(Icons.add),
         label: const Text('Add Ingredient'),
       ),
@@ -57,11 +64,15 @@ class IngredientsScreen extends ConsumerWidget {
                       IconButton(
                         icon: const Icon(Icons.edit_outlined),
                         tooltip: 'Update Stock',
-                        onPressed: () => _showUpdateStockDialog(context, ing),
+                        onPressed: ingredientPermissions.canUpdate
+                            ? () => _showUpdateStockDialog(context, ref, ing)
+                            : null,
                       ),
                       IconButton(
                         icon: const Icon(Icons.delete_outline),
-                        onPressed: () => _deleteIngredient(context, ing),
+                        onPressed: ingredientPermissions.canDelete
+                            ? () => _deleteIngredient(context, ref, ing)
+                            : null,
                       ),
                     ],
                   ),
@@ -74,7 +85,17 @@ class IngredientsScreen extends ConsumerWidget {
     );
   }
 
-  void _showIngredientForm(BuildContext context) {
+  void _showIngredientForm(BuildContext context, WidgetRef ref) {
+    final permissions = ref.read(routePermissionProvider(AppRoutes.ingredients));
+    if (!permissions.canCreate) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('You do not have permission to add ingredients.'),
+        ),
+      );
+      return;
+    }
+
     final nameCtrl = TextEditingController();
     final stockCtrl = TextEditingController(text: '0');
     var unit = IngredientUnit.kg;
@@ -169,7 +190,21 @@ class IngredientsScreen extends ConsumerWidget {
     );
   }
 
-  void _showUpdateStockDialog(BuildContext context, IngredientModel ingredient) {
+  void _showUpdateStockDialog(
+    BuildContext context,
+    WidgetRef ref,
+    IngredientModel ingredient,
+  ) {
+    final permissions = ref.read(routePermissionProvider(AppRoutes.ingredients));
+    if (!permissions.canUpdate) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('You do not have permission to update ingredients.'),
+        ),
+      );
+      return;
+    }
+
     final stockCtrl = TextEditingController(
       text: ingredient.currentStock.toStringAsFixed(1),
     );
@@ -218,7 +253,21 @@ class IngredientsScreen extends ConsumerWidget {
     );
   }
 
-  void _deleteIngredient(BuildContext context, IngredientModel ingredient) {
+  void _deleteIngredient(
+    BuildContext context,
+    WidgetRef ref,
+    IngredientModel ingredient,
+  ) {
+    final permissions = ref.read(routePermissionProvider(AppRoutes.ingredients));
+    if (!permissions.canDelete) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('You do not have permission to delete ingredients.'),
+        ),
+      );
+      return;
+    }
+
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(

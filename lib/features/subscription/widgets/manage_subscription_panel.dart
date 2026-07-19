@@ -41,6 +41,9 @@ class _ManageSubscriptionPanelState
   String? _userEmail;
   String? _userPhone;
   DateTime? _lastResync;
+  bool _subscriptionLoaded = false;
+  bool _limitsLoaded = false;
+  StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _ownerSub;
   StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _docSub;
 
   @override
@@ -49,8 +52,15 @@ class _ManageSubscriptionPanelState
     final user = FirebaseAuth.instance.currentUser;
     _userEmail = user?.email;
     _userPhone = user?.phoneNumber;
-    _subscribeToLimits();
+    _subscribeToData();
     _resyncCounts();
+  }
+
+  void _updateLoadingState() {
+    if (!mounted) return;
+    final done = _subscriptionLoaded && _limitsLoaded;
+    if (_loading == !done) return;
+    setState(() => _loading = !done);
   }
 
   /// Resync counts from Firestore (debounced to 5s to avoid duplicate calls).
@@ -61,15 +71,23 @@ class _ManageSubscriptionPanelState
 
     final storeId =
         ActiveStoreManager.storeId ?? FirebaseAuth.instance.currentUser?.uid;
+    final ownerUid = FirebaseAuth.instance.currentUser?.uid;
     if (storeId == null) return;
     try {
       final base = 'users/$storeId';
       final db = FirebaseFirestore.instance;
 
-      // Get current user doc to check if limits are properly set
+      // Get current store doc to check if limits are properly set
       final userDoc = await db.collection('users').doc(storeId).get();
       final currentLimits = userDoc.data()?['limits'] as Map<String, dynamic>? ?? {};
-      final currentPlan = (userDoc.data()?['subscription'] as Map<String, dynamic>?)?['plan'] as String? ?? 'free';
+      var currentPlan = 'free';
+      if (ownerUid != null) {
+        final ownerDoc = await db.collection('users').doc(ownerUid).get();
+        currentPlan =
+            (ownerDoc.data()?['subscription'] as Map<String, dynamic>?)?['plan']
+                as String? ??
+            'free';
+      }
 
       final results = await Future.wait([
         db.collection('$base/tables').count().get(),
@@ -137,13 +155,44 @@ class _ManageSubscriptionPanelState
     }
   }
 
-  /// Real-time listener on the user/store document so Usage Overview
-  /// updates instantly whenever Cloud Functions write new counts.
-  void _subscribeToLimits() {
+  /// Real-time listeners:
+  /// - Owner doc for subscription plan/status
+  /// - Active store doc for usage limits/counters
+  void _subscribeToData() {
+    final ownerUid = FirebaseAuth.instance.currentUser?.uid;
+    if (ownerUid == null) {
+      _subscriptionLoaded = true;
+      _updateLoadingState();
+    } else {
+      _ownerSub = FirebaseFirestore.instance
+          .collection('users')
+          .doc(ownerUid)
+          .snapshots()
+          .listen((doc) {
+        if (doc.exists && mounted) {
+          final data = doc.data()!;
+          final sub = data['subscription'] as Map<String, dynamic>?;
+          setState(() {
+            _currentPlan = (sub?['plan'] as String?) ?? 'free';
+            _status = (sub?['status'] as String?) ?? 'active';
+            _expiresAt = (sub?['expiresAt'] as Timestamp?)?.toDate();
+            _userPhone ??=
+                (data['phone'] as String?) ?? (data['phoneNumber'] as String?);
+          });
+        }
+        _subscriptionLoaded = true;
+        _updateLoadingState();
+      }, onError: (_) {
+        _subscriptionLoaded = true;
+        _updateLoadingState();
+      });
+    }
+
     final storeId =
         ActiveStoreManager.storeId ?? FirebaseAuth.instance.currentUser?.uid;
     if (storeId == null) {
-      setState(() => _loading = false);
+      _limitsLoaded = true;
+      _updateLoadingState();
       return;
     }
 
@@ -152,20 +201,20 @@ class _ManageSubscriptionPanelState
         .doc(storeId)
         .snapshots()
         .listen((doc) {
-      if (!doc.exists || !mounted) return;
-      final data = doc.data()!;
-      final sub = data['subscription'] as Map<String, dynamic>?;
-      final limitsMap = data['limits'] as Map<String, dynamic>?;
-      setState(() {
-        _currentPlan = (sub?['plan'] as String?) ?? 'free';
-        _status = (sub?['status'] as String?) ?? 'active';
-        _expiresAt = (sub?['expiresAt'] as Timestamp?)?.toDate();
-        _limits = UserLimits.fromMap(limitsMap);
-        _userPhone ??= (data['phone'] as String?) ?? (data['phoneNumber'] as String?);
-        _loading = false;
-      });
+      if (doc.exists && mounted) {
+        final data = doc.data()!;
+        final limitsMap = data['limits'] as Map<String, dynamic>?;
+        setState(() {
+          _limits = UserLimits.fromMap(limitsMap);
+          _userPhone ??=
+              (data['phone'] as String?) ?? (data['phoneNumber'] as String?);
+        });
+      }
+      _limitsLoaded = true;
+      _updateLoadingState();
     }, onError: (_) {
-      if (mounted) setState(() => _loading = false);
+      _limitsLoaded = true;
+      _updateLoadingState();
     });
   }
 
@@ -176,6 +225,7 @@ class _ManageSubscriptionPanelState
 
   @override
   void dispose() {
+    _ownerSub?.cancel();
     _docSub?.cancel();
     super.dispose();
   }

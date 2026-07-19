@@ -8,6 +8,7 @@ import 'package:tulasihotels/router/app_router.dart';
 import 'package:tulasihotels/core/services/product_csv_service.dart';
 import 'package:tulasihotels/core/services/user_metrics_service.dart';
 import 'package:tulasihotels/core/utils/formatters.dart';
+import 'package:tulasihotels/features/permissions/providers/route_permission_provider.dart';
 import 'package:tulasihotels/features/products/providers/products_provider.dart';
 import 'package:tulasihotels/features/products/widgets/add_product_modal.dart';
 import 'package:tulasihotels/l10n/app_localizations.dart';
@@ -43,6 +44,11 @@ class _ProductsWebScreenState extends ConsumerState<ProductsWebScreen> {
     final isTablet = ResponsiveHelper.isTablet(context);
     final limits = ref.watch(currentLimitsProvider);
     final config = ref.watch(planConfigProvider);
+    final productPermissions = ref.watch(
+      routePermissionProvider(AppRoutes.products),
+    );
+    final canCreateProducts = productPermissions.canCreate;
+    final canUpdateProducts = productPermissions.canUpdate;
     final atProductLimit = (config.maxProducts != null) &&
         (config.maxProducts! < 999999) &&
         limits.productsCount >= config.maxProducts!;
@@ -100,7 +106,7 @@ class _ProductsWebScreenState extends ConsumerState<ProductsWebScreen> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: OutlinedButton.icon(
-                      onPressed: () => _handleImportCsv(),
+                      onPressed: canCreateProducts ? () => _handleImportCsv() : null,
                       icon: const Icon(Icons.file_upload_outlined, size: 18),
                       label: const Text('Import'),
                       style: OutlinedButton.styleFrom(
@@ -113,7 +119,9 @@ class _ProductsWebScreenState extends ConsumerState<ProductsWebScreen> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: ElevatedButton.icon(
-                      onPressed: atProductLimit ? null : () => _showAddProductModal(),
+                      onPressed: atProductLimit || !canCreateProducts
+                          ? null
+                          : () => _showAddProductModal(),
                       icon: Icon(atProductLimit ? Icons.lock_outline : Icons.add, size: 18),
                       label: Text(atProductLimit
                           ? '${limits.productsCount}/${config.maxProducts ?? "∞"}'
@@ -192,7 +200,7 @@ class _ProductsWebScreenState extends ConsumerState<ProductsWebScreen> {
                   ),
                   const SizedBox(width: 12),
                   OutlinedButton.icon(
-                    onPressed: () => _handleImportCsv(),
+                    onPressed: canCreateProducts ? () => _handleImportCsv() : null,
                     icon: const Icon(Icons.file_upload_outlined),
                     label: const Text('Import CSV'),
                     style: OutlinedButton.styleFrom(
@@ -202,7 +210,9 @@ class _ProductsWebScreenState extends ConsumerState<ProductsWebScreen> {
                   ),
                   const SizedBox(width: 12),
                   ElevatedButton.icon(
-                    onPressed: atProductLimit ? null : () => _showAddProductModal(),
+                    onPressed: atProductLimit || !canCreateProducts
+                        ? null
+                        : () => _showAddProductModal(),
                     icon: Icon(atProductLimit ? Icons.lock_outline : Icons.add),
                     label: Text(atProductLimit
                         ? 'Limit reached (${limits.productsCount}/${config.maxProducts ?? "∞"})'
@@ -255,10 +265,10 @@ class _ProductsWebScreenState extends ConsumerState<ProductsWebScreen> {
                         subtitle: _searchQuery.isEmpty
                             ? l10n.addFirstProduct
                             : l10n.noData,
-                        actionLabel: _searchQuery.isEmpty
+                        actionLabel: _searchQuery.isEmpty && canCreateProducts
                             ? l10n.addProduct
                             : null,
-                        onAction: _searchQuery.isEmpty
+                        onAction: _searchQuery.isEmpty && canCreateProducts
                             ? () => _showAddProductModal()
                             : null,
                       );
@@ -291,8 +301,11 @@ class _ProductsWebScreenState extends ConsumerState<ProductsWebScreen> {
                                   product: product,
                                   hasPendingWrites:
                                       syncStatus[product.id] ?? false,
-                                  onEdit: () =>
-                                      _showAddProductModal(product: product),
+                                  canEdit: canUpdateProducts,
+                                  onEdit: canUpdateProducts
+                                      ? () =>
+                                          _showAddProductModal(product: product)
+                                      : null,
                                 );
                               },
                             ),
@@ -359,7 +372,11 @@ class _ProductsWebScreenState extends ConsumerState<ProductsWebScreen> {
                           // Desktop: DataTable or GridView
                           Expanded(
                             child: _isGridView
-                                ? _buildGridView(pageItems, syncStatus)
+                                ? _buildGridView(
+                                    pageItems,
+                                    syncStatus,
+                                    canUpdateProducts,
+                                  )
                                 : SingleChildScrollView(
                                     padding: const EdgeInsets.all(0),
                                     child: SizedBox(
@@ -523,10 +540,12 @@ class _ProductsWebScreenState extends ConsumerState<ProductsWebScreen> {
                                                     ),
                                                   ],
                                                 ),
-                                                onTap: () =>
-                                                    _showAddProductModal(
-                                                      product: product,
-                                                    ),
+                                                onTap: canUpdateProducts
+                                                    ? () =>
+                                                        _showAddProductModal(
+                                                          product: product,
+                                                        )
+                                                    : null,
                                               ),
                                               DataCell(
                                                 Text(
@@ -631,10 +650,12 @@ class _ProductsWebScreenState extends ConsumerState<ProductsWebScreen> {
                                                   color: Theme.of(context)
                                                       .colorScheme
                                                       .onSurfaceVariant,
-                                                  onPressed: () =>
-                                                      _showAddProductModal(
-                                                        product: product,
-                                                      ),
+                                                  onPressed: canUpdateProducts
+                                                      ? () =>
+                                                          _showAddProductModal(
+                                                            product: product,
+                                                          )
+                                                      : null,
                                                 ),
                                               ),
                                             ],
@@ -729,6 +750,7 @@ class _ProductsWebScreenState extends ConsumerState<ProductsWebScreen> {
   Widget _buildGridView(
     List<ProductModel> pageItems,
     Map<String, bool> syncStatus,
+    bool canUpdateProducts,
   ) {
     return GridView.builder(
       padding: const EdgeInsets.all(16),
@@ -745,13 +767,36 @@ class _ProductsWebScreenState extends ConsumerState<ProductsWebScreen> {
         return _GridProductCard(
           product: product,
           hasPendingWrites: hasPending,
-          onEdit: () => _showAddProductModal(product: product),
+          canEdit: canUpdateProducts,
+          onEdit: canUpdateProducts
+              ? () => _showAddProductModal(product: product)
+              : null,
         );
       },
     );
   }
 
   Future<void> _showAddProductModal({ProductModel? product}) async {
+    final permissions = ref.read(routePermissionProvider(AppRoutes.products));
+    final canOpen = product == null
+        ? permissions.canCreate
+        : permissions.canUpdate;
+    if (!canOpen) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              product == null
+                  ? 'You do not have permission to add products.'
+                  : 'You do not have permission to edit products.',
+            ),
+            backgroundColor: AppColors.warning,
+          ),
+        );
+      }
+      return;
+    }
+
     // Only enforce limit when adding a new product (not editing)
     if (product == null) {
       final check = await PlanEnforcementService.checkLimit(LimitType.products);
@@ -1062,12 +1107,14 @@ class _ProductsWebScreenState extends ConsumerState<ProductsWebScreen> {
 class _MobileProductCard extends StatelessWidget {
   final ProductModel product;
   final bool hasPendingWrites;
-  final VoidCallback onEdit;
+  final bool canEdit;
+  final VoidCallback? onEdit;
 
   const _MobileProductCard({
     required this.product,
     this.hasPendingWrites = false,
-    required this.onEdit,
+    required this.canEdit,
+    this.onEdit,
   });
 
   @override
@@ -1082,7 +1129,7 @@ class _MobileProductCard extends StatelessWidget {
           boxShadow: AppShadows.small,
         ),
         child: InkWell(
-          onTap: onEdit,
+          onTap: canEdit ? onEdit : null,
           borderRadius: BorderRadius.circular(12),
           child: Row(
             children: [
@@ -1211,7 +1258,7 @@ class _MobileProductCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Icon(
-                    Icons.edit_outlined,
+                    canEdit ? Icons.edit_outlined : Icons.lock_outline,
                     size: 16,
                     color: Theme.of(context).colorScheme.outline,
                   ),
@@ -1266,12 +1313,14 @@ class _ViewToggleButton extends StatelessWidget {
 class _GridProductCard extends StatelessWidget {
   final ProductModel product;
   final bool hasPendingWrites;
-  final VoidCallback onEdit;
+  final bool canEdit;
+  final VoidCallback? onEdit;
 
   const _GridProductCard({
     required this.product,
     required this.hasPendingWrites,
-    required this.onEdit,
+    required this.canEdit,
+    this.onEdit,
   });
 
   @override
@@ -1282,7 +1331,7 @@ class _GridProductCard extends StatelessWidget {
         clipBehavior: Clip.antiAlias,
         elevation: 1,
         child: InkWell(
-          onTap: onEdit,
+          onTap: canEdit ? onEdit : null,
           child: Padding(
             padding: const EdgeInsets.all(12),
             child: Column(

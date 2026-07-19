@@ -3,10 +3,12 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:tulasihotels/features/permissions/providers/route_permission_provider.dart';
 import 'package:tulasihotels/features/admin/models/store_member.dart';
 import 'package:tulasihotels/features/admin/models/store_role.dart';
 import 'package:tulasihotels/features/admin/services/member_service.dart';
 import 'package:tulasihotels/features/staff/models/permission_config.dart';
+import 'package:tulasihotels/router/app_router.dart';
 
 class MemberPermissionsScreen extends ConsumerStatefulWidget {
   final StoreMember member;
@@ -26,7 +28,7 @@ class _MemberPermissionsScreenState
   @override
   void initState() {
     super.initState();
-    _permissions = Map<String, List<String>>.from(
+    _permissions = PermissionConfig.normalizePermissions(
       widget.member.effectivePermissions.map(
         (key, value) => MapEntry(key, List<String>.from(value)),
       ),
@@ -37,6 +39,7 @@ class _MemberPermissionsScreenState
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isOwner = widget.member.isOwner;
+    final memberPermissions = ref.watch(routePermissionProvider(AppRoutes.members));
 
     return Scaffold(
       appBar: AppBar(
@@ -62,7 +65,9 @@ class _MemberPermissionsScreenState
             IconButton(
               icon: const Icon(Icons.save),
               tooltip: 'Save Permissions',
-              onPressed: _hasChanges ? _save : null,
+              onPressed: _hasChanges && memberPermissions.canUpdate
+                  ? _save
+                  : null,
             ),
           ],
         ],
@@ -179,6 +184,7 @@ class _MemberPermissionsScreenState
 
   Widget _buildScreenRow(ScreenDef screen, ThemeData theme) {
     final currentActions = _permissions[screen.route] ?? [];
+    final supportedActions = screen.supportedActions;
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
@@ -195,31 +201,43 @@ class _MemberPermissionsScreenState
           ...PermissionAction.values.map(
             (action) => SizedBox(
               width: 50,
-              child: Checkbox(
-                value: currentActions.contains(action.key),
-                onChanged: (checked) {
-                  setState(() {
-                    final actions = List<String>.from(
-                      _permissions[screen.route] ?? [],
-                    );
-                    if (checked == true) {
-                      if (!actions.contains(action.key)) {
-                        actions.add(action.key);
-                      }
-                    } else {
-                      actions.remove(action.key);
-                    }
-                    if (actions.isEmpty) {
-                      _permissions.remove(screen.route);
-                    } else {
-                      _permissions[screen.route] = actions;
-                    }
-                    _hasChanges = true;
-                  });
-                },
-                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                visualDensity: VisualDensity.compact,
-              ),
+              child: supportedActions.contains(action)
+                  ? Checkbox(
+                      value: currentActions.contains(action.key),
+                      onChanged: (checked) {
+                        setState(() {
+                          final actions = List<String>.from(
+                            _permissions[screen.route] ?? [],
+                          );
+                          if (checked == true) {
+                            if (!actions.contains(action.key)) {
+                              actions.add(action.key);
+                            }
+                          } else {
+                            actions.remove(action.key);
+                          }
+                          final normalized = PermissionConfig
+                              .normalizePermissions({screen.route: actions});
+                          if (normalized.isEmpty) {
+                            _permissions.remove(screen.route);
+                          } else {
+                            _permissions[screen.route] =
+                                normalized[screen.route]!;
+                          }
+                          _hasChanges = true;
+                        });
+                      },
+                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      visualDensity: VisualDensity.compact,
+                    )
+                  : Center(
+                      child: Text(
+                        '—',
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: theme.colorScheme.outline,
+                        ),
+                      ),
+                    ),
             ),
           ),
         ],
@@ -242,10 +260,9 @@ class _MemberPermissionsScreenState
   }
 
   void _grantAll() {
-    final allActions = PermissionAction.values.map((a) => a.key).toList();
     setState(() {
       for (final screen in PermissionConfig.allScreens) {
-        _permissions[screen.route] = List<String>.from(allActions);
+        _permissions[screen.route] = List<String>.from(screen.supportedActionKeys);
       }
       _hasChanges = true;
     });
@@ -259,6 +276,18 @@ class _MemberPermissionsScreenState
   }
 
   Future<void> _save() async {
+    final permissions = ref.read(routePermissionProvider(AppRoutes.members));
+    if (!permissions.canUpdate) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('You do not have permission to update member permissions.'),
+          ),
+        );
+      }
+      return;
+    }
+
     try {
       await MemberService.updatePermissions(widget.member.uid, _permissions);
       if (mounted) {

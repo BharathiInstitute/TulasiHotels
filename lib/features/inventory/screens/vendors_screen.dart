@@ -7,7 +7,9 @@ import 'package:tulasihotels/core/utils/id_generator.dart';
 import 'package:tulasihotels/features/inventory/providers/inventory_provider.dart';
 import 'package:tulasihotels/features/inventory/services/vendor_service.dart';
 import 'package:tulasihotels/features/inventory/services/vendor_settlement_service.dart';
+import 'package:tulasihotels/features/permissions/providers/route_permission_provider.dart';
 import 'package:tulasihotels/models/vendor_model.dart';
+import 'package:tulasihotels/router/app_router.dart';
 
 class VendorsScreen extends ConsumerWidget {
   const VendorsScreen({super.key});
@@ -15,11 +17,14 @@ class VendorsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final vendorsAsync = ref.watch(vendorsProvider);
+    final vendorPermissions = ref.watch(routePermissionProvider(AppRoutes.vendors));
 
     return Scaffold(
       appBar: AppBar(title: const Text('Vendors')),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showAddVendorSheet(context),
+        onPressed: vendorPermissions.canCreate
+            ? () => _showAddVendorSheet(context, ref)
+            : null,
         icon: const Icon(Icons.add),
         label: const Text('Add Vendor'),
       ),
@@ -42,7 +47,11 @@ class VendorsScreen extends ConsumerWidget {
                       : null;
               return Card(
                 child: ListTile(
-                  onTap: () => _showVendorDetail(context, vendor),
+                  onTap: () => _showVendorDetail(
+                    context,
+                    vendor,
+                    canUpdate: vendorPermissions.canUpdate,
+                  ),
                   leading: CircleAvatar(
                     child: Text(
                       vendor.name.isNotEmpty
@@ -89,7 +98,17 @@ class VendorsScreen extends ConsumerWidget {
 
   // â”€â”€â”€ Add Vendor Sheet â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-  void _showAddVendorSheet(BuildContext context) {
+  void _showAddVendorSheet(BuildContext context, WidgetRef ref) {
+    final permissions = ref.read(routePermissionProvider(AppRoutes.vendors));
+    if (!permissions.canCreate) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('You do not have permission to add vendors.'),
+        ),
+      );
+      return;
+    }
+
     final nameCtrl = TextEditingController();
     final phoneCtrl = TextEditingController();
     final supplyCtrl = TextEditingController();
@@ -203,11 +222,18 @@ class VendorsScreen extends ConsumerWidget {
 
   // â”€â”€â”€ Vendor Detail Sheet â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-  void _showVendorDetail(BuildContext context, VendorModel vendor) {
+  void _showVendorDetail(
+    BuildContext context,
+    VendorModel vendor, {
+    required bool canUpdate,
+  }) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      builder: (ctx) => _VendorDetailSheet(vendor: vendor),
+      builder: (ctx) => _VendorDetailSheet(
+        vendor: vendor,
+        canUpdate: canUpdate,
+      ),
     );
   }
 }
@@ -216,7 +242,9 @@ class VendorsScreen extends ConsumerWidget {
 
 class _VendorDetailSheet extends StatefulWidget {
   final VendorModel vendor;
-  const _VendorDetailSheet({required this.vendor});
+  final bool canUpdate;
+
+  const _VendorDetailSheet({required this.vendor, required this.canUpdate});
 
   @override
   State<_VendorDetailSheet> createState() => _VendorDetailSheetState();
@@ -322,7 +350,9 @@ class _VendorDetailSheetState extends State<_VendorDetailSheet>
               children: [
                 Expanded(
                   child: FilledButton.icon(
-                    onPressed: () => _showRecordPurchase(context, vendor),
+                    onPressed: widget.canUpdate
+                        ? () => _showRecordPurchase(context, vendor)
+                        : null,
                     icon: const Icon(Icons.shopping_cart, size: 16),
                     label: const Text('Record Purchase'),
                   ),
@@ -330,7 +360,9 @@ class _VendorDetailSheetState extends State<_VendorDetailSheet>
                 const SizedBox(width: 8),
                 Expanded(
                   child: OutlinedButton.icon(
-                    onPressed: () => _showRecordPayment(context, vendor),
+                    onPressed: widget.canUpdate
+                        ? () => _showRecordPayment(context, vendor)
+                        : null,
                     icon: const Icon(Icons.payments, size: 16),
                     label: const Text('Record Payment'),
                   ),
@@ -364,6 +396,15 @@ class _VendorDetailSheetState extends State<_VendorDetailSheet>
   }
 
   void _showRecordPurchase(BuildContext context, VendorModel vendor) {
+    if (!widget.canUpdate) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('You do not have permission to update vendors.'),
+        ),
+      );
+      return;
+    }
+
     final amountCtrl = TextEditingController();
     final noteCtrl = TextEditingController();
 
@@ -433,6 +474,15 @@ class _VendorDetailSheetState extends State<_VendorDetailSheet>
   }
 
   void _showRecordPayment(BuildContext context, VendorModel vendor) {
+    if (!widget.canUpdate) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('You do not have permission to update vendors.'),
+        ),
+      );
+      return;
+    }
+
     final amountCtrl = TextEditingController();
     final noteCtrl = TextEditingController();
 

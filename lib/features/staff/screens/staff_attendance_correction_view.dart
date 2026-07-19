@@ -31,6 +31,7 @@ class StaffAttendanceCorrectionView extends ConsumerStatefulWidget {
 class _StaffAttendanceCorrectionViewState
     extends ConsumerState<StaffAttendanceCorrectionView> {
   late DateTimeRange _range;
+  final ScrollController _scrollController = ScrollController();
   bool _isClockingIn = false;
   bool _isClockingOut = false;
   bool _isClockedIn = false;
@@ -44,6 +45,12 @@ class _StaffAttendanceCorrectionViewState
       start: DateTime(now.year, now.month),
       end: DateTime(now.year, now.month + 1, 0),
     );
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
   }
 
   @override
@@ -281,8 +288,10 @@ class _StaffAttendanceCorrectionViewState
               // Day groups
               Expanded(
                 child: Scrollbar(
+                  controller: _scrollController,
                   thumbVisibility: true,
                   child: ListView.builder(
+                    controller: _scrollController,
                     itemCount: sortedDays.length,
                     itemBuilder: (context, i) => _DayGroup(
                       day: sortedDays[i],

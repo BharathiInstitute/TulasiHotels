@@ -4,6 +4,7 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:tulasihotels/features/permissions/providers/route_permission_provider.dart';
 import 'package:tulasihotels/features/orders/providers/order_provider.dart';
 import 'package:tulasihotels/models/order_model.dart';
 import 'package:tulasihotels/router/app_router.dart';
@@ -14,6 +15,7 @@ class OrdersScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final ordersAsync = ref.watch(filteredActiveOrdersProvider);
+    final orderPermissions = ref.watch(routePermissionProvider(AppRoutes.orders));
 
     return Scaffold(
       appBar: AppBar(
@@ -40,7 +42,9 @@ class OrdersScreen extends ConsumerWidget {
           IconButton(
             icon: const Icon(Icons.add),
             tooltip: 'New Order',
-            onPressed: () => context.push('${AppRoutes.orders}/new'),
+            onPressed: orderPermissions.canCreate
+                ? () => context.push('${AppRoutes.orders}/new')
+                : null,
           ),
         ],
       ),

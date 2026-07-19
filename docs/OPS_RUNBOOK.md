@@ -53,7 +53,7 @@ Threshold: p95 > 10s
 | Tulasi Hotels Web | `https://tulasihotels.web.app` | 5 min | Email + Slack |
 | Tulasi Hotels API | `https://asia-south1-tulasihotels.cloudfunctions.net/healthcheck` | 5 min | Email |
 
-3. Set up status page at `status.tulasihotels.com` (optional)
+3. Set up status page at `status.restaurants.tulasierp.com` (optional)
 
 ### Option B: Google Cloud Monitoring (Native)
 

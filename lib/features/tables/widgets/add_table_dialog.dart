@@ -2,19 +2,22 @@
 library;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:tulasihotels/features/permissions/providers/route_permission_provider.dart';
 import 'package:tulasihotels/features/tables/services/table_service.dart';
 import 'package:tulasihotels/models/table_model.dart';
+import 'package:tulasihotels/router/app_router.dart';
 
-class AddTableDialog extends StatefulWidget {
+class AddTableDialog extends ConsumerStatefulWidget {
   final TableModel? editTable;
 
   const AddTableDialog({super.key, this.editTable});
 
   @override
-  State<AddTableDialog> createState() => _AddTableDialogState();
+  ConsumerState<AddTableDialog> createState() => _AddTableDialogState();
 }
 
-class _AddTableDialogState extends State<AddTableDialog> {
+class _AddTableDialogState extends ConsumerState<AddTableDialog> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _numberController;
   late final TextEditingController _labelController;
@@ -61,6 +64,11 @@ class _AddTableDialogState extends State<AddTableDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final permissions = ref.watch(routePermissionProvider(AppRoutes.tables));
+    final canSave = _isEditing
+        ? permissions.canUpdate
+        : permissions.canCreate;
+
     return AlertDialog(
       title: Text(_isEditing ? 'Edit Table' : 'Add Table'),
       content: SingleChildScrollView(
@@ -164,7 +172,7 @@ class _AddTableDialogState extends State<AddTableDialog> {
           child: const Text('Cancel'),
         ),
         FilledButton(
-          onPressed: _isLoading ? null : _save,
+          onPressed: _isLoading || !canSave ? null : _save,
           child: _isLoading
               ? const SizedBox(
                   width: 16,
@@ -178,6 +186,25 @@ class _AddTableDialogState extends State<AddTableDialog> {
   }
 
   Future<void> _save() async {
+    final permissions = ref.read(routePermissionProvider(AppRoutes.tables));
+    final canSave = _isEditing
+        ? permissions.canUpdate
+        : permissions.canCreate;
+    if (!canSave) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              _isEditing
+                  ? 'You do not have permission to update tables.'
+                  : 'You do not have permission to create tables.',
+            ),
+          ),
+        );
+      }
+      return;
+    }
+
     if (!_formKey.currentState!.validate()) return;
     setState(() => _isLoading = true);
 

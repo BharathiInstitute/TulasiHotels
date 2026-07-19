@@ -11,7 +11,9 @@ import 'package:tulasihotels/core/services/image_service.dart';
 import 'package:tulasihotels/core/services/barcode_scanner_service.dart';
 import 'package:tulasihotels/core/services/barcode_lookup_service.dart';
 import 'package:tulasihotels/core/utils/validators.dart';
+import 'package:tulasihotels/features/permissions/providers/route_permission_provider.dart';
 import 'package:tulasihotels/features/products/providers/products_provider.dart';
+import 'package:tulasihotels/router/app_router.dart';
 import 'package:tulasihotels/models/product_model.dart';
 import 'package:tulasihotels/shared/widgets/app_button.dart';
 import 'package:tulasihotels/shared/widgets/app_text_field.dart';
@@ -179,6 +181,26 @@ class _AddProductModalState extends ConsumerState<AddProductModal> {
   }
 
   Future<void> _submit() async {
+    final permissions = ref.read(routePermissionProvider(AppRoutes.products));
+    final canSubmit = _isEditing
+        ? permissions.canUpdate
+        : permissions.canCreate;
+    if (!canSubmit) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              _isEditing
+                  ? 'You do not have permission to update products.'
+                  : 'You do not have permission to create products.',
+            ),
+            backgroundColor: AppColors.warning,
+          ),
+        );
+      }
+      return;
+    }
+
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _isLoading = true);
@@ -275,6 +297,19 @@ class _AddProductModalState extends ConsumerState<AddProductModal> {
   }
 
   Future<void> _delete() async {
+    final permissions = ref.read(routePermissionProvider(AppRoutes.products));
+    if (!permissions.canDelete) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('You do not have permission to delete products.'),
+            backgroundColor: AppColors.warning,
+          ),
+        );
+      }
+      return;
+    }
+
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -313,6 +348,11 @@ class _AddProductModalState extends ConsumerState<AddProductModal> {
   Widget build(BuildContext context) {
     final isMobile = ResponsiveHelper.isMobile(context);
     final fieldSpacing = isMobile ? 10.0 : 16.0;
+    final permissions = ref.watch(routePermissionProvider(AppRoutes.products));
+    final canSubmit = _isEditing
+        ? permissions.canUpdate
+        : permissions.canCreate;
+    final canDelete = _isEditing && permissions.canDelete;
 
     return Container(
       height: MediaQuery.of(context).size.height * 0.85,
@@ -345,7 +385,7 @@ class _AddProductModalState extends ConsumerState<AddProductModal> {
                   ),
                 ),
                 const Spacer(),
-                if (_isEditing)
+                if (canDelete)
                   IconButton(
                     icon: Icon(
                       Icons.delete,
@@ -880,7 +920,7 @@ class _AddProductModalState extends ConsumerState<AddProductModal> {
                     // Submit button
                     AppButton(
                       label: _isEditing ? '✅ UPDATE PRODUCT' : '✅ ADD PRODUCT',
-                      onPressed: _submit,
+                      onPressed: canSubmit ? _submit : null,
                       isLoading: _isLoading,
                     ),
                   ],

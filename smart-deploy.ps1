@@ -58,6 +58,37 @@ function Write-DeployLog {
     Add-Content -Path $logPath -Value "[$timestamp] $Entry" -Encoding UTF8
 }
 
+function Test-DownloadPageSync {
+    param(
+        [string]$WebsiteDir,
+        [string]$DistDir
+    )
+
+    $sourcePage = Join-Path $WebsiteDir "src\pages\download.html"
+    $distPage = Join-Path $DistDir "src\pages\download.html"
+
+    if (-not (Test-Path $sourcePage)) {
+        Write-Fail "Source download page not found: $sourcePage"
+        return $false
+    }
+    if (-not (Test-Path $distPage)) {
+        Write-Fail "Deployed download page not found in dist: $distPage"
+        return $false
+    }
+
+    $srcHash = (Get-FileHash -Path $sourcePage -Algorithm SHA256).Hash
+    $dstHash = (Get-FileHash -Path $distPage -Algorithm SHA256).Hash
+    if ($srcHash -ne $dstHash) {
+        Write-Fail "download.html in dist is not the latest source version"
+        Write-Info "Source: $sourcePage"
+        Write-Info "Dist:   $distPage"
+        return $false
+    }
+
+    Write-Ok "download.html sync verified (website -> dist)"
+    return $true
+}
+
 function Invoke-WithRetry {
     param([string]$StepName, [scriptblock]$Command, [bool]$CleanOnFail = $true)
     $ErrorActionPreference = "Continue"
@@ -162,6 +193,12 @@ if ($WebsiteOnly) {
         Write-Warn "No existing Flutter app found in dist/app/ -- website will deploy without /app/ route"
     }
 
+    Write-Step "Verifying latest download page sync..."
+    if (-not (Test-DownloadPageSync -WebsiteDir $websiteDir -DistDir $distDir)) {
+        Write-DeployLog "WEBSITE DEPLOY FAILED | download page sync mismatch"
+        exit 1
+    }
+
     # Create serve.json
     $serveJson = '{"rewrites":[{"source":"/app/**","destination":"/app/index.html"}],"headers":[{"source":"**/*","headers":[{"key":"Cache-Control","value":"no-cache"}]}]}'
     [System.IO.File]::WriteAllText((Join-Path $distDir "serve.json"), $serveJson, [System.Text.UTF8Encoding]::new($false))
@@ -189,7 +226,9 @@ if ($WebsiteOnly) {
         Start-Sleep -Seconds 5
         $healthUrls = @(
             "https://login1-aa21c.web.app/",
-            "https://login1-aa21c.web.app/app/"
+            "https://login1-aa21c.web.app/app/",
+            "https://login1-aa21c.web.app/src/pages/download",
+            "https://restaurants.tulasierp.com/src/pages/download"
         )
         foreach ($url in $healthUrls) {
             try {
@@ -1043,7 +1082,7 @@ try {
                 if ($msixFile) {
                     Write-Step "Generating one-click MSIX installer script..."
                     $releaseDir = Join-Path $root "build\windows\x64\runner\Release"
-                    $vbsInstaller = Join-Path $releaseDir "Install_TulasiStores.vbs"
+                    $vbsInstaller = Join-Path $releaseDir "Install_TulasiRestaurants.vbs"
                     $vbsContent = @"
 ' Tulasi Hotels - One-Click Installer v$newVersion
 ' Silently installs certificate, then opens MSIX installer GUI
@@ -1055,11 +1094,11 @@ If Not WScript.Arguments.Named.Exists("elevated") Then
 End If
 
 scriptDir = Left(WScript.ScriptFullName, InStrRev(WScript.ScriptFullName, "\"))
-msixFile = scriptDir & "TulasiStores_Setup.msix"
+msixFile = scriptDir & "TulasiRestaurants_Setup.msix"
 
 Set fso = CreateObject("Scripting.FileSystemObject")
 If Not fso.FileExists(msixFile) Then
-    MsgBox "TulasiStores_Setup.msix not found!" & vbCrLf & vbCrLf & "Please place this script in the same folder as the MSIX file.", vbExclamation, "Tulasi Hotels Installer"
+    MsgBox "TulasiRestaurants_Setup.msix not found!" & vbCrLf & vbCrLf & "Please place this script in the same folder as the MSIX file.", vbExclamation, "Tulasi Restaurants Installer"
     WScript.Quit 1
 End If
 
@@ -1079,12 +1118,12 @@ objShell.Run """" & msixFile & """", 1, False
 WScript.Quit 0
 "@
                     [System.IO.File]::WriteAllText($vbsInstaller, $vbsContent, [System.Text.UTF8Encoding]::new($false))
-                    Write-Ok "Install_TulasiStores.vbs generated"
+                    Write-Ok "Install_TulasiRestaurants.vbs generated"
                 }
 
                 # Update version.json with EXE download URL
                 $winVersionPath = Join-Path $root "installer\version.json"
-                $exeStorageName = "TulasiStores_Setup.exe"
+                $exeStorageName = "TulasiRestaurants_Setup.exe"
                 $exeDownloadUrl = "https://firebasestorage.googleapis.com/v0/b/login1-aa21c.firebasestorage.app/o/downloads%2Fwindows%2F$exeStorageName`?alt=media"
 
                 $versionJson = @{
@@ -1197,7 +1236,7 @@ WScript.Quit 0
 
             # Update android-version.json
             $androidVersionPath = Join-Path $root "installer\android-version.json"
-            $apkStorageName = "TulasiStores.apk"
+            $apkStorageName = "TulasiRestaurants.apk"
             $apkDownloadUrl = "https://firebasestorage.googleapis.com/v0/b/login1-aa21c.firebasestorage.app/o/downloads%2Fandroid%2F$apkStorageName`?alt=media"
 
             $versionJson = @{
@@ -1239,7 +1278,7 @@ WScript.Quit 0
 
                 if (Test-Path $apkPath) {
                     gsutil cp $apkPath "${storagePath}$apkStorageName"
-                    gsutil setmeta -h "Content-Type:application/vnd.android.package-archive" -h "Cache-Control:no-cache,max-age=0" "${storagePath}$apkStorageName"
+                    gsutil setmeta -h "Content-Type:application/vnd.android.package-archive" -h "Cache-Control:no-cache,max-age=0" -h "Content-Disposition:attachment; filename=TulasiRestaurants.apk" "${storagePath}$apkStorageName"
                     Write-Ok "APK uploaded: $apkStorageName"
                 }
 
@@ -1348,6 +1387,18 @@ WScript.Quit 0
             Write-Warn "No existing Flutter app in dist/app/ -- website will deploy without /app/ route"
         }
 
+        Write-Step "Verifying latest download page sync..."
+        if (-not (Test-DownloadPageSync -WebsiteDir $websiteDir -DistDir $distDir)) {
+            Write-DeployLog "WEBSITE DEPLOY FAILED | download page sync mismatch"
+            $failed = $true
+        }
+
+        if ($failed) {
+            Write-Fail "Stopping website deploy because latest download page did not sync"
+            Complete-Step "website_only"
+            throw "download.html sync verification failed"
+        }
+
         $serveJson = '{"rewrites":[{"source":"/app/**","destination":"/app/index.html"}],"headers":[{"source":"**/*","headers":[{"key":"Cache-Control","value":"no-cache"}]}]}'
         [System.IO.File]::WriteAllText((Join-Path $distDir "serve.json"), $serveJson, [System.Text.UTF8Encoding]::new($false))
 
@@ -1364,7 +1415,9 @@ WScript.Quit 0
             Start-Sleep -Seconds 5
             $healthUrls = @(
                 "https://login1-aa21c.web.app/",
-                "https://login1-aa21c.web.app/app/"
+                "https://login1-aa21c.web.app/app/",
+                "https://login1-aa21c.web.app/src/pages/download",
+                "https://restaurants.tulasierp.com/src/pages/download"
             )
             foreach ($url in $healthUrls) {
                 try {
@@ -1414,6 +1467,17 @@ WScript.Quit 0
             Copy-Item -Path "$flutterBuildDir\*" -Destination $appDir -Recurse -Force
             Write-Ok "Web built to dist/app/"
 
+            Write-Step "Verifying latest download page sync..."
+            if (-not (Test-DownloadPageSync -WebsiteDir $websiteDir -DistDir $distDir)) {
+                Write-DeployLog "WEB DEPLOY FAILED | download page sync mismatch"
+                $failed = $true
+            }
+
+            if ($failed) {
+                Write-Fail "Stopping web deploy because latest download page did not sync"
+                throw "download.html sync verification failed"
+            }
+
             $serveJson = '{"rewrites":[{"source":"/app/**","destination":"/app/index.html"}],"headers":[{"source":"**/*","headers":[{"key":"Cache-Control","value":"no-cache"}]}]}'
             [System.IO.File]::WriteAllText((Join-Path $distDir "serve.json"), $serveJson, [System.Text.UTF8Encoding]::new($false))
 
@@ -1430,7 +1494,9 @@ WScript.Quit 0
                 Start-Sleep -Seconds 5
                 $healthUrls = @(
                     "https://login1-aa21c.web.app/",
-                    "https://login1-aa21c.web.app/app/"
+                    "https://login1-aa21c.web.app/app/",
+                    "https://login1-aa21c.web.app/src/pages/download",
+                    "https://restaurants.tulasierp.com/src/pages/download"
                 )
                 foreach ($url in $healthUrls) {
                     try {

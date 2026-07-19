@@ -322,6 +322,7 @@ class _ComposeTabState extends State<_ComposeTab> {
         );
       }
     } catch (e) {
+      if (!mounted) return;
       setState(() => _isSending = false);
       messenger.showSnackBar(
         SnackBar(
@@ -333,6 +334,7 @@ class _ComposeTabState extends State<_ComposeTab> {
       return;
     }
 
+    if (!mounted) return;
     setState(() => _isSending = false);
 
     messenger.showSnackBar(
@@ -351,6 +353,7 @@ class _ComposeTabState extends State<_ComposeTab> {
     _bodyCtrl.clear();
     _selectedUserIds.clear();
     _selectedUserNames.clear();
+    if (!mounted) return;
     setState(() {});
 
     widget.onSent();
@@ -815,7 +818,7 @@ class _UserPickerDialogState extends State<_UserPickerDialog> {
       content: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 500, maxHeight: 400),
         child: Column(
-          mainAxisSize: MainAxisSize.min,
+          mainAxisSize: MainAxisSize.max,
           children: [
             // Search bar
             TextField(

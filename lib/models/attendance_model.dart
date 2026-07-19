@@ -84,10 +84,27 @@ class AttendanceModel {
     this.editNote,
   });
 
+  /// Worked duration (returns zero if still clocked in)
+  Duration get workedDuration {
+    if (clockOut == null) return Duration.zero;
+    return clockOut!.difference(clockIn);
+  }
+
+  int get workedMinutes => workedDuration.inMinutes;
+
+  String get workedDurationLabel {
+    return formatMinutes(workedMinutes);
+  }
+
+  static String formatMinutes(int totalMinutes) {
+    final hours = (totalMinutes ~/ 60).toString().padLeft(2, '0');
+    final minutes = (totalMinutes % 60).toString().padLeft(2, '0');
+    return '$hours:$minutes';
+  }
+
   /// Hours worked (returns 0 if still clocked in)
   double get hoursWorked {
-    if (clockOut == null) return 0;
-    return clockOut!.difference(clockIn).inMinutes / 60.0;
+    return workedMinutes / 60.0;
   }
 
   /// Whether this record has a geo-tag for clock-in

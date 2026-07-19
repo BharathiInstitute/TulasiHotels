@@ -9,6 +9,7 @@ import 'package:tulasihotels/features/admin/models/store_role.dart';
 import 'package:tulasihotels/features/admin/providers/current_member_provider.dart';
 import 'package:tulasihotels/features/admin/providers/members_provider.dart';
 import 'package:tulasihotels/features/hotels/providers/hotel_provider.dart';
+import 'package:tulasihotels/features/permissions/providers/route_permission_provider.dart';
 import 'package:tulasihotels/features/staff/providers/staff_provider.dart';
 import 'package:tulasihotels/features/staff/screens/permission_manager_screen.dart';
 import 'package:tulasihotels/features/staff/services/salary_service.dart';
@@ -65,6 +66,7 @@ class StaffScreen extends ConsumerWidget {
     final staffAsync = ref.watch(filteredStaffProvider);
     final roleFilter = ref.watch(staffRoleFilterProvider);
     final membersAsync = ref.watch(membersStreamProvider);
+    final staffPermissions = ref.watch(routePermissionProvider(AppRoutes.staff));
     final cs = Theme.of(context).colorScheme;
 
     return Scaffold(
@@ -215,7 +217,9 @@ class StaffScreen extends ConsumerWidget {
                               !member.isActive,
                             );
                           },
-                          onDelete: () => _confirmDelete(context, member),
+                          onDelete: () => _confirmDelete(context, ref, member),
+                          canUpdate: staffPermissions.canUpdate,
+                          canDelete: staffPermissions.canDelete,
                         ),
                       ),
                     ],
@@ -231,7 +235,17 @@ class StaffScreen extends ConsumerWidget {
     );
   }
 
-  void _confirmDelete(BuildContext context, StaffModel staff) {
+  void _confirmDelete(BuildContext context, WidgetRef ref, StaffModel staff) {
+    final permissions = ref.read(routePermissionProvider(AppRoutes.staff));
+    if (!permissions.canDelete) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('You do not have permission to delete staff.'),
+        ),
+      );
+      return;
+    }
+
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -275,6 +289,8 @@ class _StaffCard extends StatelessWidget {
   final VoidCallback onPermissions;
   final VoidCallback onToggleActive;
   final VoidCallback onDelete;
+  final bool canUpdate;
+  final bool canDelete;
 
   const _StaffCard({
     required this.staff,
@@ -285,6 +301,8 @@ class _StaffCard extends StatelessWidget {
     required this.onPermissions,
     required this.onToggleActive,
     required this.onDelete,
+    required this.canUpdate,
+    required this.canDelete,
   });
 
   @override
@@ -389,45 +407,48 @@ class _StaffCard extends StatelessWidget {
                     }
                   },
                   itemBuilder: (_) => [
-                    const PopupMenuItem(
-                      value: 'permissions',
-                      child: Row(
-                        children: [
-                          Icon(Icons.shield_outlined, size: 18),
-                          SizedBox(width: 8),
-                          Text('Permissions'),
-                        ],
+                    if (canUpdate)
+                      const PopupMenuItem(
+                        value: 'permissions',
+                        child: Row(
+                          children: [
+                            Icon(Icons.shield_outlined, size: 18),
+                            SizedBox(width: 8),
+                            Text('Permissions'),
+                          ],
+                        ),
                       ),
-                    ),
-                    PopupMenuItem(
-                      value: 'toggle',
-                      child: Row(
-                        children: [
-                          Icon(
-                            staff.isActive
-                                ? Icons.person_off_outlined
-                                : Icons.person_outlined,
-                            size: 18,
-                          ),
-                          const SizedBox(width: 8),
-                          Text(staff.isActive ? 'Deactivate' : 'Activate'),
-                        ],
+                    if (canUpdate)
+                      PopupMenuItem(
+                        value: 'toggle',
+                        child: Row(
+                          children: [
+                            Icon(
+                              staff.isActive
+                                  ? Icons.person_off_outlined
+                                  : Icons.person_outlined,
+                              size: 18,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(staff.isActive ? 'Deactivate' : 'Activate'),
+                          ],
+                        ),
                       ),
-                    ),
-                    const PopupMenuItem(
-                      value: 'delete',
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.delete_outline,
-                            size: 18,
-                            color: Colors.red,
-                          ),
-                          SizedBox(width: 8),
-                          Text('Delete', style: TextStyle(color: Colors.red)),
-                        ],
+                    if (canDelete)
+                      const PopupMenuItem(
+                        value: 'delete',
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.delete_outline,
+                              size: 18,
+                              color: Colors.red,
+                            ),
+                            SizedBox(width: 8),
+                            Text('Delete', style: TextStyle(color: Colors.red)),
+                          ],
+                        ),
                       ),
-                    ),
                   ],
                 ),
               ],

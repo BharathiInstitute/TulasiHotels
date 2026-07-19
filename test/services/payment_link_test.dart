@@ -71,7 +71,7 @@ String generatePaymentPageUrl({
   if (transactionNote != null && transactionNote.isNotEmpty) {
     parts.add('tn=${Uri.encodeComponent(transactionNote)}');
   }
-  return 'https://stores.tulasierp.com/pay?${parts.join('&')}';
+  return 'https://restaurants.tulasierp.com/pay?${parts.join('&')}';
 }
 
 String generateUpiQrData({required String upiId, String? payeeName}) {
@@ -211,7 +211,7 @@ void main() {
   group('generatePaymentPageUrl', () {
     test('base URL is HTTPS', () {
       final url = generatePaymentPageUrl(upiId: 'store@ybl', amount: 100);
-      expect(url, startsWith('https://stores.tulasierp.com/pay?'));
+      expect(url, startsWith('https://restaurants.tulasierp.com/pay?'));
     });
 
     test('includes UPI ID unencoded', () {

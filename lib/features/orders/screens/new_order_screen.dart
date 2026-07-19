@@ -6,10 +6,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tulasihotels/core/services/thermal_printer_service.dart';
 import 'package:tulasihotels/features/kitchen/services/kot_printer_service.dart';
 import 'package:tulasihotels/features/orders/services/order_service.dart';
+import 'package:tulasihotels/features/permissions/providers/route_permission_provider.dart';
 import 'package:tulasihotels/features/products/providers/products_provider.dart';
 import 'package:tulasihotels/features/settings/providers/printer_provider.dart';
 import 'package:tulasihotels/models/order_model.dart';
 import 'package:tulasihotels/models/product_model.dart';
+import 'package:tulasihotels/router/app_router.dart';
 
 /// Screen for creating a new order at a table
 class NewOrderScreen extends ConsumerStatefulWidget {
@@ -63,6 +65,10 @@ class _NewOrderScreenState extends ConsumerState<NewOrderScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final productsAsync = ref.watch(productsProvider);
+    final orderPermissions = ref.watch(routePermissionProvider(AppRoutes.orders));
+    final canSubmitOrder = _isAmendmentMode
+        ? orderPermissions.canUpdate
+        : orderPermissions.canCreate;
 
     return Scaffold(
       appBar: AppBar(
@@ -96,7 +102,7 @@ class _NewOrderScreenState extends ConsumerState<NewOrderScreen> {
           if (isMobile) {
             return _buildMobileBody(theme, productsAsync);
           }
-          return _buildWideBody(theme, productsAsync);
+          return _buildWideBody(theme, productsAsync, canSubmitOrder);
         },
       ),
       floatingActionButton: LayoutBuilder(
@@ -123,6 +129,11 @@ class _NewOrderScreenState extends ConsumerState<NewOrderScreen> {
 
   /// Order summary shown as a bottom sheet on mobile
   void _showOrderSheet(BuildContext context, ThemeData theme) {
+    final permissions = ref.read(routePermissionProvider(AppRoutes.orders));
+    final canSubmitOrder = _isAmendmentMode
+        ? permissions.canUpdate
+        : permissions.canCreate;
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -191,6 +202,7 @@ class _NewOrderScreenState extends ConsumerState<NewOrderScreen> {
               // Rush/VIP + Notes + Total + Place Order
               _buildOrderFooter(
                 theme,
+                canSubmitOrder: canSubmitOrder,
                 onOrderSuccess: () {
                   // From bottom sheet: close sheet first, then return to table/list.
                   Navigator.of(ctx).pop();
@@ -225,6 +237,7 @@ class _NewOrderScreenState extends ConsumerState<NewOrderScreen> {
   Widget _buildWideBody(
     ThemeData theme,
     AsyncValue<List<ProductModel>> productsAsync,
+    bool canSubmitOrder,
   ) {
     return Row(
       children: [
@@ -275,7 +288,7 @@ class _NewOrderScreenState extends ConsumerState<NewOrderScreen> {
                         ),
                       ),
               ),
-              _buildOrderFooter(theme),
+              _buildOrderFooter(theme, canSubmitOrder: canSubmitOrder),
             ],
           ),
         ),
@@ -419,6 +432,7 @@ class _NewOrderScreenState extends ConsumerState<NewOrderScreen> {
   Widget _buildOrderFooter(
     ThemeData theme, {
     VoidCallback? onOrderSuccess,
+    required bool canSubmitOrder,
   }) {
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -493,7 +507,7 @@ class _NewOrderScreenState extends ConsumerState<NewOrderScreen> {
               SizedBox(
                 width: double.infinity,
                 child: FilledButton.icon(
-                  onPressed: _items.isEmpty || _isPlacingOrder
+                  onPressed: _items.isEmpty || _isPlacingOrder || !canSubmitOrder
                       ? null
                       : () => _placeOrder(onSuccess: onOrderSuccess),
                   icon: _isPlacingOrder
@@ -570,6 +584,25 @@ class _NewOrderScreenState extends ConsumerState<NewOrderScreen> {
   }
 
   Future<void> _placeOrder({VoidCallback? onSuccess}) async {
+    final permissions = ref.read(routePermissionProvider(AppRoutes.orders));
+    final canSubmitOrder = _isAmendmentMode
+        ? permissions.canUpdate
+        : permissions.canCreate;
+    if (!canSubmitOrder) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              _isAmendmentMode
+                  ? 'You do not have permission to update orders.'
+                  : 'You do not have permission to create orders.',
+            ),
+          ),
+        );
+      }
+      return;
+    }
+
     // Method-level guard prevents duplicate orders from rapid multi-taps,
     // even if the bottom sheet UI hasn't rebuilt yet.
     if (_isPlacingOrder || _items.isEmpty) return;

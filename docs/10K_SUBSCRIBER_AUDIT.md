@@ -201,7 +201,7 @@ Based on typical Indian SaaS B2C funnels:
 | A20 | auth_provider.dart | L80 | `copyWith` can't reset `firebaseUser`/`user` to null (uses `??`) | Use sentinel pattern or separate `clearUser()` |
 | A21 | auth_provider.dart | L1339 | `clearError()` triggers rebuild with no actual change | Use explicit `copyWith(error: null)` |
 | A22 | login_screen.dart | L64-71 | Double navigation: `context.go('/billing')` + router auto-redirect | Rely on router redirect only |
-| A23 | register_screen.dart | L641-661 | ToS URL `tulasihotels.com/terms` may not exist | Verify URL is live |
+| A23 | register_screen.dart | L641-661 | ToS URL `restaurants.tulasierp.com/src/pages/terms.html` may not exist | Verify URL is live |
 | A24 | email_verification_banner.dart | L225 | Banner dismissal is in-memory only, resets on navigation | Persist to SharedPrefs with 24h TTL |
 | A25 | forgot_password_screen.dart | L36-60 | No rate limiting on password reset email requests | Add cooldown timer |
 

@@ -31,6 +31,7 @@ class _AttendanceBody extends ConsumerStatefulWidget {
 
 class _AttendanceBodyState extends ConsumerState<_AttendanceBody> {
   late DateTimeRange _range;
+  final ScrollController _scrollController = ScrollController();
 
   @override
   void initState() {
@@ -40,6 +41,12 @@ class _AttendanceBodyState extends ConsumerState<_AttendanceBody> {
       start: DateTime(now.year, now.month),
       end: DateTime(now.year, now.month + 1, 0),
     );
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
   }
 
   @override
@@ -84,9 +91,9 @@ class _AttendanceBodyState extends ConsumerState<_AttendanceBody> {
             : (todayRecords.isNotEmpty ? todayRecords.first : null);
 
         // Total hours this period
-        double totalHours = 0;
+        int totalMinutes = 0;
         for (final r in records) {
-          totalHours += r.hoursWorked;
+          totalMinutes += r.workedMinutes;
         }
         final presentDays = records
             .map((r) => '${r.date.year}-${r.date.month}-${r.date.day}')
@@ -94,8 +101,10 @@ class _AttendanceBodyState extends ConsumerState<_AttendanceBody> {
             .length;
 
         return Scrollbar(
+          controller: _scrollController,
           thumbVisibility: true,
           child: ListView(
+            controller: _scrollController,
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
             children: [
               // ── User clock card ──────────────────────────────────
@@ -135,7 +144,7 @@ class _AttendanceBodyState extends ConsumerState<_AttendanceBody> {
                   _SummaryChip(
                     icon: Icons.schedule,
                     label: 'Hours',
-                    value: totalHours.toStringAsFixed(1),
+                    value: AttendanceModel.formatMinutes(totalMinutes),
                     color: Colors.blue,
                   ),
                   const SizedBox(width: 8),
@@ -360,7 +369,7 @@ class _UserClockCard extends StatelessWidget {
                       ),
                       const Spacer(),
                       Text(
-                        '${todayRecord!.hoursWorked.toStringAsFixed(1)}h',
+                        todayRecord!.workedDurationLabel,
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w700,
@@ -493,9 +502,9 @@ class _DayRecord extends StatelessWidget {
     final dayLabel =
         '${_dayName(dt.weekday)}, ${dt.day} ${_monthName(dt.month)}';
 
-    double dayHours = 0;
+    int dayMinutes = 0;
     for (final r in records) {
-      dayHours += r.hoursWorked;
+      dayMinutes += r.workedMinutes;
     }
 
     return Container(
@@ -527,7 +536,7 @@ class _DayRecord extends StatelessWidget {
                 ),
                 const Spacer(),
                 Text(
-                  '${dayHours.toStringAsFixed(1)}h',
+                  AttendanceModel.formatMinutes(dayMinutes),
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w700,
@@ -592,7 +601,7 @@ class _DayRecord extends StatelessWidget {
                   const Spacer(),
                   if (r.clockOut != null)
                     Text(
-                      '${r.hoursWorked.toStringAsFixed(1)}h',
+                      r.workedDurationLabel,
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,

@@ -14,8 +14,10 @@ class PrivacyConsentDialog {
   /// Terms of Service are updated — all users will see the dialog again.
   static const String currentVersion = '1.0';
 
-  static const String _privacyUrl = 'https://tulasihotels.com/privacy';
-  static const String _termsUrl = 'https://tulasihotels.com/terms';
+    static const String _privacyUrl =
+      'https://restaurants.tulasierp.com/src/pages/privacy.html';
+    static const String _termsUrl =
+      'https://restaurants.tulasierp.com/src/pages/terms.html';
   static const String _prefsKey = 'privacy_consent_version';
 
   /// Shows the consent dialog if the user hasn't accepted the current version.

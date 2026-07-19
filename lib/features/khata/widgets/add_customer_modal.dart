@@ -6,7 +6,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tulasihotels/core/design/design_system.dart';
 import 'package:tulasihotels/core/utils/validators.dart';
 import 'package:tulasihotels/features/khata/providers/khata_provider.dart';
+import 'package:tulasihotels/features/permissions/providers/route_permission_provider.dart';
 import 'package:tulasihotels/models/customer_model.dart';
+import 'package:tulasihotels/router/app_router.dart';
 import 'package:tulasihotels/shared/widgets/app_button.dart';
 import 'package:tulasihotels/shared/widgets/app_text_field.dart';
 
@@ -53,6 +55,23 @@ class _AddCustomerModalState extends ConsumerState<AddCustomerModal> {
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
+
+    final permissions = ref.read(routePermissionProvider(AppRoutes.khata));
+    final canSubmit = _isEditMode
+        ? permissions.canUpdate
+        : permissions.canCreate;
+    if (!canSubmit) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            _isEditMode
+                ? 'You do not have permission to update customers.'
+                : 'You do not have permission to add customers.',
+          ),
+        ),
+      );
+      return;
+    }
 
     setState(() => _isLoading = true);
 
@@ -140,6 +159,11 @@ class _AddCustomerModalState extends ConsumerState<AddCustomerModal> {
 
   @override
   Widget build(BuildContext context) {
+    final permissions = ref.watch(routePermissionProvider(AppRoutes.khata));
+    final canSubmit = _isEditMode
+        ? permissions.canUpdate
+        : permissions.canCreate;
+
     return Container(
       constraints: BoxConstraints(
         maxHeight: MediaQuery.of(context).size.height * 0.9,
@@ -239,7 +263,7 @@ class _AddCustomerModalState extends ConsumerState<AddCustomerModal> {
                           label: _isEditMode
                               ? 'UPDATE CUSTOMER'
                               : 'ADD CUSTOMER',
-                          onPressed: _submit,
+                          onPressed: canSubmit ? _submit : null,
                           isLoading: _isLoading,
                         ),
                       ],
