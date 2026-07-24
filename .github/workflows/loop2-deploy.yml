@@ -53,13 +53,12 @@ jobs:
         run: flutter build web --release --dart-define=RAZORPAY_KEY_ID=${{ secrets.RAZORPAY_KEY_ID }}
 
       - name: Deploy to Firebase Hosting
-        uses: FirebaseExtended/action-hosting-deploy@v0
+        uses: w9jds/firebase-action@master
         with:
-          repoToken: "${{ secrets.GITHUB_TOKEN }}"
-          firebaseServiceAccount: "${{ secrets.FIREBASE_SERVICE_ACCOUNT }}"
-          projectId: "${{ secrets.FIREBASE_PROJECT_ID }}"
-          channelId: live
-          target: tulasihotels
+          args: deploy --only hosting:login1-aa21c
+        env:
+          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+          PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
 
   # ─── Build Release APK ───
   build-release-apk:
