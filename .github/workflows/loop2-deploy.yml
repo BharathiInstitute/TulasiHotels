@@ -41,7 +41,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Set up Flutter
-        uses: subosiro/flutter-action@v2
+        uses: subosito/flutter-action@v2
         with:
           channel: stable
           cache: true
@@ -79,13 +79,21 @@ jobs:
           java-version: 17
 
       - name: Set up Flutter
-        uses: subosiro/flutter-action@v2
+        uses: subosito/flutter-action@v2
         with:
           channel: stable
           cache: true
 
       - name: Install dependencies
         run: flutter pub get
+
+      - name: Validate Android signing secrets
+        run: |
+          [ -n "${{ secrets.KEYSTORE_BASE64 }}" ] || (echo "Missing GitHub secret: KEYSTORE_BASE64" && exit 1)
+          [ -n "${{ secrets.KEYSTORE_PASSWORD }}" ] || (echo "Missing GitHub secret: KEYSTORE_PASSWORD" && exit 1)
+          [ -n "${{ secrets.KEY_PASSWORD }}" ] || (echo "Missing GitHub secret: KEY_PASSWORD" && exit 1)
+          [ -n "${{ secrets.KEY_ALIAS }}" ] || (echo "Missing GitHub secret: KEY_ALIAS" && exit 1)
+          [ -n "${{ secrets.EXPECTED_UPLOAD_SHA1 }}" ] || (echo "Missing GitHub secret: EXPECTED_UPLOAD_SHA1" && exit 1)
 
       - name: Decode keystore
         run: echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > android/app/release.jks
@@ -97,6 +105,7 @@ jobs:
           keyPassword=${{ secrets.KEY_PASSWORD }}
           keyAlias=${{ secrets.KEY_ALIAS }}
           storeFile=release.jks
+          expectedSha1=${{ secrets.EXPECTED_UPLOAD_SHA1 }}
           EOF
 
       - name: Build Release APK
@@ -104,6 +113,14 @@ jobs:
 
       - name: Build App Bundle (AAB) for Play Store
         run: flutter build appbundle --release --dart-define=RAZORPAY_KEY_ID=${{ secrets.RAZORPAY_KEY_ID }}
+
+      - name: Verify AAB upload key SHA1
+        run: |
+          ACTUAL_SHA1=$(keytool -printcert -jarfile build/app/outputs/bundle/release/app-release.aab | awk -F': ' '/SHA1:/{print $2; exit}' | tr '[:lower:]' '[:upper:]')
+          EXPECTED_SHA1=$(echo "${{ secrets.EXPECTED_UPLOAD_SHA1 }}" | tr '[:lower:]' '[:upper:]')
+          echo "AAB SHA1: $ACTUAL_SHA1"
+          echo "Expected: $EXPECTED_SHA1"
+          [ "$ACTUAL_SHA1" = "$EXPECTED_SHA1" ] || (echo "AAB signing SHA1 mismatch" && exit 1)
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
