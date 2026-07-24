@@ -150,7 +150,7 @@ jobs:
   deploy-functions:
     name: "Deploy Cloud Functions"
     runs-on: ubuntu-latest
-    if: ${{ github.event_name == 'push' }}
+    if: ${{ github.event_name == 'push' || github.event.inputs.target == 'both' }}
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
@@ -201,7 +201,7 @@ jobs:
   deploy-rules:
     name: "Deploy Firestore Rules"
     runs-on: ubuntu-latest
-    if: ${{ github.event_name == 'push' }}
+    if: ${{ github.event_name == 'push' || github.event.inputs.target == 'both' }}
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
