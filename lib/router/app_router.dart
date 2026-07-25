@@ -55,7 +55,6 @@ import 'package:tulasihotels/features/staff/screens/staff_login_screen.dart';
 import 'package:tulasihotels/features/staff/screens/attendance_screen.dart';
 import 'package:tulasihotels/features/staff/screens/my_attendance_screen.dart';
 import 'package:tulasihotels/features/staff/providers/staff_provider.dart';
-import 'package:tulasihotels/features/staff/services/staff_permissions.dart';
 import 'package:tulasihotels/features/menu/screens/combo_builder_screen.dart';
 import 'package:tulasihotels/features/menu/screens/daily_specials_screen.dart';
 import 'package:tulasihotels/features/tables/screens/table_layout_editor.dart';
@@ -90,7 +89,7 @@ import 'package:tulasihotels/features/admin/screens/member_permissions_screen.da
 import 'package:tulasihotels/features/admin/screens/permissions_overview_screen.dart';
 import 'package:tulasihotels/features/admin/models/store_member.dart';
 import 'package:tulasihotels/features/admin/providers/current_member_provider.dart';
-import 'package:tulasihotels/features/admin/services/member_permission_guard.dart';
+import 'package:tulasihotels/features/permissions/permission_center.dart';
 import 'package:tulasihotels/features/subscription/models/plan_config.dart';
 import 'package:tulasihotels/features/subscription/widgets/plan_gated_screen.dart';
 import 'package:tulasihotels/features/hotels/screens/hotel_selector_screen.dart';
@@ -138,6 +137,7 @@ class AppRoutes {
 
   // Staff management routes
   static const String staff = '/staff';
+  static const String myProfile = '/my-profile';
   static const String staffLogin = '/staff-login';
   static const String attendance = '/attendance';
   static const String myAttendance = '/my-attendance';
@@ -491,9 +491,20 @@ final routerProvider = Provider<GoRouter>((ref) {
       if (loggedInStaff != null) {
         final isStaffLoginRoute = currentPath == AppRoutes.staffLogin;
         final isMyAttendanceRoute = currentPath == AppRoutes.myAttendance;
-        if (!isStaffLoginRoute && !isMyAttendanceRoute) {
-          if (!StaffPermissions.canAccess(loggedInStaff, currentPath)) {
-            return StaffPermissions.homeRoute(loggedInStaff);
+        final isMyProfileRoute = currentPath == AppRoutes.myProfile;
+        if (!isStaffLoginRoute && !isMyAttendanceRoute && !isMyProfileRoute) {
+          final canView = PermissionCenter.canView(
+            route: currentPath,
+            isOwner: false,
+            staff: loggedInStaff,
+            member: null,
+          );
+          if (!canView) {
+            return PermissionCenter.homeRoute(
+              isOwner: false,
+              staff: loggedInStaff,
+              member: null,
+            );
           }
         }
       }
@@ -504,14 +515,25 @@ final routerProvider = Provider<GoRouter>((ref) {
         final memberAsync = ref.read(currentMemberProvider);
         final member = memberAsync.valueOrNull;
         final hotelId = ref.read(currentHotelIdProvider);
-        final isOwner =
-            hotelId != null && hotelId == authState.firebaseUser?.uid;
+        final currentHotel = ref.read(currentHotelProvider);
+        final isOwner = currentHotel?.isOwner == true ||
+            (hotelId != null && hotelId == authState.firebaseUser?.uid);
 
         if (!isOwner) {
           // Non-owner: enforce member permissions
           if (member != null) {
-            if (!MemberPermissionGuard.canAccess(member, currentPath)) {
-              return MemberPermissionGuard.homeRoute(member);
+            if (currentPath != AppRoutes.myProfile &&
+                !PermissionCenter.canView(
+                  route: currentPath,
+                  isOwner: false,
+                  staff: null,
+                  member: member,
+                )) {
+              return PermissionCenter.homeRoute(
+                isOwner: false,
+                staff: null,
+                member: member,
+              );
             }
           } else if (!memberAsync.isLoading) {
             // Member doc not found and not loading — block access
@@ -646,6 +668,11 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: AppRoutes.staff,
             pageBuilder: (context, state) =>
                 const NoTransitionPage(child: StaffScreen()),
+          ),
+          GoRoute(
+            path: AppRoutes.myProfile,
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: MyProfileScreen()),
           ),
           GoRoute(
             path: AppRoutes.attendance,

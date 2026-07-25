@@ -9,9 +9,8 @@ import 'package:tulasihotels/core/design/design_system.dart';
 import 'package:tulasihotels/core/utils/color_utils.dart';
 import 'package:tulasihotels/features/auth/providers/auth_provider.dart';
 import 'package:tulasihotels/features/staff/providers/staff_provider.dart';
-import 'package:tulasihotels/features/staff/services/staff_permissions.dart';
 import 'package:tulasihotels/features/admin/providers/current_member_provider.dart';
-import 'package:tulasihotels/features/admin/services/member_permission_guard.dart';
+import 'package:tulasihotels/features/permissions/permission_center.dart';
 import 'package:tulasihotels/features/staff/widgets/staff_clock_widget.dart';
 import 'package:tulasihotels/shared/widgets/logout_dialog.dart';
 import 'package:tulasihotels/shared/widgets/offline_banner.dart';
@@ -20,6 +19,8 @@ import 'package:tulasihotels/features/notifications/widgets/notification_bell.da
 import 'package:tulasihotels/shared/widgets/global_sync_indicator.dart';
 import 'package:tulasihotels/features/shell/web_shell.dart';
 import 'package:tulasihotels/features/hotels/providers/hotel_provider.dart';
+import 'package:tulasihotels/features/subscription/models/plan_config.dart';
+import 'package:tulasihotels/features/subscription/providers/subscription_provider.dart';
 import 'package:tulasihotels/l10n/app_localizations.dart';
 import 'package:tulasihotels/models/user_model.dart';
 import 'package:tulasihotels/router/app_router.dart';
@@ -59,6 +60,7 @@ class _AppShellState extends ConsumerState<AppShell> {
         location.startsWith('/salary')) {
       return 8;
     }
+    if (location.startsWith(AppRoutes.myProfile)) return 9;
     if (location.startsWith('/attendance') ||
         location.startsWith('/my-attendance')) {
       return 9;
@@ -101,7 +103,10 @@ class _AppShellState extends ConsumerState<AppShell> {
   List<int> _getVisibleIndices() {
     final staff = ref.watch(loggedInStaffProvider);
     if (staff != null) {
-      return StaffPermissions.visibleNavIndices(staff);
+      return PermissionCenter.visibleNavIndices(
+        isOwner: false,
+        staff: staff,
+      );
     }
     // No staff logged in → check member permissions.
     // Use AsyncValue.when so that:
@@ -109,30 +114,57 @@ class _AppShellState extends ConsumerState<AppShell> {
     //  - data     → filter by member's actual permissions
     //  - error    → full access only if user is the owner
     final memberAsync = ref.watch(currentMemberProvider);
+    final isOwner = _isCurrentUserOwner();
     return memberAsync.when(
       loading: () => [],
-      error: (_, _) => _isCurrentUserOwner()
-          ? MemberPermissionGuard.visibleNavIndices(null)
-          : [],
-      data: (member) {
-        // If member doc is null, check if user is the store owner
-        if (member == null) {
-          return _isCurrentUserOwner()
-              ? MemberPermissionGuard.visibleNavIndices(null)
-              : [];
-        }
-        return MemberPermissionGuard.visibleNavIndices(member);
-      },
+      error: (_, _) => PermissionCenter.visibleNavIndices(
+        isOwner: isOwner,
+      ),
+      data: (member) => PermissionCenter.visibleNavIndices(
+        isOwner: isOwner,
+        member: member,
+      ),
     );
   }
 
   /// Returns true if the currently authenticated user owns the selected hotel
   bool _isCurrentUserOwner() {
     final hotelId = ref.read(currentHotelIdProvider);
+    final currentHotel = ref.read(currentHotelProvider);
+    if (currentHotel?.isOwner == true) return true;
     if (hotelId == null) return false;
     // Check Firebase Auth UID directly (UserModel may not be loaded yet)
     final uid = ref.read(authNotifierProvider).firebaseUser?.uid;
     return hotelId == uid;
+  }
+
+  String _resolveRoleLabel(dynamic loggedInStaff) {
+    if (loggedInStaff != null) {
+      return loggedInStaff.role.displayName as String;
+    }
+    final member = ref.watch(currentMemberProvider).valueOrNull;
+    if (member != null) return member.roleLabel;
+
+    final hotel = ref.watch(currentHotelProvider);
+    if (_isCurrentUserOwner()) return 'Owner';
+    return hotel?.roleLabel ?? 'Member';
+  }
+
+  String _resolvePlanLabel() {
+    final hotelId = ref.watch(currentHotelIdProvider);
+    final ownerPlanLabel = ref.watch(planConfigProvider).name;
+    if (hotelId == null) return ownerPlanLabel;
+
+    final planAsync = ref.watch(hotelSubscriptionPlanProvider(hotelId));
+    final selectedPlanLabel = planAsync.when(
+      data: (planKey) => PlanConfig.fromKey(planKey).name,
+      loading: () => 'Free',
+      error: (_, _) => 'Free',
+    );
+    if (selectedPlanLabel == 'Free' && ownerPlanLabel != 'Free') {
+      return ownerPlanLabel;
+    }
+    return selectedPlanLabel;
   }
 
   @override
@@ -302,6 +334,8 @@ class _AppShellState extends ConsumerState<AppShell> {
   ) {
     final l10n = context.l10n;
     final theme = Theme.of(context);
+    final roleLabel = _resolveRoleLabel(loggedInStaff);
+    final planLabel = _resolvePlanLabel();
 
     final allNavItems =
         <int, ({IconData icon, IconData activeIcon, String label})>{
@@ -343,7 +377,7 @@ class _AppShellState extends ConsumerState<AppShell> {
           8: (
             icon: Icons.badge_outlined,
             activeIcon: Icons.badge,
-            label: loggedInStaff != null ? 'My Profile' : 'Staff',
+            label: 'Staff',
           ),
           9: (
             icon: Icons.access_time_outlined,
@@ -439,7 +473,7 @@ class _AppShellState extends ConsumerState<AppShell> {
                     isSelected: false,
                     onTap: () {
                       Navigator.pop(context);
-                      context.push('/notifications');
+                      context.go(AppRoutes.notifications);
                     },
                   ),
                   // Help & Support
@@ -449,7 +483,7 @@ class _AppShellState extends ConsumerState<AppShell> {
                     isSelected: false,
                     onTap: () {
                       Navigator.pop(context);
-                      context.push(AppRoutes.support);
+                      context.go(AppRoutes.support);
                     },
                   ),
                   // Visit Website
@@ -479,6 +513,88 @@ class _AppShellState extends ConsumerState<AppShell> {
                 ],
               ),
             ),
+
+            // Profile summary (role + plan) at drawer bottom
+            GestureDetector(
+              onTap: () {
+                Navigator.pop(context);
+                context.go('/settings/general');
+              },
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                margin: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surfaceContainerHighest.withValues(
+                    alpha: 0.35,
+                  ),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  children: [
+                    _buildProfileAvatar(user?.profileImagePath, 14),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            user?.ownerName ?? 'User',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: theme.colorScheme.onSurface,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          Text(
+                            '$roleLabel • $planLabel Plan',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
+                    ),
+                    Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const GlobalSyncIndicator(),
+                        const SizedBox(height: 4),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            InkWell(
+                              borderRadius: BorderRadius.circular(6),
+                              onTap: () {
+                                Navigator.pop(context);
+                                context.go(AppRoutes.subscription);
+                              },
+                              child: Padding(
+                                padding: const EdgeInsets.all(2),
+                                child: Icon(
+                                  Icons.workspace_premium_outlined,
+                                  size: 14,
+                                  color: theme.colorScheme.outline,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            Icon(
+                              Icons.settings_outlined,
+                              size: 16,
+                              color: theme.colorScheme.outline,
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ],
         ),
       ),
@@ -493,11 +609,12 @@ class _AppShellState extends ConsumerState<AppShell> {
     final currentPath = GoRouterState.of(context).matchedLocation;
 
     Widget? routeItem(IconData icon, String label, String route) {
-      if (!StaffPermissions.canViewRoute(staff, route)) return null;
-      // Non-owner with no member doc: hide everything
-      if (staff == null &&
-          !isOwner &&
-          !MemberPermissionGuard.canViewRoute(member, route)) {
+      if (!PermissionCenter.canSeeNavRoute(
+        route: route,
+        isOwner: isOwner,
+        staff: staff,
+        member: member,
+      )) {
         return null;
       }
       final isActive = currentPath.startsWith(route);
@@ -512,13 +629,7 @@ class _AppShellState extends ConsumerState<AppShell> {
       );
     }
 
-    final menuItems = [
-      routeItem(Icons.star, 'Daily Specials', AppRoutes.dailySpecials),
-      routeItem(Icons.lunch_dining, 'Combos', AppRoutes.combos),
-    ].whereType<Widget>().toList();
-
     final inventoryItems = [
-      routeItem(Icons.egg, 'Ingredients', AppRoutes.ingredients),
       routeItem(Icons.local_shipping, 'Vendors', AppRoutes.vendors),
       routeItem(Icons.delete_sweep, 'Wastage', AppRoutes.wastage),
     ].whereType<Widget>().toList();
@@ -534,12 +645,6 @@ class _AppShellState extends ConsumerState<AppShell> {
       routeItem(Icons.bar_chart, 'Advanced Reports', AppRoutes.advancedReports),
     ].whereType<Widget>().toList();
 
-    final complianceItems = [
-      routeItem(Icons.build, 'Equipment', AppRoutes.equipment),
-      routeItem(Icons.badge, 'Licenses', AppRoutes.licenses),
-      routeItem(Icons.report_problem, 'Complaints', AppRoutes.complaints),
-    ].whereType<Widget>().toList();
-
     final managementItems = [
       routeItem(Icons.group, 'Users', AppRoutes.members),
       routeItem(Icons.security, 'Permissions', AppRoutes.permissionsOverview),
@@ -550,9 +655,7 @@ class _AppShellState extends ConsumerState<AppShell> {
     if (inventoryItems.isNotEmpty ||
         hospitalityItems.isNotEmpty ||
         reportsItems.isNotEmpty ||
-        complianceItems.isNotEmpty ||
-        managementItems.isNotEmpty ||
-        menuItems.isNotEmpty) {
+        managementItems.isNotEmpty) {
       sections.add(const Divider(height: 16));
       sections.add(
         Padding(
@@ -569,9 +672,6 @@ class _AppShellState extends ConsumerState<AppShell> {
       );
     }
 
-    if (menuItems.isNotEmpty) {
-      sections.add(_DrawerSection(title: 'Menu', children: menuItems));
-    }
     if (inventoryItems.isNotEmpty) {
       sections.add(
         _DrawerSection(title: 'Inventory', children: inventoryItems),
@@ -584,11 +684,6 @@ class _AppShellState extends ConsumerState<AppShell> {
     }
     if (reportsItems.isNotEmpty) {
       sections.add(_DrawerSection(title: 'Reports', children: reportsItems));
-    }
-    if (complianceItems.isNotEmpty) {
-      sections.add(
-        _DrawerSection(title: 'Compliance', children: complianceItems),
-      );
     }
     if (managementItems.isNotEmpty) {
       sections.add(_DrawerSection(title: 'Admin', children: managementItems));
@@ -941,6 +1036,8 @@ class _AppShellState extends ConsumerState<AppShell> {
     final isExpanded = deviceType == DeviceType.desktop;
     final l10n = context.l10n;
     final loggedInStaff = ref.watch(loggedInStaffProvider);
+    final roleLabel = _resolveRoleLabel(loggedInStaff);
+    final planLabel = _resolvePlanLabel();
 
     // All side nav items (indexed 0-9)
     final allNavItems = <int, ({IconData icon, String label})>{
@@ -952,8 +1049,8 @@ class _AppShellState extends ConsumerState<AppShell> {
       5: (icon: Icons.table_restaurant, label: 'Tables'),
       7: (icon: Icons.kitchen, label: 'Kitchen'),
       8: (
-        icon: loggedInStaff != null ? Icons.person : Icons.badge,
-        label: loggedInStaff != null ? 'My Profile' : 'Staff',
+        icon: Icons.badge,
+        label: 'Staff',
       ),
       9: (icon: Icons.access_time_filled, label: 'My Attendance'),
     };
@@ -1018,6 +1115,76 @@ class _AppShellState extends ConsumerState<AppShell> {
                       onTap: () => _onItemTapped(context, idx, routes),
                     ),
               ],
+            ),
+          ),
+
+          // User footer summary for tablet/rail mode
+          GestureDetector(
+            onTap: () => context.go('/settings/general'),
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(isExpanded ? 12 : 8, 6, isExpanded ? 12 : 8, 8),
+              child: isExpanded
+                  ? Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context)
+                            .colorScheme
+                            .surfaceContainerHighest
+                            .withValues(alpha: 0.35),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Row(
+                        children: [
+                          _buildProfileAvatar(user?.profileImagePath, 12),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  user?.ownerName ?? 'User',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .onSurface,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                Text(
+                                  '$roleLabel • $planLabel Plan',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .onSurfaceVariant,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
+                            ),
+                          ),
+                          InkWell(
+                            borderRadius: BorderRadius.circular(6),
+                            onTap: () => context.go(AppRoutes.subscription),
+                            child: Padding(
+                              padding: const EdgeInsets.all(4),
+                              child: Icon(
+                                Icons.workspace_premium_outlined,
+                                size: 14,
+                                color: Theme.of(context).colorScheme.outline,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  : Tooltip(
+                      message: '$roleLabel • $planLabel Plan',
+                      child: _buildProfileAvatar(user?.profileImagePath, 12),
+                    ),
             ),
           ),
 

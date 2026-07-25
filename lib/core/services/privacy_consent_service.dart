@@ -121,6 +121,11 @@ class PrivacyConsentService {
           .doc('consent')
           .set(record.toMap());
 
+      await _firestore.collection('users').doc(uid).set({
+        'consentVersion': LegalDocVersions.privacyPolicy,
+        'consentedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+
       // Apply analytics preference
       await _applyAnalyticsPreference(analyticsConsent);
 
@@ -135,6 +140,24 @@ class PrivacyConsentService {
       return true;
     } catch (e) {
       debugPrint('⚠️ Failed to record consent: $e');
+      return false;
+    }
+  }
+
+  /// Legacy dialog-compatible consent write that also updates the root user doc
+  /// with the exact dialog version string used by the client gate.
+  static Future<bool> recordDialogConsentVersion({
+    required String uid,
+    required String consentVersion,
+  }) async {
+    try {
+      await _firestore.collection('users').doc(uid).set({
+        'consentVersion': consentVersion,
+        'consentedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+      return true;
+    } catch (e) {
+      debugPrint('⚠️ Failed to record dialog consent version: $e');
       return false;
     }
   }

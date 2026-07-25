@@ -6,6 +6,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tulasihotels/core/utils/id_generator.dart';
 import 'package:tulasihotels/features/compliance/providers/compliance_provider.dart';
 import 'package:tulasihotels/features/compliance/services/event_service.dart';
+import 'package:tulasihotels/features/permissions/permission_center.dart';
+import 'package:tulasihotels/features/permissions/providers/route_permission_provider.dart';
+import 'package:tulasihotels/features/permissions/widgets/permission_denied_view.dart';
+import 'package:tulasihotels/features/staff/models/permission_config.dart';
+import 'package:tulasihotels/router/app_router.dart';
 import 'package:tulasihotels/models/event_model.dart';
 
 class EventsScreen extends ConsumerStatefulWidget {
@@ -40,9 +45,25 @@ class _EventsScreenState extends ConsumerState<EventsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final eventPermissions = ref.watch(routePermissionProvider(AppRoutes.events));
     final eventsAsync = _showAll
         ? ref.watch(allEventsProvider)
         : ref.watch(upcomingEventsProvider);
+
+    if (!eventPermissions.isResolved) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (!eventPermissions.canView) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Events & Banquets')),
+        body: PermissionDeniedView(
+          message: PermissionCenter.deniedViewMessage(AppRoutes.events),
+        ),
+      );
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -57,7 +78,7 @@ class _EventsScreenState extends ConsumerState<EventsScreen> {
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: _showEventForm,
+        onPressed: eventPermissions.canCreate ? _showEventForm : null,
         icon: const Icon(Icons.add),
         label: const Text('New Event'),
       ),
@@ -149,6 +170,21 @@ class _EventsScreenState extends ConsumerState<EventsScreen> {
   }
 
   void _showEventForm() {
+    final permissions = ref.read(routePermissionProvider(AppRoutes.events));
+    if (!permissions.canCreate) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            PermissionCenter.deniedActionMessage(
+              AppRoutes.events,
+              PermissionAction.create,
+            ),
+          ),
+        ),
+      );
+      return;
+    }
+
     _nameCtrl.clear();
     _clientNameCtrl.clear();
     _phoneCtrl.clear();

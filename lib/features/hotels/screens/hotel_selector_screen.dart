@@ -9,11 +9,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:tulasihotels/features/admin/providers/current_member_provider.dart';
-import 'package:tulasihotels/features/admin/services/member_permission_guard.dart';
 import 'package:tulasihotels/features/auth/providers/auth_provider.dart';
 import 'package:tulasihotels/features/hotels/models/hotel_info.dart';
 import 'package:tulasihotels/features/hotels/providers/hotel_provider.dart';
 import 'package:tulasihotels/features/hotels/services/hotel_service.dart';
+import 'package:tulasihotels/features/permissions/permission_center.dart';
 import 'package:tulasihotels/core/services/active_store_manager.dart';
 import 'package:tulasihotels/core/services/offline_storage_service.dart';
 
@@ -431,7 +431,10 @@ class _HotelSelectorScreenState extends ConsumerState<HotelSelectorScreen> {
     // Read the member doc synchronously (may be null on first load — router
     // redirect will correct the route once the stream resolves).
     final member = ref.read(currentMemberProvider).valueOrNull;
-    final home = MemberPermissionGuard.homeRoute(member);
+    final home = PermissionCenter.homeRoute(
+      isOwner: hotel.isOwner,
+      member: member,
+    );
     context.go(home);
   }
 
@@ -439,30 +442,7 @@ class _HotelSelectorScreenState extends ConsumerState<HotelSelectorScreen> {
   /// current plan. Runs once per hotel open — fixes stale free-plan values
   /// that cause Cloud Functions to incorrectly delete newly created items.
   Future<void> _syncPlanLimits(String hotelId) async {
-    try {
-      final fs = FirebaseFirestore.instance;
-      final doc = await fs.collection('users').doc(hotelId).get();
-      if (!doc.exists) return;
-      final data = doc.data()!;
-      final sub = data['subscription'] as Map<String, dynamic>? ?? {};
-      final limits = data['limits'] as Map<String, dynamic>? ?? {};
-      final plan = (sub['plan'] as String?) ?? 'free';
-      final tablesDefault = plan == 'business' ? 999999 : plan == 'pro' ? 50 : plan == 'starter' ? 15 : 5;
-      final staffDefault  = plan == 'business' ? 999999 : plan == 'pro' ? 10 : plan == 'starter' ? 3  : 0;
-      final productsDefault = plan == 'business' ? 999999 : plan == 'pro' ? 999999 : plan == 'starter' ? 200 : 50;
-      final customersDefault = plan == 'business' ? 999999 : plan == 'pro' ? 999999 : plan == 'starter' ? 100 : 10;
-      final updates = <String, dynamic>{};
-      if ((limits['tablesLimit']  as int? ?? 0) < tablesDefault)   updates['limits.tablesLimit']   = tablesDefault;
-      if ((limits['staffLimit']   as int? ?? 0) < staffDefault)    updates['limits.staffLimit']    = staffDefault;
-      if ((limits['productsLimit'] as int? ?? 0) < productsDefault) updates['limits.productsLimit'] = productsDefault;
-      if ((limits['customersLimit'] as int? ?? 0) < customersDefault) updates['limits.customersLimit'] = customersDefault;
-      if (updates.isNotEmpty) {
-        await fs.collection('users').doc(hotelId).update(updates);
-        debugPrint('✅ Plan limits synced for $hotelId: $updates');
-      }
-    } catch (e) {
-      debugPrint('⚠️ _syncPlanLimits error: $e');
-    }
+    await HotelService.syncPlanLimits(hotelId);
   }
 
   /// Triggers background Firestore reads so collections are cached locally.

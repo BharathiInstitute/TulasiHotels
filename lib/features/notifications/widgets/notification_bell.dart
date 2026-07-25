@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:tulasihotels/features/notifications/providers/notification_provider.dart';
+import 'package:tulasihotels/router/app_router.dart';
 
 class NotificationBell extends ConsumerWidget {
   const NotificationBell({super.key});
@@ -26,7 +27,7 @@ class NotificationBell extends ConsumerWidget {
             tooltip: count > 0
                 ? '$count unread notifications'
                 : 'Notifications',
-            onPressed: () => context.push('/notifications'),
+            onPressed: () => context.go(AppRoutes.notifications),
           ),
           if (count > 0)
             Positioned(
@@ -54,11 +55,11 @@ class NotificationBell extends ConsumerWidget {
       ),
       loading: () => IconButton(
         icon: const Icon(Icons.notifications_outlined),
-        onPressed: () => context.push('/notifications'),
+        onPressed: () => context.go(AppRoutes.notifications),
       ),
       error: (_, _) => IconButton(
         icon: const Icon(Icons.notifications_outlined),
-        onPressed: () => context.push('/notifications'),
+        onPressed: () => context.go(AppRoutes.notifications),
       ),
     );
   }

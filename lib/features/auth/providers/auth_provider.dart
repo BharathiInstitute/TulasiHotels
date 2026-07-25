@@ -1773,6 +1773,7 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
     String? timezone,
     String? receiptFooter,
     double? taxRate,
+    bool? gstEnabled,
   }) async {
     final user = _auth.currentUser;
     if (user == null) return false;
@@ -1797,6 +1798,9 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
       }
       if (taxRate != null) {
         updates['settings.taxRate'] = taxRate;
+      }
+      if (gstEnabled != null) {
+        updates['settings.gstEnabled'] = gstEnabled;
       }
 
       if (updates.isEmpty) return true;
@@ -1850,8 +1854,10 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
             upiId: upiId ?? state.user!.upiId,
             currency: currency ?? state.user!.currency,
             timezone: timezone ?? state.user!.timezone,
-            settings: (receiptFooter != null || taxRate != null)
+            settings: (receiptFooter != null || taxRate != null ||
+                    gstEnabled != null)
                 ? state.user!.settings.copyWith(
+                    gstEnabled: gstEnabled,
                     receiptFooter: receiptFooter,
                     taxRate: taxRate,
                   )

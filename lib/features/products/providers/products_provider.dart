@@ -16,8 +16,11 @@ import 'package:tulasihotels/core/services/sync_status_service.dart';
 import 'package:tulasihotels/core/utils/windows_firestore_helper.dart';
 import 'package:tulasihotels/features/auth/providers/auth_provider.dart';
 import 'package:tulasihotels/features/hotels/providers/hotel_provider.dart';
+import 'package:tulasihotels/features/permissions/services/module_mutation_guard.dart';
+import 'package:tulasihotels/features/staff/models/permission_config.dart';
 import 'package:tulasihotels/features/subscription/services/plan_enforcement_service.dart';
 import 'package:tulasihotels/models/product_model.dart';
+import 'package:tulasihotels/router/app_router.dart';
 
 /// Firestore instance (Firebase singletons — safe as top-level)
 final _firestore = FirebaseFirestore.instance;
@@ -190,6 +193,10 @@ class ProductsService {
 
   /// Add new product
   Future<String> addProduct(ProductModel product) async {
+    await ModuleMutationGuard.requireAction(
+      AppRoutes.products,
+      PermissionAction.create,
+    );
     if (_isDemoMode) {
       return DemoDataService.addProduct(product);
     }
@@ -220,6 +227,10 @@ class ProductsService {
     List<ProductModel> products, {
     void Function(int added, int total)? onProgress,
   }) async {
+    await ModuleMutationGuard.requireAction(
+      AppRoutes.products,
+      PermissionAction.create,
+    );
     if (_isDemoMode) {
       for (final p in products) {
         DemoDataService.addProduct(p);
@@ -252,6 +263,10 @@ class ProductsService {
 
   /// Update product
   Future<void> updateProduct(ProductModel product) async {
+    await ModuleMutationGuard.requireAction(
+      AppRoutes.products,
+      PermissionAction.update,
+    );
     if (_isDemoMode) {
       DemoDataService.updateProduct(product);
       return;
@@ -266,6 +281,10 @@ class ProductsService {
   /// One-time repair utility: clears malformed image URLs on product docs.
   /// Returns the number of repaired products.
   Future<int> cleanupInvalidImageUrls() async {
+    await ModuleMutationGuard.requireAction(
+      AppRoutes.products,
+      PermissionAction.update,
+    );
     if (_isDemoMode) return 0;
     final collection = _collection;
     if (collection == null) return 0;
@@ -300,6 +319,10 @@ class ProductsService {
 
   /// Delete product
   Future<void> deleteProduct(String productId) async {
+    await ModuleMutationGuard.requireAction(
+      AppRoutes.products,
+      PermissionAction.delete,
+    );
     if (_isDemoMode) {
       DemoDataService.deleteProduct(productId);
       return;
@@ -310,6 +333,10 @@ class ProductsService {
 
   /// Update stock
   Future<void> updateStock(String productId, int newStock) async {
+    await ModuleMutationGuard.requireAction(
+      AppRoutes.products,
+      PermissionAction.update,
+    );
     if (_isDemoMode) {
       DemoDataService.updateStock(productId, newStock);
       return;
@@ -325,6 +352,10 @@ class ProductsService {
 
   /// Decrement stock (for billing)
   Future<void> decrementStock(String productId, int quantity) async {
+    await ModuleMutationGuard.requireAction(
+      AppRoutes.products,
+      PermissionAction.update,
+    );
     if (_isDemoMode) {
       DemoDataService.decrementStock(productId, quantity);
       return;

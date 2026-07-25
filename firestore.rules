@@ -51,6 +51,46 @@ service cloud.firestore {
       );
     }
 
+    // Helper: owner/store creator bypasses explicit module permissions.
+    function isOwnerOrStoreCreator(userId) {
+      return isOwner(userId) || isStoreCreator(userId);
+    }
+
+    // Helper: explicit module action granted on the member document.
+    // Used for Firebase-authenticated store members. PIN staff still share the
+    // owner session and are enforced at the app/service layer.
+    function hasModuleAction(userId, route, action) {
+      let member = get(/databases/$(database)/documents/users/$(userId)/members/$(request.auth.uid)).data;
+      return isMember(userId)
+        && 'permissions' in member
+        && member.permissions is map
+        && member.permissions.keys().hasAny([route])
+        && member.permissions[route] is list
+        && member.permissions[route].hasAny([action]);
+    }
+
+    function canModuleAction(userId, route, action) {
+      return isOwnerOrStoreCreator(userId) || hasModuleAction(userId, route, action);
+    }
+
+    function canOrderRead(userId) {
+      return canModuleAction(userId, '/orders', 'view')
+        || canModuleAction(userId, '/kitchen', 'view');
+    }
+
+    function canOrderUpdate(userId) {
+      return canModuleAction(userId, '/orders', 'update');
+    }
+
+    function canKitchenUpdate(userId) {
+      return canModuleAction(userId, '/kitchen', 'update')
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'items',
+          'status',
+          'updatedAt',
+        ]);
+    }
+
     // ── Subscription Limit Helpers ──
     // Read the user's limits from their root document
     function getUserLimits(userId) {
@@ -117,10 +157,62 @@ service cloud.firestore {
     function isPositive(value) {
       return value is number && value >= 0;
     }
+
+    // Helper function to validate rating scale
+    function isRating(value) {
+      return value is number && value >= 1 && value <= 5;
+    }
     
     // Helper: limit document size (prevent abuse)
     function isReasonableSize() {
       return request.resource.size() < 500000; // 500KB max per document
+    }
+
+    function isPublicReservationCreate() {
+      return isReasonableSize()
+        && request.resource.data.keys().hasOnly([
+          'customerName',
+          'customerPhone',
+          'dateTime',
+          'guestCount',
+          'notes',
+          'status',
+          'isCustomerBooking',
+          'createdAt',
+        ])
+        && hasString(request.resource.data.customerName)
+        && hasString(request.resource.data.customerPhone)
+        && request.resource.data.dateTime is timestamp
+        && request.resource.data.guestCount >= 1
+        && request.resource.data.guestCount <= 20
+        && (request.resource.data.notes == null || request.resource.data.notes is string)
+        && request.resource.data.status == 'pending'
+        && request.resource.data.isCustomerBooking == true
+        && request.resource.data.createdAt is timestamp;
+    }
+
+    function isPublicFeedbackCreate() {
+      return isReasonableSize()
+        && request.resource.data.keys().hasOnly([
+          'orderId',
+          'billId',
+          'customerName',
+          'customerPhone',
+          'foodRating',
+          'serviceRating',
+          'ambianceRating',
+          'comments',
+          'createdAt',
+        ])
+        && (request.resource.data.orderId == null || request.resource.data.orderId is string)
+        && (request.resource.data.billId == null || request.resource.data.billId is string)
+        && (request.resource.data.customerName == null || request.resource.data.customerName is string)
+        && (request.resource.data.customerPhone == null || request.resource.data.customerPhone is string)
+        && isRating(request.resource.data.foodRating)
+        && isRating(request.resource.data.serviceRating)
+        && isRating(request.resource.data.ambianceRating)
+        && (request.resource.data.comments == null || request.resource.data.comments is string)
+        && request.resource.data.createdAt is timestamp;
     }
     
     // ===================
@@ -176,7 +268,7 @@ service cloud.firestore {
       match /products/{productId} {
         allow read: if true; // Public: customer menu browsing
         // CREATE: enforce subscription product limit
-        allow create: if isAuthenticated() && isMemberOrOwner(userId)
+        allow create: if isAuthenticated() && canModuleAction(userId, '/products', 'create')
           && hasString(request.resource.data.name)
           && request.resource.data.name.size() <= 200
           && isPositive(request.resource.data.price)
@@ -185,13 +277,13 @@ service cloud.firestore {
           && canAddProduct(userId)
           && isNotRateLimited(userId);
         // UPDATE: no limit check needed (not creating new product)
-        allow update: if isAuthenticated() && isMemberOrOwner(userId)
+        allow update: if isAuthenticated() && canModuleAction(userId, '/products', 'update')
           && hasString(request.resource.data.name)
           && request.resource.data.name.size() <= 200
           && isPositive(request.resource.data.price)
           && request.resource.data.price <= 9999999
           && isReasonableSize();
-        allow delete: if isAuthenticated() && isMemberOrOwner(userId);
+        allow delete: if isAuthenticated() && canModuleAction(userId, '/products', 'delete');
       }
       
       // ===================
@@ -199,9 +291,13 @@ service cloud.firestore {
       // Server-side limit: billsThisMonth < billsLimit (from user doc)
       // ===================
       match /bills/{billId} {
-        allow read: if isAuthenticated() && (isMemberOrOwner(userId) || isAdmin());
+        allow read: if isAuthenticated() && (
+          canModuleAction(userId, '/bills', 'view')
+          || canModuleAction(userId, '/billing', 'view')
+          || isAdmin()
+        );
         // Allow create with field validation AND subscription limit check
-        allow create: if isAuthenticated() && isMemberOrOwner(userId)
+        allow create: if isAuthenticated() && canModuleAction(userId, '/billing', 'create')
           && request.resource.data.total is number
           && request.resource.data.total >= 0
           && request.resource.data.total <= 99999999
@@ -214,39 +310,39 @@ service cloud.firestore {
         // Bills are immutable - no update
         allow update: if false;
         // Owner can delete for data retention/cleanup
-        allow delete: if isAuthenticated() && isMemberOrOwner(userId);
+        allow delete: if isAuthenticated() && canModuleAction(userId, '/billing', 'delete');
       }
       
       // ===================
       // CUSTOMERS (sub-collection)
       // ===================
       match /customers/{customerId} {
-        allow read: if isAuthenticated() && (isMemberOrOwner(userId) || isAdmin());
-        allow create: if isAuthenticated() && isMemberOrOwner(userId)
+        allow read: if isAuthenticated() && (canModuleAction(userId, '/khata', 'view') || isAdmin());
+        allow create: if isAuthenticated() && canModuleAction(userId, '/khata', 'create')
           && hasString(request.resource.data.name)
           && request.resource.data.name.size() <= 200
           && isReasonableSize()
           && canAddCustomer(userId)
           && isNotRateLimited(userId);
-        allow update: if isAuthenticated() && isMemberOrOwner(userId)
+        allow update: if isAuthenticated() && canModuleAction(userId, '/khata', 'update')
           && hasString(request.resource.data.name)
           && request.resource.data.name.size() <= 200
           && isReasonableSize();
-        allow delete: if isAuthenticated() && isMemberOrOwner(userId);
+        allow delete: if isAuthenticated() && canModuleAction(userId, '/khata', 'delete');
         
         // ===================
         // TRANSACTIONS (nested sub-collection under customers - legacy)
         // ===================
         match /transactions/{transactionId} {
-          allow read: if isAuthenticated() && (isMemberOrOwner(userId) || isAdmin());
-          allow create: if isAuthenticated() && isMemberOrOwner(userId)
+          allow read: if isAuthenticated() && (canModuleAction(userId, '/khata', 'view') || isAdmin());
+          allow create: if isAuthenticated() && canModuleAction(userId, '/khata', 'create')
             && request.resource.data.amount is number
             && request.resource.data.amount > 0
             && request.resource.data.amount <= 99999999
             && isReasonableSize()
             && isNotRateLimited(userId);
           allow update: if false;
-          allow delete: if isAuthenticated() && isMemberOrOwner(userId);
+          allow delete: if isAuthenticated() && canModuleAction(userId, '/khata', 'delete');
         }
       }
       
@@ -327,14 +423,14 @@ service cloud.firestore {
       // Limit enforcement handled by onTableCreated Cloud Function (uses real count).
       // ===================
       match /tables/{tableId} {
-        allow read: if isAuthenticated() && (isMemberOrOwner(userId) || isAdmin());
-        allow create: if isAuthenticated() && isMemberOrOwner(userId)
+        allow read: if isAuthenticated() && (canModuleAction(userId, '/tables', 'view') || isAdmin());
+        allow create: if isAuthenticated() && canModuleAction(userId, '/tables', 'create')
           && request.resource.data.number is int
           && request.resource.data.number >= 0
           && isReasonableSize();
-        allow update: if isAuthenticated() && isMemberOrOwner(userId)
+        allow update: if isAuthenticated() && canModuleAction(userId, '/tables', 'update')
           && isReasonableSize();
-        allow delete: if isAuthenticated() && isMemberOrOwner(userId);
+        allow delete: if isAuthenticated() && canModuleAction(userId, '/tables', 'delete');
       }
 
       // ===================
@@ -342,9 +438,9 @@ service cloud.firestore {
       // ===================
       match /orders/{orderId} {
         allow get: if true;
-        allow list: if isAuthenticated() && (isMemberOrOwner(userId) || isAdmin())
+        allow list: if isAuthenticated() && (canOrderRead(userId) || isAdmin())
           || (request.query.limit <= 10);
-        allow create: if (isAuthenticated() && isMemberOrOwner(userId)
+        allow create: if (isAuthenticated() && canModuleAction(userId, '/orders', 'create')
           && request.resource.data.items is list
           && request.resource.data.items.size() > 0
           && request.resource.data.items.size() <= 200
@@ -355,25 +451,25 @@ service cloud.firestore {
           && request.resource.data.items.size() > 0
           && request.resource.data.items.size() <= 50
           && isReasonableSize());
-        allow update: if isAuthenticated() && isMemberOrOwner(userId)
+        allow update: if isAuthenticated() && (canOrderUpdate(userId) || canKitchenUpdate(userId))
           && isReasonableSize();
-        allow delete: if isAuthenticated() && isMemberOrOwner(userId);
+        allow delete: if isAuthenticated() && canModuleAction(userId, '/orders', 'delete');
       }
 
       // ===================
       // STAFF (sub-collection for waiter/chef management)
       // ===================
       match /staff/{staffId} {
-        allow read: if isAuthenticated() && (isMemberOrOwner(userId) || isAdmin());
-        allow create: if isAuthenticated() && isMemberOrOwner(userId)
+        allow read: if isAuthenticated() && (canModuleAction(userId, '/staff', 'view') || isAdmin());
+        allow create: if isAuthenticated() && canModuleAction(userId, '/staff', 'create')
           && hasString(request.resource.data.name)
           && request.resource.data.name.size() <= 200
           && isReasonableSize()
           && isNotRateLimited(userId);
-        allow update: if isAuthenticated() && isMemberOrOwner(userId)
+        allow update: if isAuthenticated() && canModuleAction(userId, '/staff', 'update')
           && hasString(request.resource.data.name)
           && isReasonableSize();
-        allow delete: if isAuthenticated() && isMemberOrOwner(userId);
+        allow delete: if isAuthenticated() && canModuleAction(userId, '/staff', 'delete');
       }
 
       // ===================
@@ -389,10 +485,11 @@ service cloud.firestore {
       // RESERVATIONS (sub-collection)
       // ===================
       match /reservations/{reservationId} {
-        allow read: if isAuthenticated() && (isMemberOrOwner(userId) || isAdmin());
-        allow create: if isReasonableSize();
-        allow update: if isAuthenticated() && isMemberOrOwner(userId) && isReasonableSize();
-        allow delete: if isAuthenticated() && isMemberOrOwner(userId);
+        allow read: if isAuthenticated() && (canModuleAction(userId, '/reservations', 'view') || isAdmin());
+        allow create: if isAuthenticated() && canModuleAction(userId, '/reservations', 'create') && isReasonableSize();
+        allow create: if isPublicReservationCreate();
+        allow update: if isAuthenticated() && canModuleAction(userId, '/reservations', 'update') && isReasonableSize();
+        allow delete: if isAuthenticated() && canModuleAction(userId, '/reservations', 'delete');
       }
 
       // ===================
@@ -407,65 +504,71 @@ service cloud.firestore {
       // COUPONS (sub-collection)
       // ===================
       match /coupons/{couponId} {
-        allow read: if isAuthenticated() && (isMemberOrOwner(userId) || isAdmin());
-        allow create, update: if isAuthenticated() && isMemberOrOwner(userId) && isReasonableSize();
-        allow delete: if isAuthenticated() && isMemberOrOwner(userId);
+        allow read: if isAuthenticated() && (canModuleAction(userId, '/coupons', 'view') || isAdmin());
+        allow create: if isAuthenticated() && canModuleAction(userId, '/coupons', 'create') && isReasonableSize();
+        allow update: if isAuthenticated() && canModuleAction(userId, '/coupons', 'update') && isReasonableSize();
+        allow delete: if isAuthenticated() && canModuleAction(userId, '/coupons', 'delete');
       }
 
       // ===================
       // SHIFTS (sub-collection for staff scheduling)
       // ===================
       match /shifts/{shiftId} {
-        allow read: if isAuthenticated() && (isMemberOrOwner(userId) || isAdmin());
-        allow create, update: if isAuthenticated() && isMemberOrOwner(userId) && isReasonableSize();
-        allow delete: if isAuthenticated() && isMemberOrOwner(userId);
+        allow read: if isAuthenticated() && (canModuleAction(userId, '/shifts', 'view') || isAdmin());
+        allow create: if isAuthenticated() && canModuleAction(userId, '/shifts', 'create') && isReasonableSize();
+        allow update: if isAuthenticated() && canModuleAction(userId, '/shifts', 'update') && isReasonableSize();
+        allow delete: if isAuthenticated() && canModuleAction(userId, '/shifts', 'delete');
       }
 
       // ===================
       // TASKS (sub-collection for staff tasks)
       // ===================
       match /tasks/{taskId} {
-        allow read: if isAuthenticated() && (isMemberOrOwner(userId) || isAdmin());
-        allow create, update: if isAuthenticated() && isMemberOrOwner(userId) && isReasonableSize();
-        allow delete: if isAuthenticated() && isMemberOrOwner(userId);
+        allow read: if isAuthenticated() && (canModuleAction(userId, '/tasks', 'view') || isAdmin());
+        allow create: if isAuthenticated() && canModuleAction(userId, '/tasks', 'create') && isReasonableSize();
+        allow update: if isAuthenticated() && canModuleAction(userId, '/tasks', 'update') && isReasonableSize();
+        allow delete: if isAuthenticated() && canModuleAction(userId, '/tasks', 'delete');
       }
 
       // ===================
       // MESSAGES (sub-collection for staff communication)
       // ===================
       match /messages/{messageId} {
-        allow read: if isAuthenticated() && (isMemberOrOwner(userId) || isAdmin());
-        allow create: if isAuthenticated() && isMemberOrOwner(userId) && isReasonableSize();
-        allow update: if isAuthenticated() && isMemberOrOwner(userId) && isReasonableSize();
-        allow delete: if isAuthenticated() && isMemberOrOwner(userId);
+        allow read: if isAuthenticated() && (canModuleAction(userId, '/messages', 'view') || isAdmin());
+        allow create: if isAuthenticated() && canModuleAction(userId, '/messages', 'create') && isReasonableSize();
+        allow update: if isAuthenticated() && canModuleAction(userId, '/messages', 'update') && isReasonableSize();
+        allow delete: if isAuthenticated() && canModuleAction(userId, '/messages', 'delete');
       }
 
       // ===================
       // CASH REGISTERS (sub-collection)
       // ===================
       match /cashRegisters/{registerId} {
-        allow read: if isAuthenticated() && (isMemberOrOwner(userId) || isAdmin());
-        allow create, update: if isAuthenticated() && isMemberOrOwner(userId) && isReasonableSize();
-        allow delete: if isAuthenticated() && isMemberOrOwner(userId);
+        allow read: if isAuthenticated() && (canModuleAction(userId, '/cash-register', 'view') || isAdmin());
+        allow create: if isAuthenticated() && canModuleAction(userId, '/cash-register', 'create') && isReasonableSize();
+        allow update: if isAuthenticated() && canModuleAction(userId, '/cash-register', 'update') && isReasonableSize();
+        allow delete: if isAuthenticated() && canModuleAction(userId, '/cash-register', 'delete');
       }
 
       // ===================
       // FEEDBACK (sub-collection)
       // ===================
       match /feedback/{feedbackId} {
-        allow read: if isAuthenticated() && (isMemberOrOwner(userId) || isAdmin());
-        allow create: if isReasonableSize();
-        allow update: if isAuthenticated() && isMemberOrOwner(userId) && isReasonableSize();
-        allow delete: if isAuthenticated() && isMemberOrOwner(userId);
+        allow read: if isAuthenticated() && (canModuleAction(userId, '/feedback', 'view') || isAdmin());
+        allow create: if isAuthenticated() && canModuleAction(userId, '/feedback', 'create') && isReasonableSize();
+        allow create: if isPublicFeedbackCreate();
+        allow update: if isAuthenticated() && canModuleAction(userId, '/feedback', 'update') && isReasonableSize();
+        allow delete: if isAuthenticated() && canModuleAction(userId, '/feedback', 'delete');
       }
 
       // ===================
       // INGREDIENTS (sub-collection for inventory)
       // ===================
       match /ingredients/{ingredientId} {
-        allow read: if isAuthenticated() && (isMemberOrOwner(userId) || isAdmin());
-        allow create, update: if isAuthenticated() && isMemberOrOwner(userId) && isReasonableSize();
-        allow delete: if isAuthenticated() && isMemberOrOwner(userId);
+        allow read: if isAuthenticated() && (canModuleAction(userId, '/ingredients', 'view') || isAdmin());
+        allow create: if isAuthenticated() && canModuleAction(userId, '/ingredients', 'create') && isReasonableSize();
+        allow update: if isAuthenticated() && canModuleAction(userId, '/ingredients', 'update') && isReasonableSize();
+        allow delete: if isAuthenticated() && canModuleAction(userId, '/ingredients', 'delete');
       }
 
       // ===================
@@ -490,55 +593,60 @@ service cloud.firestore {
       // VENDORS (sub-collection)
       // ===================
       match /vendors/{vendorId} {
-        allow read: if isAuthenticated() && (isMemberOrOwner(userId) || isAdmin());
-        allow create, update: if isAuthenticated() && isMemberOrOwner(userId) && isReasonableSize();
-        allow delete: if isAuthenticated() && isMemberOrOwner(userId);
+        allow read: if isAuthenticated() && (canModuleAction(userId, '/vendors', 'view') || isAdmin());
+        allow create: if isAuthenticated() && canModuleAction(userId, '/vendors', 'create') && isReasonableSize();
+        allow update: if isAuthenticated() && canModuleAction(userId, '/vendors', 'update') && isReasonableSize();
+        allow delete: if isAuthenticated() && canModuleAction(userId, '/vendors', 'delete');
       }
 
       // ===================
       // WASTAGE (sub-collection)
       // ===================
       match /wastage/{wastageId} {
-        allow read: if isAuthenticated() && (isMemberOrOwner(userId) || isAdmin());
-        allow create: if isAuthenticated() && isMemberOrOwner(userId) && isReasonableSize();
+        allow read: if isAuthenticated() && (canModuleAction(userId, '/wastage', 'view') || isAdmin());
+        allow create: if isAuthenticated() && canModuleAction(userId, '/wastage', 'create') && isReasonableSize();
         allow update: if false; // Wastage logs are immutable
-        allow delete: if isAuthenticated() && isMemberOrOwner(userId);
+        allow delete: if isAuthenticated() && canModuleAction(userId, '/wastage', 'delete');
       }
 
       // ===================
       // LICENSES (sub-collection for compliance)
       // ===================
       match /licenses/{licenseId} {
-        allow read: if isAuthenticated() && (isMemberOrOwner(userId) || isAdmin());
-        allow create, update: if isAuthenticated() && isMemberOrOwner(userId) && isReasonableSize();
-        allow delete: if isAuthenticated() && isMemberOrOwner(userId);
+        allow read: if isAuthenticated() && (canModuleAction(userId, '/licenses', 'view') || isAdmin());
+        allow create: if isAuthenticated() && canModuleAction(userId, '/licenses', 'create') && isReasonableSize();
+        allow update: if isAuthenticated() && canModuleAction(userId, '/licenses', 'update') && isReasonableSize();
+        allow delete: if isAuthenticated() && canModuleAction(userId, '/licenses', 'delete');
       }
 
       // ===================
       // EQUIPMENT (sub-collection for maintenance tracking)
       // ===================
       match /equipment/{equipmentId} {
-        allow read: if isAuthenticated() && (isMemberOrOwner(userId) || isAdmin());
-        allow create, update: if isAuthenticated() && isMemberOrOwner(userId) && isReasonableSize();
-        allow delete: if isAuthenticated() && isMemberOrOwner(userId);
+        allow read: if isAuthenticated() && (canModuleAction(userId, '/equipment', 'view') || isAdmin());
+        allow create: if isAuthenticated() && canModuleAction(userId, '/equipment', 'create') && isReasonableSize();
+        allow update: if isAuthenticated() && canModuleAction(userId, '/equipment', 'update') && isReasonableSize();
+        allow delete: if isAuthenticated() && canModuleAction(userId, '/equipment', 'delete');
       }
 
       // ===================
       // COMPLAINTS (sub-collection)
       // ===================
       match /complaints/{complaintId} {
-        allow read: if isAuthenticated() && (isMemberOrOwner(userId) || isAdmin());
-        allow create, update: if isAuthenticated() && isMemberOrOwner(userId) && isReasonableSize();
-        allow delete: if isAuthenticated() && isMemberOrOwner(userId);
+        allow read: if isAuthenticated() && (canModuleAction(userId, '/complaints', 'view') || isAdmin());
+        allow create: if isAuthenticated() && canModuleAction(userId, '/complaints', 'create') && isReasonableSize();
+        allow update: if isAuthenticated() && canModuleAction(userId, '/complaints', 'update') && isReasonableSize();
+        allow delete: if isAuthenticated() && canModuleAction(userId, '/complaints', 'delete');
       }
 
       // ===================
       // EVENTS (sub-collection for banquet/event management)
       // ===================
       match /events/{eventId} {
-        allow read: if isAuthenticated() && (isMemberOrOwner(userId) || isAdmin());
-        allow create, update: if isAuthenticated() && isMemberOrOwner(userId) && isReasonableSize();
-        allow delete: if isAuthenticated() && isMemberOrOwner(userId);
+        allow read: if isAuthenticated() && (canModuleAction(userId, '/events', 'view') || isAdmin());
+        allow create: if isAuthenticated() && canModuleAction(userId, '/events', 'create') && isReasonableSize();
+        allow update: if isAuthenticated() && canModuleAction(userId, '/events', 'update') && isReasonableSize();
+        allow delete: if isAuthenticated() && canModuleAction(userId, '/events', 'delete');
       }
 
       // ===================

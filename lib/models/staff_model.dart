@@ -36,7 +36,7 @@ class StaffModel {
 
   /// Per-user screen permissions: route → list of CRUD actions
   /// e.g. {'/billing': ['view','create','update','delete'], '/orders': ['view']}
-  /// null means use default role-based template
+  /// null means admin has not explicitly assigned module access yet
   final Map<String, List<String>>? permissions;
 
   const StaffModel({

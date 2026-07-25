@@ -510,10 +510,10 @@ class PhoneAuthNotifier extends StateNotifier<PhoneAuthState> {
       case 'network-request-failed':
         message =
             'Network error while sending OTP. Check internet/VPN and try again.';
+        break;
       case 'unauthorized-domain':
         message =
             'This domain is not authorized for phone sign-in. Add it in Firebase Auth settings.';
-        break;
         break;
       case 'missing-phone-number':
         message = 'Phone number is missing. Please enter your number.';

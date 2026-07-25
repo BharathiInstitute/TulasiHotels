@@ -4,8 +4,13 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tulasihotels/core/utils/id_generator.dart';
+import 'package:tulasihotels/features/permissions/permission_center.dart';
+import 'package:tulasihotels/features/permissions/providers/route_permission_provider.dart';
+import 'package:tulasihotels/features/permissions/widgets/permission_denied_view.dart';
+import 'package:tulasihotels/features/staff/models/permission_config.dart';
 import 'package:tulasihotels/features/reservations/providers/reservation_provider.dart';
 import 'package:tulasihotels/features/reservations/services/reservation_service.dart';
+import 'package:tulasihotels/router/app_router.dart';
 import 'package:tulasihotels/models/reservation_model.dart';
 
 class ReservationsScreen extends ConsumerStatefulWidget {
@@ -33,9 +38,27 @@ class _ReservationsScreenState extends ConsumerState<ReservationsScreen>
 
   @override
   Widget build(BuildContext context) {
+    final reservationPermissions = ref.watch(
+      routePermissionProvider(AppRoutes.reservations),
+    );
     final todayAsync = ref.watch(todayReservationsProvider);
     final upcomingAsync = ref.watch(upcomingReservationsProvider);
     final theme = Theme.of(context);
+
+    if (!reservationPermissions.isResolved) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (!reservationPermissions.canView) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Reservations')),
+        body: PermissionDeniedView(
+          message: PermissionCenter.deniedViewMessage(AppRoutes.reservations),
+        ),
+      );
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -49,7 +72,9 @@ class _ReservationsScreenState extends ConsumerState<ReservationsScreen>
         ),
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showReservationForm(context),
+        onPressed: reservationPermissions.canCreate
+            ? () => _showReservationForm(context)
+            : null,
         icon: const Icon(Icons.add),
         label: const Text('New Reservation'),
       ),
@@ -100,20 +125,39 @@ class _ReservationsScreenState extends ConsumerState<ReservationsScreen>
   }
 
   void _handleAction(String action, String reservationId) {
+    final permissions = ref.read(routePermissionProvider(AppRoutes.reservations));
     switch (action) {
       case 'confirm':
-        ReservationService.confirmReservation(reservationId);
+        if (!permissions.canUpdate) return;
+        ReservationService.confirmReservation(reservationId, permissions);
         break;
       case 'cancel':
-        ReservationService.deleteReservation(reservationId);
+        if (!permissions.canDelete) return;
+        ReservationService.deleteReservation(reservationId, permissions);
         break;
       case 'noshow':
-        ReservationService.markNoShow(reservationId);
+        if (!permissions.canUpdate) return;
+        ReservationService.markNoShow(reservationId, permissions);
         break;
     }
   }
 
   void _showReservationForm(BuildContext context) {
+    final permissions = ref.read(routePermissionProvider(AppRoutes.reservations));
+    if (!permissions.canCreate) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            PermissionCenter.deniedActionMessage(
+              AppRoutes.reservations,
+              PermissionAction.create,
+            ),
+          ),
+        ),
+      );
+      return;
+    }
+
     final nameCtrl = TextEditingController();
     final phoneCtrl = TextEditingController();
     final partySizeCtrl = TextEditingController(text: '2');
@@ -229,7 +273,7 @@ class _ReservationsScreenState extends ConsumerState<ReservationsScreen>
                         dateTime: dateTime,
                         createdAt: DateTime.now(),
                       );
-                      ReservationService.createReservation(reservation);
+                      ReservationService.createReservation(reservation, permissions);
                       Navigator.of(context).pop();
                     },
                     child: const Text('Create Reservation'),

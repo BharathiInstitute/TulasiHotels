@@ -3,14 +3,22 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tulasihotels/features/orders/providers/order_provider.dart';
 import 'package:tulasihotels/features/orders/screens/orders_screen.dart';
+import 'package:tulasihotels/features/permissions/providers/route_permission_provider.dart';
 import 'package:tulasihotels/models/order_model.dart';
 
 import '../../helpers/pump_app.dart';
 
 void main() {
   group('OrdersScreen', () {
+    List<Override> baseOverrides() => [
+      routePermissionProvider.overrideWith(
+        (ref, route) => const RoutePermissionState.fullAccess(),
+      ),
+    ];
+
     testWidgets('shows AppBar title', (tester) async {
       await pumpWidget(tester, const OrdersScreen(), overrides: [
+        ...baseOverrides(),
         filteredActiveOrdersProvider
             .overrideWithValue(const AsyncValue.data(<OrderModel>[])),
       ]);
@@ -21,6 +29,7 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
+            ...baseOverrides(),
             filteredActiveOrdersProvider
                 .overrideWithValue(const AsyncValue<List<OrderModel>>.loading()),
           ],
@@ -35,6 +44,7 @@ void main() {
 
     testWidgets('renders when data loaded', (tester) async {
       await pumpWidget(tester, const OrdersScreen(), overrides: [
+        ...baseOverrides(),
         filteredActiveOrdersProvider
             .overrideWithValue(const AsyncValue.data(<OrderModel>[])),
       ]);

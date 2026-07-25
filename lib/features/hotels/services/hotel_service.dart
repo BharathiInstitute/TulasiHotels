@@ -222,6 +222,48 @@ class HotelService {
     });
   }
 
+  /// Ensure plan-driven limits on a store are not stale after opening it.
+  static Future<void> syncPlanLimits(String hotelId) async {
+    try {
+      final doc = await _firestore.collection('users').doc(hotelId).get();
+      if (!doc.exists) return;
+
+      final data = doc.data()!;
+      final sub = data['subscription'] as Map<String, dynamic>? ?? {};
+      final limits = data['limits'] as Map<String, dynamic>? ?? {};
+      final plan = (sub['plan'] as String?) ?? 'free';
+      final tablesDefault =
+          plan == 'business' ? 999999 : plan == 'pro' ? 50 : plan == 'starter' ? 15 : 5;
+      final staffDefault =
+          plan == 'business' ? 999999 : plan == 'pro' ? 10 : plan == 'starter' ? 3 : 0;
+      final productsDefault =
+          plan == 'business' ? 999999 : plan == 'pro' ? 999999 : plan == 'starter' ? 200 : 50;
+      final customersDefault =
+          plan == 'business' ? 999999 : plan == 'pro' ? 999999 : plan == 'starter' ? 100 : 10;
+
+      final updates = <String, dynamic>{};
+      if ((limits['tablesLimit'] as int? ?? 0) < tablesDefault) {
+        updates['limits.tablesLimit'] = tablesDefault;
+      }
+      if ((limits['staffLimit'] as int? ?? 0) < staffDefault) {
+        updates['limits.staffLimit'] = staffDefault;
+      }
+      if ((limits['productsLimit'] as int? ?? 0) < productsDefault) {
+        updates['limits.productsLimit'] = productsDefault;
+      }
+      if ((limits['customersLimit'] as int? ?? 0) < customersDefault) {
+        updates['limits.customersLimit'] = customersDefault;
+      }
+
+      if (updates.isEmpty) return;
+
+      await _firestore.collection('users').doc(hotelId).update(updates);
+      debugPrint('✅ Plan limits synced for $hotelId: $updates');
+    } catch (e) {
+      debugPrint('⚠️ HotelService.syncPlanLimits error: $e');
+    }
+  }
+
   /// Archive a hotel (soft delete)
   static Future<void> archiveHotel(String hotelId) async {
     await _hotelsRef.doc(hotelId).update({'status': HotelStatus.archived.name});

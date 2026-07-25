@@ -1,12 +1,14 @@
 ﻿/// Staff self-service attendance screen — same UI as admin AttendanceScreen
 library;
 
+import 'package:go_router/go_router.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tulasihotels/features/auth/providers/auth_provider.dart';
 import 'package:tulasihotels/features/staff/providers/staff_provider.dart';
 import 'package:tulasihotels/features/staff/services/attendance_service.dart';
 import 'package:tulasihotels/models/attendance_model.dart';
+import 'package:tulasihotels/router/app_router.dart';
 import 'package:tulasihotels/shared/widgets/custom_date_range_picker.dart';
 
 /// Date range state for the My Attendance screen
@@ -140,6 +142,17 @@ class _MyAttendanceBodyState extends ConsumerState<_MyAttendanceBody> {
         controller: scrollController,
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
         children: [
+          Align(
+            alignment: Alignment.centerLeft,
+            child: FilledButton.icon(
+              onPressed: () => context.go(AppRoutes.myProfile),
+              icon: const Icon(Icons.person_outline),
+              label: const Text('My Profile'),
+            ),
+          ),
+
+          const SizedBox(height: 12),
+
           _UserClockCard(
             userName: widget.userName,
             userEmail: widget.userEmail,

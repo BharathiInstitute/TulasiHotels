@@ -4,8 +4,8 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:tulasihotels/features/permissions/permission_center.dart';
 import 'package:tulasihotels/features/staff/providers/staff_provider.dart';
-import 'package:tulasihotels/features/staff/services/staff_permissions.dart';
 import 'package:tulasihotels/features/staff/services/staff_service.dart';
 import 'package:tulasihotels/features/staff/services/attendance_service.dart';
 import 'package:tulasihotels/router/app_router.dart';
@@ -106,7 +106,12 @@ class _StaffLoginScreenState extends ConsumerState<StaffLoginScreen> {
           ),
         );
         // Navigate to permission-appropriate home screen
-        context.go(StaffPermissions.homeRoute(staff));
+        context.go(
+          PermissionCenter.homeRoute(
+            isOwner: false,
+            staff: staff,
+          ),
+        );
       }
     } catch (e) {
       setState(() {

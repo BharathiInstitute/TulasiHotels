@@ -6,6 +6,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tulasihotels/core/utils/id_generator.dart';
 import 'package:tulasihotels/features/compliance/providers/compliance_provider.dart';
 import 'package:tulasihotels/features/compliance/services/equipment_service.dart';
+import 'package:tulasihotels/features/permissions/permission_center.dart';
+import 'package:tulasihotels/features/permissions/providers/route_permission_provider.dart';
+import 'package:tulasihotels/features/permissions/widgets/permission_denied_view.dart';
+import 'package:tulasihotels/features/staff/models/permission_config.dart';
+import 'package:tulasihotels/router/app_router.dart';
 import 'package:tulasihotels/models/equipment_model.dart';
 
 class EquipmentScreen extends ConsumerStatefulWidget {
@@ -30,13 +35,29 @@ class _EquipmentScreenState extends ConsumerState<EquipmentScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final equipmentPermissions = ref.watch(routePermissionProvider(AppRoutes.equipment));
     final equipmentAsync = ref.watch(equipmentProvider);
     final theme = Theme.of(context);
+
+    if (!equipmentPermissions.isResolved) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (!equipmentPermissions.canView) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Equipment')),
+        body: PermissionDeniedView(
+          message: PermissionCenter.deniedViewMessage(AppRoutes.equipment),
+        ),
+      );
+    }
 
     return Scaffold(
       appBar: AppBar(title: const Text('Equipment')),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: _showEquipmentForm,
+        onPressed: equipmentPermissions.canCreate ? _showEquipmentForm : null,
         icon: const Icon(Icons.add),
         label: const Text('Add Equipment'),
       ),
@@ -105,7 +126,9 @@ class _EquipmentScreenState extends ConsumerState<EquipmentScreen> {
                     OverflowBar(
                       children: [
                         TextButton.icon(
-                          onPressed: () => _showServiceForm(eq),
+                          onPressed: equipmentPermissions.canUpdate
+                              ? () => _showServiceForm(eq)
+                              : null,
                           icon: const Icon(Icons.add_task),
                           label: const Text('Log Service'),
                         ),
@@ -122,6 +145,21 @@ class _EquipmentScreenState extends ConsumerState<EquipmentScreen> {
   }
 
   void _showEquipmentForm() {
+    final permissions = ref.read(routePermissionProvider(AppRoutes.equipment));
+    if (!permissions.canCreate) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            PermissionCenter.deniedActionMessage(
+              AppRoutes.equipment,
+              PermissionAction.create,
+            ),
+          ),
+        ),
+      );
+      return;
+    }
+
     _nameCtrl.clear();
     _serialCtrl.clear();
     _brandCtrl.clear();
@@ -165,7 +203,7 @@ class _EquipmentScreenState extends ConsumerState<EquipmentScreen> {
             SizedBox(
               width: double.infinity,
               child: FilledButton(
-                onPressed: () => _submitEquipment(ctx),
+                onPressed: () => _submitEquipment(ctx, permissions),
                 child: const Text('Add Equipment'),
               ),
             ),
@@ -175,7 +213,10 @@ class _EquipmentScreenState extends ConsumerState<EquipmentScreen> {
     );
   }
 
-  Future<void> _submitEquipment(BuildContext ctx) async {
+  Future<void> _submitEquipment(
+    BuildContext ctx,
+    RoutePermissionState permissions,
+  ) async {
     final name = _nameCtrl.text.trim();
     if (name.isEmpty) return;
 
@@ -188,11 +229,26 @@ class _EquipmentScreenState extends ConsumerState<EquipmentScreen> {
       createdAt: DateTime.now(),
     );
 
-    await EquipmentService.createEquipment(eq);
+    await EquipmentService.createEquipment(eq, permissions);
     if (ctx.mounted) Navigator.pop(ctx);
   }
 
   void _showServiceForm(EquipmentModel equipment) {
+    final permissions = ref.read(routePermissionProvider(AppRoutes.equipment));
+    if (!permissions.canUpdate) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            PermissionCenter.deniedActionMessage(
+              AppRoutes.equipment,
+              PermissionAction.update,
+            ),
+          ),
+        ),
+      );
+      return;
+    }
+
     final descCtrl = TextEditingController();
     final costCtrl = TextEditingController();
     final vendorCtrl = TextEditingController();
@@ -247,7 +303,11 @@ class _EquipmentScreenState extends ConsumerState<EquipmentScreen> {
                 vendorName: vendorCtrl.text.trim().isEmpty ? null : vendorCtrl.text.trim(),
               );
 
-              await EquipmentService.addServiceRecord(equipment.id, record);
+              await EquipmentService.addServiceRecord(
+                equipment.id,
+                record,
+                permissions,
+              );
               if (ctx.mounted) Navigator.pop(ctx);
             },
             child: const Text('Log'),

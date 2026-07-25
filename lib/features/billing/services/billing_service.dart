@@ -7,8 +7,11 @@ import 'package:tulasihotels/core/services/demo_data_service.dart';
 import 'package:tulasihotels/core/services/offline_storage_service.dart';
 import 'package:tulasihotels/core/utils/id_generator.dart';
 import 'package:tulasihotels/features/auth/providers/auth_provider.dart';
+import 'package:tulasihotels/features/permissions/services/module_mutation_guard.dart';
+import 'package:tulasihotels/features/staff/models/permission_config.dart';
 import 'package:tulasihotels/models/bill_model.dart';
 import 'package:tulasihotels/models/order_model.dart';
+import 'package:tulasihotels/router/app_router.dart';
 
 /// Today's bills provider - reads from demo data or Firestore
 final todayBillsProvider = FutureProvider<List<BillModel>>((ref) async {
@@ -76,6 +79,10 @@ class BillingService {
     String? customerName,
     double? receivedAmount,
   }) async {
+    await ModuleMutationGuard.requireAction(
+      AppRoutes.billing,
+      PermissionAction.create,
+    );
     final now = DateTime.now();
     final dateStr =
         '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
@@ -121,6 +128,10 @@ class BillingService {
     String? customerName,
     double? receivedAmount,
   }) async {
+    await ModuleMutationGuard.requireAction(
+      AppRoutes.billing,
+      PermissionAction.create,
+    );
     final cartItems = order.items.map((e) => e.toCartItem()).toList();
     final subtotal = order.total;
     final serviceCharge = subtotal * serviceChargePercent / 100;
@@ -172,6 +183,10 @@ class BillingService {
     required PaymentMethod paymentMethod,
     double discountPercent = 0,
   }) async {
+    await ModuleMutationGuard.requireAction(
+      AppRoutes.billing,
+      PermissionAction.create,
+    );
     final bills = <BillModel>[];
     final parentId = generateSafeId('bill');
     final now = DateTime.now();

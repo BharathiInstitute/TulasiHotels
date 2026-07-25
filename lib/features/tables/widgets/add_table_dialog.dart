@@ -3,7 +3,9 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:tulasihotels/features/permissions/permission_center.dart';
 import 'package:tulasihotels/features/permissions/providers/route_permission_provider.dart';
+import 'package:tulasihotels/features/staff/models/permission_config.dart';
 import 'package:tulasihotels/features/tables/services/table_service.dart';
 import 'package:tulasihotels/models/table_model.dart';
 import 'package:tulasihotels/router/app_router.dart';
@@ -195,9 +197,12 @@ class _AddTableDialogState extends ConsumerState<AddTableDialog> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              _isEditing
-                  ? 'You do not have permission to update tables.'
-                  : 'You do not have permission to create tables.',
+              PermissionCenter.deniedActionMessage(
+                AppRoutes.tables,
+                _isEditing
+                    ? PermissionAction.update
+                    : PermissionAction.create,
+              ),
             ),
           ),
         );

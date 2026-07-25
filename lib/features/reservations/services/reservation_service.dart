@@ -4,6 +4,10 @@ library;
 import 'package:tulasihotels/core/services/active_store_manager.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
+import 'package:tulasihotels/features/permissions/permission_center.dart';
+import 'package:tulasihotels/features/permissions/providers/route_permission_provider.dart';
+import 'package:tulasihotels/features/staff/models/permission_config.dart';
+import 'package:tulasihotels/router/app_router.dart';
 import 'package:tulasihotels/models/reservation_model.dart';
 
 class ReservationService {
@@ -51,7 +55,17 @@ class ReservationService {
 
   /// Create a new reservation
   static Future<ReservationModel> createReservation(
-      ReservationModel reservation) async {
+    ReservationModel reservation,
+    RoutePermissionState permissions,
+  ) async {
+    if (!permissions.canCreate) {
+      throw StateError(
+        PermissionCenter.deniedActionMessage(
+          AppRoutes.reservations,
+          PermissionAction.create,
+        ),
+      );
+    }
     await _reservationsRef
         .doc(reservation.id)
         .set(reservation.toFirestore());
@@ -61,7 +75,18 @@ class ReservationService {
   }
 
   /// Confirm a reservation
-  static Future<void> confirmReservation(String id) async {
+  static Future<void> confirmReservation(
+    String id,
+    RoutePermissionState permissions,
+  ) async {
+    if (!permissions.canUpdate) {
+      throw StateError(
+        PermissionCenter.deniedActionMessage(
+          AppRoutes.reservations,
+          PermissionAction.update,
+        ),
+      );
+    }
     await _reservationsRef.doc(id).update({
       'status': ReservationStatus.confirmed.name,
       'updatedAt': FieldValue.serverTimestamp(),
@@ -69,7 +94,19 @@ class ReservationService {
   }
 
   /// Seat a reservation (assign table)
-  static Future<void> seatReservation(String id, String tableId) async {
+  static Future<void> seatReservation(
+    String id,
+    String tableId,
+    RoutePermissionState permissions,
+  ) async {
+    if (!permissions.canUpdate) {
+      throw StateError(
+        PermissionCenter.deniedActionMessage(
+          AppRoutes.reservations,
+          PermissionAction.update,
+        ),
+      );
+    }
     await _reservationsRef.doc(id).update({
       'status': ReservationStatus.seated.name,
       'tableId': tableId,
@@ -78,7 +115,18 @@ class ReservationService {
   }
 
   /// Cancel a reservation
-  static Future<void> cancelReservation(String id) async {
+  static Future<void> cancelReservation(
+    String id,
+    RoutePermissionState permissions,
+  ) async {
+    if (!permissions.canUpdate) {
+      throw StateError(
+        PermissionCenter.deniedActionMessage(
+          AppRoutes.reservations,
+          PermissionAction.update,
+        ),
+      );
+    }
     await _reservationsRef.doc(id).update({
       'status': ReservationStatus.cancelled.name,
       'updatedAt': FieldValue.serverTimestamp(),
@@ -86,7 +134,18 @@ class ReservationService {
   }
 
   /// Mark as no-show
-  static Future<void> markNoShow(String id) async {
+  static Future<void> markNoShow(
+    String id,
+    RoutePermissionState permissions,
+  ) async {
+    if (!permissions.canUpdate) {
+      throw StateError(
+        PermissionCenter.deniedActionMessage(
+          AppRoutes.reservations,
+          PermissionAction.update,
+        ),
+      );
+    }
     await _reservationsRef.doc(id).update({
       'status': ReservationStatus.noShow.name,
       'updatedAt': FieldValue.serverTimestamp(),
@@ -110,7 +169,18 @@ class ReservationService {
   }
 
   /// Delete a reservation
-  static Future<void> deleteReservation(String id) async {
+  static Future<void> deleteReservation(
+    String id,
+    RoutePermissionState permissions,
+  ) async {
+    if (!permissions.canDelete) {
+      throw StateError(
+        PermissionCenter.deniedActionMessage(
+          AppRoutes.reservations,
+          PermissionAction.delete,
+        ),
+      );
+    }
     await _reservationsRef.doc(id).delete();
   }
 }

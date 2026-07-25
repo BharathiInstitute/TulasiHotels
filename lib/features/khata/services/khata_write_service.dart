@@ -9,7 +9,10 @@ import 'package:tulasihotels/core/services/offline_storage_service.dart';
 import 'package:tulasihotels/features/auth/providers/auth_provider.dart';
 import 'package:tulasihotels/features/khata/providers/khata_provider.dart';
 import 'package:tulasihotels/features/khata/providers/khata_stats_provider.dart';
+import 'package:tulasihotels/features/permissions/services/module_mutation_guard.dart';
+import 'package:tulasihotels/features/staff/models/permission_config.dart';
 import 'package:tulasihotels/models/transaction_model.dart';
+import 'package:tulasihotels/router/app_router.dart';
 
 /// Shared service for Khata write operations (payment + credit).
 class KhataWriteService {
@@ -21,6 +24,10 @@ class KhataWriteService {
     required String paymentMode,
     String? note,
   }) async {
+    await ModuleMutationGuard.requireAction(
+      AppRoutes.khata,
+      PermissionAction.create,
+    );
     final isDemoMode = ref.read(isDemoModeProvider);
 
     if (isDemoMode) {
@@ -50,6 +57,10 @@ class KhataWriteService {
     required double amount,
     String? note,
   }) async {
+    await ModuleMutationGuard.requireAction(
+      AppRoutes.khata,
+      PermissionAction.create,
+    );
     final isDemoMode = ref.read(isDemoModeProvider);
 
     if (isDemoMode) {

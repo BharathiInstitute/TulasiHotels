@@ -8,7 +8,9 @@ import 'package:tulasihotels/core/services/razorpay_service.dart';
 import 'package:tulasihotels/core/utils/formatters.dart';
 import 'package:tulasihotels/features/auth/providers/auth_provider.dart';
 import 'package:tulasihotels/features/khata/providers/khata_provider.dart';
+import 'package:tulasihotels/features/permissions/permission_center.dart';
 import 'package:tulasihotels/features/permissions/providers/route_permission_provider.dart';
+import 'package:tulasihotels/features/staff/models/permission_config.dart';
 import 'package:tulasihotels/models/customer_model.dart';
 import 'package:tulasihotels/models/transaction_model.dart';
 import 'package:tulasihotels/router/app_router.dart';
@@ -44,8 +46,13 @@ class _RecordPaymentModalState extends ConsumerState<RecordPaymentModal> {
     final permissions = ref.read(routePermissionProvider(AppRoutes.khata));
     if (!permissions.canUpdate) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('You do not have permission to record payments.'),
+        SnackBar(
+          content: Text(
+            PermissionCenter.deniedActionMessage(
+              AppRoutes.khata,
+              PermissionAction.update,
+            ),
+          ),
         ),
       );
       return;

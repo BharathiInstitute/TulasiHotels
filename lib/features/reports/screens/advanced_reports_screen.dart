@@ -11,6 +11,8 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:tulasihotels/features/permissions/permission_center.dart';
+import 'package:tulasihotels/features/permissions/widgets/permission_denied_view.dart';
 import 'package:tulasihotels/features/reports/services/advanced_reports_service.dart';
 import 'package:tulasihotels/features/reports/screens/menu_performance_screen.dart';
 import 'package:tulasihotels/features/reports/screens/weekly_report_screen.dart';
@@ -19,7 +21,8 @@ import 'package:tulasihotels/features/reports/screens/peak_hours_screen.dart';
 import 'package:tulasihotels/features/reports/screens/item_sales_screen.dart';
 import 'package:tulasihotels/features/reports/screens/comparative_screen.dart';
 import 'package:tulasihotels/features/reports/screens/feedback_report_screen.dart';
-import 'package:tulasihotels/features/billing/screens/gst_export_screen.dart';
+import 'package:tulasihotels/features/permissions/providers/route_permission_provider.dart';
+import 'package:tulasihotels/router/app_router.dart';
 
 enum _ReportTab {
   overview('Overview', Icons.analytics),
@@ -69,6 +72,33 @@ class _AdvancedReportsScreenState extends ConsumerState<AdvancedReportsScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final reportPermissions = ref.watch(
+      routePermissionProvider(AppRoutes.advancedReports),
+    );
+    final gstPermissions = ref.watch(routePermissionProvider(AppRoutes.gstExport));
+
+    if (!reportPermissions.isResolved) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (!reportPermissions.canView) {
+      return Scaffold(
+        body: PermissionDeniedView(
+          message: PermissionCenter.deniedViewMessage(AppRoutes.advancedReports),
+        ),
+      );
+    }
+
+    if (_selectedTab == _ReportTab.gstExport && !gstPermissions.canView) {
+      _selectedTab = _ReportTab.overview;
+    }
+
+    final tabs = _ReportTab.values.where((tab) {
+      if (tab == _ReportTab.gstExport) return gstPermissions.canView;
+      return true;
+    }).toList();
 
     return Scaffold(
       appBar: AppBar(
@@ -99,9 +129,9 @@ class _AdvancedReportsScreenState extends ConsumerState<AdvancedReportsScreen> {
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               separatorBuilder: (_, _) => const SizedBox(width: 4),
-              itemCount: _ReportTab.values.length,
+              itemCount: tabs.length,
               itemBuilder: (context, index) {
-                final tab = _ReportTab.values[index];
+                final tab = tabs[index];
                 final isSelected = tab == _selectedTab;
                 final isMobile = MediaQuery.of(context).size.width < 600;
                 if (isMobile) {
@@ -171,7 +201,7 @@ class _AdvancedReportsScreenState extends ConsumerState<AdvancedReportsScreen> {
       _ReportTab.itemSales => const ItemSalesScreen(),
       _ReportTab.comparative => const ComparativeScreen(),
       _ReportTab.feedbackReport => const FeedbackReportScreen(),
-      _ReportTab.gstExport => const GstExportScreen(),
+      _ReportTab.gstExport => const SizedBox.shrink(),
       _ReportTab.overview => const SizedBox.shrink(),
     };
   }

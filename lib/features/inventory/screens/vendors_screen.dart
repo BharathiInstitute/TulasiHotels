@@ -7,7 +7,10 @@ import 'package:tulasihotels/core/utils/id_generator.dart';
 import 'package:tulasihotels/features/inventory/providers/inventory_provider.dart';
 import 'package:tulasihotels/features/inventory/services/vendor_service.dart';
 import 'package:tulasihotels/features/inventory/services/vendor_settlement_service.dart';
+import 'package:tulasihotels/features/permissions/permission_center.dart';
 import 'package:tulasihotels/features/permissions/providers/route_permission_provider.dart';
+import 'package:tulasihotels/features/permissions/widgets/permission_denied_view.dart';
+import 'package:tulasihotels/features/staff/models/permission_config.dart';
 import 'package:tulasihotels/models/vendor_model.dart';
 import 'package:tulasihotels/router/app_router.dart';
 
@@ -18,6 +21,21 @@ class VendorsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final vendorsAsync = ref.watch(vendorsProvider);
     final vendorPermissions = ref.watch(routePermissionProvider(AppRoutes.vendors));
+
+    if (!vendorPermissions.isResolved) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (!vendorPermissions.canView) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Vendors')),
+        body: PermissionDeniedView(
+          message: PermissionCenter.deniedViewMessage(AppRoutes.vendors),
+        ),
+      );
+    }
 
     return Scaffold(
       appBar: AppBar(title: const Text('Vendors')),
@@ -102,8 +120,13 @@ class VendorsScreen extends ConsumerWidget {
     final permissions = ref.read(routePermissionProvider(AppRoutes.vendors));
     if (!permissions.canCreate) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('You do not have permission to add vendors.'),
+        SnackBar(
+          content: Text(
+            PermissionCenter.deniedActionMessage(
+              AppRoutes.vendors,
+              PermissionAction.create,
+            ),
+          ),
         ),
       );
       return;
@@ -398,8 +421,13 @@ class _VendorDetailSheetState extends State<_VendorDetailSheet>
   void _showRecordPurchase(BuildContext context, VendorModel vendor) {
     if (!widget.canUpdate) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('You do not have permission to update vendors.'),
+        SnackBar(
+          content: Text(
+            PermissionCenter.deniedActionMessage(
+              AppRoutes.vendors,
+              PermissionAction.update,
+            ),
+          ),
         ),
       );
       return;
@@ -476,8 +504,13 @@ class _VendorDetailSheetState extends State<_VendorDetailSheet>
   void _showRecordPayment(BuildContext context, VendorModel vendor) {
     if (!widget.canUpdate) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('You do not have permission to update vendors.'),
+        SnackBar(
+          content: Text(
+            PermissionCenter.deniedActionMessage(
+              AppRoutes.vendors,
+              PermissionAction.update,
+            ),
+          ),
         ),
       );
       return;

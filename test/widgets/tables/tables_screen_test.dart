@@ -1,9 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:tulasihotels/core/services/user_metrics_service.dart';
+import 'package:tulasihotels/features/permissions/providers/route_permission_provider.dart';
+import 'package:tulasihotels/features/subscription/models/plan_config.dart';
+import 'package:tulasihotels/features/subscription/providers/subscription_provider.dart';
+import 'package:tulasihotels/features/subscription/providers/usage_limits_provider.dart';
 import 'package:tulasihotels/features/tables/providers/table_provider.dart';
 import 'package:tulasihotels/features/tables/screens/tables_screen.dart';
 import 'package:tulasihotels/models/table_model.dart';
+import 'package:tulasihotels/router/app_router.dart';
 
 import '../../helpers/pump_app.dart';
 import '../../helpers/test_factories_extended.dart';
@@ -13,6 +19,11 @@ void main() {
     List<Override> overrides({List<TableModel> tables = const []}) => [
       tablesStreamProvider.overrideWith((_) => Stream.value(tables)),
       selectedFloorProvider.overrideWith((ref) => null),
+      currentLimitsProvider.overrideWith((ref) => UserLimits()),
+      planConfigProvider.overrideWith((ref) => PlanConfig.free),
+      routePermissionProvider.overrideWith(
+        (ref, route) => const RoutePermissionState.fullAccess(),
+      ),
     ];
 
     testWidgets('shows AppBar title', (tester) async {
@@ -61,10 +72,8 @@ void main() {
     testWidgets('shows loading indicator', (tester) async {
       await tester.pumpWidget(
         ProviderScope(
-          overrides: [
-            tablesStreamProvider.overrideWith((_) => const Stream.empty()),
-            selectedFloorProvider.overrideWith((ref) => null),
-          ],
+          overrides: overrides(tables: const []).map((override) => override).toList()
+            ..[0] = tablesStreamProvider.overrideWith((_) => const Stream.empty()),
           child: const MaterialApp(home: Scaffold(body: TablesScreen())),
         ),
       );

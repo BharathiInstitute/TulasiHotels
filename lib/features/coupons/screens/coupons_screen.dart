@@ -6,6 +6,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tulasihotels/core/utils/id_generator.dart';
 import 'package:tulasihotels/features/coupons/providers/coupon_provider.dart';
 import 'package:tulasihotels/features/coupons/services/coupon_service.dart';
+import 'package:tulasihotels/features/permissions/permission_center.dart';
+import 'package:tulasihotels/features/permissions/providers/route_permission_provider.dart';
+import 'package:tulasihotels/features/permissions/widgets/permission_denied_view.dart';
+import 'package:tulasihotels/features/staff/models/permission_config.dart';
+import 'package:tulasihotels/router/app_router.dart';
 import 'package:tulasihotels/models/coupon_model.dart';
 
 class CouponsScreen extends ConsumerWidget {
@@ -13,12 +18,30 @@ class CouponsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final couponPermissions = ref.watch(routePermissionProvider(AppRoutes.coupons));
     final couponsAsync = ref.watch(allCouponsProvider);
+
+    if (!couponPermissions.isResolved) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (!couponPermissions.canView) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Coupons & Discounts')),
+        body: PermissionDeniedView(
+          message: PermissionCenter.deniedViewMessage(AppRoutes.coupons),
+        ),
+      );
+    }
 
     return Scaffold(
       appBar: AppBar(title: const Text('Coupons & Discounts')),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showCouponForm(context),
+        onPressed: couponPermissions.canCreate
+            ? () => _showCouponForm(context, ref)
+            : null,
         icon: const Icon(Icons.add),
         label: const Text('New Coupon'),
       ),
@@ -70,14 +93,17 @@ class CouponsScreen extends ConsumerWidget {
                       IconButton(
                         icon: const Icon(Icons.edit_outlined),
                         tooltip: 'Edit',
-                        onPressed: () =>
-                            _showCouponForm(context, existing: coupon),
+                        onPressed: couponPermissions.canUpdate
+                            ? () => _showCouponForm(context, ref, existing: coupon)
+                            : null,
                       ),
                       IconButton(
                         icon: const Icon(Icons.delete_outline),
                         tooltip: 'Delete',
                         color: Theme.of(context).colorScheme.error,
-                        onPressed: () => _confirmDelete(context, coupon),
+                        onPressed: couponPermissions.canDelete
+                            ? () => _confirmDelete(context, ref, coupon)
+                            : null,
                       ),
                     ],
                   ),
@@ -90,7 +116,26 @@ class CouponsScreen extends ConsumerWidget {
     );
   }
 
-  Future<void> _confirmDelete(BuildContext context, CouponModel coupon) async {
+  Future<void> _confirmDelete(
+    BuildContext context,
+    WidgetRef ref,
+    CouponModel coupon,
+  ) async {
+    final permissions = ref.read(routePermissionProvider(AppRoutes.coupons));
+    if (!permissions.canDelete) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            PermissionCenter.deniedActionMessage(
+              AppRoutes.coupons,
+              PermissionAction.delete,
+            ),
+          ),
+        ),
+      );
+      return;
+    }
+
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -118,13 +163,33 @@ class CouponsScreen extends ConsumerWidget {
     }
   }
 
-  void _showCouponForm(BuildContext context, {CouponModel? existing}) {
+  void _showCouponForm(
+    BuildContext context,
+    WidgetRef ref, {
+    CouponModel? existing,
+  }) {
+    final permissions = ref.read(routePermissionProvider(AppRoutes.coupons));
+    final isEditing = existing != null;
+    final canSubmit = isEditing ? permissions.canUpdate : permissions.canCreate;
+    if (!canSubmit) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            PermissionCenter.deniedActionMessage(
+              AppRoutes.coupons,
+              isEditing ? PermissionAction.update : PermissionAction.create,
+            ),
+          ),
+        ),
+      );
+      return;
+    }
+
     final codeCtrl =
         TextEditingController(text: existing?.code ?? '');
     final valueCtrl =
         TextEditingController(text: existing?.value.toString() ?? '');
     var type = existing?.type ?? CouponType.percentage;
-    final isEditing = existing != null;
 
     showModalBottomSheet(
       context: context,

@@ -1,13 +1,16 @@
-# ─── Android Release Signing Configuration ───
-# This file is .gitignored — NEVER commit to source control.
+# --- Android Release Signing Configuration (Restaurants) ---
+# This file is .gitignored - NEVER commit the real key.properties.
 #
-# Steps to create your release keystore:
-#   keytool -genkey -v -keystore tulasihotels-release.jks \
-#     -keyalg RSA -keysize 2048 -validity 10000 -alias tulasihotels
+# Generate a new upload keystore:
+#   keytool -genkeypair -v -keystore restaurants-upload-2026.jks \
+#     -keyalg RSA -keysize 2048 -validity 10000 -alias restaurantsupload2026
 #
-# Then fill in the values below:
+# Export certificate for Play upload-key reset:
+#   keytool -export -rfc -keystore restaurants-upload-2026.jks \
+#     -alias restaurantsupload2026 -file restaurants-upload-2026.pem
 
 storePassword=YOUR_STORE_PASSWORD
 keyPassword=YOUR_KEY_PASSWORD
-keyAlias=tulasihotels
-storeFile=../tulasihotels-release.jks
+keyAlias=restaurantsupload2026
+storeFile=../restaurants-upload-2026.jks
+expectedSha1=YOUR_UPLOAD_KEY_SHA1

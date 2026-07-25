@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'dart:async';
 import 'package:tulasihotels/features/inventory/providers/inventory_provider.dart';
+import 'package:tulasihotels/features/permissions/providers/route_permission_provider.dart';
 import 'package:tulasihotels/features/inventory/screens/wastage_screen.dart';
 import 'package:tulasihotels/models/wastage_model.dart';
 
@@ -10,8 +12,15 @@ import '../../helpers/test_factories_extended.dart';
 
 void main() {
   group('WastageScreen', () {
+    List<Override> baseOverrides() => [
+      routePermissionProvider.overrideWith(
+        (ref, route) => const RoutePermissionState.fullAccess(),
+      ),
+    ];
+
     testWidgets('shows AppBar title', (tester) async {
       await pumpWidget(tester, const WastageScreen(), overrides: [
+        ...baseOverrides(),
         wastageProvider.overrideWith((_) => Stream.value([])),
       ]);
       expect(find.text('Wastage Log'), findsOneWidget);
@@ -19,6 +28,7 @@ void main() {
 
     testWidgets('shows FAB for logging wastage', (tester) async {
       await pumpWidget(tester, const WastageScreen(), overrides: [
+        ...baseOverrides(),
         wastageProvider.overrideWith((_) => Stream.value([])),
       ]);
       expect(find.byType(FloatingActionButton), findsOneWidget);
@@ -35,6 +45,7 @@ void main() {
         ),
       ];
       await pumpWidget(tester, const WastageScreen(), overrides: [
+        ...baseOverrides(),
         wastageProvider.overrideWith((_) => Stream.value(items)),
       ]);
       expect(find.text('Chicken'), findsOneWidget);
@@ -46,22 +57,26 @@ void main() {
         makeWastage(ingredientName: 'Paneer', estimatedCost: 350),
       ];
       await pumpWidget(tester, const WastageScreen(), overrides: [
+        ...baseOverrides(),
         wastageProvider.overrideWith((_) => Stream.value(items)),
       ]);
       expect(find.textContaining('350'), findsOneWidget);
     });
 
     testWidgets('shows loading indicator', (tester) async {
+      final controller = StreamController<List<WastageModel>>();
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
-            wastageProvider.overrideWith((_) => const Stream.empty()),
+            ...baseOverrides(),
+            wastageProvider.overrideWith((_) => controller.stream),
           ],
           child: const MaterialApp(home: Scaffold(body: WastageScreen())),
         ),
       );
       await tester.pump();
       expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      await controller.close();
     });
   });
 }

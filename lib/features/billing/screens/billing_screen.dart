@@ -9,7 +9,10 @@ import 'package:tulasihotels/core/theme/responsive_helper.dart';
 import 'package:tulasihotels/core/utils/formatters.dart';
 import 'package:tulasihotels/features/auth/providers/auth_provider.dart';
 import 'package:tulasihotels/features/billing/providers/cart_provider.dart';
+import 'package:tulasihotels/features/permissions/permission_center.dart';
 import 'package:tulasihotels/features/permissions/providers/route_permission_provider.dart';
+import 'package:tulasihotels/features/permissions/widgets/permission_denied_view.dart';
+import 'package:tulasihotels/features/staff/models/permission_config.dart';
 import 'package:tulasihotels/features/billing/widgets/payment_modal.dart';
 import 'package:tulasihotels/features/billing/screens/pos_web_screen.dart';
 import 'package:tulasihotels/features/products/providers/products_provider.dart';
@@ -79,8 +82,13 @@ class _BillingScreenState extends ConsumerState<BillingScreen> {
     final permissions = ref.read(routePermissionProvider(AppRoutes.billing));
     if (!permissions.canCreate) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('You do not have permission to create bills.'),
+        SnackBar(
+          content: Text(
+            PermissionCenter.deniedActionMessage(
+              AppRoutes.billing,
+              PermissionAction.create,
+            ),
+          ),
         ),
       );
       return;
@@ -503,6 +511,20 @@ class _BillingScreenState extends ConsumerState<BillingScreen> {
   @override
   Widget build(BuildContext context) {
     // l10n is declared in each sub-layout method
+    final billingPermissions = ref.watch(routePermissionProvider(AppRoutes.billing));
+    if (!billingPermissions.isResolved) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+    if (!billingPermissions.canView) {
+      return Scaffold(
+        body: PermissionDeniedView(
+          message: PermissionCenter.deniedViewMessage(AppRoutes.billing),
+        ),
+      );
+    }
+
     final cart = ref.watch(cartProvider);
     final productsAsync = ref.watch(productsProvider);
     final isDesktop = ResponsiveHelper.isDesktop(context);

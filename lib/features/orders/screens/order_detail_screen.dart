@@ -4,8 +4,10 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:tulasihotels/features/permissions/permission_center.dart';
 import 'package:tulasihotels/features/permissions/providers/route_permission_provider.dart';
 import 'package:tulasihotels/features/orders/services/order_service.dart';
+import 'package:tulasihotels/features/staff/models/permission_config.dart';
 import 'package:tulasihotels/router/app_router.dart';
 import 'package:tulasihotels/features/tables/services/table_service.dart';
 import 'package:tulasihotels/models/order_model.dart';
@@ -282,8 +284,13 @@ class OrderDetailScreen extends ConsumerWidget {
         final permissions = ref.read(routePermissionProvider(AppRoutes.orders));
         if (!permissions.canUpdate) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('You do not have permission to update orders.'),
+            SnackBar(
+              content: Text(
+                PermissionCenter.deniedActionMessage(
+                  AppRoutes.orders,
+                  PermissionAction.update,
+                ),
+              ),
             ),
           );
           return;
@@ -305,8 +312,13 @@ class OrderDetailScreen extends ConsumerWidget {
         );
         if (!billingPermissions.canCreate) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('You do not have permission to create bills.'),
+            SnackBar(
+              content: Text(
+                PermissionCenter.deniedActionMessage(
+                  AppRoutes.billing,
+                  PermissionAction.create,
+                ),
+              ),
             ),
           );
           return;
@@ -317,8 +329,13 @@ class OrderDetailScreen extends ConsumerWidget {
         final permissions = ref.read(routePermissionProvider(AppRoutes.orders));
         if (!permissions.canDelete) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('You do not have permission to cancel orders.'),
+            SnackBar(
+              content: Text(
+                PermissionCenter.deniedActionMessage(
+                  AppRoutes.orders,
+                  PermissionAction.delete,
+                ),
+              ),
             ),
           );
           return;

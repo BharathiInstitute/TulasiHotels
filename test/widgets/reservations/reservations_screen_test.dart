@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:tulasihotels/features/permissions/providers/route_permission_provider.dart';
 import 'package:tulasihotels/features/reservations/providers/reservation_provider.dart';
 import 'package:tulasihotels/features/reservations/screens/reservations_screen.dart';
 
@@ -10,11 +11,19 @@ import '../../helpers/test_factories_extended.dart';
 
 void main() {
   group('ReservationsScreen', () {
+    List<Override> baseOverrides() => [
+      routePermissionProvider.overrideWith(
+        (ref, route) => const RoutePermissionState.fullAccess(),
+      ),
+      upcomingReservationsProvider.overrideWith((_) => Stream.value([])),
+    ];
+
     testWidgets('shows AppBar title', (tester) async {
       await pumpWidget(
         tester,
         const ReservationsScreen(),
         overrides: [
+          ...baseOverrides(),
           todayReservationsProvider.overrideWith((_) => Stream.value([])),
         ],
       );
@@ -26,6 +35,7 @@ void main() {
         tester,
         const ReservationsScreen(),
         overrides: [
+          ...baseOverrides(),
           todayReservationsProvider.overrideWith((_) => Stream.value([])),
         ],
       );
@@ -42,6 +52,7 @@ void main() {
         tester,
         const ReservationsScreen(),
         overrides: [
+          ...baseOverrides(),
           todayReservationsProvider.overrideWith((_) => Stream.value(items)),
         ],
       );
@@ -55,6 +66,7 @@ void main() {
         tester,
         const ReservationsScreen(),
         overrides: [
+          ...baseOverrides(),
           todayReservationsProvider.overrideWith((_) => Stream.value(items)),
         ],
       );
@@ -71,6 +83,7 @@ void main() {
         tester,
         const ReservationsScreen(),
         overrides: [
+          ...baseOverrides(),
           todayReservationsProvider.overrideWith((_) => Stream.value(items)),
         ],
       );
@@ -83,6 +96,7 @@ void main() {
         tester,
         const ReservationsScreen(),
         overrides: [
+          ...baseOverrides(),
           todayReservationsProvider.overrideWith((_) => Stream.value(items)),
         ],
       );
@@ -93,6 +107,7 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
+            ...baseOverrides(),
             todayReservationsProvider.overrideWith((_) => const Stream.empty()),
           ],
           child: const MaterialApp(home: Scaffold(body: ReservationsScreen())),

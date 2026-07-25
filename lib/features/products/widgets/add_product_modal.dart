@@ -11,8 +11,10 @@ import 'package:tulasihotels/core/services/image_service.dart';
 import 'package:tulasihotels/core/services/barcode_scanner_service.dart';
 import 'package:tulasihotels/core/services/barcode_lookup_service.dart';
 import 'package:tulasihotels/core/utils/validators.dart';
+import 'package:tulasihotels/features/permissions/permission_center.dart';
 import 'package:tulasihotels/features/permissions/providers/route_permission_provider.dart';
 import 'package:tulasihotels/features/products/providers/products_provider.dart';
+import 'package:tulasihotels/features/staff/models/permission_config.dart';
 import 'package:tulasihotels/router/app_router.dart';
 import 'package:tulasihotels/models/product_model.dart';
 import 'package:tulasihotels/shared/widgets/app_button.dart';
@@ -190,9 +192,12 @@ class _AddProductModalState extends ConsumerState<AddProductModal> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              _isEditing
-                  ? 'You do not have permission to update products.'
-                  : 'You do not have permission to create products.',
+              PermissionCenter.deniedActionMessage(
+                AppRoutes.products,
+                _isEditing
+                    ? PermissionAction.update
+                    : PermissionAction.create,
+              ),
             ),
             backgroundColor: AppColors.warning,
           ),
@@ -301,8 +306,13 @@ class _AddProductModalState extends ConsumerState<AddProductModal> {
     if (!permissions.canDelete) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('You do not have permission to delete products.'),
+          SnackBar(
+            content: Text(
+              PermissionCenter.deniedActionMessage(
+                AppRoutes.products,
+                PermissionAction.delete,
+              ),
+            ),
             backgroundColor: AppColors.warning,
           ),
         );

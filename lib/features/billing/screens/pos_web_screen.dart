@@ -6,7 +6,9 @@ import 'package:tulasihotels/core/design/design_system.dart';
 import 'package:tulasihotels/core/utils/formatters.dart';
 import 'package:tulasihotels/features/auth/providers/auth_provider.dart';
 import 'package:tulasihotels/features/billing/providers/cart_provider.dart';
+import 'package:tulasihotels/features/permissions/permission_center.dart';
 import 'package:tulasihotels/features/permissions/providers/route_permission_provider.dart';
+import 'package:tulasihotels/features/staff/models/permission_config.dart';
 import 'package:tulasihotels/models/bill_model.dart';
 import 'package:tulasihotels/features/billing/widgets/payment_modal.dart';
 import 'package:tulasihotels/features/khata/providers/khata_provider.dart';
@@ -53,8 +55,13 @@ class _PosWebScreenState extends ConsumerState<PosWebScreen> {
     final permissions = ref.read(routePermissionProvider(AppRoutes.billing));
     if (!permissions.canCreate) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('You do not have permission to create bills.'),
+        SnackBar(
+          content: Text(
+            PermissionCenter.deniedActionMessage(
+              AppRoutes.billing,
+              PermissionAction.create,
+            ),
+          ),
         ),
       );
       return;

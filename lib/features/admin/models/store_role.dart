@@ -1,8 +1,7 @@
 /// Store-level roles for multi-user access
 library;
 
-import 'package:tulasihotels/features/staff/models/permission_config.dart';
-import 'package:tulasihotels/router/app_router.dart';
+import 'package:tulasihotels/features/permissions/permission_policy.dart';
 
 /// Roles that a store member (Firebase Auth user) can hold
 enum StoreRole {
@@ -27,69 +26,6 @@ enum StoreRole {
 
   /// Default permission template for this role
   Map<String, List<String>> get defaultPermissions {
-    final allActions = PermissionAction.values.map((a) => a.key).toList();
-    final viewOnly = [PermissionAction.view.key];
-
-    final Map<String, List<String>> template;
-
-    switch (this) {
-      case StoreRole.owner:
-        template = {
-          for (final s in PermissionConfig.allScreens)
-            s.route: s.supportedActionKeys,
-        };
-        break;
-      case StoreRole.manager:
-        template = {
-          for (final s in PermissionConfig.allScreens)
-            s.route: s.supportedActionKeys,
-        };
-        break;
-      case StoreRole.cashier:
-        template = {
-          AppRoutes.billing: allActions,
-          AppRoutes.khata: allActions,
-          AppRoutes.bills: [
-            PermissionAction.view.key,
-            PermissionAction.create.key,
-          ],
-          AppRoutes.orders: [
-            PermissionAction.view.key,
-            PermissionAction.create.key,
-            PermissionAction.update.key,
-          ],
-          AppRoutes.tables: viewOnly,
-          AppRoutes.cashRegister: allActions,
-          AppRoutes.attendance: viewOnly,
-          AppRoutes.myAttendance: viewOnly,
-        };
-        break;
-      case StoreRole.accountant:
-        template = {
-          AppRoutes.billing: viewOnly,
-          AppRoutes.khata: allActions,
-          AppRoutes.bills: allActions,
-          AppRoutes.dashboard: viewOnly,
-          AppRoutes.cashRegister: allActions,
-          AppRoutes.advancedReports: viewOnly,
-          AppRoutes.gstExport: allActions,
-          AppRoutes.salary: allActions,
-          AppRoutes.myAttendance: viewOnly,
-        };
-        break;
-      case StoreRole.staff:
-        template = {
-          AppRoutes.tables: viewOnly,
-          AppRoutes.orders: viewOnly,
-          AppRoutes.kitchen: viewOnly,
-          AppRoutes.myAttendance: viewOnly,
-        };
-        break;
-      case StoreRole.custom:
-        template = {};
-        break;
-    }
-
-    return PermissionConfig.normalizePermissions(template);
+    return PermissionPolicy.memberRoleDefaults(this);
   }
 }

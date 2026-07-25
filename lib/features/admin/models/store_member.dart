@@ -2,7 +2,10 @@
 library;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:tulasihotels/features/permissions/permission_panel.dart';
+import 'package:tulasihotels/features/permissions/permission_policy.dart';
 import 'package:tulasihotels/features/admin/models/store_role.dart';
+import 'package:tulasihotels/features/staff/models/permission_config.dart';
 
 /// Member status within a store
 enum MemberStatus {
@@ -53,9 +56,17 @@ class StoreMember {
       ? customRoleName!
       : role.displayName;
 
-  /// Effective permissions: custom overrides or role defaults
+  /// Effective permissions: owner gets full access; non-owners only get
+  /// explicitly assigned permissions, with a minimal attendance baseline.
   Map<String, List<String>> get effectivePermissions {
-    return permissions ?? role.defaultPermissions;
+    if (isOwner) {
+      return PermissionPanels.normalizeToPanelPermissions(
+        PermissionPolicy.memberRoleDefaults(role),
+      );
+    }
+    return PermissionPanels.normalizeToPanelPermissions(
+      permissions ?? PermissionConfig.minimalAssignedPermissions(),
+    );
   }
 
   bool get isOwner => role == StoreRole.owner;

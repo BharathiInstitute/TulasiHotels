@@ -6,7 +6,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tulasihotels/core/design/design_system.dart';
 import 'package:tulasihotels/core/utils/validators.dart';
 import 'package:tulasihotels/features/khata/providers/khata_provider.dart';
+import 'package:tulasihotels/features/permissions/permission_center.dart';
 import 'package:tulasihotels/features/permissions/providers/route_permission_provider.dart';
+import 'package:tulasihotels/features/staff/models/permission_config.dart';
 import 'package:tulasihotels/models/customer_model.dart';
 import 'package:tulasihotels/router/app_router.dart';
 import 'package:tulasihotels/shared/widgets/app_button.dart';
@@ -64,9 +66,12 @@ class _AddCustomerModalState extends ConsumerState<AddCustomerModal> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            _isEditMode
-                ? 'You do not have permission to update customers.'
-                : 'You do not have permission to add customers.',
+            PermissionCenter.deniedActionMessage(
+              AppRoutes.khata,
+              _isEditMode
+                  ? PermissionAction.update
+                  : PermissionAction.create,
+            ),
           ),
         ),
       );

@@ -15,6 +15,7 @@ import 'package:tulasihotels/core/services/user_metrics_service.dart';
 import 'package:tulasihotels/features/subscription/models/plan_config.dart';
 import 'package:tulasihotels/features/subscription/providers/subscription_provider.dart';
 import 'package:tulasihotels/features/subscription/services/active_items_service.dart';
+import 'package:tulasihotels/features/subscription/services/plan_enforcement_service.dart';
 import 'package:tulasihotels/features/subscription/services/subscription_service.dart';
 import 'package:tulasihotels/features/subscription/widgets/active_item_selection_modal.dart';
 import 'package:tulasihotels/features/subscription/widgets/cancel_subscription_sheet.dart';
@@ -74,79 +75,20 @@ class _ManageSubscriptionPanelState
     final ownerUid = FirebaseAuth.instance.currentUser?.uid;
     if (storeId == null) return;
     try {
-      final base = 'users/$storeId';
-      final db = FirebaseFirestore.instance;
-
-      // Get current store doc to check if limits are properly set
-      final userDoc = await db.collection('users').doc(storeId).get();
-      final currentLimits = userDoc.data()?['limits'] as Map<String, dynamic>? ?? {};
-      var currentPlan = 'free';
-      if (ownerUid != null) {
-        final ownerDoc = await db.collection('users').doc(ownerUid).get();
-        currentPlan =
-            (ownerDoc.data()?['subscription'] as Map<String, dynamic>?)?['plan']
-                as String? ??
-            'free';
-      }
-
-      final results = await Future.wait([
-        db.collection('$base/tables').count().get(),
-        // Exclude owner-role members — owner does not count against staff limit
-        db.collection('$base/members').where('role', isNotEqualTo: 'owner').count().get(),
-        db.collection('$base/staff').count().get(),   // local PIN-based staff
-        db.collection('$base/products').count().get(),
-        db.collection('$base/customers').count().get(),
-      ]);
-      final tablesCount = results[0].count ?? 0;
-      final membersCount = results[1].count ?? 0;
-      final localStaffCount = results[2].count ?? 0;
-      final staffCount = membersCount + localStaffCount; // combined total (owner excluded)
-      final productsCount = results[3].count ?? 0;
-      final customersCount = results[4].count ?? 0;
-
-      final updates = <String, dynamic>{
-        'limits.tablesCount': tablesCount,
-        'limits.staffCount': staffCount,
-        'limits.productsCount': productsCount,
-        'limits.customersCount': customersCount,
-      };
-
-      // Always sync limits from plan config — ensures stale values (e.g., 0 from
-      // free plan) are corrected after a plan upgrade. Only update if the plan
-      // config gives a higher value than what's stored (never downgrade while active).
-      final config = PlanConfig.fromKey(currentPlan);
-      final storedStaffLimit = (currentLimits['staffLimit'] as int?) ?? 0;
-      final storedTablesLimit = (currentLimits['tablesLimit'] as int?) ?? 0;
-      final storedBillsLimit = (currentLimits['billsLimit'] as int?) ?? 0;
-      final storedProductsLimit = (currentLimits['productsLimit'] as int?) ?? 0;
-      final storedCustomersLimit = (currentLimits['customersLimit'] as int?) ?? 0;
-
-      if (config.staffLimitFirestore > storedStaffLimit) {
-        updates['limits.staffLimit'] = config.staffLimitFirestore;
-      }
-      if (config.tablesLimitFirestore > storedTablesLimit) {
-        updates['limits.tablesLimit'] = config.tablesLimitFirestore;
-      }
-      if (config.billsLimitFirestore > storedBillsLimit) {
-        updates['limits.billsLimit'] = config.billsLimitFirestore;
-      }
-      if (config.productsLimitFirestore > storedProductsLimit) {
-        updates['limits.productsLimit'] = config.productsLimitFirestore;
-      }
-      if (config.customersLimitFirestore > storedCustomersLimit) {
-        updates['limits.customersLimit'] = config.customersLimitFirestore;
-      }
-
-      await db.collection('users').doc(storeId).update(updates);
+      final result = await PlanEnforcementService.resyncUsageAndRepairLimits(
+        storeId: storeId,
+        ownerUid: ownerUid,
+      );
+      if (result == null) return;
 
       // Also update the UI immediately without waiting for Firestore stream
       if (mounted) {
         setState(() {
           _limits = _limits.copyWith(
-            tablesCount: tablesCount,
-            staffCount: staffCount,
-            productsCount: productsCount,
-            customersCount: customersCount,
+            tablesCount: result.tablesCount,
+            staffCount: result.staffCount,
+            productsCount: result.productsCount,
+            customersCount: result.customersCount,
           );
         });
       }

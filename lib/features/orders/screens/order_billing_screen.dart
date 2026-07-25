@@ -9,10 +9,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tulasihotels/core/services/print_helper.dart';
 import 'package:tulasihotels/features/auth/providers/auth_provider.dart';
 import 'package:tulasihotels/features/billing/services/billing_service.dart';
+import 'package:tulasihotels/features/permissions/permission_center.dart';
 import 'package:tulasihotels/features/permissions/providers/route_permission_provider.dart';
 import 'package:tulasihotels/features/orders/screens/order_detail_screen.dart';
 import 'package:tulasihotels/features/orders/services/order_service.dart';
 import 'package:tulasihotels/features/settings/providers/printer_provider.dart';
+import 'package:tulasihotels/features/staff/models/permission_config.dart';
 import 'package:tulasihotels/features/coupons/providers/coupon_provider.dart';
 import 'package:tulasihotels/features/coupons/services/coupon_service.dart';
 import 'package:tulasihotels/router/app_router.dart';
@@ -369,8 +371,13 @@ class _OrderBillingScreenState extends ConsumerState<OrderBillingScreen> {
     final permissions = ref.read(routePermissionProvider(AppRoutes.billing));
     if (!permissions.canCreate) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('You do not have permission to create bills.'),
+        SnackBar(
+          content: Text(
+            PermissionCenter.deniedActionMessage(
+              AppRoutes.billing,
+              PermissionAction.create,
+            ),
+          ),
         ),
       );
       return;
@@ -391,6 +398,11 @@ class _OrderBillingScreenState extends ConsumerState<OrderBillingScreen> {
         paymentMethod: _paymentMethod,
         discount: _couponDiscount,
         serviceChargePercent: _serviceChargePercent,
+      ).timeout(
+        const Duration(seconds: 20),
+        onTimeout: () => throw TimeoutException(
+          'Bill save timed out. Please check internet and try again.',
+        ),
       );
 
       // Mark coupon as used
@@ -398,8 +410,21 @@ class _OrderBillingScreenState extends ConsumerState<OrderBillingScreen> {
         unawaited(CouponService.applyCoupon(_selectedCoupon!.id));
       }
 
-      // Mark order as billed and free the table
-      await OrderService.completeOrder(order.id);
+      // Mark order as billed and free the table.
+      // Do not block bill success indefinitely on follow-up status updates.
+      var orderFinalizePending = false;
+      try {
+        await OrderService.completeOrder(order.id).timeout(
+          const Duration(seconds: 12),
+          onTimeout: () => throw TimeoutException(
+            'Order finalization timed out.',
+          ),
+        );
+      } catch (_) {
+        orderFinalizePending = true;
+        // Retry in background so table/order status can self-heal.
+        unawaited(OrderService.completeOrder(order.id));
+      }
 
       if (mounted) {
         final printerState = ref.read(printerProvider);
@@ -410,20 +435,43 @@ class _OrderBillingScreenState extends ConsumerState<OrderBillingScreen> {
           unawaited(_printReceipt(bill, messenger));
         }
 
+        if (orderFinalizePending) {
+          messenger.showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Bill saved, but order/table status update is pending. It will retry automatically.',
+              ),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
+
         Navigator.pop(context);
 
         // Show success with print option
-        _showBillCompleteDialog(bill);
+        _showBillCompleteDialog(bill, orderFinalizePending: orderFinalizePending);
+      }
+    } on TimeoutException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.message ?? 'Operation timed out'),
+            backgroundColor: Colors.red,
+          ),
+        );
       }
     } catch (e) {
       if (mounted) {
-        setState(() => _isProcessing = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Failed to generate bill: $e'),
             backgroundColor: Colors.red,
           ),
         );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isProcessing = false);
       }
     }
   }
@@ -444,7 +492,10 @@ class _OrderBillingScreenState extends ConsumerState<OrderBillingScreen> {
     );
   }
 
-  void _showBillCompleteDialog(BillModel bill) {
+  void _showBillCompleteDialog(
+    BillModel bill, {
+    bool orderFinalizePending = false,
+  }) {
     showDialog(
       context: context,
       builder: (dialogContext) {
@@ -468,6 +519,14 @@ class _OrderBillingScreenState extends ConsumerState<OrderBillingScreen> {
                       fontWeight: FontWeight.bold,
                     ),
               ),
+              if (orderFinalizePending) ...[
+                const SizedBox(height: 12),
+                const Text(
+                  'Order/table status is still syncing and will update automatically.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.orange),
+                ),
+              ],
               const SizedBox(height: 24),
               Row(
                 children: [

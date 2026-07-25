@@ -2,11 +2,11 @@
 /// Shows once on first login. Re-shows if consent version changes.
 library;
 
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tulasihotels/core/services/error_logging_service.dart';
+import 'package:tulasihotels/core/services/privacy_consent_service.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class PrivacyConsentDialog {
@@ -79,10 +79,10 @@ class _PrivacyConsentContentState extends State<_PrivacyConsentContent> {
 
     // Also save to Firestore (best-effort)
     try {
-      await FirebaseFirestore.instance.collection('users').doc(widget.uid).set({
-        'consentVersion': PrivacyConsentDialog.currentVersion,
-        'consentedAt': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
+      await PrivacyConsentService.recordDialogConsentVersion(
+        uid: widget.uid,
+        consentVersion: PrivacyConsentDialog.currentVersion,
+      );
     } catch (e, st) {
       debugPrint('⚠️ Consent: save failed: $e');
       ErrorLoggingService.logError(

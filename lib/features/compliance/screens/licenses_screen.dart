@@ -6,6 +6,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tulasihotels/core/utils/id_generator.dart';
 import 'package:tulasihotels/features/compliance/providers/compliance_provider.dart';
 import 'package:tulasihotels/features/compliance/services/license_service.dart';
+import 'package:tulasihotels/features/permissions/permission_center.dart';
+import 'package:tulasihotels/features/permissions/providers/route_permission_provider.dart';
+import 'package:tulasihotels/features/permissions/widgets/permission_denied_view.dart';
+import 'package:tulasihotels/features/staff/models/permission_config.dart';
+import 'package:tulasihotels/router/app_router.dart';
 import 'package:tulasihotels/models/license_model.dart';
 
 class LicensesScreen extends ConsumerStatefulWidget {
@@ -31,12 +36,28 @@ class _LicensesScreenState extends ConsumerState<LicensesScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final licensePermissions = ref.watch(routePermissionProvider(AppRoutes.licenses));
     final licensesAsync = ref.watch(licensesProvider);
+
+    if (!licensePermissions.isResolved) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (!licensePermissions.canView) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Licenses & Permits')),
+        body: PermissionDeniedView(
+          message: PermissionCenter.deniedViewMessage(AppRoutes.licenses),
+        ),
+      );
+    }
 
     return Scaffold(
       appBar: AppBar(title: const Text('Licenses & Permits')),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: _showLicenseForm,
+        onPressed: licensePermissions.canCreate ? _showLicenseForm : null,
         icon: const Icon(Icons.add),
         label: const Text('Add License'),
       ),
@@ -92,6 +113,21 @@ class _LicensesScreenState extends ConsumerState<LicensesScreen> {
   }
 
   void _showLicenseForm() {
+    final permissions = ref.read(routePermissionProvider(AppRoutes.licenses));
+    if (!permissions.canCreate) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            PermissionCenter.deniedActionMessage(
+              AppRoutes.licenses,
+              PermissionAction.create,
+            ),
+          ),
+        ),
+      );
+      return;
+    }
+
     _numberCtrl.clear();
     _authorityCtrl.clear();
     _type = LicenseType.fssai;
@@ -208,6 +244,21 @@ class _LicensesScreenState extends ConsumerState<LicensesScreen> {
   }
 
   void _showRenewDialog(LicenseModel license) {
+    final permissions = ref.read(routePermissionProvider(AppRoutes.licenses));
+    if (!permissions.canUpdate) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            PermissionCenter.deniedActionMessage(
+              AppRoutes.licenses,
+              PermissionAction.update,
+            ),
+          ),
+        ),
+      );
+      return;
+    }
+
     final DateTime newIssue = DateTime.now();
     DateTime newExpiry = license.expiryDate.add(const Duration(days: 365));
     showDialog(

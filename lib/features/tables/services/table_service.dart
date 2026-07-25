@@ -5,7 +5,10 @@ import 'package:tulasihotels/core/services/active_store_manager.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:tulasihotels/core/utils/id_generator.dart';
+import 'package:tulasihotels/features/permissions/services/module_mutation_guard.dart';
+import 'package:tulasihotels/features/staff/models/permission_config.dart';
 import 'package:tulasihotels/models/table_model.dart';
+import 'package:tulasihotels/router/app_router.dart';
 
 class TableService {
   static final _firestore = FirebaseFirestore.instance;
@@ -41,6 +44,10 @@ class TableService {
     int capacity = 4,
     int floor = 0,
   }) async {
+    await ModuleMutationGuard.requireAction(
+      AppRoutes.tables,
+      PermissionAction.create,
+    );
     final id = generateSafeId('table');
     final now = DateTime.now();
     final table = TableModel(
@@ -68,6 +75,10 @@ class TableService {
 
   /// Update an existing table
   static Future<void> updateTable(TableModel table) async {
+    await ModuleMutationGuard.requireAction(
+      AppRoutes.tables,
+      PermissionAction.update,
+    );
     await _tablesRef.doc(table.id).update({
       ...table.toFirestore(),
       'updatedAt': FieldValue.serverTimestamp(),
@@ -76,6 +87,10 @@ class TableService {
 
   /// Delete a table
   static Future<void> deleteTable(String tableId) async {
+    await ModuleMutationGuard.requireAction(
+      AppRoutes.tables,
+      PermissionAction.delete,
+    );
     await _tablesRef.doc(tableId).delete();
     // Cloud Function onTableDeleted handles count decrement
   }
@@ -106,6 +121,10 @@ class TableService {
     int capacity = 4,
     int floor = 0,
   }) async {
+    await ModuleMutationGuard.requireAction(
+      AppRoutes.tables,
+      PermissionAction.create,
+    );
     final batch = _firestore.batch();
     for (var i = from; i <= to; i++) {
       final id = generateSafeId('table');
@@ -129,6 +148,10 @@ class TableService {
     String staffId,
     String staffName,
   ) async {
+    await ModuleMutationGuard.requireAction(
+      AppRoutes.tables,
+      PermissionAction.update,
+    );
     await _tablesRef.doc(tableId).update({
       'assignedServerId': staffId,
       'assignedServerName': staffName,
@@ -150,6 +173,10 @@ class TableService {
 
   /// Clear server assignment from a table
   static Future<void> clearServerAssignment(String tableId) async {
+    await ModuleMutationGuard.requireAction(
+      AppRoutes.tables,
+      PermissionAction.update,
+    );
     await _tablesRef.doc(tableId).update({
       'assignedServerId': null,
       'assignedServerName': null,

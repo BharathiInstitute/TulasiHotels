@@ -18,7 +18,9 @@ import 'package:tulasihotels/router/app_router.dart';
 import 'package:tulasihotels/core/utils/formatters.dart';
 import 'package:tulasihotels/features/auth/providers/auth_provider.dart';
 import 'package:tulasihotels/features/billing/providers/cart_provider.dart';
+import 'package:tulasihotels/features/permissions/permission_center.dart';
 import 'package:tulasihotels/features/permissions/providers/route_permission_provider.dart';
+import 'package:tulasihotels/features/staff/models/permission_config.dart';
 import 'package:tulasihotels/features/settings/providers/settings_provider.dart';
 
 import 'package:tulasihotels/features/khata/providers/khata_provider.dart';
@@ -119,8 +121,13 @@ class _PaymentModalState extends ConsumerState<PaymentModal> {
     final permissions = ref.read(routePermissionProvider(AppRoutes.billing));
     if (!permissions.canCreate) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('You do not have permission to create bills.'),
+        SnackBar(
+          content: Text(
+            PermissionCenter.deniedActionMessage(
+              AppRoutes.billing,
+              PermissionAction.create,
+            ),
+          ),
           backgroundColor: AppColors.warning,
         ),
       );

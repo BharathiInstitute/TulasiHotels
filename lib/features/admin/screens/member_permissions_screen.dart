@@ -3,6 +3,9 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:tulasihotels/features/permissions/permission_panel.dart';
+import 'package:tulasihotels/features/permissions/permission_policy.dart';
+import 'package:tulasihotels/features/permissions/permission_center.dart';
 import 'package:tulasihotels/features/permissions/providers/route_permission_provider.dart';
 import 'package:tulasihotels/features/admin/models/store_member.dart';
 import 'package:tulasihotels/features/admin/models/store_role.dart';
@@ -28,7 +31,7 @@ class _MemberPermissionsScreenState
   @override
   void initState() {
     super.initState();
-    _permissions = PermissionConfig.normalizePermissions(
+    _permissions = PermissionPanels.normalizeToPanelPermissions(
       widget.member.effectivePermissions.map(
         (key, value) => MapEntry(key, List<String>.from(value)),
       ),
@@ -133,10 +136,10 @@ class _MemberPermissionsScreenState
   }
 
   Widget _buildCategorySection(String category, ThemeData theme) {
-    final screens = PermissionConfig.allScreens
-        .where((s) => s.category == category)
+    final panels = PermissionPanels.all
+      .where((panel) => PermissionPanels.panelCategoryForRoute(panel.route) == category)
         .toList();
-    if (screens.isEmpty) return const SizedBox.shrink();
+    if (panels.isEmpty) return const SizedBox.shrink();
 
     return Card(
       child: Padding(
@@ -156,7 +159,7 @@ class _MemberPermissionsScreenState
             // Header row with action labels
             Row(
               children: [
-                const Expanded(flex: 3, child: Text('Module')),
+                const Expanded(flex: 3, child: Text('Panel')),
                 ...PermissionAction.values.map(
                   (a) => SizedBox(
                     width: 50,
@@ -174,17 +177,17 @@ class _MemberPermissionsScreenState
             ),
             const SizedBox(height: 4),
 
-            // Screen rows
-            for (final screen in screens) _buildScreenRow(screen, theme),
+            // Panel rows
+            for (final panel in panels) _buildPanelRow(panel, theme),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildScreenRow(ScreenDef screen, ThemeData theme) {
-    final currentActions = _permissions[screen.route] ?? [];
-    final supportedActions = screen.supportedActions;
+  Widget _buildPanelRow(PermissionPanelDef panel, ThemeData theme) {
+    final currentActions = _permissions[panel.route] ?? [];
+    final supportedActions = PermissionConfig.supportedActionsForRoute(panel.route);
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
@@ -193,7 +196,7 @@ class _MemberPermissionsScreenState
           Expanded(
             flex: 3,
             child: Text(
-              screen.label,
+              panel.label,
               style: theme.textTheme.bodySmall,
               overflow: TextOverflow.ellipsis,
             ),
@@ -207,7 +210,7 @@ class _MemberPermissionsScreenState
                       onChanged: (checked) {
                         setState(() {
                           final actions = List<String>.from(
-                            _permissions[screen.route] ?? [],
+                            _permissions[panel.route] ?? [],
                           );
                           if (checked == true) {
                             if (!actions.contains(action.key)) {
@@ -216,13 +219,13 @@ class _MemberPermissionsScreenState
                           } else {
                             actions.remove(action.key);
                           }
-                          final normalized = PermissionConfig
-                              .normalizePermissions({screen.route: actions});
+                          final normalized = PermissionPanels
+                              .normalizeToPanelPermissions({panel.route: actions});
                           if (normalized.isEmpty) {
-                            _permissions.remove(screen.route);
+                            _permissions.remove(panel.route);
                           } else {
-                            _permissions[screen.route] =
-                                normalized[screen.route]!;
+                            _permissions[panel.route] =
+                                normalized[panel.route]!;
                           }
                           _hasChanges = true;
                         });
@@ -247,8 +250,8 @@ class _MemberPermissionsScreenState
 
   void _applyTemplate(StoreRole role) {
     setState(() {
-      _permissions = Map<String, List<String>>.from(
-        role.defaultPermissions.map(
+      _permissions = PermissionPanels.normalizeToPanelPermissions(
+        PermissionPolicy.memberRoleDefaults(role).map(
           (key, value) => MapEntry(key, List<String>.from(value)),
         ),
       );
@@ -261,8 +264,11 @@ class _MemberPermissionsScreenState
 
   void _grantAll() {
     setState(() {
-      for (final screen in PermissionConfig.allScreens) {
-        _permissions[screen.route] = List<String>.from(screen.supportedActionKeys);
+      for (final panel in PermissionPanels.all) {
+        _permissions[panel.route] = PermissionConfig
+            .supportedActionsForRoute(panel.route)
+            .map((action) => action.key)
+            .toList();
       }
       _hasChanges = true;
     });
@@ -280,8 +286,13 @@ class _MemberPermissionsScreenState
     if (!permissions.canUpdate) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('You do not have permission to update member permissions.'),
+          SnackBar(
+            content: Text(
+              PermissionCenter.deniedActionMessage(
+                AppRoutes.members,
+                PermissionAction.update,
+              ),
+            ),
           ),
         );
       }

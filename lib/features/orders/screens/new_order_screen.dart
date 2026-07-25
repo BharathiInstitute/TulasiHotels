@@ -6,9 +6,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tulasihotels/core/services/thermal_printer_service.dart';
 import 'package:tulasihotels/features/kitchen/services/kot_printer_service.dart';
 import 'package:tulasihotels/features/orders/services/order_service.dart';
+import 'package:tulasihotels/features/permissions/permission_center.dart';
 import 'package:tulasihotels/features/permissions/providers/route_permission_provider.dart';
 import 'package:tulasihotels/features/products/providers/products_provider.dart';
 import 'package:tulasihotels/features/settings/providers/printer_provider.dart';
+import 'package:tulasihotels/features/staff/models/permission_config.dart';
 import 'package:tulasihotels/models/order_model.dart';
 import 'package:tulasihotels/models/product_model.dart';
 import 'package:tulasihotels/router/app_router.dart';
@@ -593,9 +595,12 @@ class _NewOrderScreenState extends ConsumerState<NewOrderScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              _isAmendmentMode
-                  ? 'You do not have permission to update orders.'
-                  : 'You do not have permission to create orders.',
+              PermissionCenter.deniedActionMessage(
+                AppRoutes.orders,
+                _isAmendmentMode
+                    ? PermissionAction.update
+                    : PermissionAction.create,
+              ),
             ),
           ),
         );

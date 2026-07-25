@@ -7,9 +7,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:tulasihotels/features/admin/models/store_member.dart';
 import 'package:tulasihotels/features/admin/models/store_role.dart';
+import 'package:tulasihotels/features/permissions/permission_center.dart';
 import 'package:tulasihotels/features/admin/providers/members_provider.dart';
 import 'package:tulasihotels/features/admin/services/member_service.dart';
 import 'package:tulasihotels/features/permissions/providers/route_permission_provider.dart';
+import 'package:tulasihotels/features/staff/models/permission_config.dart';
 import 'package:tulasihotels/features/subscription/services/plan_enforcement_service.dart';
 import 'package:tulasihotels/router/app_router.dart';
 
@@ -35,11 +37,25 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
     final memberPermissions = ref.watch(routePermissionProvider(AppRoutes.members));
     final theme = Theme.of(context);
 
+    Widget buildShortcut(String label, IconData icon, String route, Color color) {
+      final permissions = ref.watch(routePermissionProvider(route));
+      final enabled = permissions.canView;
+      return OutlinedButton.icon(
+        onPressed: enabled ? () => context.push(route) : null,
+        icon: Icon(icon, size: 18, color: enabled ? color : null),
+        label: Text(label),
+        style: OutlinedButton.styleFrom(
+          foregroundColor: enabled ? color : null,
+          side: BorderSide(color: color.withValues(alpha: 0.5)),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+        ),
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Restaurant Members'),
         actions: [
-          // Role filter dropdown
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8),
             child: DropdownButton<StoreRole?>(
@@ -60,9 +76,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
           IconButton(
             icon: const Icon(Icons.person_add),
             tooltip: 'Add User',
-            onPressed: memberPermissions.canCreate
-                ? () => _showInviteDialog(context)
-                : null,
+            onPressed: memberPermissions.canCreate ? () => _showInviteDialog(context) : null,
           ),
         ],
       ),
@@ -70,59 +84,67 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('Error: $e')),
         data: (members) {
-          if (members.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.group_outlined,
-                    size: 64,
-                    color: theme.disabledColor,
+          return Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Wrap(
+                    spacing: 12,
+                    runSpacing: 12,
+                    children: [
+                      buildShortcut('Equipment', Icons.build, AppRoutes.equipment, Colors.blue),
+                      buildShortcut('Licenses', Icons.badge, AppRoutes.licenses, Colors.teal),
+                      buildShortcut('Complaints', Icons.report_problem, AppRoutes.complaints, Colors.red),
+                    ],
                   ),
-                  const SizedBox(height: 16),
-                  Text('No members yet', style: theme.textTheme.titleMedium),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Invite people to manage your restaurant',
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  FilledButton.icon(
-                    icon: const Icon(Icons.person_add),
-                    label: const Text('Add User'),
-                    onPressed: memberPermissions.canCreate
-                        ? () => _showInviteDialog(context)
-                        : null,
-                  ),
-                ],
+                ),
               ),
-            );
-          }
-
-          return ListView.separated(
-            padding: const EdgeInsets.all(16),
-            itemCount: members.length,
-            separatorBuilder: (_, _) => const Divider(height: 1),
-            itemBuilder: (context, index) {
-              final member = members[index];
-              return _MemberTile(
-                member: member,
-                onChangeRole: () => _showChangeRoleDialog(context, member),
-                onPermissions: () =>
-                    context.push(AppRoutes.memberPermissions, extra: member),
-                onRemove: member.isOwner
-                    ? null
-                    : () => _confirmRemove(context, member),
-                onToggleStatus: member.isOwner
-                    ? null
-                    : () => _toggleStatus(member),
-                canUpdate: memberPermissions.canUpdate,
-                canDelete: memberPermissions.canDelete,
-              );
-            },
+              Expanded(
+                child: members.isEmpty
+                    ? Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.group_outlined, size: 64, color: theme.disabledColor),
+                            const SizedBox(height: 16),
+                            Text('No members yet', style: theme.textTheme.titleMedium),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Invite people to manage your restaurant',
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                            const SizedBox(height: 24),
+                            FilledButton.icon(
+                              icon: const Icon(Icons.person_add),
+                              label: const Text('Add User'),
+                              onPressed: memberPermissions.canCreate ? () => _showInviteDialog(context) : null,
+                            ),
+                          ],
+                        ),
+                      )
+                    : ListView.separated(
+                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                        itemCount: members.length,
+                        separatorBuilder: (_, _) => const Divider(height: 1),
+                        itemBuilder: (context, index) {
+                          final member = members[index];
+                          return _MemberTile(
+                            member: member,
+                            onChangeRole: () => _showChangeRoleDialog(context, member),
+                            onPermissions: () => context.push(AppRoutes.memberPermissions, extra: member),
+                            onRemove: member.isOwner ? null : () => _confirmRemove(context, member),
+                            onToggleStatus: member.isOwner ? null : () => _toggleStatus(member),
+                            canUpdate: memberPermissions.canUpdate,
+                            canDelete: memberPermissions.canDelete,
+                          );
+                        },
+                      ),
+              ),
+            ],
           );
         },
       ),
@@ -134,8 +156,13 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
     if (!permissions.canCreate) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('You do not have permission to add members.'),
+          SnackBar(
+            content: Text(
+              PermissionCenter.deniedActionMessage(
+                AppRoutes.members,
+                PermissionAction.create,
+              ),
+            ),
           ),
         );
       }
@@ -363,8 +390,13 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
     if (!permissions.canUpdate) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('You do not have permission to update members.'),
+          SnackBar(
+            content: Text(
+              PermissionCenter.deniedActionMessage(
+                AppRoutes.members,
+                PermissionAction.update,
+              ),
+            ),
           ),
         );
       }
@@ -431,8 +463,13 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
     if (!permissions.canDelete) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('You do not have permission to remove members.'),
+          SnackBar(
+            content: Text(
+              PermissionCenter.deniedActionMessage(
+                AppRoutes.members,
+                PermissionAction.delete,
+              ),
+            ),
           ),
         );
       }
@@ -482,8 +519,13 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
     if (!permissions.canUpdate) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('You do not have permission to update members.'),
+          SnackBar(
+            content: Text(
+              PermissionCenter.deniedActionMessage(
+                AppRoutes.members,
+                PermissionAction.update,
+              ),
+            ),
           ),
         );
       }

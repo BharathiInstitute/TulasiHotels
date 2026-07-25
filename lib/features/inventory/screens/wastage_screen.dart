@@ -7,7 +7,10 @@ import 'package:tulasihotels/core/utils/id_generator.dart';
 import 'package:tulasihotels/features/inventory/providers/inventory_provider.dart';
 import 'package:tulasihotels/models/wastage_model.dart';
 import 'package:tulasihotels/features/inventory/services/wastage_service.dart';
+import 'package:tulasihotels/features/permissions/permission_center.dart';
 import 'package:tulasihotels/features/permissions/providers/route_permission_provider.dart';
+import 'package:tulasihotels/features/permissions/widgets/permission_denied_view.dart';
+import 'package:tulasihotels/features/staff/models/permission_config.dart';
 import 'package:tulasihotels/router/app_router.dart';
 
 class WastageScreen extends ConsumerStatefulWidget {
@@ -37,6 +40,21 @@ class _WastageScreenState extends ConsumerState<WastageScreen> {
   Widget build(BuildContext context) {
     final wastageAsync = ref.watch(wastageProvider);
     final wastagePermissions = ref.watch(routePermissionProvider(AppRoutes.wastage));
+
+    if (!wastagePermissions.isResolved) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (!wastagePermissions.canView) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Wastage Log')),
+        body: PermissionDeniedView(
+          message: PermissionCenter.deniedViewMessage(AppRoutes.wastage),
+        ),
+      );
+    }
 
     return Scaffold(
       appBar: AppBar(title: const Text('Wastage Log')),
@@ -87,8 +105,13 @@ class _WastageScreenState extends ConsumerState<WastageScreen> {
     final permissions = ref.read(routePermissionProvider(AppRoutes.wastage));
     if (!permissions.canCreate) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('You do not have permission to log wastage.'),
+        SnackBar(
+          content: Text(
+            PermissionCenter.deniedActionMessage(
+              AppRoutes.wastage,
+              PermissionAction.create,
+            ),
+          ),
         ),
       );
       return;
@@ -193,8 +216,13 @@ class _WastageScreenState extends ConsumerState<WastageScreen> {
     final permissions = ref.read(routePermissionProvider(AppRoutes.wastage));
     if (!permissions.canCreate) {
       ScaffoldMessenger.of(ctx).showSnackBar(
-        const SnackBar(
-          content: Text('You do not have permission to log wastage.'),
+        SnackBar(
+          content: Text(
+            PermissionCenter.deniedActionMessage(
+              AppRoutes.wastage,
+              PermissionAction.create,
+            ),
+          ),
         ),
       );
       return;

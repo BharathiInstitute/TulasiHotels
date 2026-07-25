@@ -9,7 +9,10 @@ import 'package:tulasihotels/features/admin/models/store_role.dart';
 import 'package:tulasihotels/features/admin/providers/current_member_provider.dart';
 import 'package:tulasihotels/features/admin/providers/members_provider.dart';
 import 'package:tulasihotels/features/hotels/providers/hotel_provider.dart';
+import 'package:tulasihotels/features/permissions/permission_center.dart';
 import 'package:tulasihotels/features/permissions/providers/route_permission_provider.dart';
+import 'package:tulasihotels/features/permissions/widgets/permission_denied_view.dart';
+import 'package:tulasihotels/features/staff/models/permission_config.dart';
 import 'package:tulasihotels/features/staff/providers/staff_provider.dart';
 import 'package:tulasihotels/features/staff/screens/permission_manager_screen.dart';
 import 'package:tulasihotels/features/staff/services/salary_service.dart';
@@ -22,52 +25,29 @@ class StaffScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Only the store owner may view staff data.
-    // Block both PIN-logged staff and Firebase Team Members who are not the owner.
-    final loggedInStaff = ref.watch(loggedInStaffProvider);
+    // Staff management should open when the user has explicit /staff access.
     final currentHotel = ref.watch(currentHotelProvider);
     final isOwner = currentHotel?.isOwner ?? false;
-
-    if (loggedInStaff != null) {
-      return _StaffProfileView(staff: loggedInStaff);
-    }
-
-    if (!isOwner) {
-      // Non-owner Firebase team member → show their own profile
-      final memberAsync = ref.watch(currentMemberProvider);
-      final member = memberAsync.valueOrNull;
-      if (member != null) {
-        return _MemberProfileView(member: member);
-      }
-      // Loading or no member doc → show restricted
-      return Scaffold(
-        appBar: AppBar(title: const Text('My Profile')),
-        body: const Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.lock_outline, size: 64, color: Colors.grey),
-              SizedBox(height: 16),
-              Text(
-                'Access Restricted',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-              SizedBox(height: 8),
-              Text(
-                'Staff data is only visible to the owner.',
-                style: TextStyle(color: Colors.grey),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
     final staffAsync = ref.watch(filteredStaffProvider);
     final roleFilter = ref.watch(staffRoleFilterProvider);
     final membersAsync = ref.watch(membersStreamProvider);
     final staffPermissions = ref.watch(routePermissionProvider(AppRoutes.staff));
     final cs = Theme.of(context).colorScheme;
+
+    if (!staffPermissions.isResolved) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (!isOwner && !staffPermissions.canView) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Staff Management')),
+        body: PermissionDeniedView(
+          message: PermissionCenter.deniedViewMessage(AppRoutes.staff),
+        ),
+      );
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -239,8 +219,13 @@ class StaffScreen extends ConsumerWidget {
     final permissions = ref.read(routePermissionProvider(AppRoutes.staff));
     if (!permissions.canDelete) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('You do not have permission to delete staff.'),
+        SnackBar(
+          content: Text(
+            PermissionCenter.deniedActionMessage(
+              AppRoutes.staff,
+              PermissionAction.delete,
+            ),
+          ),
         ),
       );
       return;
@@ -274,6 +259,29 @@ class StaffScreen extends ConsumerWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class MyProfileScreen extends ConsumerWidget {
+  const MyProfileScreen({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final loggedInStaff = ref.watch(loggedInStaffProvider);
+    if (loggedInStaff != null) {
+      return _StaffProfileView(staff: loggedInStaff);
+    }
+
+    final memberAsync = ref.watch(currentMemberProvider);
+    final member = memberAsync.valueOrNull;
+    if (member != null) {
+      return _MemberProfileView(member: member);
+    }
+
+    return Scaffold(
+      appBar: AppBar(title: const Text('My Profile')),
+      body: const Center(child: Text('Profile not available')),
     );
   }
 }

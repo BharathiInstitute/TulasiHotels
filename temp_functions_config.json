@@ -1,0 +1,7 @@
+﻿{
+  "razorpay": {
+    "webhook_secret": "nmDNgJV1vQ9r5dRCBiSyH7E8GMTqw4ZlLYFUA6OfPXskh0ja",
+    "key_secret": "VKV2FQsHMz6cWpib23zYLSB2",
+    "key_id": "rzp_live_TBlERFq0TtYIed"
+  }
+}

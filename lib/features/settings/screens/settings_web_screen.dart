@@ -3020,22 +3020,10 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
                     Switch(
                       value: user?.settings.gstEnabled ?? true,
                       onChanged: (v) async {
-                        final uid = ref.read(currentUserProvider)?.id;
-                        if (uid == null) return;
                         try {
-                          await FirebaseFirestore.instance
-                              .collection('users')
-                              .doc(uid)
-                              .update({'settings.gstEnabled': v});
-                          final notifier = ref.read(
-                            authNotifierProvider.notifier,
-                          );
-                          final current = ref.read(currentUserProvider);
-                          if (current != null) {
-                            notifier.updateLocalUserSettings(
-                              current.settings.copyWith(gstEnabled: v),
-                            );
-                          }
+                          await ref
+                              .read(authNotifierProvider.notifier)
+                              .updateShopInfo(gstEnabled: v);
                         } catch (e) {
                           if (mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(

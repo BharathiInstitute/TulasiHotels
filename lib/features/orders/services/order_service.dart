@@ -6,9 +6,12 @@ import 'package:tulasihotels/core/services/active_store_manager.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:tulasihotels/core/utils/id_generator.dart';
+import 'package:tulasihotels/features/permissions/services/module_mutation_guard.dart';
+import 'package:tulasihotels/features/staff/models/permission_config.dart';
 import 'package:tulasihotels/features/tables/services/table_service.dart';
 import 'package:tulasihotels/models/order_model.dart';
 import 'package:tulasihotels/models/table_model.dart';
+import 'package:tulasihotels/router/app_router.dart';
 
 class OrderService {
   static final _firestore = FirebaseFirestore.instance;
@@ -102,6 +105,10 @@ class OrderService {
     bool isRush = false,
     bool isVip = false,
   }) async {
+    await ModuleMutationGuard.requireAction(
+      AppRoutes.orders,
+      PermissionAction.create,
+    );
     final id = generateSafeId('order');
     final now = DateTime.now();
     final orderNumber = generateBillNumber(); // reuse the number generator
@@ -149,6 +156,10 @@ class OrderService {
     required String orderId,
     required List<OrderItem> newItems,
   }) async {
+    await ModuleMutationGuard.requireAction(
+      AppRoutes.orders,
+      PermissionAction.update,
+    );
     final order = await getOrder(orderId);
     if (order == null) throw Exception('Order not found: $orderId');
 
@@ -171,6 +182,16 @@ class OrderService {
     String orderId,
     OrderStatus status,
   ) async {
+    await ModuleMutationGuard.requireAnyAction([
+      const ModuleActionRequirement(
+        route: AppRoutes.orders,
+        action: PermissionAction.update,
+      ),
+      const ModuleActionRequirement(
+        route: AppRoutes.kitchen,
+        action: PermissionAction.update,
+      ),
+    ]);
     await _ordersRef.doc(orderId).update({
       'status': status.name,
       'updatedAt': FieldValue.serverTimestamp(),
@@ -183,6 +204,16 @@ class OrderService {
     int itemIndex,
     OrderItemStatus status,
   ) async {
+    await ModuleMutationGuard.requireAnyAction([
+      const ModuleActionRequirement(
+        route: AppRoutes.orders,
+        action: PermissionAction.update,
+      ),
+      const ModuleActionRequirement(
+        route: AppRoutes.kitchen,
+        action: PermissionAction.update,
+      ),
+    ]);
     final order = await getOrder(orderId);
     if (order == null) return;
 
@@ -226,6 +257,16 @@ class OrderService {
 
   /// Mark all items in an order as ready (kitchen marks entire order done)
   static Future<void> markAllItemsReady(String orderId) async {
+    await ModuleMutationGuard.requireAnyAction([
+      const ModuleActionRequirement(
+        route: AppRoutes.orders,
+        action: PermissionAction.update,
+      ),
+      const ModuleActionRequirement(
+        route: AppRoutes.kitchen,
+        action: PermissionAction.update,
+      ),
+    ]);
     final order = await getOrder(orderId);
     if (order == null) return;
 
@@ -242,6 +283,16 @@ class OrderService {
 
   /// Mark all items in an order as served and set order status to served
   static Future<void> markAllItemsServed(String orderId) async {
+    await ModuleMutationGuard.requireAnyAction([
+      const ModuleActionRequirement(
+        route: AppRoutes.orders,
+        action: PermissionAction.update,
+      ),
+      const ModuleActionRequirement(
+        route: AppRoutes.kitchen,
+        action: PermissionAction.update,
+      ),
+    ]);
     final order = await getOrder(orderId);
     if (order == null) return;
 
@@ -258,19 +309,38 @@ class OrderService {
 
   /// Complete an order (transition to billed) and free the table
   static Future<void> completeOrder(String orderId) async {
-    final order = await getOrder(orderId);
+    await ModuleMutationGuard.requireAnyAction([
+      const ModuleActionRequirement(
+        route: AppRoutes.orders,
+        action: PermissionAction.update,
+      ),
+      const ModuleActionRequirement(
+        route: AppRoutes.billing,
+        action: PermissionAction.create,
+      ),
+    ]);
+    final order = await getOrder(orderId).timeout(
+      const Duration(seconds: 10),
+      onTimeout: () => throw TimeoutException('Fetching order timed out.'),
+    );
     if (order == null) return;
 
     await _ordersRef.doc(orderId).update({
       'status': OrderStatus.billed.name,
       'updatedAt': FieldValue.serverTimestamp(),
-    });
+    }).timeout(
+      const Duration(seconds: 10),
+      onTimeout: () => throw TimeoutException('Updating order timed out.'),
+    );
 
     // Free the table
     if (order.tableId != null) {
       await TableService.updateTableStatus(
         order.tableId!,
         TableStatus.available,
+      ).timeout(
+        const Duration(seconds: 10),
+        onTimeout: () => throw TimeoutException('Updating table timed out.'),
       );
     }
 
@@ -279,6 +349,10 @@ class OrderService {
 
   /// Cancel an order and free the table
   static Future<void> cancelOrder(String orderId) async {
+    await ModuleMutationGuard.requireAction(
+      AppRoutes.orders,
+      PermissionAction.delete,
+    );
     final order = await getOrder(orderId);
     if (order == null) return;
 
@@ -302,6 +376,10 @@ class OrderService {
     required String targetOrderId,
     required String sourceOrderId,
   }) async {
+    await ModuleMutationGuard.requireAction(
+      AppRoutes.orders,
+      PermissionAction.update,
+    );
     final target = await getOrder(targetOrderId);
     final source = await getOrder(sourceOrderId);
     if (target == null) throw Exception('Target order not found');

@@ -11,10 +11,9 @@ import 'package:tulasihotels/core/utils/website_url.dart';
 import 'package:tulasihotels/features/auth/providers/auth_provider.dart';
 import 'package:tulasihotels/features/auth/widgets/demo_mode_banner.dart';
 import 'package:tulasihotels/features/staff/providers/staff_provider.dart';
-import 'package:tulasihotels/features/staff/services/staff_permissions.dart';
 import 'package:tulasihotels/features/admin/providers/current_member_provider.dart';
-import 'package:tulasihotels/features/admin/services/member_permission_guard.dart';
 import 'package:tulasihotels/features/hotels/providers/hotel_provider.dart';
+import 'package:tulasihotels/features/permissions/permission_center.dart';
 import 'package:tulasihotels/features/subscription/models/plan_config.dart';
 import 'package:tulasihotels/features/subscription/providers/subscription_provider.dart';
 import 'package:tulasihotels/router/app_router.dart';
@@ -127,10 +126,9 @@ class _WebSidebar extends ConsumerWidget {
     9: (Icons.access_time_outlined, 'My Attendance'),
   };
 
-  /// Returns nav items, replacing index 8 label with 'My Profile' for PIN-logged staff
-  static Map<int, (IconData, String)> _resolvedNavItems(bool isStaff) {
-    if (!isStaff) return _navItems;
-    return {..._navItems, 8: (Icons.person_outlined, 'My Profile')};
+  /// Returns the base nav items for the sidebar.
+  static Map<int, (IconData, String)> _resolvedNavItems() {
+    return _navItems;
   }
 
   /// Build profile avatar that handles both URL and local file
@@ -180,8 +178,34 @@ class _WebSidebar extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(currentUserProvider);
-    final loggedInStaff = ref.watch(loggedInStaffProvider);
-    final navItems = _resolvedNavItems(loggedInStaff != null);
+    final currentHotel = ref.watch(currentHotelProvider);
+    final hotelId = ref.watch(currentHotelIdProvider);
+    final authUid = ref.watch(authUidProvider).valueOrNull;
+    final staff = ref.watch(loggedInStaffProvider);
+    final member = ref.watch(currentMemberProvider).valueOrNull;
+    final isOwner = currentHotel?.isOwner == true ||
+        (hotelId != null && hotelId == authUid);
+
+    final roleLabel = staff != null
+        ? staff.role.displayName
+        : member != null
+        ? member.roleLabel
+        : currentHotel?.roleLabel ?? (isOwner ? 'Owner' : 'Member');
+
+    final planAsync = hotelId == null
+        ? const AsyncValue<String>.data('free')
+        : ref.watch(hotelSubscriptionPlanProvider(hotelId));
+    final selectedPlanLabel = planAsync.when(
+      data: (planKey) => PlanConfig.fromKey(planKey).name,
+      loading: () => 'Free',
+      error: (_, _) => 'Free',
+    );
+    final ownerPlanLabel = ref.watch(planConfigProvider).name;
+    final planLabel = selectedPlanLabel == 'Free' && ownerPlanLabel != 'Free'
+      ? ownerPlanLabel
+      : selectedPlanLabel;
+
+    final navItems = _resolvedNavItems();
     // Identify if we are in settings (since it might be outside standard index)
     final isSettings = currentPath.startsWith(AppRoutes.settings);
     final userToggle = ref.watch(sidebarCollapsedProvider);
@@ -259,26 +283,24 @@ class _WebSidebar extends ConsumerWidget {
                         final member = memberAsync.valueOrNull;
                         // Check ownership: if hotelId == auth uid
                         final hotelId = ref.read(currentHotelIdProvider);
+                        final currentHotel = ref.read(currentHotelProvider);
                         final uid = ref
                             .read(authNotifierProvider)
                             .firebaseUser
                             ?.uid;
-                        final isOwner = hotelId != null && hotelId == uid;
+                        final isOwner = currentHotel?.isOwner == true ||
+                          (hotelId != null && hotelId == uid);
                         Widget? routeItem(
                           IconData icon,
                           String label,
                           String route,
                         ) {
-                          if (!StaffPermissions.canViewRoute(staff, route)) {
-                            return null;
-                          }
-                          // Non-owner with no member doc: hide everything
-                          if (staff == null &&
-                              !isOwner &&
-                              !MemberPermissionGuard.canViewRoute(
-                                member,
-                                route,
-                              )) {
+                          if (!PermissionCenter.canSeeNavRoute(
+                            route: route,
+                            isOwner: isOwner,
+                            staff: staff,
+                            member: member,
+                          )) {
                             return null;
                           }
                           return _SidebarRouteItem(
@@ -298,9 +320,12 @@ class _WebSidebar extends ConsumerWidget {
                           String route,
                           PlanFeature feature,
                         ) {
-                          if (!StaffPermissions.canViewRoute(staff, route)) return null;
-                          if (staff == null && !isOwner && member != null &&
-                              !MemberPermissionGuard.canAccess(member, route)) {
+                          if (!PermissionCenter.canSeeNavRoute(
+                            route: route,
+                            isOwner: isOwner,
+                            staff: staff,
+                            member: member,
+                          )) {
                             return null;
                           }
                           final hasFeature = planConfig.has(feature);
@@ -325,24 +350,7 @@ class _WebSidebar extends ConsumerWidget {
                         }
 
                         // Build sections, omit empty ones
-                        final menuItems = [
-                          routeItem(
-                            Icons.star,
-                            'Daily Specials',
-                            AppRoutes.dailySpecials,
-                          ),
-                          routeItem(
-                            Icons.lunch_dining,
-                            'Combos',
-                            AppRoutes.combos,
-                          ),
-                        ].whereType<Widget>().toList();
                         final inventoryItems = [
-                          routeItem(
-                            Icons.egg,
-                            'Ingredients',
-                            AppRoutes.ingredients,
-                          ),
                           routeItem(
                             Icons.local_shipping,
                             'Vendors',
@@ -384,31 +392,8 @@ class _WebSidebar extends ConsumerWidget {
                             AppRoutes.advancedReports,
                           ),
                         ].whereType<Widget>().toList();
-                        final complianceItems = [
-                          routeItem(
-                            Icons.build,
-                            'Equipment',
-                            AppRoutes.equipment,
-                          ),
-                          routeItem(
-                            Icons.badge,
-                            'Licenses',
-                            AppRoutes.licenses,
-                          ),
-                          routeItem(
-                            Icons.report_problem,
-                            'Complaints',
-                            AppRoutes.complaints,
-                          ),
-                        ].whereType<Widget>().toList();
                         return Column(
                           children: [
-                            if (menuItems.isNotEmpty)
-                              _SidebarSection(
-                                title: 'Menu',
-                                isCollapsed: isCollapsed,
-                                children: menuItems,
-                              ),
                             if (inventoryItems.isNotEmpty)
                               _SidebarSection(
                                 title: 'Inventory',
@@ -426,12 +411,6 @@ class _WebSidebar extends ConsumerWidget {
                                 title: 'Reports',
                                 isCollapsed: isCollapsed,
                                 children: reportsItems,
-                              ),
-                            if (complianceItems.isNotEmpty)
-                              _SidebarSection(
-                                title: 'Compliance',
-                                isCollapsed: isCollapsed,
-                                children: complianceItems,
                               ),
                           ],
                         );
@@ -454,13 +433,16 @@ class _WebSidebar extends ConsumerWidget {
                           unreadNotificationCountProvider,
                         );
                         final count = unreadAsync.valueOrNull ?? 0;
+                        final isNotificationsRoute = currentPath.startsWith(
+                          AppRoutes.notifications,
+                        );
                         return Container(
                           margin: const EdgeInsets.only(bottom: 4),
                           child: Material(
                             color: Colors.transparent,
                             child: InkWell(
                               onTap: () =>
-                                  GoRouter.of(context).push('/notifications'),
+                                  GoRouter.of(context).go(AppRoutes.notifications),
                               borderRadius: BorderRadius.circular(8),
                               child: Container(
                                 padding: const EdgeInsets.symmetric(
@@ -468,6 +450,9 @@ class _WebSidebar extends ConsumerWidget {
                                   vertical: 12,
                                 ),
                                 decoration: BoxDecoration(
+                                  color: isNotificationsRoute
+                                      ? AppColors.primary.withValues(alpha: 0.12)
+                                      : Colors.transparent,
                                   borderRadius: BorderRadius.circular(8),
                                 ),
                                 child: Row(
@@ -477,11 +462,13 @@ class _WebSidebar extends ConsumerWidget {
                                           ? Icons.notifications_active
                                           : Icons.notifications_outlined,
                                       size: 20,
-                                      color: count > 0
-                                          ? Colors.amber
-                                          : Theme.of(
-                                              context,
-                                            ).colorScheme.onSurfaceVariant,
+                                      color: isNotificationsRoute
+                                          ? AppColors.primary
+                                          : (count > 0
+                                                ? Colors.amber
+                                                : Theme.of(context)
+                                                      .colorScheme
+                                                      .onSurfaceVariant),
                                     ),
                                     const SizedBox(width: 12),
                                     Expanded(
@@ -489,10 +476,14 @@ class _WebSidebar extends ConsumerWidget {
                                         'Notifications',
                                         style: TextStyle(
                                           fontSize: 14,
-                                          fontWeight: FontWeight.w500,
-                                          color: Theme.of(
-                                            context,
-                                          ).colorScheme.onSurfaceVariant,
+                                          fontWeight: isNotificationsRoute
+                                              ? FontWeight.w600
+                                              : FontWeight.w500,
+                                          color: isNotificationsRoute
+                                              ? AppColors.primary
+                                              : Theme.of(context)
+                                                    .colorScheme
+                                                    .onSurfaceVariant,
                                         ),
                                       ),
                                     ),
@@ -536,8 +527,8 @@ class _WebSidebar extends ConsumerWidget {
                       onTap: () {
                         launchUrl(
                           Uri.parse(websiteUrl),
-                          mode: LaunchMode.externalApplication,
-                          webOnlyWindowName: '_self',
+                          mode: LaunchMode.platformDefault,
+                          webOnlyWindowName: '_blank',
                         );
                       },
                     ),
@@ -546,9 +537,9 @@ class _WebSidebar extends ConsumerWidget {
                   _SidebarItem(
                     icon: Icons.support_agent,
                     label: 'Help & Support',
-                    isSelected: currentPath == '/support',
+                    isSelected: currentPath.startsWith(AppRoutes.support),
                     isCollapsed: isCollapsed,
-                    onTap: () => GoRouter.of(context).push('/support'),
+                    onTap: () => GoRouter.of(context).go(AppRoutes.support),
                   ),
 
                   // ── Admin section (scrollable with other items) ──
@@ -558,19 +549,22 @@ class _WebSidebar extends ConsumerWidget {
                       final member = ref
                           .watch(currentMemberProvider)
                           .valueOrNull;
+                      final hotelId = ref.read(currentHotelIdProvider);
+                        final currentHotel = ref.read(currentHotelProvider);
+                      final uid = ref
+                          .read(authNotifierProvider)
+                          .firebaseUser
+                          ?.uid;
+                        final isOwner = currentHotel?.isOwner == true ||
+                          (hotelId != null && hotelId == uid);
 
                       bool canSee(String route) {
-                        if (!StaffPermissions.canViewRoute(staff, route)) {
-                          return false;
-                        }
-                        if (staff == null &&
-                            !MemberPermissionGuard.canViewRoute(
-                              member,
-                              route,
-                            )) {
-                          return false;
-                        }
-                        return true;
+                        return PermissionCenter.canSeeNavRoute(
+                          route: route,
+                          isOwner: isOwner,
+                          staff: staff,
+                          member: member,
+                        );
                       }
 
                       final showUsers = canSee(AppRoutes.members);
@@ -611,7 +605,7 @@ class _WebSidebar extends ConsumerWidget {
                               ),
                               isCollapsed: isCollapsed,
                               onTap: () =>
-                                  GoRouter.of(context).push(AppRoutes.members),
+                                  GoRouter.of(context).go(AppRoutes.members),
                             ),
                           if (showPerms)
                             _SidebarItem(
@@ -623,7 +617,7 @@ class _WebSidebar extends ConsumerWidget {
                               isCollapsed: isCollapsed,
                               onTap: () => GoRouter.of(
                                 context,
-                              ).push(AppRoutes.permissionsOverview),
+                              ).go(AppRoutes.permissionsOverview),
                             ),
                         ],
                       );
@@ -803,7 +797,7 @@ class _WebSidebar extends ConsumerWidget {
                                 overflow: TextOverflow.ellipsis,
                               ),
                               Text(
-                                'Owner',
+                                '$roleLabel • $planLabel Plan',
                                 style: TextStyle(
                                   fontSize: 11,
                                   color: Theme.of(
@@ -819,13 +813,31 @@ class _WebSidebar extends ConsumerWidget {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             const GlobalSyncIndicator(),
-                            const SizedBox(height: 2),
-                            Icon(
-                              Icons.settings_outlined,
-                              size: 16,
-                              color: isSettings
-                                  ? AppColors.primary
-                                  : Theme.of(context).colorScheme.outline,
+                            const SizedBox(height: 4),
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                InkWell(
+                                  borderRadius: BorderRadius.circular(6),
+                                  onTap: () => context.go(AppRoutes.subscription),
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(2),
+                                    child: Icon(
+                                      Icons.workspace_premium_outlined,
+                                      size: 14,
+                                      color: Theme.of(context).colorScheme.outline,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                Icon(
+                                  Icons.settings_outlined,
+                                  size: 16,
+                                  color: isSettings
+                                      ? AppColors.primary
+                                      : Theme.of(context).colorScheme.outline,
+                                ),
+                              ],
                             ),
                           ],
                         ),
@@ -1073,7 +1085,7 @@ class _SidebarRouteItem extends StatelessWidget {
       isSelected: isSelected,
       isCollapsed: isCollapsed,
       lockBadge: lockBadge,
-      onTap: () => GoRouter.of(context).push(route),
+      onTap: () => GoRouter.of(context).go(route),
     );
   }
 }
@@ -1083,30 +1095,95 @@ class _WebHeader extends StatelessWidget {
 
   const _WebHeader({required this.currentPath});
 
+  (String, String) _resolveHeaderMeta() {
+    if (currentPath.startsWith(AppRoutes.billing)) {
+      return ('Walk-in Billing', 'Billing');
+    }
+    if (currentPath.startsWith(AppRoutes.myProfile)) {
+      return ('My Profile', 'My Attendance');
+    }
+    if (currentPath.startsWith(AppRoutes.myAttendance) ||
+        currentPath.startsWith(AppRoutes.attendance)) {
+      return ('My Attendance', 'My Attendance');
+    }
+    if (currentPath.startsWith(AppRoutes.products)) {
+      return ('Menu Management', 'Menu');
+    }
+    if (currentPath.startsWith(AppRoutes.dashboard)) {
+      return ('Dashboard', 'Dashboard');
+    }
+    if (currentPath.startsWith(AppRoutes.khata)) {
+      return ('Guest Ledger', 'Khata');
+    }
+    if (currentPath.startsWith(AppRoutes.bills)) {
+      return ('Billing History', 'Bills');
+    }
+    if (currentPath.startsWith(AppRoutes.vendors)) {
+      return ('Vendors', 'Vendors');
+    }
+    if (currentPath.startsWith(AppRoutes.wastage)) {
+      return ('Wastage', 'Wastage');
+    }
+    if (currentPath.startsWith(AppRoutes.reservations)) {
+      return ('Reservations', 'Reservations');
+    }
+    if (currentPath.startsWith(AppRoutes.coupons)) {
+      return ('Coupons', 'Coupons');
+    }
+    if (currentPath.startsWith(AppRoutes.events)) {
+      return ('Events', 'Events');
+    }
+    if (currentPath.startsWith(AppRoutes.feedbackDashboard) ||
+        currentPath.startsWith(AppRoutes.feedback)) {
+      return ('Feedback', 'Feedback');
+    }
+    if (currentPath.startsWith(AppRoutes.advancedReports) ||
+        currentPath.startsWith(AppRoutes.menuPerformance) ||
+        currentPath.startsWith(AppRoutes.weeklyReport) ||
+        currentPath.startsWith(AppRoutes.pnlReport) ||
+        currentPath.startsWith(AppRoutes.peakHours) ||
+        currentPath.startsWith(AppRoutes.itemSales) ||
+        currentPath.startsWith(AppRoutes.comparative) ||
+        currentPath.startsWith(AppRoutes.feedbackReport)) {
+      return ('Advanced Reports', 'Reports');
+    }
+    if (currentPath.startsWith(AppRoutes.staff)) {
+      return ('Staff', 'Staff');
+    }
+    if (currentPath.startsWith(AppRoutes.tables)) {
+      return ('Tables', 'Tables');
+    }
+    if (currentPath.startsWith(AppRoutes.kitchen)) {
+      return ('Kitchen', 'Kitchen');
+    }
+    if (currentPath.startsWith(AppRoutes.orders)) {
+      return ('Orders', 'Orders');
+    }
+    if (currentPath.startsWith(AppRoutes.members)) {
+      return ('Users', 'Admin');
+    }
+    if (currentPath.startsWith(AppRoutes.permissionsOverview) ||
+        currentPath.startsWith(AppRoutes.memberPermissions)) {
+      return ('Permissions', 'Admin');
+    }
+    if (currentPath.startsWith(AppRoutes.notifications)) {
+      return ('Notifications', 'Notifications');
+    }
+    if (currentPath.startsWith(AppRoutes.supportChat)) {
+      return ('Support Chat', 'Help & Support');
+    }
+    if (currentPath.startsWith(AppRoutes.support)) {
+      return ('Help & Support', 'Help & Support');
+    }
+    if (currentPath.startsWith(AppRoutes.settings)) {
+      return ('System Settings', 'Settings');
+    }
+    return ('Dashboard', 'Home');
+  }
+
   @override
   Widget build(BuildContext context) {
-    String title = 'Dashboard';
-    String breadcrumb = 'Home';
-
-    if (currentPath.startsWith(AppRoutes.billing)) {
-      title = 'Walk-in Billing';
-      breadcrumb = 'Billing';
-    } else if (currentPath.startsWith(AppRoutes.products)) {
-      title = 'Menu Management';
-      breadcrumb = 'Menu';
-    } else if (currentPath.startsWith(AppRoutes.dashboard)) {
-      title = 'Dashboard';
-      breadcrumb = 'Dashboard';
-    } else if (currentPath.startsWith(AppRoutes.khata)) {
-      title = 'Guest Ledger';
-      breadcrumb = 'Khata';
-    } else if (currentPath.startsWith(AppRoutes.bills)) {
-      title = 'Billing History';
-      breadcrumb = 'Bills';
-    } else if (currentPath.startsWith(AppRoutes.settings)) {
-      title = 'System Settings';
-      breadcrumb = 'Settings';
-    }
+    final (title, breadcrumb) = _resolveHeaderMeta();
 
     return Container(
       height: 70,

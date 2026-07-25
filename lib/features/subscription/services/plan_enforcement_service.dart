@@ -39,6 +39,20 @@ class PlanLimitException implements Exception {
   String toString() => message;
 }
 
+class UsageSyncResult {
+  final int tablesCount;
+  final int staffCount;
+  final int productsCount;
+  final int customersCount;
+
+  const UsageSyncResult({
+    required this.tablesCount,
+    required this.staffCount,
+    required this.productsCount,
+    required this.customersCount,
+  });
+}
+
 class PlanEnforcementService {
   PlanEnforcementService._();
 
@@ -271,6 +285,84 @@ class PlanEnforcementService {
       'limits.activeTableIds': FieldValue.delete(),
       'subscription.plan': planKey,
     });
+  }
+
+  /// Resync usage counters and repair stale plan limits on the active store doc.
+  static Future<UsageSyncResult?> resyncUsageAndRepairLimits({
+    String? storeId,
+    String? ownerUid,
+  }) async {
+    final resolvedStoreId = storeId ?? _storeId;
+    final resolvedOwnerUid = ownerUid ?? _ownerUid;
+    if (resolvedStoreId == null) return null;
+
+    final db = _firestore;
+    final userDoc = await db.collection('users').doc(resolvedStoreId).get();
+    final currentLimits = userDoc.data()?['limits'] as Map<String, dynamic>? ?? {};
+
+    var currentPlan = 'free';
+    if (resolvedOwnerUid != null) {
+      final ownerDoc = await db.collection('users').doc(resolvedOwnerUid).get();
+      currentPlan =
+          (ownerDoc.data()?['subscription'] as Map<String, dynamic>?)?['plan']
+              as String? ??
+          'free';
+    }
+
+    final base = 'users/$resolvedStoreId';
+    final results = await Future.wait([
+      db.collection('$base/tables').count().get(),
+      db.collection('$base/members').where('role', isNotEqualTo: 'owner').count().get(),
+      db.collection('$base/staff').count().get(),
+      db.collection('$base/products').count().get(),
+      db.collection('$base/customers').count().get(),
+    ]);
+
+    final tablesCount = results[0].count ?? 0;
+    final membersCount = results[1].count ?? 0;
+    final localStaffCount = results[2].count ?? 0;
+    final staffCount = membersCount + localStaffCount;
+    final productsCount = results[3].count ?? 0;
+    final customersCount = results[4].count ?? 0;
+
+    final updates = <String, dynamic>{
+      'limits.tablesCount': tablesCount,
+      'limits.staffCount': staffCount,
+      'limits.productsCount': productsCount,
+      'limits.customersCount': customersCount,
+    };
+
+    final config = PlanConfig.fromKey(currentPlan);
+    final storedStaffLimit = (currentLimits['staffLimit'] as int?) ?? 0;
+    final storedTablesLimit = (currentLimits['tablesLimit'] as int?) ?? 0;
+    final storedBillsLimit = (currentLimits['billsLimit'] as int?) ?? 0;
+    final storedProductsLimit = (currentLimits['productsLimit'] as int?) ?? 0;
+    final storedCustomersLimit = (currentLimits['customersLimit'] as int?) ?? 0;
+
+    if (config.staffLimitFirestore > storedStaffLimit) {
+      updates['limits.staffLimit'] = config.staffLimitFirestore;
+    }
+    if (config.tablesLimitFirestore > storedTablesLimit) {
+      updates['limits.tablesLimit'] = config.tablesLimitFirestore;
+    }
+    if (config.billsLimitFirestore > storedBillsLimit) {
+      updates['limits.billsLimit'] = config.billsLimitFirestore;
+    }
+    if (config.productsLimitFirestore > storedProductsLimit) {
+      updates['limits.productsLimit'] = config.productsLimitFirestore;
+    }
+    if (config.customersLimitFirestore > storedCustomersLimit) {
+      updates['limits.customersLimit'] = config.customersLimitFirestore;
+    }
+
+    await db.collection('users').doc(resolvedStoreId).update(updates);
+
+    return UsageSyncResult(
+      tablesCount: tablesCount,
+      staffCount: staffCount,
+      productsCount: productsCount,
+      customersCount: customersCount,
+    );
   }
 
   // ── Helpers ───────────────────────────────────────────────────

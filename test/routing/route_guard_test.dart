@@ -5,6 +5,8 @@
 library;
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:tulasihotels/features/permissions/permission_center.dart';
+import 'package:tulasihotels/features/staff/models/permission_config.dart';
 import 'package:tulasihotels/features/staff/services/staff_permissions.dart';
 import 'package:tulasihotels/models/staff_model.dart';
 import 'package:tulasihotels/router/app_router.dart';
@@ -126,49 +128,143 @@ void main() {
 
   group('Route Guard: Staff permission redirect simulation', () {
     test('unauthenticated staff → redirected from restricted routes', () {
-      final waiter = makeStaff();
+      final waiter = makeStaff(
+        permissions: PermissionConfig.defaultTemplate(StaffRole.waiter),
+      );
 
       // Waiter tries to access billing → blocked
-      final canAccessBilling = StaffPermissions.canAccess(
-        waiter,
-        AppRoutes.billing,
+      final canAccessBilling = PermissionCenter.canView(
+        route: AppRoutes.billing,
+        isOwner: false,
+        staff: waiter,
       );
       expect(canAccessBilling, isFalse);
       // Redirect target would be home route
-      expect(StaffPermissions.homeRoute(waiter), AppRoutes.tables);
+      expect(
+        PermissionCenter.homeRoute(isOwner: false, staff: waiter),
+        AppRoutes.tables,
+      );
     });
 
-    test('staff can always access attendance routes', () {
-      // The router has special bypass for attendance routes
-      final waiter = makeStaff();
-      expect(StaffPermissions.canAccess(waiter, AppRoutes.attendance), isTrue);
+    test('attendance route bypass is handled by router, not center policy', () {
+      final waiter = makeStaff(
+        permissions: PermissionConfig.defaultTemplate(StaffRole.waiter),
+      );
+      // With current staff policy, only /my-attendance is granted.
       expect(
-        StaffPermissions.canAccess(waiter, AppRoutes.myAttendance),
+        PermissionCenter.canView(
+          route: AppRoutes.attendance,
+          isOwner: false,
+          staff: waiter,
+        ),
+        isFalse,
+      );
+      expect(
+        PermissionCenter.canView(
+          route: AppRoutes.myAttendance,
+          isOwner: false,
+          staff: waiter,
+        ),
         isTrue,
       );
     });
 
     test('chef blocked from billing → redirects to kitchen', () {
-      final chef = makeStaff(role: StaffRole.chef, pin: '5678');
-      expect(StaffPermissions.canAccess(chef, AppRoutes.billing), isFalse);
-      expect(StaffPermissions.homeRoute(chef), AppRoutes.kitchen);
+      final chef = makeStaff(
+        role: StaffRole.chef,
+        pin: '5678',
+        permissions: PermissionConfig.defaultTemplate(StaffRole.chef),
+      );
+      expect(
+        PermissionCenter.canView(
+          route: AppRoutes.billing,
+          isOwner: false,
+          staff: chef,
+        ),
+        isFalse,
+      );
+      expect(
+        PermissionCenter.homeRoute(isOwner: false, staff: chef),
+        AppRoutes.kitchen,
+      );
     });
 
     test('manager has access to all core routes', () {
-      final manager = makeStaff(role: StaffRole.manager, pin: '0000');
-      expect(StaffPermissions.canAccess(manager, AppRoutes.billing), isTrue);
-      expect(StaffPermissions.canAccess(manager, AppRoutes.products), isTrue);
-      expect(StaffPermissions.canAccess(manager, AppRoutes.staff), isTrue);
-      expect(StaffPermissions.canAccess(manager, AppRoutes.kitchen), isTrue);
+      final manager = makeStaff(
+        role: StaffRole.manager,
+        pin: '0000',
+        permissions: PermissionConfig.defaultTemplate(StaffRole.manager),
+      );
+      expect(
+        PermissionCenter.canView(
+          route: AppRoutes.billing,
+          isOwner: false,
+          staff: manager,
+        ),
+        isTrue,
+      );
+      expect(
+        PermissionCenter.canView(
+          route: AppRoutes.products,
+          isOwner: false,
+          staff: manager,
+        ),
+        isTrue,
+      );
+      expect(
+        PermissionCenter.canView(
+          route: AppRoutes.staff,
+          isOwner: false,
+          staff: manager,
+        ),
+        isTrue,
+      );
+      expect(
+        PermissionCenter.canView(
+          route: AppRoutes.kitchen,
+          isOwner: false,
+          staff: manager,
+        ),
+        isTrue,
+      );
     });
 
     test('owner (null staff) can view all routes', () {
       // canViewRoute(null, ...) = true for owners
-      expect(StaffPermissions.canViewRoute(null, AppRoutes.billing), isTrue);
-      expect(StaffPermissions.canViewRoute(null, AppRoutes.staff), isTrue);
       expect(
-        StaffPermissions.canViewRoute(null, AppRoutes.advancedReports),
+        PermissionCenter.canSeeNavRoute(
+          route: AppRoutes.billing,
+          isOwner: true,
+        ),
         isTrue,
+      );
+      expect(
+        PermissionCenter.canSeeNavRoute(
+          route: AppRoutes.staff,
+          isOwner: true,
+        ),
+        isTrue,
+      );
+      expect(
+        PermissionCenter.canSeeNavRoute(
+          route: AppRoutes.advancedReports,
+          isOwner: true,
+        ),
+        isTrue,
+      );
+    });
+
+    test('deprecated wrapper matches center for canAccess', () {
+      final waiter = makeStaff(
+        permissions: PermissionConfig.defaultTemplate(StaffRole.waiter),
+      );
+      expect(
+        StaffPermissions.canAccess(waiter, AppRoutes.orders),
+        PermissionCenter.canView(
+          route: AppRoutes.orders,
+          isOwner: false,
+          staff: waiter,
+        ),
       );
     });
   });

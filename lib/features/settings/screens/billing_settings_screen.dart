@@ -6,8 +6,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:tulasihotels/core/design/app_colors.dart';
 import 'package:tulasihotels/core/services/error_logging_service.dart';
@@ -606,48 +604,29 @@ class _BillingSettingsScreenState extends ConsumerState<BillingSettingsScreen> {
   }
 
   void _saveSettings() async {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-
     // Save UPI ID if valid
     final upiId = _upiIdController.text.trim();
     if (upiId.isNotEmpty && PaymentLinkService.isValidUpiId(upiId)) {
       PaymentLinkService.setUpiId(upiId);
     }
 
-    // Save all billing settings to Firestore
-    if (uid != null) {
-      try {
-        final taxRate = _selectedGstRate;
-        final footer = _termsController.text.trim();
-
-        await FirebaseFirestore.instance.collection('users').doc(uid).update({
-          if (upiId.isNotEmpty) 'upiId': upiId,
-          'settings.gstEnabled': _taxEnabled,
-          'settings.taxRate': taxRate,
-          'settings.receiptFooter': footer,
-        });
-
-        // Update local state instantly
-        final authNotifier = ref.read(authNotifierProvider.notifier);
-        final currentUser = ref.read(currentUserProvider);
-        if (currentUser != null) {
-          authNotifier.updateLocalUserSettings(
-            currentUser.settings.copyWith(
-              gstEnabled: _taxEnabled,
-              taxRate: taxRate,
-              receiptFooter: footer,
-            ),
+    try {
+      final taxRate = _selectedGstRate;
+      final footer = _termsController.text.trim();
+      await ref.read(authNotifierProvider.notifier).updateShopInfo(
+            upiId: upiId.isNotEmpty ? upiId : null,
+            gstEnabled: _taxEnabled,
+            taxRate: taxRate,
+            receiptFooter: footer,
           );
-        }
-      } catch (e, st) {
-        debugPrint('⚠️ Billing settings Firestore sync failed: $e');
-        ErrorLoggingService.logError(
-          error: e,
-          stackTrace: st,
-          severity: ErrorSeverity.warning,
-          metadata: {'context': 'Billing settings Firestore sync'},
-        ).ignore();
-      }
+    } catch (e, st) {
+      debugPrint('⚠️ Billing settings Firestore sync failed: $e');
+      ErrorLoggingService.logError(
+        error: e,
+        stackTrace: st,
+        severity: ErrorSeverity.warning,
+        metadata: {'context': 'Billing settings Firestore sync'},
+      ).ignore();
     }
 
     if (mounted) {

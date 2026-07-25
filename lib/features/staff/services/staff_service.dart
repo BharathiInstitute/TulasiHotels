@@ -5,8 +5,12 @@ import 'package:tulasihotels/core/services/active_store_manager.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:tulasihotels/core/utils/id_generator.dart';
+import 'package:tulasihotels/features/permissions/permission_panel.dart';
+import 'package:tulasihotels/features/permissions/services/module_mutation_guard.dart';
+import 'package:tulasihotels/features/staff/models/permission_config.dart';
 import 'package:tulasihotels/features/subscription/services/plan_enforcement_service.dart';
 import 'package:tulasihotels/models/staff_model.dart';
+import 'package:tulasihotels/router/app_router.dart';
 
 class StaffService {
   static final _firestore = FirebaseFirestore.instance;
@@ -55,6 +59,10 @@ class StaffService {
     StaffRole role = StaffRole.waiter,
     required String pin,
   }) async {
+    await ModuleMutationGuard.requireAction(
+      AppRoutes.staff,
+      PermissionAction.create,
+    );
     // Check staff limit before creating
     final check = await PlanEnforcementService.checkLimit(LimitType.staff);
     if (!check.allowed) {
@@ -71,6 +79,7 @@ class StaffService {
       role: role,
       pin: pin,
       createdAt: now,
+      permissions: PermissionConfig.minimalAssignedPermissions(),
     );
 
     await _staffRef.doc(id).set(staff.toFirestore());
@@ -80,6 +89,10 @@ class StaffService {
 
   /// Update an existing staff member
   static Future<void> updateStaff(StaffModel staff) async {
+    await ModuleMutationGuard.requireAction(
+      AppRoutes.staff,
+      PermissionAction.update,
+    );
     await _staffRef.doc(staff.id).update({
       ...staff.toFirestore(),
       'updatedAt': FieldValue.serverTimestamp(),
@@ -91,19 +104,32 @@ class StaffService {
     String staffId,
     Map<String, List<String>> permissions,
   ) async {
+    await ModuleMutationGuard.requireAction(
+      AppRoutes.staff,
+      PermissionAction.update,
+    );
+    final normalized = PermissionPanels.normalizeToPanelPermissions(permissions);
     await _staffRef.doc(staffId).update({
-      'permissions': permissions,
+      'permissions': normalized,
       'updatedAt': FieldValue.serverTimestamp(),
     });
   }
 
   /// Delete a staff member
   static Future<void> deleteStaff(String staffId) async {
+    await ModuleMutationGuard.requireAction(
+      AppRoutes.staff,
+      PermissionAction.delete,
+    );
     await _staffRef.doc(staffId).delete();
   }
 
   /// Toggle staff active/inactive status
   static Future<void> toggleStaffActive(String staffId, bool isActive) async {
+    await ModuleMutationGuard.requireAction(
+      AppRoutes.staff,
+      PermissionAction.update,
+    );
     await _staffRef.doc(staffId).update({
       'isActive': isActive,
       'updatedAt': FieldValue.serverTimestamp(),

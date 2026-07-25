@@ -21,7 +21,10 @@ import 'package:tulasihotels/models/transaction_model.dart';
 import 'package:tulasihotels/features/subscription/services/plan_enforcement_service.dart';
 import 'package:tulasihotels/features/subscription/models/plan_config.dart';
 import 'package:tulasihotels/core/services/user_metrics_service.dart';
+import 'package:tulasihotels/features/permissions/permission_center.dart';
 import 'package:tulasihotels/features/permissions/providers/route_permission_provider.dart';
+import 'package:tulasihotels/features/permissions/widgets/permission_denied_view.dart';
+import 'package:tulasihotels/features/staff/models/permission_config.dart';
 import 'package:tulasihotels/features/subscription/providers/usage_limits_provider.dart';
 import 'package:tulasihotels/features/subscription/providers/subscription_provider.dart';
 import 'package:tulasihotels/features/subscription/widgets/plan_usage_bar.dart';
@@ -63,13 +66,13 @@ class _KhataWebScreenState extends ConsumerState<KhataWebScreen> {
     final atCustomerLimit = customerMax < 999999 && limits.customersCount >= customerMax;
     final khataPermissions = ref.watch(routePermissionProvider(AppRoutes.khata));
 
-    if (khataPermissions.isResolved && !khataPermissions.canView) {
-      return const Center(
-        child: EmptyState(
-          icon: Icons.lock_outline,
-          title: 'Access Restricted',
-          subtitle: 'You do not have permission to view the Khata ledger.',
-        ),
+    if (!khataPermissions.isResolved) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (!khataPermissions.canView) {
+      return PermissionDeniedView(
+        message: PermissionCenter.deniedViewMessage(AppRoutes.khata),
       );
     }
 
@@ -77,7 +80,6 @@ class _KhataWebScreenState extends ConsumerState<KhataWebScreen> {
       color: Theme.of(context).scaffoldBackgroundColor,
       child: Column(
         children: [
-          // Usage bar — visible when approaching/at customer limit
           PlanUsageBar(
             label: 'Customers',
             getCurrent: (l) => l.customersCount,
@@ -85,91 +87,87 @@ class _KhataWebScreenState extends ConsumerState<KhataWebScreen> {
           ),
           Expanded(
             child: Padding(
-        padding: EdgeInsets.all(isMobile ? 12 : 16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Header
-            _buildHeader(
-              l10n,
-              isMobile,
-              atCustomerLimit: atCustomerLimit,
-              limits: limits,
-              config: config,
-              canCreateCustomers: khataPermissions.canCreate,
-            ),
-            SizedBox(height: isMobile ? 10 : 12),
+              padding: EdgeInsets.all(isMobile ? 12 : 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildHeader(
+                    l10n,
+                    isMobile,
+                    atCustomerLimit: atCustomerLimit,
+                    limits: limits,
+                    config: config,
+                    canCreateCustomers: khataPermissions.canCreate,
+                  ),
+                  const SizedBox(height: 12),
+                  statsAsync.when(
+                    data: (stats) => _buildSummaryCards(
+                      stats,
+                      isDesktop,
+                      isTablet,
+                      isMobile,
+                    ),
+                    loading: () => const SizedBox.shrink(),
+                    error: (_, _) => const SizedBox.shrink(),
+                  ),
+                  const SizedBox(height: 12),
+                  _buildSearchSortBar(sortOption, isMobile),
+                  const SizedBox(height: 12),
+                  Expanded(
+                    child: customersAsync.when(
+                      data: (customers) {
+                        final filtered = _filterCustomers(customers);
+                        if (filtered.isEmpty) {
+                          return _buildEmptyState(
+                            l10n,
+                            canCreateCustomers: khataPermissions.canCreate,
+                          );
+                        }
 
-            // Summary Cards
-            statsAsync.when(
-              data: (stats) =>
-                  _buildSummaryCards(stats, isDesktop, isTablet, isMobile),
-              loading: () => const SizedBox(height: 80),
-              error: (e, _) => const SizedBox(height: 80),
-            ),
-            SizedBox(height: isMobile ? 10 : 12),
+                        if (useMasterDetail) {
+                          return Row(
+                            children: [
+                              Expanded(
+                                flex: 2,
+                                child: _buildCustomerList(
+                                  filtered,
+                                  _selectedCustomerId,
+                                  customersSyncMap,
+                                ),
+                              ),
+                              const SizedBox(width: 24),
+                              Expanded(
+                                child: _selectedCustomerId != null
+                                    ? _CustomerDetailPanel(
+                                        key: ValueKey(_selectedCustomerId),
+                                        customerId: _selectedCustomerId!,
+                                        onClose: () => setState(
+                                          () => _selectedCustomerId = null,
+                                        ),
+                                      )
+                                    : _buildSelectCustomerPrompt(),
+                              ),
+                            ],
+                          );
+                        }
 
-            // Search and Sort Bar
-            _buildSearchSortBar(sortOption, isMobile),
-            SizedBox(height: isMobile ? 8 : 10),
-
-            // Main Content - Master Detail or List only
-            Expanded(
-              child: customersAsync.when(
-                data: (customers) {
-                  final filtered = _filterCustomers(customers);
-
-                  if (filtered.isEmpty) {
-                    return _buildEmptyState(
-                      l10n,
-                      canCreateCustomers: khataPermissions.canCreate,
-                    );
-                  }
-
-                  // Mobile: List only
-                  if (isMobile) {
-                    return _buildCustomerList(filtered, null, customersSyncMap);
-                  }
-
-                  // Tablet/Desktop: Master-Detail
-                  return Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Customer List
-                      SizedBox(
-                        width: isDesktop ? 420 : 340,
-                        child: _buildCustomerList(
+                        return _buildCustomerList(
                           filtered,
-                          _selectedCustomerId,
+                          null,
                           customersSyncMap,
-                        ),
-                      ),
-                      const SizedBox(width: 24),
-                      // Detail Panel
-                      Expanded(
-                        child: _selectedCustomerId != null
-                            ? _CustomerDetailPanel(
-                                key: ValueKey(_selectedCustomerId),
-                                customerId: _selectedCustomerId!,
-                                onClose: () =>
-                                    setState(() => _selectedCustomerId = null),
-                              )
-                            : _buildSelectCustomerPrompt(),
-                      ),
-                    ],
-                  );
-                },
-                loading: () => const Center(child: LoadingIndicator()),
-                error: (e, _) =>
-                    const Center(child: Text('Error loading data')),
+                        );
+                      },
+                      loading: () => const Center(child: LoadingIndicator()),
+                      error: (e, _) =>
+                          const Center(child: Text('Error loading data')),
+                    ),
+                  ),
+                ],
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
-    ),
-  ],
-),
     );
   }
 
@@ -563,9 +561,12 @@ class _KhataWebScreenState extends ConsumerState<KhataWebScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            customer == null
-                ? 'You do not have permission to add customers.'
-                : 'You do not have permission to update customers.',
+            PermissionCenter.deniedActionMessage(
+              AppRoutes.khata,
+              customer == null
+                  ? PermissionAction.create
+                  : PermissionAction.update,
+            ),
           ),
         ),
       );
@@ -1034,9 +1035,12 @@ class _CustomerDetailPanelState extends ConsumerState<_CustomerDetailPanel> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            customer == null
-                ? 'You do not have permission to add customers.'
-                : 'You do not have permission to update customers.',
+            PermissionCenter.deniedActionMessage(
+              AppRoutes.khata,
+              customer == null
+                  ? PermissionAction.create
+                  : PermissionAction.update,
+            ),
           ),
         ),
       );
@@ -1059,8 +1063,13 @@ class _CustomerDetailPanelState extends ConsumerState<_CustomerDetailPanel> {
     final permissions = ref.read(routePermissionProvider(AppRoutes.khata));
     if (!permissions.canDelete) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('You do not have permission to delete customers.'),
+        SnackBar(
+          content: Text(
+            PermissionCenter.deniedActionMessage(
+              AppRoutes.khata,
+              PermissionAction.delete,
+            ),
+          ),
         ),
       );
       return;
@@ -1249,8 +1258,13 @@ class _CustomerDetailPanelState extends ConsumerState<_CustomerDetailPanel> {
     final permissions = ref.read(routePermissionProvider(AppRoutes.khata));
     if (!permissions.canUpdate) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('You do not have permission to record payments.'),
+        SnackBar(
+          content: Text(
+            PermissionCenter.deniedActionMessage(
+              AppRoutes.khata,
+              PermissionAction.update,
+            ),
+          ),
         ),
       );
       return;
@@ -1268,8 +1282,13 @@ class _CustomerDetailPanelState extends ConsumerState<_CustomerDetailPanel> {
     final permissions = ref.read(routePermissionProvider(AppRoutes.khata));
     if (!permissions.canCreate) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('You do not have permission to give udhaar.'),
+        SnackBar(
+          content: Text(
+            PermissionCenter.deniedActionMessage(
+              AppRoutes.khata,
+              PermissionAction.create,
+            ),
+          ),
         ),
       );
       return;

@@ -8,6 +8,8 @@ import 'package:flutter/foundation.dart';
 import 'package:tulasihotels/core/services/active_store_manager.dart';
 import 'package:tulasihotels/features/admin/models/store_member.dart';
 import 'package:tulasihotels/features/admin/models/store_role.dart';
+import 'package:tulasihotels/features/permissions/permission_panel.dart';
+import 'package:tulasihotels/features/staff/models/permission_config.dart';
 import 'package:tulasihotels/firebase_options.dart';
 
 class MemberService {
@@ -127,7 +129,7 @@ class MemberService {
       role: role,
       customRoleName: customRoleName,
       status: isNewAccount ? MemberStatus.active : MemberStatus.invited,
-      permissions: permissions,
+      permissions: permissions ?? PermissionConfig.minimalAssignedPermissions(),
       joinedAt: DateTime.now(),
       invitedBy: ownerId,
     );
@@ -211,7 +213,8 @@ class MemberService {
     String uid,
     Map<String, List<String>> permissions,
   ) async {
-    await _membersRef.doc(uid).update({'permissions': permissions});
+    final normalized = PermissionPanels.normalizeToPanelPermissions(permissions);
+    await _membersRef.doc(uid).update({'permissions': normalized});
   }
 
   /// Update member profile fields

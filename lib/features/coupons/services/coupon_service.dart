@@ -3,7 +3,10 @@ library;
 
 import 'package:tulasihotels/core/services/active_store_manager.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:tulasihotels/features/permissions/services/module_mutation_guard.dart';
+import 'package:tulasihotels/features/staff/models/permission_config.dart';
 import 'package:tulasihotels/models/coupon_model.dart';
+import 'package:tulasihotels/router/app_router.dart';
 
 class CouponService {
   static final _firestore = FirebaseFirestore.instance;
@@ -76,21 +79,37 @@ class CouponService {
 
   /// Create a coupon
   static Future<void> createCoupon(CouponModel coupon) async {
+    await ModuleMutationGuard.requireAction(
+      AppRoutes.coupons,
+      PermissionAction.create,
+    );
     await _couponsRef.doc(coupon.id).set(coupon.toFirestore());
   }
 
   /// Update a coupon
   static Future<void> updateCoupon(CouponModel coupon) async {
+    await ModuleMutationGuard.requireAction(
+      AppRoutes.coupons,
+      PermissionAction.update,
+    );
     await _couponsRef.doc(coupon.id).update(coupon.toFirestore());
   }
 
   /// Toggle coupon active state
   static Future<void> toggleActive(String couponId, bool isActive) async {
+    await ModuleMutationGuard.requireAction(
+      AppRoutes.coupons,
+      PermissionAction.update,
+    );
     await _couponsRef.doc(couponId).update({'isActive': isActive});
   }
 
   /// Delete a coupon
   static Future<void> deleteCoupon(String couponId) async {
+    await ModuleMutationGuard.requireAction(
+      AppRoutes.coupons,
+      PermissionAction.delete,
+    );
     await _couponsRef.doc(couponId).delete();
   }
 }

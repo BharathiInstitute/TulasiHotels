@@ -6,7 +6,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tulasihotels/core/utils/id_generator.dart';
 import 'package:tulasihotels/features/inventory/providers/inventory_provider.dart';
 import 'package:tulasihotels/features/inventory/services/ingredient_service.dart';
+import 'package:tulasihotels/features/permissions/permission_center.dart';
 import 'package:tulasihotels/features/permissions/providers/route_permission_provider.dart';
+import 'package:tulasihotels/features/permissions/widgets/permission_denied_view.dart';
+import 'package:tulasihotels/features/staff/models/permission_config.dart';
 import 'package:tulasihotels/models/ingredient_model.dart';
 import 'package:tulasihotels/router/app_router.dart';
 
@@ -20,6 +23,21 @@ class IngredientsScreen extends ConsumerWidget {
       routePermissionProvider(AppRoutes.ingredients),
     );
     final theme = Theme.of(context);
+
+    if (!ingredientPermissions.isResolved) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (!ingredientPermissions.canView) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Ingredients')),
+        body: PermissionDeniedView(
+          message: PermissionCenter.deniedViewMessage(AppRoutes.ingredients),
+        ),
+      );
+    }
 
     return Scaffold(
       appBar: AppBar(title: const Text('Ingredients')),
@@ -89,8 +107,13 @@ class IngredientsScreen extends ConsumerWidget {
     final permissions = ref.read(routePermissionProvider(AppRoutes.ingredients));
     if (!permissions.canCreate) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('You do not have permission to add ingredients.'),
+        SnackBar(
+          content: Text(
+            PermissionCenter.deniedActionMessage(
+              AppRoutes.ingredients,
+              PermissionAction.create,
+            ),
+          ),
         ),
       );
       return;
@@ -198,8 +221,13 @@ class IngredientsScreen extends ConsumerWidget {
     final permissions = ref.read(routePermissionProvider(AppRoutes.ingredients));
     if (!permissions.canUpdate) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('You do not have permission to update ingredients.'),
+        SnackBar(
+          content: Text(
+            PermissionCenter.deniedActionMessage(
+              AppRoutes.ingredients,
+              PermissionAction.update,
+            ),
+          ),
         ),
       );
       return;
@@ -261,8 +289,13 @@ class IngredientsScreen extends ConsumerWidget {
     final permissions = ref.read(routePermissionProvider(AppRoutes.ingredients));
     if (!permissions.canDelete) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('You do not have permission to delete ingredients.'),
+        SnackBar(
+          content: Text(
+            PermissionCenter.deniedActionMessage(
+              AppRoutes.ingredients,
+              PermissionAction.delete,
+            ),
+          ),
         ),
       );
       return;

@@ -3,6 +3,8 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:tulasihotels/features/permissions/permission_center.dart';
+import 'package:tulasihotels/features/permissions/permission_panel.dart';
 import 'package:tulasihotels/features/permissions/providers/route_permission_provider.dart';
 import 'package:tulasihotels/features/staff/models/permission_config.dart';
 import 'package:tulasihotels/features/staff/services/staff_service.dart';
@@ -28,10 +30,11 @@ class _PermissionManagerScreenState
   @override
   void initState() {
     super.initState();
-    // Initialize from existing custom permissions or the role default template
-    _permissions = PermissionConfig.normalizePermissions(
+    // Initialize from existing permissions or the minimal baseline, then
+    // normalize to panel keys so assignments are panel-wide.
+    _permissions = PermissionPanels.normalizeToPanelPermissions(
       (widget.staff.permissions ??
-              PermissionConfig.defaultTemplate(widget.staff.role))
+              PermissionConfig.minimalAssignedPermissions())
           .map((k, v) => MapEntry(k, List<String>.from(v))),
     );
   }
@@ -60,7 +63,7 @@ class _PermissionManagerScreenState
         _permissions[route] = [...actions, action];
       }
 
-      _permissions = PermissionConfig.normalizePermissions(_permissions);
+      _permissions = PermissionPanels.normalizeToPanelPermissions(_permissions);
     });
   }
 
@@ -80,9 +83,10 @@ class _PermissionManagerScreenState
   void _applyRoleTemplate(StaffRole role) {
     setState(() {
       _hasChanges = true;
-      _permissions = Map<String, List<String>>.from(
-        PermissionConfig.defaultTemplate(role)
-            .map((k, v) => MapEntry(k, List<String>.from(v))),
+      _permissions = PermissionPanels.normalizeToPanelPermissions(
+        PermissionConfig.defaultTemplate(
+          role,
+        ).map((k, v) => MapEntry(k, List<String>.from(v))),
       );
     });
   }
@@ -91,8 +95,10 @@ class _PermissionManagerScreenState
     setState(() {
       _hasChanges = true;
       _permissions = {
-        for (final s in PermissionConfig.allScreens)
-          s.route: s.supportedActionKeys,
+        for (final panel in PermissionPanels.all)
+          panel.route: PermissionConfig.supportedActionsForRoute(
+            panel.route,
+          ).map((a) => a.key).toList(),
       };
     });
   }
@@ -109,8 +115,13 @@ class _PermissionManagerScreenState
     if (!permissions.canUpdate) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('You do not have permission to update staff permissions.'),
+          SnackBar(
+            content: Text(
+              PermissionCenter.deniedActionMessage(
+                AppRoutes.staff,
+                PermissionAction.update,
+              ),
+            ),
           ),
         );
       }
@@ -295,8 +306,10 @@ class _PermissionManagerScreenState
   }
 
   Widget _buildCategorySection(String category, ThemeData theme) {
-    final screens = PermissionConfig.screensForCategory(category);
-    if (screens.isEmpty) return const SizedBox.shrink();
+    final panels = PermissionPanels.all
+        .where((panel) => PermissionPanels.panelCategoryForRoute(panel.route) == category)
+        .toList(growable: false);
+    if (panels.isEmpty) return const SizedBox.shrink();
 
     return Card(
       clipBehavior: Clip.antiAlias,
@@ -320,10 +333,10 @@ class _PermissionManagerScreenState
             ),
           ),
 
-          // Screen rows
-          for (int i = 0; i < screens.length; i++) ...[
-            _buildScreenRow(screens[i], theme),
-            if (i < screens.length - 1)
+          // Panel rows
+          for (int i = 0; i < panels.length; i++) ...[
+            _buildScreenRow(panels[i], theme),
+            if (i < panels.length - 1)
               Divider(height: 1, indent: 16, endIndent: 16, color: theme.dividerColor.withValues(alpha: 0.3)),
           ],
         ],
@@ -331,11 +344,11 @@ class _PermissionManagerScreenState
     );
   }
 
-  Widget _buildScreenRow(ScreenDef screen, ThemeData theme) {
-    final supportedActions = screen.supportedActions;
-    final hasAny = _permissions.containsKey(screen.route) &&
-        (_permissions[screen.route]?.isNotEmpty ?? false);
-    final hasAll = _permissions[screen.route]?.length == supportedActions.length;
+  Widget _buildScreenRow(PermissionPanelDef panel, ThemeData theme) {
+    final supportedActions = PermissionConfig.supportedActionsForRoute(panel.route);
+    final hasAny = _permissions.containsKey(panel.route) &&
+        (_permissions[panel.route]?.isNotEmpty ?? false);
+    final hasAll = _permissions[panel.route]?.length == supportedActions.length;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -347,29 +360,43 @@ class _PermissionManagerScreenState
             child: Checkbox(
               value: hasAll ? true : (hasAny ? null : false),
               tristate: true,
-              onChanged: (v) => _toggleScreenAll(screen.route, v ?? !hasAny),
+              onChanged: (v) => _toggleScreenAll(panel.route, v ?? !hasAny),
             ),
           ),
 
-          // Screen label
+          // Panel label
           Expanded(
             flex: 2,
-            child: Text(
-              screen.label,
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-                color: hasAny
-                    ? theme.colorScheme.onSurface
-                    : theme.colorScheme.onSurface.withValues(alpha: 0.5),
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  panel.label,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: hasAny
+                        ? theme.colorScheme.onSurface
+                        : theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                  ),
+                ),
+                Text(
+                  panel.collections.join(', '),
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
             ),
           ),
 
           // CRUD toggles
           for (final action in PermissionAction.values)
             supportedActions.contains(action)
-                ? _buildActionChip(screen.route, action, theme)
+                ? _buildActionChip(panel.route, action, theme)
                 : _buildUnsupportedActionChip(theme),
         ],
       ),

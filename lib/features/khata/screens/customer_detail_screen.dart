@@ -10,7 +10,9 @@ import 'package:tulasihotels/core/services/payment_link_service.dart';
 import 'package:tulasihotels/core/utils/formatters.dart';
 import 'package:tulasihotels/features/auth/providers/auth_provider.dart';
 import 'package:tulasihotels/features/khata/providers/khata_provider.dart';
+import 'package:tulasihotels/features/permissions/permission_center.dart';
 import 'package:tulasihotels/features/permissions/providers/route_permission_provider.dart';
+import 'package:tulasihotels/features/staff/models/permission_config.dart';
 import 'package:tulasihotels/features/khata/widgets/add_customer_modal.dart';
 import 'package:tulasihotels/features/khata/widgets/give_udhaar_modal.dart';
 import 'package:tulasihotels/features/khata/widgets/record_payment_modal.dart';
@@ -37,8 +39,8 @@ class CustomerDetailScreen extends ConsumerWidget {
     if (khataPermissions.isResolved && !khataPermissions.canView) {
       return Scaffold(
         appBar: AppBar(title: const Text('Customer Details')),
-        body: const Center(
-          child: Text('You do not have permission to view Khata customers.'),
+        body: Center(
+          child: Text(PermissionCenter.deniedViewMessage(AppRoutes.khata)),
         ),
       );
     }
@@ -689,8 +691,13 @@ class CustomerDetailScreen extends ConsumerWidget {
     final permissions = ref.read(routePermissionProvider(AppRoutes.khata));
     if (!permissions.canUpdate) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('You do not have permission to update customers.'),
+        SnackBar(
+          content: Text(
+            PermissionCenter.deniedActionMessage(
+              AppRoutes.khata,
+              PermissionAction.update,
+            ),
+          ),
         ),
       );
       return;
@@ -712,8 +719,13 @@ class CustomerDetailScreen extends ConsumerWidget {
     final permissions = ref.read(routePermissionProvider(AppRoutes.khata));
     if (!permissions.canUpdate) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('You do not have permission to record payments.'),
+        SnackBar(
+          content: Text(
+            PermissionCenter.deniedActionMessage(
+              AppRoutes.khata,
+              PermissionAction.update,
+            ),
+          ),
         ),
       );
       return;
@@ -735,8 +747,13 @@ class CustomerDetailScreen extends ConsumerWidget {
     final permissions = ref.read(routePermissionProvider(AppRoutes.khata));
     if (!permissions.canCreate) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('You do not have permission to give udhaar.'),
+        SnackBar(
+          content: Text(
+            PermissionCenter.deniedActionMessage(
+              AppRoutes.khata,
+              PermissionAction.create,
+            ),
+          ),
         ),
       );
       return;
@@ -826,8 +843,13 @@ class CustomerDetailScreen extends ConsumerWidget {
     final permissions = ref.read(routePermissionProvider(AppRoutes.khata));
     if (!permissions.canDelete) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('You do not have permission to delete customers.'),
+        SnackBar(
+          content: Text(
+            PermissionCenter.deniedActionMessage(
+              AppRoutes.khata,
+              PermissionAction.delete,
+            ),
+          ),
         ),
       );
       return;

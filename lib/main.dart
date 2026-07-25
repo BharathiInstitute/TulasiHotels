@@ -8,6 +8,7 @@ import 'package:firebase_remote_config/firebase_remote_config.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:tulasihotels/app.dart';
 import 'package:tulasihotels/core/services/analytics_service.dart';
 import 'package:tulasihotels/core/services/android_update_service.dart';
@@ -46,6 +47,12 @@ void main() {
     () {
       // CRITICAL: Initialize binding FIRST, before anything else
       WidgetsFlutterBinding.ensureInitialized();
+
+      // Keep browser URL in sync with imperative navigation APIs like
+      // context.push(), which is used by table → order flows.
+      if (kIsWeb) {
+        GoRouter.optionURLReflectsImperativeAPIs = true;
+      }
 
       // Last-resort error handler for errors that escape runZonedGuarded.
       // On Windows, the Firebase C++ SDK sends platform channel messages from

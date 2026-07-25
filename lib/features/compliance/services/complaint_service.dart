@@ -3,7 +3,11 @@ library;
 
 import 'package:tulasihotels/core/services/active_store_manager.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:tulasihotels/features/permissions/permission_center.dart';
+import 'package:tulasihotels/features/permissions/providers/route_permission_provider.dart';
+import 'package:tulasihotels/features/staff/models/permission_config.dart';
 import 'package:tulasihotels/models/complaint_model.dart';
+import 'package:tulasihotels/router/app_router.dart';
 
 class ComplaintService {
   static final _firestore = FirebaseFirestore.instance;
@@ -40,7 +44,18 @@ class ComplaintService {
   }
 
   /// Create a complaint
-  static Future<void> createComplaint(ComplaintModel complaint) async {
+  static Future<void> createComplaint(
+    ComplaintModel complaint,
+    RoutePermissionState permissions,
+  ) async {
+    if (!permissions.canCreate) {
+      throw StateError(
+        PermissionCenter.deniedActionMessage(
+          AppRoutes.complaints,
+          PermissionAction.create,
+        ),
+      );
+    }
     await _complaintsRef
         .doc(complaint.id)
         .set(complaint.toFirestore());
@@ -48,7 +63,18 @@ class ComplaintService {
 
   /// Update complaint status
   static Future<void> updateStatus(
-      String complaintId, ComplaintStatus status) async {
+    String complaintId,
+    ComplaintStatus status,
+    RoutePermissionState permissions,
+  ) async {
+    if (!permissions.canUpdate) {
+      throw StateError(
+        PermissionCenter.deniedActionMessage(
+          AppRoutes.complaints,
+          PermissionAction.update,
+        ),
+      );
+    }
     final updates = <String, dynamic>{
       'status': status.name,
       'updatedAt': FieldValue.serverTimestamp(),
@@ -60,14 +86,36 @@ class ComplaintService {
   }
 
   /// Update a complaint
-  static Future<void> updateComplaint(ComplaintModel complaint) async {
+  static Future<void> updateComplaint(
+    ComplaintModel complaint,
+    RoutePermissionState permissions,
+  ) async {
+    if (!permissions.canUpdate) {
+      throw StateError(
+        PermissionCenter.deniedActionMessage(
+          AppRoutes.complaints,
+          PermissionAction.update,
+        ),
+      );
+    }
     await _complaintsRef
         .doc(complaint.id)
         .update(complaint.toFirestore());
   }
 
   /// Delete a complaint
-  static Future<void> deleteComplaint(String complaintId) async {
+  static Future<void> deleteComplaint(
+    String complaintId,
+    RoutePermissionState permissions,
+  ) async {
+    if (!permissions.canDelete) {
+      throw StateError(
+        PermissionCenter.deniedActionMessage(
+          AppRoutes.complaints,
+          PermissionAction.delete,
+        ),
+      );
+    }
     await _complaintsRef.doc(complaintId).delete();
   }
 }

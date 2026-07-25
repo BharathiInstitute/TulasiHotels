@@ -1,6 +1,7 @@
 /// Flexible per-user screen permission configuration
 library;
 
+import 'package:tulasihotels/features/permissions/permission_policy.dart';
 import 'package:tulasihotels/models/staff_model.dart';
 import 'package:tulasihotels/router/app_router.dart';
 
@@ -25,20 +26,9 @@ const List<PermissionAction> _fullCrudActions = [
 
 const List<PermissionAction> _viewOnlyActions = [PermissionAction.view];
 
-const List<PermissionAction> _viewUpdateActions = [
-  PermissionAction.view,
-  PermissionAction.update,
-];
-
 const List<PermissionAction> _viewCreateActions = [
   PermissionAction.view,
   PermissionAction.create,
-];
-
-const List<PermissionAction> _viewCreateDeleteActions = [
-  PermissionAction.view,
-  PermissionAction.create,
-  PermissionAction.delete,
 ];
 
 /// A screen that can be permission-controlled
@@ -62,6 +52,13 @@ class ScreenDef {
 /// All permissionable screens grouped by category
 class PermissionConfig {
   PermissionConfig._();
+
+  /// Minimal baseline for non-owner users before admin grants module access.
+  /// Keeps self-attendance reachable without granting any business module.
+  static Map<String, List<String>> minimalAssignedPermissions() =>
+      normalizePermissions({
+        AppRoutes.myAttendance: [PermissionAction.view.key],
+      });
 
   static const String coreCategory = 'Core';
   static const String ordersCategory = 'Orders & Kitchen';
@@ -107,49 +104,21 @@ class PermissionConfig {
       category: coreCategory,
       supportedActions: _viewOnlyActions,
     ),
-    ScreenDef(route: AppRoutes.combos, label: 'Combos', category: coreCategory),
-    ScreenDef(
-      route: AppRoutes.dailySpecials,
-      label: 'Daily Specials',
-      category: coreCategory,
-    ),
     // Orders & Kitchen
-    ScreenDef(
-      route: AppRoutes.orders,
-      label: 'Orders',
-      category: ordersCategory,
-    ),
     ScreenDef(
       route: AppRoutes.kitchen,
       label: 'Kitchen Display',
       category: ordersCategory,
-      supportedActions: _viewUpdateActions,
     ),
     ScreenDef(
       route: AppRoutes.tables,
       label: 'Tables',
       category: ordersCategory,
     ),
-    ScreenDef(
-      route: AppRoutes.tableLayout,
-      label: 'Table Layout',
-      category: ordersCategory,
-      supportedActions: _viewUpdateActions,
-    ),
     // Finance
     ScreenDef(
       route: AppRoutes.khata,
       label: 'Khata Ledger',
-      category: financeCategory,
-    ),
-    ScreenDef(
-      route: AppRoutes.cashRegister,
-      label: 'Cash Register',
-      category: financeCategory,
-    ),
-    ScreenDef(
-      route: AppRoutes.salary,
-      label: 'Salary',
       category: financeCategory,
     ),
     // Staff
@@ -159,35 +128,12 @@ class PermissionConfig {
       category: staffCategory,
     ),
     ScreenDef(
-      route: AppRoutes.attendance,
-      label: 'Attendance',
-      category: staffCategory,
-      supportedActions: _viewUpdateActions,
-    ),
-    ScreenDef(
       route: AppRoutes.myAttendance,
       label: 'My Attendance',
       category: staffCategory,
       supportedActions: _viewOnlyActions,
     ),
-    ScreenDef(
-      route: AppRoutes.shifts,
-      label: 'Shifts',
-      category: staffCategory,
-    ),
-    ScreenDef(route: AppRoutes.tasks, label: 'Tasks', category: staffCategory),
-    ScreenDef(
-      route: AppRoutes.messages,
-      label: 'Messages',
-      category: staffCategory,
-      supportedActions: _viewCreateDeleteActions,
-    ),
     // Inventory
-    ScreenDef(
-      route: AppRoutes.ingredients,
-      label: 'Ingredients',
-      category: inventoryCategory,
-    ),
     ScreenDef(
       route: AppRoutes.vendors,
       label: 'Vendors',
@@ -211,11 +157,6 @@ class PermissionConfig {
       category: hospitalityCategory,
     ),
     ScreenDef(
-      route: AppRoutes.events,
-      label: 'Events',
-      category: hospitalityCategory,
-    ),
-    ScreenDef(
       route: AppRoutes.feedback,
       label: 'Feedback',
       category: hospitalityCategory,
@@ -228,96 +169,18 @@ class PermissionConfig {
       category: reportsCategory,
       supportedActions: _viewOnlyActions,
     ),
-    ScreenDef(
-      route: AppRoutes.gstExport,
-      label: 'GST Export',
-      category: reportsCategory,
-      supportedActions: _viewOnlyActions,
-    ),
     // Compliance
     ScreenDef(
-      route: AppRoutes.equipment,
-      label: 'Equipment',
+      route: AppRoutes.events,
+      label: 'Events',
       category: complianceCategory,
-    ),
-    ScreenDef(
-      route: AppRoutes.licenses,
-      label: 'Licenses',
-      category: complianceCategory,
-    ),
-    ScreenDef(
-      route: AppRoutes.complaints,
-      label: 'Complaints',
-      category: complianceCategory,
-    ),
-    // Management
-    ScreenDef(
-      route: AppRoutes.members,
-      label: 'Members',
-      category: staffCategory,
     ),
   ];
 
   /// Default permission templates per role (for quick setup)
   static Map<String, List<String>> defaultTemplate(StaffRole role) {
-    final template = switch (role) {
-      StaffRole.manager => {
-        for (final s in allScreens) s.route: s.supportedActionKeys,
-      },
-      StaffRole.cashier => {
-        AppRoutes.billing: _allActions,
-        AppRoutes.khata: _allActions,
-        AppRoutes.bills: [
-          PermissionAction.view.key,
-          PermissionAction.create.key,
-        ],
-        AppRoutes.tables: [PermissionAction.view.key],
-        AppRoutes.orders: [
-          PermissionAction.view.key,
-          PermissionAction.create.key,
-          PermissionAction.update.key,
-        ],
-        AppRoutes.myAttendance: [PermissionAction.view.key],
-        AppRoutes.cashRegister: _allActions,
-      },
-      StaffRole.waiter => {
-        AppRoutes.tables: [
-          PermissionAction.view.key,
-          PermissionAction.update.key,
-        ],
-        AppRoutes.orders: [
-          PermissionAction.view.key,
-          PermissionAction.create.key,
-          PermissionAction.update.key,
-        ],
-        AppRoutes.kitchen: [PermissionAction.view.key],
-        AppRoutes.myAttendance: [PermissionAction.view.key],
-        AppRoutes.reservations: [PermissionAction.view.key],
-        AppRoutes.feedback: [PermissionAction.view.key],
-      },
-      StaffRole.chef => {
-        AppRoutes.kitchen: [
-          PermissionAction.view.key,
-          PermissionAction.update.key,
-        ],
-        AppRoutes.orders: [
-          PermissionAction.view.key,
-          PermissionAction.update.key,
-        ],
-        AppRoutes.myAttendance: [PermissionAction.view.key],
-        AppRoutes.ingredients: [PermissionAction.view.key],
-        AppRoutes.wastage: [
-          PermissionAction.view.key,
-          PermissionAction.create.key,
-        ],
-      },
-    };
-
-    return normalizePermissions(template);
+    return PermissionPolicy.staffRoleDefaults(role);
   }
-
-  static List<String> get _allActions =>
-      PermissionAction.values.map((a) => a.key).toList();
 
   /// Get screens for a category
   static List<ScreenDef> screensForCategory(String category) {
@@ -341,7 +204,9 @@ class PermissionConfig {
     return {
       for (final entry in permissions.entries)
         entry.key: _normalizeActions(entry.key, entry.value),
-    }..removeWhere((_, actions) => actions.isEmpty);
+    }
+      ..removeWhere((_, actions) => actions.isEmpty)
+      ..remove(AppRoutes.gstExport);
   }
 
   static List<String> _normalizeActions(String route, List<String> actions) {
@@ -355,14 +220,15 @@ class PermissionConfig {
   /// Map of parent route → child routes that inherit permission
   /// e.g. /orders also covers /orders/:id, /orders/new, /orders/:id/bill
   static const Map<String, List<String>> _childRoutes = {
-    AppRoutes.orders: [
-      AppRoutes.orderDetail,
-      AppRoutes.newOrder,
-      AppRoutes.orderBilling,
-      AppRoutes.splitBill,
+    AppRoutes.billing: [AppRoutes.orderBilling, AppRoutes.splitBill],
+    AppRoutes.orders: [AppRoutes.orderDetail, AppRoutes.newOrder],
+    AppRoutes.products: [
+      AppRoutes.productDetail,
+      AppRoutes.combos,
+      AppRoutes.dailySpecials,
     ],
-    AppRoutes.products: [AppRoutes.productDetail],
     AppRoutes.khata: [AppRoutes.customerDetail],
+    AppRoutes.tables: [AppRoutes.tableLayout],
     AppRoutes.advancedReports: [
       AppRoutes.menuPerformance,
       AppRoutes.weeklyReport,
@@ -371,6 +237,7 @@ class PermissionConfig {
       AppRoutes.itemSales,
       AppRoutes.comparative,
       AppRoutes.feedbackReport,
+      AppRoutes.gstExport,
     ],
     AppRoutes.feedback: [AppRoutes.feedbackDashboard],
   };
@@ -378,8 +245,35 @@ class PermissionConfig {
   /// Resolve a route to its parent permission route
   static String resolvePermissionRoute(String route) {
     for (final entry in _childRoutes.entries) {
-      if (entry.value.contains(route)) return entry.key;
+      for (final childRoute in entry.value) {
+        if (_matchesRouteTemplate(route, childRoute)) {
+          return entry.key;
+        }
+      }
     }
     return route;
+  }
+
+  /// Matches concrete runtime paths (e.g. /orders/abc) to route templates
+  /// (e.g. /orders/:id), while allowing exact matches for static child routes.
+  static bool _matchesRouteTemplate(String route, String template) {
+    if (route == template) return true;
+
+    final routeParts = route.split('/').where((p) => p.isNotEmpty).toList();
+    final templateParts = template
+        .split('/')
+        .where((p) => p.isNotEmpty)
+        .toList();
+
+    if (routeParts.length != templateParts.length) return false;
+
+    for (var i = 0; i < templateParts.length; i++) {
+      final t = templateParts[i];
+      final r = routeParts[i];
+      if (t.startsWith(':')) continue;
+      if (t != r) return false;
+    }
+
+    return true;
   }
 }

@@ -6,6 +6,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tulasihotels/core/utils/id_generator.dart';
 import 'package:tulasihotels/features/compliance/providers/compliance_provider.dart';
 import 'package:tulasihotels/features/compliance/services/complaint_service.dart';
+import 'package:tulasihotels/features/permissions/permission_center.dart';
+import 'package:tulasihotels/features/permissions/providers/route_permission_provider.dart';
+import 'package:tulasihotels/features/permissions/widgets/permission_denied_view.dart';
+import 'package:tulasihotels/features/staff/models/permission_config.dart';
+import 'package:tulasihotels/router/app_router.dart';
 import 'package:tulasihotels/models/complaint_model.dart';
 
 class ComplaintsScreen extends ConsumerStatefulWidget {
@@ -30,9 +35,25 @@ class _ComplaintsScreenState extends ConsumerState<ComplaintsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final complaintPermissions = ref.watch(routePermissionProvider(AppRoutes.complaints));
     final complaintsAsync = _showAll
         ? ref.watch(allComplaintsProvider)
         : ref.watch(activeComplaintsProvider);
+
+    if (!complaintPermissions.isResolved) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (!complaintPermissions.canView) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Complaints')),
+        body: PermissionDeniedView(
+          message: PermissionCenter.deniedViewMessage(AppRoutes.complaints),
+        ),
+      );
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -47,7 +68,7 @@ class _ComplaintsScreenState extends ConsumerState<ComplaintsScreen> {
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: _showComplaintForm,
+        onPressed: complaintPermissions.canCreate ? _showComplaintForm : null,
         icon: const Icon(Icons.add),
         label: const Text('New Complaint'),
       ),
@@ -103,7 +124,8 @@ class _ComplaintsScreenState extends ConsumerState<ComplaintsScreen> {
                             ),
                             IconButton(
                               icon: const Icon(Icons.delete_outline),
-                              onPressed: () async {
+                              onPressed: complaintPermissions.canDelete
+                                  ? () async {
                                 final confirm = await showDialog<bool>(
                                   context: context,
                                   builder: (ctx) => AlertDialog(
@@ -126,14 +148,36 @@ class _ComplaintsScreenState extends ConsumerState<ComplaintsScreen> {
                                   ),
                                 );
                                 if (confirm == true) {
-                                  await ComplaintService.deleteComplaint(c.id);
+                                  await ComplaintService.deleteComplaint(
+                                    c.id,
+                                    complaintPermissions,
+                                  );
                                 }
-                              },
+                              }
+                                  : null,
                             ),
                           ],
                         )
                       : PopupMenuButton<ComplaintStatus>(
                           initialValue: c.status,
+                          onSelected: complaintPermissions.canUpdate
+                              ? (newStatus) async {
+                            await ComplaintService.updateStatus(
+                              c.id,
+                              newStatus,
+                              complaintPermissions,
+                            );
+                          }
+                              : null,
+                          itemBuilder: (ctx) => ComplaintStatus.values
+                              .where((s) => s != ComplaintStatus.closed)
+                              .map(
+                                (s) => PopupMenuItem(
+                                  value: s,
+                                  child: Text(s.displayName),
+                                ),
+                              )
+                              .toList(),
                           child: Chip(
                             label: Text(
                               c.status.displayName,
@@ -145,21 +189,6 @@ class _ComplaintsScreenState extends ConsumerState<ComplaintsScreen> {
                             backgroundColor: statusColor.withValues(alpha: 0.1),
                             side: BorderSide.none,
                           ),
-                          onSelected: (newStatus) async {
-                            await ComplaintService.updateStatus(
-                              c.id,
-                              newStatus,
-                            );
-                          },
-                          itemBuilder: (ctx) => ComplaintStatus.values
-                              .where((s) => s != ComplaintStatus.closed)
-                              .map(
-                                (s) => PopupMenuItem(
-                                  value: s,
-                                  child: Text(s.displayName),
-                                ),
-                              )
-                              .toList(),
                         ),
                 ),
               );
@@ -171,6 +200,21 @@ class _ComplaintsScreenState extends ConsumerState<ComplaintsScreen> {
   }
 
   void _showComplaintForm() {
+    final permissions = ref.read(routePermissionProvider(AppRoutes.complaints));
+    if (!permissions.canCreate) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            PermissionCenter.deniedActionMessage(
+              AppRoutes.complaints,
+              PermissionAction.create,
+            ),
+          ),
+        ),
+      );
+      return;
+    }
+
     _descCtrl.clear();
     _customerCtrl.clear();
     _category = ComplaintCategory.food;
@@ -228,7 +272,7 @@ class _ComplaintsScreenState extends ConsumerState<ComplaintsScreen> {
               SizedBox(
                 width: double.infinity,
                 child: FilledButton(
-                  onPressed: () => _submitComplaint(ctx),
+                  onPressed: () => _submitComplaint(ctx, permissions),
                   child: const Text('Submit Complaint'),
                 ),
               ),
@@ -239,7 +283,10 @@ class _ComplaintsScreenState extends ConsumerState<ComplaintsScreen> {
     );
   }
 
-  Future<void> _submitComplaint(BuildContext ctx) async {
+  Future<void> _submitComplaint(
+    BuildContext ctx,
+    RoutePermissionState permissions,
+  ) async {
     final desc = _descCtrl.text.trim();
     if (desc.isEmpty) return;
 
@@ -253,7 +300,10 @@ class _ComplaintsScreenState extends ConsumerState<ComplaintsScreen> {
       createdAt: DateTime.now(),
     );
 
-    await ComplaintService.createComplaint(complaint);
+    await ComplaintService.createComplaint(
+      complaint,
+      permissions,
+    );
     if (ctx.mounted) Navigator.pop(ctx);
   }
 }

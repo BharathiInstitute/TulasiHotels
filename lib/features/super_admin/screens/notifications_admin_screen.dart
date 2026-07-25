@@ -818,7 +818,6 @@ class _UserPickerDialogState extends State<_UserPickerDialog> {
       content: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 500, maxHeight: 400),
         child: Column(
-          mainAxisSize: MainAxisSize.max,
           children: [
             // Search bar
             TextField(

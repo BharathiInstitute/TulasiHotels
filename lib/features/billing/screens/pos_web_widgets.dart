@@ -316,8 +316,13 @@ class _WebCartSectionState extends ConsumerState<_WebCartSection> {
     final permissions = ref.read(routePermissionProvider(AppRoutes.billing));
     if (!permissions.canCreate) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('You do not have permission to create bills.'),
+        SnackBar(
+          content: Text(
+            PermissionCenter.deniedActionMessage(
+              AppRoutes.billing,
+              PermissionAction.create,
+            ),
+          ),
         ),
       );
       return;

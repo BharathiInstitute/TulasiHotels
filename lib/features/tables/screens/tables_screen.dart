@@ -5,7 +5,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:tulasihotels/core/design/design_system.dart';
+import 'package:tulasihotels/features/permissions/permission_center.dart';
 import 'package:tulasihotels/features/permissions/providers/route_permission_provider.dart';
+import 'package:tulasihotels/features/permissions/widgets/permission_denied_view.dart';
+import 'package:tulasihotels/features/staff/models/permission_config.dart';
 import 'package:tulasihotels/features/subscription/providers/usage_limits_provider.dart';
 import 'package:tulasihotels/features/subscription/providers/subscription_provider.dart';
 import 'package:tulasihotels/features/subscription/widgets/plan_usage_bar.dart';
@@ -33,6 +36,20 @@ class _TablesScreenState extends ConsumerState<TablesScreen> {
     final limits = ref.watch(currentLimitsProvider);
     final config = ref.watch(planConfigProvider);
     final tablePermissions = ref.watch(routePermissionProvider(AppRoutes.tables));
+    if (!tablePermissions.isResolved) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+    if (!tablePermissions.canView) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Tables')),
+        body: PermissionDeniedView(
+          message: PermissionCenter.deniedViewMessage(AppRoutes.tables),
+        ),
+      );
+    }
+
     final canCreateTables = tablePermissions.canCreate;
     final tableMax = config.maxTables ?? 999999;
     final atTableLimit = tableMax < 999999 && limits.tablesCount >= tableMax;
@@ -102,8 +119,13 @@ class _TablesScreenState extends ConsumerState<TablesScreen> {
     if (!permissions.canCreate) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('You do not have permission to create tables.'),
+          SnackBar(
+            content: Text(
+              PermissionCenter.deniedActionMessage(
+                AppRoutes.tables,
+                PermissionAction.create,
+              ),
+            ),
           ),
         );
       }
@@ -442,8 +464,13 @@ class _TableCard extends ConsumerWidget {
     final permissions = ref.read(routePermissionProvider(AppRoutes.tables));
     if (!permissions.canUpdate) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('You do not have permission to update tables.'),
+        SnackBar(
+          content: Text(
+            PermissionCenter.deniedActionMessage(
+              AppRoutes.tables,
+              PermissionAction.update,
+            ),
+          ),
         ),
       );
       return;
@@ -459,8 +486,13 @@ class _TableCard extends ConsumerWidget {
     final permissions = ref.read(routePermissionProvider(AppRoutes.tables));
     if (!permissions.canDelete) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('You do not have permission to delete tables.'),
+        SnackBar(
+          content: Text(
+            PermissionCenter.deniedActionMessage(
+              AppRoutes.tables,
+              PermissionAction.delete,
+            ),
+          ),
         ),
       );
       return;

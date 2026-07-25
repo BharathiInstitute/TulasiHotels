@@ -8,7 +8,10 @@ import 'package:tulasihotels/router/app_router.dart';
 import 'package:tulasihotels/core/services/product_csv_service.dart';
 import 'package:tulasihotels/core/services/user_metrics_service.dart';
 import 'package:tulasihotels/core/utils/formatters.dart';
+import 'package:tulasihotels/features/permissions/permission_center.dart';
 import 'package:tulasihotels/features/permissions/providers/route_permission_provider.dart';
+import 'package:tulasihotels/features/permissions/widgets/permission_denied_view.dart';
+import 'package:tulasihotels/features/staff/models/permission_config.dart';
 import 'package:tulasihotels/features/products/providers/products_provider.dart';
 import 'package:tulasihotels/features/products/widgets/add_product_modal.dart';
 import 'package:tulasihotels/l10n/app_localizations.dart';
@@ -47,6 +50,19 @@ class _ProductsWebScreenState extends ConsumerState<ProductsWebScreen> {
     final productPermissions = ref.watch(
       routePermissionProvider(AppRoutes.products),
     );
+    if (!productPermissions.isResolved) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+    if (!productPermissions.canView) {
+      return Scaffold(
+        body: PermissionDeniedView(
+          message: PermissionCenter.deniedViewMessage(AppRoutes.products),
+        ),
+      );
+    }
+
     final canCreateProducts = productPermissions.canCreate;
     final canUpdateProducts = productPermissions.canUpdate;
     final atProductLimit = (config.maxProducts != null) &&
@@ -786,9 +802,12 @@ class _ProductsWebScreenState extends ConsumerState<ProductsWebScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              product == null
-                  ? 'You do not have permission to add products.'
-                  : 'You do not have permission to edit products.',
+              PermissionCenter.deniedActionMessage(
+                AppRoutes.products,
+                product == null
+                    ? PermissionAction.create
+                    : PermissionAction.update,
+              ),
             ),
             backgroundColor: AppColors.warning,
           ),
