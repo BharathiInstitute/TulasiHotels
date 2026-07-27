@@ -6,9 +6,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tulasihotels/core/utils/id_generator.dart';
 import 'package:tulasihotels/features/menu/providers/combo_provider.dart';
 import 'package:tulasihotels/features/menu/services/combo_service.dart';
+import 'package:tulasihotels/features/permissions/permission_center.dart';
+import 'package:tulasihotels/features/permissions/providers/route_permission_provider.dart';
+import 'package:tulasihotels/features/permissions/widgets/permission_denied_view.dart';
 import 'package:tulasihotels/features/products/providers/products_provider.dart';
+import 'package:tulasihotels/features/staff/models/permission_config.dart';
 import 'package:tulasihotels/models/combo_model.dart';
 import 'package:tulasihotels/models/product_model.dart';
+import 'package:tulasihotels/router/app_router.dart';
 
 class ComboBuilderScreen extends ConsumerStatefulWidget {
   const ComboBuilderScreen({super.key});
@@ -21,13 +26,35 @@ class _ComboBuilderScreenState extends ConsumerState<ComboBuilderScreen> {
   @override
   Widget build(BuildContext context) {
     final combosAsync = ref.watch(combosStreamProvider);
+    final comboPermissions = ref.watch(
+      routePermissionProvider(AppRoutes.products),
+    );
+
+    if (!comboPermissions.isResolved) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (!comboPermissions.canView) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('Combo Meals'),
+        ),
+        body: PermissionDeniedView(
+          message: PermissionCenter.deniedViewMessage(AppRoutes.products),
+        ),
+      );
+    }
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Combo Meals'),
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showComboForm(context),
+        onPressed: comboPermissions.canCreate
+            ? () => _showComboForm(context, canCreate: comboPermissions.canCreate)
+            : null,
         icon: const Icon(Icons.add),
         label: const Text('New Combo'),
       ),
@@ -61,12 +88,16 @@ class _ComboBuilderScreenState extends ConsumerState<ComboBuilderScreen> {
                     children: [
                       Switch(
                         value: combo.isAvailable,
-                        onChanged: (val) =>
-                            ComboService.toggleAvailability(combo.id, val),
+                        onChanged: comboPermissions.canUpdate
+                            ? (val) =>
+                                ComboService.toggleAvailability(combo.id, val)
+                            : null,
                       ),
                       IconButton(
                         icon: const Icon(Icons.delete_outline),
-                        onPressed: () => ComboService.deleteCombo(combo.id),
+                        onPressed: comboPermissions.canDelete
+                            ? () => ComboService.deleteCombo(combo.id)
+                            : null,
                       ),
                     ],
                   ),
@@ -79,7 +110,9 @@ class _ComboBuilderScreenState extends ConsumerState<ComboBuilderScreen> {
     );
   }
 
-  void _showComboForm(BuildContext context) {
+  void _showComboForm(BuildContext context, {required bool canCreate}) {
+    if (!canCreate) return;
+
     final nameController = TextEditingController();
     final priceController = TextEditingController();
     final selectedItems = <ProductModel>[];
@@ -217,7 +250,9 @@ class _ComboBuilderScreenState extends ConsumerState<ComboBuilderScreen> {
 
                           const SizedBox(height: 12),
                           FilledButton(
-                            onPressed: () {
+                            onPressed: !canCreate
+                                ? null
+                                : () {
                               if (nameController.text.isEmpty) return;
                               final combo = ComboModel(
                                 id: generateSafeId('combo'),

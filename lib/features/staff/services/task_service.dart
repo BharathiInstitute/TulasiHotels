@@ -3,7 +3,10 @@ library;
 
 import 'package:tulasihotels/core/services/active_store_manager.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:tulasihotels/features/permissions/services/module_mutation_guard.dart';
+import 'package:tulasihotels/features/staff/models/permission_config.dart';
 import 'package:tulasihotels/models/task_model.dart';
+import 'package:tulasihotels/router/app_router.dart';
 
 class TaskService {
   static final _firestore = FirebaseFirestore.instance;
@@ -41,12 +44,20 @@ class TaskService {
 
   /// Create a task
   static Future<void> createTask(TaskModel task) async {
+    await ModuleMutationGuard.requireAction(
+      AppRoutes.staff,
+      PermissionAction.create,
+    );
     await _tasksRef.doc(task.id).set(task.toFirestore());
   }
 
   /// Update task status
   static Future<void> updateTaskStatus(
       String taskId, TaskStatus status) async {
+    await ModuleMutationGuard.requireAction(
+      AppRoutes.staff,
+      PermissionAction.update,
+    );
     final updates = <String, dynamic>{
       'status': status.name,
       'updatedAt': FieldValue.serverTimestamp(),
@@ -59,11 +70,19 @@ class TaskService {
 
   /// Update a task
   static Future<void> updateTask(TaskModel task) async {
+    await ModuleMutationGuard.requireAction(
+      AppRoutes.staff,
+      PermissionAction.update,
+    );
     await _tasksRef.doc(task.id).update(task.toFirestore());
   }
 
   /// Delete a task
   static Future<void> deleteTask(String taskId) async {
+    await ModuleMutationGuard.requireAction(
+      AppRoutes.staff,
+      PermissionAction.delete,
+    );
     await _tasksRef.doc(taskId).delete();
   }
 }

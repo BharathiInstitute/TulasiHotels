@@ -3,7 +3,10 @@ library;
 
 import 'package:tulasihotels/core/services/active_store_manager.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:tulasihotels/features/permissions/services/module_mutation_guard.dart';
+import 'package:tulasihotels/features/staff/models/permission_config.dart';
 import 'package:tulasihotels/models/vendor_model.dart';
+import 'package:tulasihotels/router/app_router.dart';
 
 class VendorService {
   static final _firestore = FirebaseFirestore.instance;
@@ -44,16 +47,28 @@ class VendorService {
 
   /// Create a vendor
   static Future<void> createVendor(VendorModel vendor) async {
+    await ModuleMutationGuard.requireAction(
+      AppRoutes.vendors,
+      PermissionAction.create,
+    );
     await _vendorsRef.doc(vendor.id).set(vendor.toFirestore());
   }
 
   /// Update a vendor
   static Future<void> updateVendor(VendorModel vendor) async {
+    await ModuleMutationGuard.requireAction(
+      AppRoutes.vendors,
+      PermissionAction.update,
+    );
     await _vendorsRef.doc(vendor.id).update(vendor.toFirestore());
   }
 
   /// Delete a vendor
   static Future<void> deleteVendor(String vendorId) async {
+    await ModuleMutationGuard.requireAction(
+      AppRoutes.vendors,
+      PermissionAction.delete,
+    );
     await _vendorsRef.doc(vendorId).delete();
   }
 }

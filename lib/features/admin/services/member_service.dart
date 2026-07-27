@@ -8,6 +8,7 @@ import 'package:flutter/foundation.dart';
 import 'package:tulasihotels/core/services/active_store_manager.dart';
 import 'package:tulasihotels/features/admin/models/store_member.dart';
 import 'package:tulasihotels/features/admin/models/store_role.dart';
+import 'package:tulasihotels/features/permissions/models/permission_mode.dart';
 import 'package:tulasihotels/features/permissions/permission_panel.dart';
 import 'package:tulasihotels/features/staff/models/permission_config.dart';
 import 'package:tulasihotels/firebase_options.dart';
@@ -122,6 +123,8 @@ class MemberService {
     // Write member doc under owner's store
     final isNewAccount =
         !memberUid.startsWith('invite_') && !memberUid.startsWith('existing_');
+    final initialPermissions =
+        permissions ?? PermissionConfig.minimalAssignedPermissions();
     final member = StoreMember(
       uid: memberUid,
       email: email,
@@ -129,7 +132,9 @@ class MemberService {
       role: role,
       customRoleName: customRoleName,
       status: isNewAccount ? MemberStatus.active : MemberStatus.invited,
-      permissions: permissions ?? PermissionConfig.minimalAssignedPermissions(),
+      permissions: initialPermissions,
+      customPermissions: initialPermissions,
+      permissionMode: PermissionMode.customOnly,
       joinedAt: DateTime.now(),
       invitedBy: ownerId,
     );
@@ -202,9 +207,14 @@ class MemberService {
     StoreRole role, {
     Map<String, List<String>>? permissions,
   }) async {
+    final normalized = permissions == null
+        ? null
+        : PermissionPanels.normalizeToPanelPermissions(permissions);
     await _membersRef.doc(uid).update({
       'role': role.name,
-      'permissions': ?permissions,
+      if (normalized != null) 'permissions': normalized,
+      if (normalized != null) 'customPermissions': normalized,
+      if (normalized != null) 'permissionMode': PermissionMode.customOnly.key,
     });
   }
 
@@ -213,8 +223,33 @@ class MemberService {
     String uid,
     Map<String, List<String>> permissions,
   ) async {
-    final normalized = PermissionPanels.normalizeToPanelPermissions(permissions);
-    await _membersRef.doc(uid).update({'permissions': normalized});
+    await updatePermissionConfig(
+      uid,
+      mode: PermissionMode.customOnly,
+      customPermissions: permissions,
+    );
+  }
+
+  /// Update permission mode and custom add/remove overrides for a member.
+  static Future<void> updatePermissionConfig(
+    String uid, {
+    required PermissionMode mode,
+    required Map<String, List<String>> customPermissions,
+    Map<String, List<String>>? revokedPermissions,
+  }) async {
+    final normalizedCustom = PermissionPanels.normalizeToPanelPermissions(
+      customPermissions,
+    );
+    final normalizedRevoked = PermissionPanels.normalizeToPanelPermissions(
+      revokedPermissions ?? const <String, List<String>>{},
+    );
+    await _membersRef.doc(uid).update({
+      // Keep legacy field for backward compatibility readers.
+      'permissions': normalizedCustom,
+      'customPermissions': normalizedCustom,
+      'revokedPermissions': normalizedRevoked,
+      'permissionMode': mode.key,
+    });
   }
 
   /// Update member profile fields

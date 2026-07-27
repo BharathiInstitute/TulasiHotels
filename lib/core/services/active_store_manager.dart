@@ -4,6 +4,7 @@
 /// All Firestore service classes use this to build their base path.
 library;
 
+import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 class ActiveStoreManager {
@@ -13,8 +14,13 @@ class ActiveStoreManager {
 
   /// The currently selected store/hotel ID.
   /// Falls back to the logged-in user's UID if no hotel is explicitly selected.
-  static String? get storeId =>
-      _activeStoreId ?? FirebaseAuth.instance.currentUser?.uid;
+  static String? get storeId {
+    if (_activeStoreId != null && _activeStoreId!.isNotEmpty) {
+      return _activeStoreId;
+    }
+    if (Firebase.apps.isEmpty) return null;
+    return FirebaseAuth.instance.currentUser?.uid;
+  }
 
   /// Set the active store ID (called when user opens a hotel).
   static void setActiveStore(String id) {

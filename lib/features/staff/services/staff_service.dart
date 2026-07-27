@@ -6,6 +6,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:tulasihotels/core/utils/id_generator.dart';
 import 'package:tulasihotels/features/permissions/permission_panel.dart';
+import 'package:tulasihotels/features/permissions/models/permission_mode.dart';
 import 'package:tulasihotels/features/permissions/services/module_mutation_guard.dart';
 import 'package:tulasihotels/features/staff/models/permission_config.dart';
 import 'package:tulasihotels/features/subscription/services/plan_enforcement_service.dart';
@@ -71,6 +72,7 @@ class StaffService {
 
     final id = generateSafeId('staff');
     final now = DateTime.now();
+    final initialPermissions = PermissionConfig.minimalAssignedPermissions();
     final staff = StaffModel(
       id: id,
       name: name,
@@ -79,7 +81,9 @@ class StaffService {
       role: role,
       pin: pin,
       createdAt: now,
-      permissions: PermissionConfig.minimalAssignedPermissions(),
+      permissions: initialPermissions,
+      permissionMode: PermissionMode.customOnly,
+      customPermissions: initialPermissions,
     );
 
     await _staffRef.doc(id).set(staff.toFirestore());
@@ -104,13 +108,37 @@ class StaffService {
     String staffId,
     Map<String, List<String>> permissions,
   ) async {
+    await updatePermissionConfig(
+      staffId,
+      mode: PermissionMode.customOnly,
+      customPermissions: permissions,
+    );
+  }
+
+  /// Update permission mode and custom add/remove overrides for a staff member.
+  static Future<void> updatePermissionConfig(
+    String staffId, {
+    required PermissionMode mode,
+    required Map<String, List<String>> customPermissions,
+    Map<String, List<String>>? revokedPermissions,
+  }) async {
     await ModuleMutationGuard.requireAction(
       AppRoutes.staff,
       PermissionAction.update,
     );
-    final normalized = PermissionPanels.normalizeToPanelPermissions(permissions);
+    final normalizedCustom = PermissionPanels.normalizeToPanelPermissions(
+      customPermissions,
+    );
+    final normalizedRevoked = PermissionPanels.normalizeToPanelPermissions(
+      revokedPermissions ?? const <String, List<String>>{},
+    );
+
     await _staffRef.doc(staffId).update({
-      'permissions': normalized,
+      // Keep legacy field for backward compatibility readers.
+      'permissions': normalizedCustom,
+      'customPermissions': normalizedCustom,
+      'revokedPermissions': normalizedRevoked,
+      'permissionMode': mode.key,
       'updatedAt': FieldValue.serverTimestamp(),
     });
   }

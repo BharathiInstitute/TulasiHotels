@@ -3,7 +3,10 @@ library;
 
 import 'package:tulasihotels/core/services/active_store_manager.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:tulasihotels/features/permissions/services/module_mutation_guard.dart';
+import 'package:tulasihotels/features/staff/models/permission_config.dart';
 import 'package:tulasihotels/models/wastage_model.dart';
+import 'package:tulasihotels/router/app_router.dart';
 
 class WastageService {
   static final _firestore = FirebaseFirestore.instance;
@@ -43,6 +46,10 @@ class WastageService {
 
   /// Log a wastage entry and deduct from ingredient stock
   static Future<void> logWastage(WastageModel wastage) async {
+    await ModuleMutationGuard.requireAction(
+      AppRoutes.wastage,
+      PermissionAction.create,
+    );
     final batch = _firestore.batch();
 
     batch.set(_wastageRef.doc(wastage.id), wastage.toFirestore());
@@ -63,6 +70,10 @@ class WastageService {
 
   /// Delete a wastage log
   static Future<void> deleteWastage(String wastageId) async {
+    await ModuleMutationGuard.requireAction(
+      AppRoutes.wastage,
+      PermissionAction.delete,
+    );
     await _wastageRef.doc(wastageId).delete();
   }
 }

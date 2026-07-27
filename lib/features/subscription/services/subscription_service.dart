@@ -34,12 +34,12 @@ class SubscriptionService {
 
   /// Get the current user's subscription from Firestore
   Future<UserSubscription> getCurrentSubscription() async {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid == null) return UserSubscription();
+    final ownerUid = await PlanEnforcementService.resolveOwnerUidForActiveStore();
+    if (ownerUid == null) return UserSubscription();
 
     final doc = await FirebaseFirestore.instance
         .collection('users')
-        .doc(uid)
+      .doc(ownerUid)
         .get();
     final subMap = doc.data()?['subscription'] as Map<String, dynamic>?;
     return UserSubscription.fromMap(subMap);

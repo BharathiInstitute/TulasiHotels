@@ -170,6 +170,9 @@ class _BillingScreenState extends ConsumerState<BillingScreen> {
   ) {
     final l10n = context.l10n;
     final cart = ref.watch(cartProvider);
+    final billingPermissions = ref.watch(routePermissionProvider(AppRoutes.billing));
+    final canUpdate = billingPermissions.canUpdate;
+    final canDelete = billingPermissions.canDelete;
 
     return Column(
       children: [
@@ -201,10 +204,12 @@ class _BillingScreenState extends ConsumerState<BillingScreen> {
               const Spacer(),
               if (cart.isNotEmpty)
                 TextButton(
-                  onPressed: () {
-                    ref.read(cartProvider.notifier).clearCart();
-                    Navigator.pop(context);
-                  },
+                  onPressed: canDelete
+                      ? () {
+                          ref.read(cartProvider.notifier).clearCart();
+                          Navigator.pop(context);
+                        }
+                      : null,
                   child: Text(
                     l10n.clear,
                     style: const TextStyle(color: Colors.red),
@@ -224,6 +229,15 @@ class _BillingScreenState extends ConsumerState<BillingScreen> {
                   itemCount: cart.items.length,
                   itemBuilder: (context, index) {
                     final item = cart.items[index];
+                    final cartItem = _buildCartItem(
+                      item,
+                      ref,
+                      canUpdate: canUpdate,
+                      canDelete: canDelete,
+                    );
+
+                    if (!canDelete) return cartItem;
+
                     return Dismissible(
                       key: ValueKey(item.productId),
                       direction: DismissDirection.endToStart,
@@ -243,7 +257,7 @@ class _BillingScreenState extends ConsumerState<BillingScreen> {
                           size: 22,
                         ),
                       ),
-                      child: _buildCartItem(item, ref),
+                      child: cartItem,
                     );
                   },
                 ),
@@ -366,7 +380,12 @@ class _BillingScreenState extends ConsumerState<BillingScreen> {
     );
   }
 
-  Widget _buildCartItem(CartItem item, WidgetRef ref) {
+  Widget _buildCartItem(
+    CartItem item,
+    WidgetRef ref, {
+    required bool canUpdate,
+    required bool canDelete,
+  }) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
@@ -412,9 +431,11 @@ class _BillingScreenState extends ConsumerState<BillingScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 IconButton(
-                  onPressed: () => ref
+                  onPressed: canUpdate
+                    ? () => ref
                       .read(cartProvider.notifier)
-                      .decrementQuantity(item.productId),
+                      .decrementQuantity(item.productId)
+                    : null,
                   icon: const Icon(Icons.remove, size: 16),
                   visualDensity: VisualDensity.compact,
                   constraints: const BoxConstraints(
@@ -434,9 +455,11 @@ class _BillingScreenState extends ConsumerState<BillingScreen> {
                   ),
                 ),
                 IconButton(
-                  onPressed: () => ref
+                  onPressed: canUpdate
+                    ? () => ref
                       .read(cartProvider.notifier)
-                      .incrementQuantity(item.productId),
+                      .incrementQuantity(item.productId)
+                    : null,
                   icon: const Icon(Icons.add, size: 16),
                   visualDensity: VisualDensity.compact,
                   constraints: const BoxConstraints(
@@ -448,20 +471,22 @@ class _BillingScreenState extends ConsumerState<BillingScreen> {
               ],
             ),
           ),
-          const SizedBox(width: 4),
-          InkWell(
-            onTap: () =>
-                ref.read(cartProvider.notifier).removeItem(item.productId),
-            borderRadius: BorderRadius.circular(6),
-            child: Padding(
-              padding: const EdgeInsets.all(4),
-              child: Icon(
-                Icons.close,
-                size: 18,
-                color: Theme.of(context).colorScheme.error,
+          if (canDelete) ...[
+            const SizedBox(width: 4),
+            InkWell(
+              onTap: () =>
+                  ref.read(cartProvider.notifier).removeItem(item.productId),
+              borderRadius: BorderRadius.circular(6),
+              child: Padding(
+                padding: const EdgeInsets.all(4),
+                child: Icon(
+                  Icons.close,
+                  size: 18,
+                  color: Theme.of(context).colorScheme.error,
+                ),
               ),
             ),
-          ),
+          ],
         ],
       ),
     );
@@ -550,7 +575,7 @@ class _BillingScreenState extends ConsumerState<BillingScreen> {
               child: isDesktop
                   ? const PosWebScreen()
                   : useTabletLayout
-                  ? _buildTabletLayout(productsAsync, cart)
+                  ? _buildTabletLayout(productsAsync, cart, billingPermissions)
                   : _buildMobileLayout(productsAsync, cart),
             ),
             // Onboarding checklist overlay on desktop / tablet
@@ -578,8 +603,11 @@ class _BillingScreenState extends ConsumerState<BillingScreen> {
   Widget _buildTabletLayout(
     AsyncValue<List<ProductModel>> productsAsync,
     CartState cart,
+    RoutePermissionState billingPermissions,
   ) {
     final l10n = context.l10n;
+    final canUpdate = billingPermissions.canUpdate;
+    final canDelete = billingPermissions.canDelete;
 
     return Row(
       children: [
@@ -647,8 +675,9 @@ class _BillingScreenState extends ConsumerState<BillingScreen> {
                     const Spacer(),
                     if (cart.isNotEmpty)
                       TextButton(
-                        onPressed: () =>
-                            ref.read(cartProvider.notifier).clearCart(),
+                        onPressed: canDelete
+                            ? () => ref.read(cartProvider.notifier).clearCart()
+                            : null,
                         child: Text(l10n.clear),
                       ),
                   ],
@@ -727,11 +756,13 @@ class _BillingScreenState extends ConsumerState<BillingScreen> {
                                             Icons.remove_circle_outline,
                                             size: 20,
                                           ),
-                                          onPressed: () => ref
-                                              .read(cartProvider.notifier)
-                                              .decrementQuantity(
-                                                item.productId,
-                                              ),
+                                          onPressed: canUpdate
+                                              ? () => ref
+                                                    .read(cartProvider.notifier)
+                                                    .decrementQuantity(
+                                                      item.productId,
+                                                    )
+                                              : null,
                                         ),
                                       ),
                                       Semantics(
@@ -747,13 +778,28 @@ class _BillingScreenState extends ConsumerState<BillingScreen> {
                                             Icons.add_circle_outline,
                                             size: 20,
                                           ),
-                                          onPressed: () => ref
-                                              .read(cartProvider.notifier)
-                                              .incrementQuantity(
-                                                item.productId,
-                                              ),
+                                          onPressed: canUpdate
+                                              ? () => ref
+                                                    .read(cartProvider.notifier)
+                                                    .incrementQuantity(
+                                                      item.productId,
+                                                    )
+                                              : null,
                                         ),
                                       ),
+                                      if (canDelete)
+                                        IconButton(
+                                          icon: Icon(
+                                            Icons.delete_outline,
+                                            size: 20,
+                                            color: Theme.of(
+                                              context,
+                                            ).colorScheme.error,
+                                          ),
+                                          onPressed: () => ref
+                                              .read(cartProvider.notifier)
+                                              .removeItem(item.productId),
+                                        ),
                                     ],
                                   ),
                                 ],

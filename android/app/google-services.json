@@ -50,11 +50,19 @@
       },
       "oauth_client": [
         {
-          "client_id": "883551466761-c3pn56r5sm9ojq865ipkadmcv29qs37r.apps.googleusercontent.com",
+          "client_id": "883551466761-073fthkm3vv4daceb693uj0v2kl9rc03.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
             "package_name": "in.liteapp.tulasihotels",
-            "certificate_hash": "636dcda365f8fa6eae1114806ddd333e3e3f0f3c"
+            "certificate_hash": "5fc4f6bb13f92a0e42567156c89f46035fbf19a8"
+          }
+        },
+        {
+          "client_id": "883551466761-irjvfvm48asb3e17eek2s3vp9oqmtech.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "in.liteapp.tulasihotels",
+            "certificate_hash": "0e9a1c9efa6ea44fefba537916b9df1416fb67b2"
           }
         },
         {

@@ -4,6 +4,7 @@ library;
 
 import 'dart:async';
 
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart' show defaultTargetPlatform, kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -398,6 +399,10 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
             password: _passwordController.text,
             name: _nameController.text.trim(),
             emailVerified: true,
+            phone: _phoneVerified && _phoneController.text.trim().isNotEmpty
+                ? '${AppConstants.countryCode}${_phoneController.text.trim()}'
+                : null,
+            phoneVerified: _phoneVerified,
           );
 
       if (success && mounted) {
@@ -406,6 +411,26 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
             _phoneVerified &&
             _phoneController.text.trim().isNotEmpty) {
           final phone = '${AppConstants.countryCode}${_phoneController.text.trim()}';
+
+          // If registration OTP was validated before account creation,
+          // link that verified phone credential to the newly created account.
+          final pendingCredential = ref
+              .read(phoneAuthProvider.notifier)
+              .lastVerifiedCredential;
+          if (pendingCredential != null) {
+            try {
+              await FirebaseAuth.instance.currentUser?.linkWithCredential(
+                pendingCredential,
+              );
+            } on FirebaseAuthException catch (e) {
+              if (e.code != 'provider-already-linked') {
+                debugPrint('🔐 Phone link skipped: ${e.code}');
+              }
+            } catch (e) {
+              debugPrint('🔐 Phone link error: $e');
+            }
+          }
+
           final synced = await ref
               .read(authNotifierProvider.notifier)
               .updatePhoneVerified(phone: phone);

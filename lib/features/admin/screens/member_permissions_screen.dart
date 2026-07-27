@@ -3,6 +3,7 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:tulasihotels/features/permissions/models/permission_mode.dart';
 import 'package:tulasihotels/features/permissions/permission_panel.dart';
 import 'package:tulasihotels/features/permissions/permission_policy.dart';
 import 'package:tulasihotels/features/permissions/permission_center.dart';
@@ -25,17 +26,89 @@ class MemberPermissionsScreen extends ConsumerStatefulWidget {
 
 class _MemberPermissionsScreenState
     extends ConsumerState<MemberPermissionsScreen> {
-  late Map<String, List<String>> _permissions;
+  late Map<String, List<String>> _customPermissions;
+  late Map<String, List<String>> _revokedPermissions;
+  late Map<String, List<String>> _effectivePermissions;
+  late PermissionMode _permissionMode;
   bool _hasChanges = false;
 
   @override
   void initState() {
     super.initState();
-    _permissions = PermissionPanels.normalizeToPanelPermissions(
-      widget.member.effectivePermissions.map(
+    _permissionMode = widget.member.permissionMode;
+    _customPermissions = PermissionPanels.normalizeToPanelPermissions(
+      (widget.member.customPermissions ??
+              widget.member.permissions ??
+              widget.member.effectivePermissions)
+          .map(
         (key, value) => MapEntry(key, List<String>.from(value)),
       ),
     );
+    _revokedPermissions = PermissionPanels.normalizeToPanelPermissions(
+      (widget.member.revokedPermissions ?? const <String, List<String>>{})
+          .map((k, v) => MapEntry(k, List<String>.from(v))),
+    );
+    _effectivePermissions = _computeEffectivePermissions();
+  }
+
+  String _modeLabel(PermissionMode mode) {
+    switch (mode) {
+      case PermissionMode.roleOnly:
+        return 'Role Only';
+      case PermissionMode.customOnly:
+        return 'Custom Only';
+      case PermissionMode.rolePlusCustom:
+        return 'Role + Custom';
+    }
+  }
+
+  String _modeHint(PermissionMode mode) {
+    switch (mode) {
+      case PermissionMode.roleOnly:
+        return 'Uses ${widget.member.roleLabel} template only';
+      case PermissionMode.customOnly:
+        return 'Uses only the custom panel permissions below';
+      case PermissionMode.rolePlusCustom:
+        return 'Starts with role template, then applies custom overrides';
+    }
+  }
+
+  Map<String, List<String>> _roleBaselinePermissions() {
+    return PermissionPanels.normalizeToPanelPermissions(
+      PermissionPolicy.memberRoleDefaults(widget.member.role)
+          .map((k, v) => MapEntry(k, List<String>.from(v))),
+    );
+  }
+
+  Map<String, List<String>> _computeEffectivePermissions() {
+    final roleBaseline = _roleBaselinePermissions();
+    final merged = <String, Set<String>>{};
+
+    if (_permissionMode == PermissionMode.roleOnly) {
+      return roleBaseline;
+    }
+
+    if (_permissionMode == PermissionMode.customOnly) {
+      return PermissionPanels.normalizeToPanelPermissions(_customPermissions);
+    }
+
+    for (final entry in roleBaseline.entries) {
+      merged.putIfAbsent(entry.key, () => <String>{}).addAll(entry.value);
+    }
+    for (final entry in _customPermissions.entries) {
+      merged.putIfAbsent(entry.key, () => <String>{}).addAll(entry.value);
+    }
+    for (final entry in _revokedPermissions.entries) {
+      merged[entry.key]?.removeAll(entry.value);
+    }
+
+    return PermissionConfig.normalizePermissions({
+      for (final entry in merged.entries) entry.key: entry.value.toList(),
+    });
+  }
+
+  void _recomputeEffective() {
+    _effectivePermissions = _computeEffectivePermissions();
   }
 
   @override
@@ -108,6 +181,9 @@ class _MemberPermissionsScreenState
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
+        _buildModeCard(theme),
+        const SizedBox(height: 12),
+
         // Quick actions
         Row(
           children: [
@@ -186,7 +262,7 @@ class _MemberPermissionsScreenState
   }
 
   Widget _buildPanelRow(PermissionPanelDef panel, ThemeData theme) {
-    final currentActions = _permissions[panel.route] ?? [];
+    final currentActions = _effectivePermissions[panel.route] ?? [];
     final supportedActions = PermissionConfig.supportedActionsForRoute(panel.route);
 
     return Padding(
@@ -209,24 +285,78 @@ class _MemberPermissionsScreenState
                       value: currentActions.contains(action.key),
                       onChanged: (checked) {
                         setState(() {
-                          final actions = List<String>.from(
-                            _permissions[panel.route] ?? [],
-                          );
-                          if (checked == true) {
-                            if (!actions.contains(action.key)) {
-                              actions.add(action.key);
+                          if (_permissionMode == PermissionMode.rolePlusCustom) {
+                            final roleBaseline = _roleBaselinePermissions();
+                            final baselineHas =
+                                roleBaseline[panel.route]?.contains(action.key) ?? false;
+                            final effectiveHas = currentActions.contains(action.key);
+
+                            if (effectiveHas) {
+                              if (baselineHas) {
+                                final revoked = List<String>.from(
+                                  _revokedPermissions[panel.route] ?? const <String>[],
+                                );
+                                if (!revoked.contains(action.key)) {
+                                  revoked.add(action.key);
+                                }
+                                if (revoked.isEmpty) {
+                                  _revokedPermissions.remove(panel.route);
+                                } else {
+                                  _revokedPermissions[panel.route] = revoked;
+                                }
+                              } else {
+                                final custom = List<String>.from(
+                                  _customPermissions[panel.route] ?? const <String>[],
+                                );
+                                custom.remove(action.key);
+                                if (custom.isEmpty) {
+                                  _customPermissions.remove(panel.route);
+                                } else {
+                                  _customPermissions[panel.route] = custom;
+                                }
+                              }
+                            } else {
+                              if (baselineHas) {
+                                final revoked = List<String>.from(
+                                  _revokedPermissions[panel.route] ?? const <String>[],
+                                );
+                                revoked.remove(action.key);
+                                if (revoked.isEmpty) {
+                                  _revokedPermissions.remove(panel.route);
+                                } else {
+                                  _revokedPermissions[panel.route] = revoked;
+                                }
+                              } else {
+                                final custom = List<String>.from(
+                                  _customPermissions[panel.route] ?? const <String>[],
+                                );
+                                if (!custom.contains(action.key)) {
+                                  custom.add(action.key);
+                                }
+                                _customPermissions[panel.route] = custom;
+                              }
                             }
                           } else {
-                            actions.remove(action.key);
+                            final actions = List<String>.from(
+                              _customPermissions[panel.route] ?? const <String>[],
+                            );
+                            if (checked == true) {
+                              if (!actions.contains(action.key)) {
+                                actions.add(action.key);
+                              }
+                            } else {
+                              actions.remove(action.key);
+                            }
+                            final normalized = PermissionPanels
+                                .normalizeToPanelPermissions({panel.route: actions});
+                            if (normalized.isEmpty) {
+                              _customPermissions.remove(panel.route);
+                            } else {
+                              _customPermissions[panel.route] =
+                                  normalized[panel.route]!;
+                            }
                           }
-                          final normalized = PermissionPanels
-                              .normalizeToPanelPermissions({panel.route: actions});
-                          if (normalized.isEmpty) {
-                            _permissions.remove(panel.route);
-                          } else {
-                            _permissions[panel.route] =
-                                normalized[panel.route]!;
-                          }
+                          _recomputeEffective();
                           _hasChanges = true;
                         });
                       },
@@ -250,11 +380,14 @@ class _MemberPermissionsScreenState
 
   void _applyTemplate(StoreRole role) {
     setState(() {
-      _permissions = PermissionPanels.normalizeToPanelPermissions(
+      _permissionMode = PermissionMode.customOnly;
+      _customPermissions = PermissionPanels.normalizeToPanelPermissions(
         PermissionPolicy.memberRoleDefaults(role).map(
           (key, value) => MapEntry(key, List<String>.from(value)),
         ),
       );
+      _revokedPermissions = {};
+      _recomputeEffective();
       _hasChanges = true;
     });
     ScaffoldMessenger.of(context).showSnackBar(
@@ -264,19 +397,25 @@ class _MemberPermissionsScreenState
 
   void _grantAll() {
     setState(() {
+      _permissionMode = PermissionMode.customOnly;
       for (final panel in PermissionPanels.all) {
-        _permissions[panel.route] = PermissionConfig
+        _customPermissions[panel.route] = PermissionConfig
             .supportedActionsForRoute(panel.route)
             .map((action) => action.key)
             .toList();
       }
+      _revokedPermissions = {};
+      _recomputeEffective();
       _hasChanges = true;
     });
   }
 
   void _revokeAll() {
     setState(() {
-      _permissions.clear();
+      _permissionMode = PermissionMode.customOnly;
+      _customPermissions.clear();
+      _revokedPermissions.clear();
+      _recomputeEffective();
       _hasChanges = true;
     });
   }
@@ -300,7 +439,12 @@ class _MemberPermissionsScreenState
     }
 
     try {
-      await MemberService.updatePermissions(widget.member.uid, _permissions);
+      await MemberService.updatePermissionConfig(
+        widget.member.uid,
+        mode: _permissionMode,
+        customPermissions: _customPermissions,
+        revokedPermissions: _revokedPermissions,
+      );
       if (mounted) {
         setState(() => _hasChanges = false);
         ScaffoldMessenger.of(context).showSnackBar(
@@ -314,5 +458,64 @@ class _MemberPermissionsScreenState
         );
       }
     }
+  }
+
+  Widget _buildModeCard(ThemeData theme) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Row(
+          children: [
+            Icon(Icons.tune, size: 18, color: theme.colorScheme.primary),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Permission Mode',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  Text(
+                    _modeHint(_permissionMode),
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            DropdownButton<PermissionMode>(
+              value: _permissionMode,
+              onChanged: (value) {
+                if (value == null) return;
+                setState(() {
+                  _hasChanges = true;
+                  _permissionMode = value;
+                  if (value == PermissionMode.roleOnly) {
+                    _revokedPermissions = {};
+                    _recomputeEffective();
+                  } else if (value == PermissionMode.customOnly) {
+                    _revokedPermissions = {};
+                    _recomputeEffective();
+                  } else {
+                    _recomputeEffective();
+                  }
+                });
+              },
+              items: PermissionMode.values
+                  .map(
+                    (mode) => DropdownMenuItem(
+                      value: mode,
+                      child: Text(_modeLabel(mode)),
+                    ),
+                  )
+                  .toList(growable: false),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

@@ -53,7 +53,7 @@ class _ManageSubscriptionPanelState
     final user = FirebaseAuth.instance.currentUser;
     _userEmail = user?.email;
     _userPhone = user?.phoneNumber;
-    _subscribeToData();
+    unawaited(_subscribeToData());
     _resyncCounts();
   }
 
@@ -72,7 +72,8 @@ class _ManageSubscriptionPanelState
 
     final storeId =
         ActiveStoreManager.storeId ?? FirebaseAuth.instance.currentUser?.uid;
-    final ownerUid = FirebaseAuth.instance.currentUser?.uid;
+    final ownerUid =
+      await PlanEnforcementService.resolveOwnerUidForStoreId(storeId: storeId);
     if (storeId == null) return;
     try {
       final result = await PlanEnforcementService.resyncUsageAndRepairLimits(
@@ -100,8 +101,8 @@ class _ManageSubscriptionPanelState
   /// Real-time listeners:
   /// - Owner doc for subscription plan/status
   /// - Active store doc for usage limits/counters
-  void _subscribeToData() {
-    final ownerUid = FirebaseAuth.instance.currentUser?.uid;
+  Future<void> _subscribeToData() async {
+    final ownerUid = await PlanEnforcementService.resolveOwnerUidForActiveStore();
     if (ownerUid == null) {
       _subscriptionLoaded = true;
       _updateLoadingState();

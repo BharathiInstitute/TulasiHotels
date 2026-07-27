@@ -5,20 +5,41 @@ library;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:tulasihotels/features/hotels/providers/hotel_provider.dart';
 import 'package:tulasihotels/features/subscription/models/plan_config.dart';
 
 /// Real-time subscription plan stream: "free", "starter", "pro", or "business"
 final subscriptionPlanProvider = StreamProvider<String>((ref) {
-  final uid = FirebaseAuth.instance.currentUser?.uid;
-  if (uid == null) return Stream.value('free');
+  final authUid = FirebaseAuth.instance.currentUser?.uid;
+  if (authUid == null) return Stream.value('free');
 
+  // Prefer currently selected store so owners/members see the same plan.
+  final hotelId = ref.watch(currentHotelIdProvider);
+  if (hotelId != null && hotelId.isNotEmpty) {
+    return FirebaseFirestore.instance
+        .collection('users')
+        .doc(hotelId)
+        .snapshots()
+        .map((doc) {
+          final data = doc.data();
+          final sub = data?['subscription'] as Map<String, dynamic>?;
+          final plan = sub?['plan'] as String?;
+          if (plan != null && plan.isNotEmpty) return plan;
+          return _inferPlanFromLimits(data);
+        });
+  }
+
+  // Fallback for legacy/single-store sessions without selected hotel context.
   return FirebaseFirestore.instance
       .collection('users')
-      .doc(uid)
+      .doc(authUid)
       .snapshots()
       .map((doc) {
-        final sub = doc.data()?['subscription'] as Map<String, dynamic>?;
-        return (sub?['plan'] as String?) ?? 'free';
+        final data = doc.data();
+        final sub = data?['subscription'] as Map<String, dynamic>?;
+        final plan = sub?['plan'] as String?;
+        if (plan != null && plan.isNotEmpty) return plan;
+        return _inferPlanFromLimits(data);
       });
 });
 

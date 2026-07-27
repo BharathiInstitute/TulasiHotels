@@ -613,6 +613,8 @@ class _WebCartSectionState extends ConsumerState<_WebCartSection> {
     final user = ref.watch(currentUserProvider);
     final taxRate = user?.settings.taxRate ?? 5.0;
     final gstEnabled = user?.settings.gstEnabled ?? true;
+    final canUpdate = billingPermissions.canUpdate;
+    final canDelete = billingPermissions.canDelete;
 
     return Column(
       children: [
@@ -901,7 +903,9 @@ class _WebCartSectionState extends ConsumerState<_WebCartSection> {
               ),
               if (cart.isNotEmpty)
                 IconButton(
-                  onPressed: () => ref.read(cartProvider.notifier).clearCart(),
+                  onPressed: canDelete
+                      ? () => ref.read(cartProvider.notifier).clearCart()
+                      : null,
                   icon: const Icon(
                     Icons.delete_outline,
                     size: 18,
@@ -951,26 +955,7 @@ class _WebCartSectionState extends ConsumerState<_WebCartSection> {
                       itemBuilder: (context, index) {
                         final item = cart.items[index];
                         final imageUrl = productMap[item.productId]?.imageUrl;
-                        return Dismissible(
-                          key: ValueKey(item.productId),
-                          direction: DismissDirection.endToStart,
-                          onDismissed: (_) => ref
-                              .read(cartProvider.notifier)
-                              .removeItem(item.productId),
-                          background: Container(
-                            alignment: Alignment.centerRight,
-                            padding: const EdgeInsets.only(right: 20),
-                            decoration: BoxDecoration(
-                              color: Theme.of(context).colorScheme.error,
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: const Icon(
-                              Icons.delete,
-                              color: Colors.white,
-                              size: 20,
-                            ),
-                          ),
-                          child: Row(
+                        final row = Row(
                             children: [
                               Container(
                                 width: 40,
@@ -1053,9 +1038,11 @@ class _WebCartSectionState extends ConsumerState<_WebCartSection> {
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
                                     InkWell(
-                                      onTap: () => ref
-                                          .read(cartProvider.notifier)
-                                          .decrementQuantity(item.productId),
+                                      onTap: canUpdate
+                                          ? () => ref
+                                                .read(cartProvider.notifier)
+                                                .decrementQuantity(item.productId)
+                                          : null,
                                       borderRadius: BorderRadius.circular(6),
                                       child: const Padding(
                                         padding: EdgeInsets.all(6),
@@ -1075,9 +1062,11 @@ class _WebCartSectionState extends ConsumerState<_WebCartSection> {
                                       ),
                                     ),
                                     InkWell(
-                                      onTap: () => ref
-                                          .read(cartProvider.notifier)
-                                          .incrementQuantity(item.productId),
+                                      onTap: canUpdate
+                                          ? () => ref
+                                                .read(cartProvider.notifier)
+                                                .incrementQuantity(item.productId)
+                                          : null,
                                       borderRadius: BorderRadius.circular(6),
                                       child: const Padding(
                                         padding: EdgeInsets.all(6),
@@ -1087,23 +1076,48 @@ class _WebCartSectionState extends ConsumerState<_WebCartSection> {
                                   ],
                                 ),
                               ),
-                              const SizedBox(width: 4),
-                              InkWell(
-                                onTap: () => ref
-                                    .read(cartProvider.notifier)
-                                    .removeItem(item.productId),
-                                borderRadius: BorderRadius.circular(6),
-                                child: Padding(
-                                  padding: const EdgeInsets.all(4),
-                                  child: Icon(
-                                    Icons.close,
-                                    size: 16,
-                                    color: Theme.of(context).colorScheme.error,
+                              if (canDelete) ...[
+                                const SizedBox(width: 4),
+                                InkWell(
+                                  onTap: () => ref
+                                      .read(cartProvider.notifier)
+                                      .removeItem(item.productId),
+                                  borderRadius: BorderRadius.circular(6),
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(4),
+                                    child: Icon(
+                                      Icons.close,
+                                      size: 16,
+                                      color: Theme.of(context).colorScheme.error,
+                                    ),
                                   ),
                                 ),
-                              ),
+                              ],
                             ],
+                          );
+
+                        if (!canDelete) return row;
+
+                        return Dismissible(
+                          key: ValueKey(item.productId),
+                          direction: DismissDirection.endToStart,
+                          onDismissed: (_) => ref
+                              .read(cartProvider.notifier)
+                              .removeItem(item.productId),
+                          background: Container(
+                            alignment: Alignment.centerRight,
+                            padding: const EdgeInsets.only(right: 20),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).colorScheme.error,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Icon(
+                              Icons.delete,
+                              color: Colors.white,
+                              size: 20,
+                            ),
                           ),
+                          child: row,
                         );
                       },
                     );

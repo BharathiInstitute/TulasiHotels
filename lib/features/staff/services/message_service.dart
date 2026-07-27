@@ -3,7 +3,10 @@ library;
 
 import 'package:tulasihotels/core/services/active_store_manager.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:tulasihotels/features/permissions/services/module_mutation_guard.dart';
+import 'package:tulasihotels/features/staff/models/permission_config.dart';
 import 'package:tulasihotels/models/message_model.dart';
+import 'package:tulasihotels/router/app_router.dart';
 
 class MessageService {
   static final _firestore = FirebaseFirestore.instance;
@@ -42,16 +45,34 @@ class MessageService {
 
   /// Send a message
   static Future<void> sendMessage(MessageModel message) async {
+    await ModuleMutationGuard.requireAction(
+      AppRoutes.staff,
+      PermissionAction.create,
+    );
     await _messagesRef.doc(message.id).set(message.toFirestore());
   }
 
   /// Delete a message
   static Future<void> deleteMessage(String messageId) async {
+    await ModuleMutationGuard.requireAction(
+      AppRoutes.staff,
+      PermissionAction.delete,
+    );
     await _messagesRef.doc(messageId).delete();
   }
 
   /// Mark message as read
   static Future<void> markAsRead(String messageId, String staffId) async {
+    await ModuleMutationGuard.requireAnyAction([
+      const ModuleActionRequirement(
+        route: AppRoutes.staff,
+        action: PermissionAction.view,
+      ),
+      const ModuleActionRequirement(
+        route: AppRoutes.staff,
+        action: PermissionAction.update,
+      ),
+    ]);
     await _messagesRef.doc(messageId).update({
       'readBy': FieldValue.arrayUnion([staffId]),
     });

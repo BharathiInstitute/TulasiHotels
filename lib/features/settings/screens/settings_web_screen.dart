@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -21,8 +22,12 @@ import 'package:tulasihotels/core/services/connectivity_service.dart';
 import 'package:tulasihotels/shared/widgets/offline_banner.dart';
 import 'package:tulasihotels/features/auth/providers/phone_auth_provider.dart';
 import 'package:tulasihotels/features/hotels/providers/hotel_provider.dart';
+import 'package:tulasihotels/features/permissions/permission_center.dart';
+import 'package:tulasihotels/features/permissions/providers/route_permission_provider.dart';
+import 'package:tulasihotels/features/permissions/widgets/permission_denied_view.dart';
 import 'package:tulasihotels/features/settings/providers/settings_provider.dart';
 import 'package:tulasihotels/features/settings/providers/theme_settings_provider.dart';
+import 'package:tulasihotels/features/staff/models/permission_config.dart';
 import 'package:tulasihotels/models/theme_settings_model.dart';
 import 'package:tulasihotels/core/services/sync_settings_service.dart';
 import 'package:tulasihotels/core/services/image_service.dart';
@@ -134,6 +139,7 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
   }
 
   void _subscribeToLimits() {
+    if (Firebase.apps.isEmpty) return;
     final storeId =
         ActiveStoreManager.storeId ?? FirebaseAuth.instance.currentUser?.uid;
     if (storeId == null) return;
@@ -166,9 +172,47 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
   void _navigateToTab(SettingsTab tab) {
     if (tab == SettingsTab.attendance) {
       context.go(AppRoutes.attendanceSettings);
+    } else if (tab == SettingsTab.subscription) {
+      context.go('/settings/subscription');
     } else {
       context.go('/settings/${tab.name}');
     }
+  }
+
+  String _permissionRouteForTab(SettingsTab tab) {
+    switch (tab) {
+      case SettingsTab.hardware:
+        return AppRoutes.settingsHardware;
+      case SettingsTab.subscription:
+        return AppRoutes.subscription;
+      case SettingsTab.general:
+      case SettingsTab.account:
+      case SettingsTab.billing:
+      case SettingsTab.attendance:
+        return AppRoutes.settings;
+    }
+  }
+
+  bool _showsGlobalSaveButton(SettingsTab tab) {
+    switch (tab) {
+      case SettingsTab.general:
+      case SettingsTab.account:
+      case SettingsTab.hardware:
+      case SettingsTab.billing:
+        return true;
+      case SettingsTab.subscription:
+      case SettingsTab.attendance:
+        return false;
+    }
+  }
+
+  List<SettingsTab> _visibleTabs() {
+    return SettingsTab.values.where((tab) {
+      final permission = ref.watch(
+        routePermissionProvider(_permissionRouteForTab(tab)),
+      );
+      return permission.isResolved && permission.canView;
+    }).toList();
   }
 
   bool _isSyncing = false;
@@ -268,6 +312,24 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
   }
 
   Future<void> _saveSettings() async {
+    final permissionState = ref.read(
+      routePermissionProvider(_permissionRouteForTab(_selectedTab)),
+    );
+    if (!permissionState.canUpdate) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              PermissionCenter.deniedActionMessage(
+                _permissionRouteForTab(_selectedTab),
+                PermissionAction.update,
+              ),
+            ),
+          ),
+        );
+      }
+      return;
+    }
     setState(() => _isSaving = true);
     try {
       final footer = _termsController.text.trim();
@@ -853,9 +915,16 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
     final tabInfo = _tabData[_selectedTab]!;
     final isMobile = ResponsiveHelper.isMobile(context);
     final isTablet = ResponsiveHelper.isTablet(context);
+    final selectedPermission = ref.watch(
+      routePermissionProvider(_permissionRouteForTab(_selectedTab)),
+    );
+
+    if (!selectedPermission.isResolved) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
 
     if (isMobile || isTablet) {
-      return _buildMobileLayout(tabInfo);
+      return _buildMobileLayout(tabInfo, selectedPermission);
     }
 
     return Scaffold(
@@ -887,7 +956,7 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
                           padding: EdgeInsets.all(
                             ResponsiveHelper.isTablet(context) ? 20 : 24,
                           ),
-                          child: _buildTabContent(),
+                          child: _buildTabContent(selectedPermission),
                         ),
                       ),
                     ],
@@ -977,7 +1046,9 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
   /// Mobile layout with AppBar and drawer navigation
   Widget _buildMobileLayout(
     ({IconData icon, String label, String title, String subtitle}) tabInfo,
+    RoutePermissionState selectedPermission,
   ) {
+    final visibleTabs = _visibleTabs();
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
@@ -987,18 +1058,20 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
           onPressed: () => context.go(AppRoutes.dashboard),
         ),
         actions: [
-          TextButton.icon(
-            onPressed: _isSaving ? null : _saveSettings,
-            icon: _isSaving
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.save, size: 18),
-            label: Text(_isSaving ? 'Saving...' : 'Save'),
-            style: TextButton.styleFrom(foregroundColor: AppColors.primary),
-          ),
+          if (_showsGlobalSaveButton(_selectedTab))
+            TextButton.icon(
+              onPressed:
+                  _isSaving || !selectedPermission.canUpdate ? null : _saveSettings,
+              icon: _isSaving
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.save, size: 18),
+              label: Text(_isSaving ? 'Saving...' : 'Save'),
+              style: TextButton.styleFrom(foregroundColor: AppColors.primary),
+            ),
           const SizedBox(width: 8),
         ],
       ),
@@ -1010,7 +1083,7 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
             child: SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: Row(
-                children: SettingsTab.values.map((tab) {
+                children: visibleTabs.map((tab) {
                   final isSelected = tab == _selectedTab;
                   final data = _tabData[tab]!;
                   return Padding(
@@ -1053,7 +1126,7 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
           Expanded(
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(16),
-              child: _buildTabContent(),
+              child: _buildTabContent(selectedPermission),
             ),
           ),
         ],
@@ -1062,6 +1135,7 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
   }
 
   Widget _buildSideNav() {
+    final visibleTabs = _visibleTabs();
     return Container(
       width: 200,
       decoration: BoxDecoration(color: Theme.of(context).cardColor),
@@ -1082,19 +1156,7 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
             ),
           ),
           const SizedBox(height: 8),
-          // Show all tabs except attendance (handled separately below)
-          ...SettingsTab.values
-              .where((t) => t != SettingsTab.attendance)
-              .map((tab) => _buildNavItem(tab)),
-          // Attendance & Geo-Fence (owner only)
-          Builder(
-            builder: (context) {
-              final currentHotel = ref.watch(currentHotelProvider);
-              final isOwner = currentHotel?.isOwner ?? false;
-              if (!isOwner) return const SizedBox.shrink();
-              return _buildNavItem(SettingsTab.attendance);
-            },
-          ),
+          ...visibleTabs.map((tab) => _buildNavItem(tab)),
           // Logout button
           Padding(
             padding: const EdgeInsets.all(16),
@@ -1143,13 +1205,18 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
                       : Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
                 const SizedBox(width: 12),
-                Text(
-                  data.label,
-                  style: TextStyle(
-                    color: isSelected
-                        ? Colors.white
-                        : Theme.of(context).colorScheme.onSurface,
-                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                Expanded(
+                  child: Text(
+                    data.label,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: isSelected
+                          ? Colors.white
+                          : Theme.of(context).colorScheme.onSurface,
+                      fontWeight: isSelected
+                          ? FontWeight.w600
+                          : FontWeight.w500,
+                    ),
                   ),
                 ),
               ],
@@ -1163,6 +1230,9 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
   Widget _buildHeader(
     ({IconData icon, String label, String title, String subtitle}) tabInfo,
   ) {
+    final selectedPermission = ref.watch(
+      routePermissionProvider(_permissionRouteForTab(_selectedTab)),
+    );
     return Container(
       padding: const EdgeInsets.fromLTRB(24, 16, 24, 16),
       decoration: BoxDecoration(color: Theme.of(context).cardColor),
@@ -1237,46 +1307,71 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
               ],
             ),
           ),
-          // Save button
-          ElevatedButton.icon(
-            onPressed: _isSaving ? null : _saveSettings,
-            icon: _isSaving
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Colors.white,
-                    ),
-                  )
-                : const Icon(Icons.save, size: 18),
-            label: Text(_isSaving ? 'Saving...' : 'Save Changes'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+          if (_showsGlobalSaveButton(_selectedTab))
+            ElevatedButton.icon(
+              onPressed:
+                  _isSaving || !selectedPermission.canUpdate ? null : _saveSettings,
+              icon: _isSaving
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Icon(Icons.save, size: 18),
+              label: Text(_isSaving ? 'Saving...' : 'Save Changes'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+              ),
             ),
-          ),
         ],
       ),
     );
   }
 
-  Widget _buildTabContent() {
-    switch (_selectedTab) {
-      case SettingsTab.general:
-        return _buildGeneralTab();
-      case SettingsTab.account:
-        return _buildAccountTab();
-      case SettingsTab.hardware:
-        return _buildHardwareTab();
-      case SettingsTab.billing:
-        return _buildBillingTab();
-      case SettingsTab.subscription:
-        return const ManageSubscriptionPanel();
-      case SettingsTab.attendance:
-        return const AttendanceSettingsBody();
+  Widget _buildTabContent(RoutePermissionState selectedPermission) {
+    if (!selectedPermission.canView) {
+      return PermissionDeniedView(
+        message: PermissionCenter.deniedViewMessage(
+          _permissionRouteForTab(_selectedTab),
+        ),
+      );
     }
+
+    final child = switch (_selectedTab) {
+      SettingsTab.general => _buildGeneralTab(),
+      SettingsTab.account => _buildAccountTab(),
+      SettingsTab.hardware => _buildHardwareTab(),
+      SettingsTab.billing => _buildBillingTab(),
+      SettingsTab.subscription => const ManageSubscriptionPanel(),
+      SettingsTab.attendance => const AttendanceSettingsBody(),
+    };
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (!selectedPermission.canUpdate)
+          Container(
+            width: double.infinity,
+            margin: const EdgeInsets.only(bottom: 16),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.orange.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
+            ),
+            child: const Text(
+              'Read-only access: you can view this section but cannot make changes.',
+              style: TextStyle(color: Colors.orange),
+            ),
+          ),
+        AbsorbPointer(absorbing: !selectedPermission.canUpdate, child: child),
+      ],
+    );
   }
 
   // ============ GENERAL TAB ============

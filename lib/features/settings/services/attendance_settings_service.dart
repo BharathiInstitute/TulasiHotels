@@ -3,7 +3,10 @@ library;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
+import 'package:tulasihotels/features/permissions/services/module_mutation_guard.dart';
 import 'package:tulasihotels/features/settings/models/attendance_settings_model.dart';
+import 'package:tulasihotels/features/staff/models/permission_config.dart';
+import 'package:tulasihotels/router/app_router.dart';
 
 class AttendanceSettingsService {
   AttendanceSettingsService._();
@@ -44,6 +47,10 @@ class AttendanceSettingsService {
     String hotelId,
     AttendanceSettingsModel settings,
   ) async {
+    await ModuleMutationGuard.requireAction(
+      AppRoutes.settings,
+      PermissionAction.update,
+    );
     final write = _doc(hotelId).set(settings.toFirestore(), SetOptions(merge: true));
     try {
       await write.timeout(const Duration(seconds: 8));

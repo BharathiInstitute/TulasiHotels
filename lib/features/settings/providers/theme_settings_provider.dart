@@ -69,6 +69,11 @@ class ThemeSettingsNotifier extends StateNotifier<ThemeSettingsModel> {
   /// Async cloud fetch — updates if cloud has newer data
   Future<void> _loadFromCloud() async {
     try {
+      final bindingType = WidgetsBinding.instance.runtimeType.toString();
+      final isTestBinding = bindingType.contains('TestWidgetsFlutterBinding') ||
+          bindingType.contains('AutomatedTestWidgetsFlutterBinding');
+      if (isTestBinding) return;
+
       // On Windows desktop, delay theme cloud fetch to let initial Firestore
       // channel listeners settle. The Firebase C++ SDK sends messages on
       // non-platform threads, and a theme state change during that window

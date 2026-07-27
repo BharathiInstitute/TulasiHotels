@@ -5,6 +5,7 @@ import 'package:tulasihotels/features/admin/models/store_member.dart';
 import 'package:tulasihotels/features/admin/models/store_role.dart';
 import 'package:tulasihotels/features/admin/services/member_permission_guard.dart';
 import 'package:tulasihotels/features/permissions/permission_center.dart';
+import 'package:tulasihotels/features/permissions/models/permission_mode.dart';
 import 'package:tulasihotels/features/staff/models/permission_config.dart';
 import 'package:tulasihotels/models/staff_model.dart';
 import 'package:tulasihotels/router/app_router.dart';
@@ -168,6 +169,49 @@ void main() {
 
       expect(canDelete, isFalse);
     });
+
+    test('role_only mode uses role baseline when custom is restrictive', () {
+      final staff = makeStaff(
+        role: StaffRole.manager,
+        permissions: {
+          AppRoutes.myAttendance: [PermissionAction.view.key],
+        },
+      ).copyWith(
+        permissionMode: PermissionMode.roleOnly,
+      );
+
+      final canCreateBill = PermissionCenter.hasAction(
+        route: AppRoutes.billing,
+        action: PermissionAction.create,
+        isOwner: false,
+        staff: staff,
+      );
+
+      expect(canCreateBill, isTrue);
+    });
+
+    test('role_plus_custom mode applies explicit custom revocations', () {
+      final staff = makeStaff(
+        role: StaffRole.manager,
+      ).copyWith(
+        permissionMode: PermissionMode.rolePlusCustom,
+        customPermissions: {
+          AppRoutes.billing: [PermissionAction.create.key],
+        },
+        revokedPermissions: {
+          AppRoutes.billing: [PermissionAction.create.key],
+        },
+      );
+
+      final canCreateBill = PermissionCenter.hasAction(
+        route: AppRoutes.billing,
+        action: PermissionAction.create,
+        isOwner: false,
+        staff: staff,
+      );
+
+      expect(canCreateBill, isFalse);
+    });
   });
 
   group('PermissionCenter.messages', () {
@@ -201,7 +245,7 @@ void main() {
         staff: staff,
       );
 
-      expect(home, AppRoutes.orders);
+      expect(home, AppRoutes.tables);
     });
 
     test('member accountant prefers dashboard when allowed', () {

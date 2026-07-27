@@ -188,7 +188,7 @@ void main() {
           isOwner: false,
           staff: staff,
         ),
-        AppRoutes.orders,
+        AppRoutes.tables,
       );
     });
 

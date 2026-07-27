@@ -6,11 +6,17 @@ import 'package:flutter/foundation.dart' show defaultTargetPlatform, kIsWeb, Tar
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:tulasihotels/features/permissions/permission_center.dart';
+import 'package:tulasihotels/features/permissions/providers/route_permission_provider.dart';
+import 'package:tulasihotels/features/permissions/widgets/permission_denied_view.dart';
+import 'package:tulasihotels/features/staff/models/permission_config.dart';
+import 'package:tulasihotels/router/app_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:tulasihotels/core/services/cloud_function_helper.dart';
 import 'package:tulasihotels/features/subscription/providers/subscription_provider.dart';
 import 'package:tulasihotels/features/subscription/services/subscription_service.dart';
 import 'package:tulasihotels/features/subscription/models/plan_config.dart';
+import 'package:tulasihotels/features/subscription/services/plan_enforcement_service.dart';
 
 /// Screen for viewing and managing subscription plans.
 ///
@@ -39,12 +45,12 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
   }
 
   Future<void> _loadCurrentSubscription() async {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid == null) return;
+    final ownerUid = await PlanEnforcementService.resolveOwnerUidForActiveStore();
+    if (ownerUid == null) return;
 
     final doc = await FirebaseFirestore.instance
         .collection('users')
-        .doc(uid)
+      .doc(ownerUid)
         .get();
     final sub = doc.data()?['subscription'] as Map<String, dynamic>?;
     if (sub != null && mounted) {
@@ -58,6 +64,13 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final subscriptionPermissions = ref.watch(
+      routePermissionProvider(AppRoutes.subscription),
+    );
+    if (!subscriptionPermissions.isResolved) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
     // Watch real-time subscription plan from Firestore
     final planAsync = ref.watch(subscriptionPlanProvider);
     planAsync.whenData((plan) {
@@ -81,85 +94,108 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
         ),
         title: const Text('Subscription Plans'),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const Text(
-              'Choose the right plan for your business',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 8),
-            if (_currentPlan != 'free' && _expiresAt != null)
-              Text(
-                'Current: ${_currentPlan[0].toUpperCase()}${_currentPlan.substring(1)} '
-                '($_subscriptionStatus) — expires ${_expiresAt!.day}/${_expiresAt!.month}/${_expiresAt!.year}',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.grey[600], fontSize: 13),
+      body: !subscriptionPermissions.canView
+          ? PermissionDeniedView(
+              message: PermissionCenter.deniedViewMessage(
+                AppRoutes.subscription,
               ),
-            const SizedBox(height: 16),
-            // Monthly / Annual toggle
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Text('Monthly'),
-                Switch(
-                  value: _isAnnual,
-                  onChanged: (v) => setState(() => _isAnnual = v),
-                ),
-                const Text('Annual'),
-                const SizedBox(width: 4),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 2,
+            )
+          : SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  if (!subscriptionPermissions.canUpdate)
+                    Container(
+                      margin: const EdgeInsets.only(bottom: 16),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.orange.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: Colors.orange.withValues(alpha: 0.3),
+                        ),
+                      ),
+                      child: const Text(
+                        'Read-only access: you can view plans but cannot change subscription.',
+                        style: TextStyle(color: Colors.orange),
+                      ),
+                    ),
+                  const Text(
+                    'Choose the right plan for your business',
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                    textAlign: TextAlign.center,
                   ),
-                  decoration: BoxDecoration(
-                    color: Colors.green.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(8),
+                  const SizedBox(height: 8),
+                  if (_currentPlan != 'free' && _expiresAt != null)
+                    Text(
+                      'Current: ${_currentPlan[0].toUpperCase()}${_currentPlan.substring(1)} '
+                      '($_subscriptionStatus) — expires ${_expiresAt!.day}/${_expiresAt!.month}/${_expiresAt!.year}',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                    ),
+                  const SizedBox(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Text('Monthly'),
+                      Switch(
+                        value: _isAnnual,
+                        onChanged: (v) => setState(() => _isAnnual = v),
+                      ),
+                      const Text('Annual'),
+                      const SizedBox(width: 4),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.green.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Text(
+                          'Save ~17%',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.green,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                  child: const Text(
-                    'Save ~17%',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.green,
-                      fontWeight: FontWeight.bold,
+                  const SizedBox(height: 16),
+                  ...PlanConfig.allPlans.map(
+                    (plan) => Padding(
+                      padding: const EdgeInsets.only(bottom: 16),
+                      child: _buildPlanCard(
+                        context,
+                        canUpdate: subscriptionPermissions.canUpdate,
+                        planKey: plan.key,
+                        name: plan.name,
+                        monthlyPrice: SubscriptionPricing.getPrice(
+                          plan.key,
+                          'monthly',
+                        ).toInt(),
+                        annualPrice: SubscriptionPricing.getPrice(
+                          plan.key,
+                          'annual',
+                        ).toInt(),
+                        features: plan.featureDescriptions,
+                        color: _planColor(plan.key),
+                      ),
                     ),
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            ...PlanConfig.allPlans.map(
-              (plan) => Padding(
-                padding: const EdgeInsets.only(bottom: 16),
-                child: _buildPlanCard(
-                  context,
-                  planKey: plan.key,
-                  name: plan.name,
-                  monthlyPrice: SubscriptionPricing.getPrice(
-                    plan.key,
-                    'monthly',
-                  ).toInt(),
-                  annualPrice: SubscriptionPricing.getPrice(
-                    plan.key,
-                    'annual',
-                  ).toInt(),
-                  features: plan.featureDescriptions,
-                  color: _planColor(plan.key),
-                ),
+                ],
               ),
             ),
-          ],
-        ),
-      ),
     );
   }
 
   Widget _buildPlanCard(
     BuildContext context, {
+    required bool canUpdate,
     required String planKey,
     required String name,
     required int monthlyPrice,
@@ -241,7 +277,9 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
               SizedBox(
                 width: double.infinity,
                 child: FilledButton.icon(
-                  onPressed: _isLoading ? null : () => _handleUpgrade(planKey),
+                  onPressed: _isLoading || !canUpdate
+                      ? null
+                      : () => _handleUpgrade(planKey),
                   style: FilledButton.styleFrom(backgroundColor: color),
                   icon: const Icon(Icons.upgrade, size: 18),
                   label: _isLoading

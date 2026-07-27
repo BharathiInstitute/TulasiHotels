@@ -2,6 +2,7 @@
 library;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:tulasihotels/features/permissions/models/permission_mode.dart';
 
 /// Staff roles
 enum StaffRole {
@@ -39,6 +40,20 @@ class StaffModel {
   /// null means admin has not explicitly assigned module access yet
   final Map<String, List<String>>? permissions;
 
+  /// Hybrid mode for resolving effective permissions.
+  ///
+  /// - role_only: use role baseline only
+  /// - custom_only: use custom permissions only (legacy default)
+  /// - role_plus_custom: merge role baseline with custom add/remove overrides
+  final PermissionMode permissionMode;
+
+  /// Optional explicit custom permission map used by hybrid mode.
+  /// If null, legacy [permissions] is used as the custom source.
+  final Map<String, List<String>>? customPermissions;
+
+  /// Optional explicit custom removals (route -> action keys to remove).
+  final Map<String, List<String>>? revokedPermissions;
+
   const StaffModel({
     required this.id,
     required this.name,
@@ -50,6 +65,9 @@ class StaffModel {
     required this.createdAt,
     this.updatedAt,
     this.permissions,
+    this.permissionMode = PermissionMode.customOnly,
+    this.customPermissions,
+    this.revokedPermissions,
   });
 
   factory StaffModel.fromFirestore(DocumentSnapshot doc) {
@@ -60,6 +78,24 @@ class StaffModel {
     if (data['permissions'] is Map) {
       final raw = data['permissions'] as Map<String, dynamic>;
       permissions = {
+        for (final entry in raw.entries)
+          entry.key: (entry.value as List<dynamic>).cast<String>(),
+      };
+    }
+
+    Map<String, List<String>>? customPermissions;
+    if (data['customPermissions'] is Map) {
+      final raw = data['customPermissions'] as Map<String, dynamic>;
+      customPermissions = {
+        for (final entry in raw.entries)
+          entry.key: (entry.value as List<dynamic>).cast<String>(),
+      };
+    }
+
+    Map<String, List<String>>? revokedPermissions;
+    if (data['revokedPermissions'] is Map) {
+      final raw = data['revokedPermissions'] as Map<String, dynamic>;
+      revokedPermissions = {
         for (final entry in raw.entries)
           entry.key: (entry.value as List<dynamic>).cast<String>(),
       };
@@ -76,6 +112,9 @@ class StaffModel {
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       updatedAt: (data['updatedAt'] as Timestamp?)?.toDate(),
       permissions: permissions,
+      permissionMode: PermissionMode.fromKey(data['permissionMode'] as String?),
+      customPermissions: customPermissions,
+      revokedPermissions: revokedPermissions,
     );
   }
 
@@ -89,7 +128,10 @@ class StaffModel {
       'isActive': isActive,
       'createdAt': Timestamp.fromDate(createdAt),
       'updatedAt': updatedAt != null ? Timestamp.fromDate(updatedAt!) : null,
+      'permissionMode': permissionMode.key,
       if (permissions != null) 'permissions': permissions,
+      if (customPermissions != null) 'customPermissions': customPermissions,
+      if (revokedPermissions != null) 'revokedPermissions': revokedPermissions,
     };
   }
 
@@ -103,7 +145,10 @@ class StaffModel {
     'pin': pin,
     'isActive': isActive,
     'createdAt': createdAt.millisecondsSinceEpoch,
+    'permissionMode': permissionMode.key,
     if (permissions != null) 'permissions': permissions,
+    if (customPermissions != null) 'customPermissions': customPermissions,
+    if (revokedPermissions != null) 'revokedPermissions': revokedPermissions,
   };
 
   /// Deserialize from plain JSON (inverse of toJson)
@@ -116,6 +161,25 @@ class StaffModel {
           entry.key: (entry.value as List<dynamic>).cast<String>(),
       };
     }
+
+    Map<String, List<String>>? customPermissions;
+    if (data['customPermissions'] is Map) {
+      final raw = data['customPermissions'] as Map<String, dynamic>;
+      customPermissions = {
+        for (final entry in raw.entries)
+          entry.key: (entry.value as List<dynamic>).cast<String>(),
+      };
+    }
+
+    Map<String, List<String>>? revokedPermissions;
+    if (data['revokedPermissions'] is Map) {
+      final raw = data['revokedPermissions'] as Map<String, dynamic>;
+      revokedPermissions = {
+        for (final entry in raw.entries)
+          entry.key: (entry.value as List<dynamic>).cast<String>(),
+      };
+    }
+
     return StaffModel(
       id: (data['id'] as String?) ?? '',
       name: (data['name'] as String?) ?? '',
@@ -128,6 +192,9 @@ class StaffModel {
         (data['createdAt'] as int?) ?? 0,
       ),
       permissions: permissions,
+      permissionMode: PermissionMode.fromKey(data['permissionMode'] as String?),
+      customPermissions: customPermissions,
+      revokedPermissions: revokedPermissions,
     );
   }
 
@@ -139,6 +206,9 @@ class StaffModel {
     String? pin,
     bool? isActive,
     Map<String, List<String>>? permissions,
+    PermissionMode? permissionMode,
+    Map<String, List<String>>? customPermissions,
+    Map<String, List<String>>? revokedPermissions,
   }) {
     return StaffModel(
       id: id,
@@ -151,6 +221,9 @@ class StaffModel {
       createdAt: createdAt,
       updatedAt: DateTime.now(),
       permissions: permissions ?? this.permissions,
+      permissionMode: permissionMode ?? this.permissionMode,
+      customPermissions: customPermissions ?? this.customPermissions,
+      revokedPermissions: revokedPermissions ?? this.revokedPermissions,
     );
   }
 }

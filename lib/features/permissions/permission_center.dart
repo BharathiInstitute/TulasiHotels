@@ -1,6 +1,7 @@
 library;
 
 import 'package:tulasihotels/features/admin/models/store_member.dart';
+import 'package:tulasihotels/features/permissions/models/permission_mode.dart';
 import 'package:tulasihotels/features/permissions/permission_panel.dart';
 import 'package:tulasihotels/features/permissions/permission_policy.dart';
 import 'package:tulasihotels/features/staff/models/permission_config.dart';
@@ -263,9 +264,7 @@ class PermissionCenter {
   }
 
   static List<String> _staffActionsForRoute(StaffModel staff, String route) {
-    final permissions = PermissionConfig.normalizePermissions(
-      staff.permissions ?? PermissionConfig.minimalAssignedPermissions(),
-    );
+    final permissions = _effectiveStaffPermissions(staff);
     final permissionRoute = PermissionConfig.resolvePermissionRoute(route);
     final resolved = PermissionPanels.resolvePanelRoute(permissionRoute);
     final direct = permissions[resolved] ?? const <String>[];
@@ -279,6 +278,12 @@ class PermissionCenter {
       final bridged = _deriveOrderActionsFromTableActions(tableActions);
       if (bridged.isNotEmpty) return bridged;
     }
+
+    final settingsFallback = _legacySettingsActionsForStaff(
+      staff,
+      permissionRoute,
+    );
+    if (settingsFallback.isNotEmpty) return settingsFallback;
 
     // Backward compatibility: read legacy route-keyed entries if present.
     final legacyResolved = PermissionConfig.resolvePermissionRoute(route);
@@ -300,9 +305,82 @@ class PermissionCenter {
       if (bridged.isNotEmpty) return bridged;
     }
 
+    final settingsFallback = _legacySettingsActionsForMember(
+      member,
+      permissionRoute,
+    );
+    if (settingsFallback.isNotEmpty) return settingsFallback;
+
     // Backward compatibility: read legacy route-keyed entries if present.
     final legacyResolved = PermissionConfig.resolvePermissionRoute(route);
     return permissions[legacyResolved] ?? const <String>[];
+  }
+
+  static Map<String, List<String>> _effectiveStaffPermissions(StaffModel staff) {
+    final roleBaseline = PermissionPanels.normalizeToPanelPermissions(
+      PermissionPolicy.staffRoleDefaults(staff.role),
+    );
+    final custom = PermissionPanels.normalizeToPanelPermissions(
+      staff.customPermissions ??
+          staff.permissions ??
+          PermissionConfig.minimalAssignedPermissions(),
+    );
+    final revoked = PermissionPanels.normalizeToPanelPermissions(
+      staff.revokedPermissions ?? const <String, List<String>>{},
+    );
+
+    switch (staff.permissionMode) {
+      case PermissionMode.roleOnly:
+        return roleBaseline;
+      case PermissionMode.customOnly:
+        return custom;
+      case PermissionMode.rolePlusCustom:
+        final merged = <String, Set<String>>{};
+
+        for (final entry in roleBaseline.entries) {
+          merged.putIfAbsent(entry.key, () => <String>{}).addAll(entry.value);
+        }
+        for (final entry in custom.entries) {
+          merged.putIfAbsent(entry.key, () => <String>{}).addAll(entry.value);
+        }
+        for (final entry in revoked.entries) {
+          final actions = merged[entry.key];
+          if (actions == null) continue;
+          actions.removeAll(entry.value);
+        }
+
+        return PermissionConfig.normalizePermissions({
+          for (final entry in merged.entries) entry.key: entry.value.toList(),
+        });
+    }
+  }
+
+  static List<String> _legacySettingsActionsForStaff(
+    StaffModel staff,
+    String permissionRoute,
+  ) {
+    if (!_isSettingsPermissionRoute(permissionRoute) || staff.permissions != null) {
+      return const <String>[];
+    }
+    final defaults = PermissionPolicy.staffRoleDefaults(staff.role);
+    return defaults[permissionRoute] ?? const <String>[];
+  }
+
+  static List<String> _legacySettingsActionsForMember(
+    StoreMember member,
+    String permissionRoute,
+  ) {
+    if (!_isSettingsPermissionRoute(permissionRoute) || member.permissions != null) {
+      return const <String>[];
+    }
+    final defaults = PermissionPolicy.memberRoleDefaults(member.role);
+    return defaults[permissionRoute] ?? const <String>[];
+  }
+
+  static bool _isSettingsPermissionRoute(String route) {
+    return route == AppRoutes.settings ||
+        route == AppRoutes.settingsHardware ||
+        route == AppRoutes.subscription;
   }
 
   static List<String> _deriveOrderActionsFromTableActions(

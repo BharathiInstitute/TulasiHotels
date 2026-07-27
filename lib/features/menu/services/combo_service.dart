@@ -3,7 +3,10 @@ library;
 
 import 'package:tulasihotels/core/services/active_store_manager.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:tulasihotels/features/permissions/services/module_mutation_guard.dart';
+import 'package:tulasihotels/features/staff/models/permission_config.dart';
 import 'package:tulasihotels/models/combo_model.dart';
+import 'package:tulasihotels/router/app_router.dart';
 
 class ComboService {
   static final _firestore = FirebaseFirestore.instance;
@@ -43,22 +46,38 @@ class ComboService {
 
   /// Create a combo
   static Future<void> createCombo(ComboModel combo) async {
+    await ModuleMutationGuard.requireAction(
+      AppRoutes.products,
+      PermissionAction.create,
+    );
     await _combosRef.doc(combo.id).set(combo.toFirestore());
   }
 
   /// Update a combo
   static Future<void> updateCombo(ComboModel combo) async {
+    await ModuleMutationGuard.requireAction(
+      AppRoutes.products,
+      PermissionAction.update,
+    );
     await _combosRef.doc(combo.id).update(combo.toFirestore());
   }
 
   /// Delete a combo
   static Future<void> deleteCombo(String comboId) async {
+    await ModuleMutationGuard.requireAction(
+      AppRoutes.products,
+      PermissionAction.delete,
+    );
     await _combosRef.doc(comboId).delete();
   }
 
   /// Toggle combo availability
   static Future<void> toggleAvailability(
       String comboId, bool isAvailable) async {
+    await ModuleMutationGuard.requireAction(
+      AppRoutes.products,
+      PermissionAction.update,
+    );
     await _combosRef.doc(comboId).update({'isAvailable': isAvailable});
   }
 }

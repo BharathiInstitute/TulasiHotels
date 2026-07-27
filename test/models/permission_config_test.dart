@@ -49,8 +49,8 @@ void main() {
   });
 
   group('PermissionConfig.categories', () {
-    test('has 8 categories', () {
-      expect(PermissionConfig.categories.length, 8);
+    test('has 9 categories', () {
+      expect(PermissionConfig.categories.length, 9);
     });
 
     test('includes Core and Compliance', () {
@@ -60,8 +60,8 @@ void main() {
   });
 
   group('PermissionConfig.allScreens', () {
-    test('has at least 27 screens', () {
-      expect(PermissionConfig.allScreens.length, greaterThanOrEqualTo(27));
+    test('has at least 18 screens', () {
+      expect(PermissionConfig.allScreens.length, greaterThanOrEqualTo(18));
     });
 
     test('every screen has a non-empty route starting with /', () {
@@ -95,7 +95,7 @@ void main() {
     test('partial modules expose only supported actions', () {
       expect(
         PermissionConfig.screenForRoute(AppRoutes.kitchen)?.supportedActionKeys,
-        ['view', 'update'],
+        ['view', 'create', 'update', 'delete'],
       );
       expect(
         PermissionConfig.screenForRoute(AppRoutes.wastage)?.supportedActionKeys,
@@ -157,10 +157,10 @@ void main() {
       expect(perms.containsKey(AppRoutes.kitchen), isFalse);
     });
 
-    test('waiter has tables and orders', () {
+    test('waiter has tables and kitchen', () {
       final perms = PermissionConfig.defaultTemplate(StaffRole.waiter);
       expect(perms.containsKey(AppRoutes.tables), isTrue);
-      expect(perms.containsKey(AppRoutes.orders), isTrue);
+      expect(perms.containsKey(AppRoutes.kitchen), isTrue);
     });
 
     test('waiter does NOT have billing', () {
@@ -168,15 +168,15 @@ void main() {
       expect(perms.containsKey(AppRoutes.billing), isFalse);
     });
 
-    test('chef has kitchen and orders', () {
+    test('chef has kitchen and wastage', () {
       final perms = PermissionConfig.defaultTemplate(StaffRole.chef);
       expect(perms.containsKey(AppRoutes.kitchen), isTrue);
-      expect(perms.containsKey(AppRoutes.orders), isTrue);
+      expect(perms.containsKey(AppRoutes.wastage), isTrue);
     });
 
-    test('chef has ingredients view', () {
+    test('chef has wastage create access', () {
       final perms = PermissionConfig.defaultTemplate(StaffRole.chef);
-      expect(perms[AppRoutes.ingredients], contains('view'));
+      expect(perms[AppRoutes.wastage], contains('create'));
     });
 
     test('chef does NOT have billing or staff', () {
@@ -196,27 +196,14 @@ void main() {
       }
     });
 
-    test('attendance is only included for roles that manage attendance', () {
-      expect(
-        PermissionConfig.defaultTemplate(StaffRole.manager)
-            .containsKey(AppRoutes.attendance),
-        isTrue,
-      );
-      expect(
-        PermissionConfig.defaultTemplate(StaffRole.cashier)
-            .containsKey(AppRoutes.attendance),
-        isFalse,
-      );
-      expect(
-        PermissionConfig.defaultTemplate(StaffRole.waiter)
-            .containsKey(AppRoutes.attendance),
-        isFalse,
-      );
-      expect(
-        PermissionConfig.defaultTemplate(StaffRole.chef)
-            .containsKey(AppRoutes.attendance),
-        isFalse,
-      );
+    test('attendance is not included in the default templates', () {
+      for (final role in StaffRole.values) {
+        expect(
+          PermissionConfig.defaultTemplate(role).containsKey(AppRoutes.attendance),
+          isFalse,
+          reason: '$role should not have attendance in the default template',
+        );
+      }
     });
   });
 
@@ -228,7 +215,7 @@ void main() {
       });
 
       expect(normalized[AppRoutes.dashboard], ['view']);
-      expect(normalized[AppRoutes.kitchen], ['view', 'update']);
+      expect(normalized[AppRoutes.kitchen], ['view', 'create', 'update']);
     });
 
     test('preserves unknown routes', () {
@@ -238,20 +225,39 @@ void main() {
 
       expect(normalized['/custom-route'], ['view', 'create']);
     });
+
+    test('adds view when a mutating action is granted', () {
+      final normalized = PermissionConfig.normalizePermissions({
+        AppRoutes.kitchen: ['update'],
+        AppRoutes.wastage: ['create'],
+        AppRoutes.billing: ['delete'],
+      });
+
+      expect(normalized[AppRoutes.kitchen], ['view', 'update']);
+      expect(normalized[AppRoutes.wastage], ['view', 'create']);
+      expect(normalized[AppRoutes.billing], ['view', 'delete']);
+    });
   });
 
   group('PermissionConfig.resolvePermissionRoute', () {
     test('child route resolves to parent', () {
       expect(
         PermissionConfig.resolvePermissionRoute(AppRoutes.orderDetail),
-        AppRoutes.orders,
+        AppRoutes.tables,
       );
     });
 
-    test('newOrder resolves to orders', () {
+    test('newOrder resolves to tables', () {
       expect(
         PermissionConfig.resolvePermissionRoute(AppRoutes.newOrder),
-        AppRoutes.orders,
+        AppRoutes.tables,
+      );
+    });
+
+    test('orders route resolves to tables', () {
+      expect(
+        PermissionConfig.resolvePermissionRoute(AppRoutes.orders),
+        AppRoutes.tables,
       );
     });
 

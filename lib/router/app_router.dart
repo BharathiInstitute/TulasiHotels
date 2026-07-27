@@ -123,6 +123,10 @@ class AppRoutes {
   static const String bills = '/bills';
   static const String settings = '/settings';
   static const String settingsTab = '/settings/:tab';
+  static const String settingsGeneral = '/settings/general';
+  static const String settingsAccount = '/settings/account';
+  static const String settingsHardware = '/settings/hardware';
+  static const String settingsBilling = '/settings/billing';
   static const String themeSettings = '/settings/theme';
   static const String attendanceSettings = '/settings/attendance';
   static const String subscription = '/subscription';

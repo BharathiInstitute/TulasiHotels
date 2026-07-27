@@ -5,9 +5,12 @@ import 'package:tulasihotels/core/services/active_store_manager.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:tulasihotels/core/utils/id_generator.dart';
+import 'package:tulasihotels/features/permissions/services/module_mutation_guard.dart';
 import 'package:tulasihotels/features/settings/services/attendance_settings_service.dart';
+import 'package:tulasihotels/features/staff/models/permission_config.dart';
 import 'package:tulasihotels/features/staff/services/location_service.dart';
 import 'package:tulasihotels/models/attendance_model.dart';
+import 'package:tulasihotels/router/app_router.dart';
 
 class AttendanceService {
   static final _firestore = FirebaseFirestore.instance;
@@ -248,6 +251,10 @@ class AttendanceService {
     String? editedBy,
     String? editNote,
   }) async {
+    await ModuleMutationGuard.requireAction(
+      AppRoutes.staff,
+      PermissionAction.create,
+    );
     final id = generateSafeId('att');
     final attendance = AttendanceModel(
       id: id,
@@ -276,6 +283,10 @@ class AttendanceService {
     String? editedBy,
     String? editNote,
   }) async {
+    await ModuleMutationGuard.requireAction(
+      AppRoutes.staff,
+      PermissionAction.update,
+    );
     final updates = <String, dynamic>{};
     if (clockIn != null) updates['clockIn'] = Timestamp.fromDate(clockIn);
     if (clockOut != null) updates['clockOut'] = Timestamp.fromDate(clockOut);
@@ -292,6 +303,10 @@ class AttendanceService {
 
   /// Delete an attendance record (owner correction)
   static Future<void> deleteRecord(String recordId) async {
+    await ModuleMutationGuard.requireAction(
+      AppRoutes.staff,
+      PermissionAction.delete,
+    );
     await _attendanceRef.doc(recordId).delete();
     debugPrint('Record $recordId deleted');
   }

@@ -260,7 +260,11 @@ class PhoneAuthNotifier extends StateNotifier<PhoneAuthState> {
     if (kIsWeb && _webConfirmationResult != null) {
       state = state.copyWith(status: PhoneAuthStatus.verifying);
       try {
-        await _webConfirmationResult!.confirm(smsCode.trim());
+        final result = await _webConfirmationResult!.confirm(smsCode.trim());
+        final credential = result.credential;
+        if (credential is PhoneAuthCredential) {
+          _lastVerifiedCredential = credential;
+        }
         // In sign-in flow (no existing user), web OTP may create a temporary
         // auth session. Clear it so email/password flow can continue.
         if (!_webIsLinkFlow && _auth.currentUser != null) {
@@ -314,7 +318,11 @@ class PhoneAuthNotifier extends StateNotifier<PhoneAuthState> {
           await currentUser.linkWithCredential(credential);
         }
       } else {
+        // Pre-registration flow: validate OTP using a temporary phone sign-in,
+        // then immediately sign out so email registration can continue on the
+        // real account without auth context collisions.
         await _auth.signInWithCredential(credential);
+        await _auth.signOut();
       }
 
       _lastVerifiedCredential = credential;
@@ -453,7 +461,9 @@ class PhoneAuthNotifier extends StateNotifier<PhoneAuthState> {
         await currentUser.linkWithCredential(credential);
         debugPrint('📱 Auto-linked phone to existing account');
       } else {
+        // Auto-verification before account creation: keep session clean.
         await _auth.signInWithCredential(credential);
+        await _auth.signOut();
       }
       _lastVerifiedCredential = credential;
       state = state.copyWith(status: PhoneAuthStatus.verified);

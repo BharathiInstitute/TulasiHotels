@@ -63,11 +63,6 @@ class PermissionPanels {
       collections: ['tables', 'table_layout'],
     ),
     PermissionPanelDef(
-      route: AppRoutes.orders,
-      label: 'Orders Panel',
-      collections: ['orders', 'order_items', 'order_status'],
-    ),
-    PermissionPanelDef(
       route: AppRoutes.kitchen,
       label: 'Kitchen Panel',
       collections: ['kitchen_queue', 'kds_status'],
@@ -117,6 +112,32 @@ class PermissionPanels {
       label: 'Events Panel',
       collections: ['events', 'compliance_logs'],
     ),
+    PermissionPanelDef(
+      route: AppRoutes.settings,
+      label: 'Settings Panel',
+      collections: [
+        'settings',
+        'theme_settings',
+        'attendance_settings',
+        'billing_preferences',
+        'store_profile',
+      ],
+    ),
+    PermissionPanelDef(
+      route: AppRoutes.settingsHardware,
+      label: 'Hardware Panel',
+      collections: [
+        'printer_settings',
+        'hardware_devices',
+        'bluetooth_printers',
+        'serial_printers',
+      ],
+    ),
+    PermissionPanelDef(
+      route: AppRoutes.subscription,
+      label: 'Subscription Panel',
+      collections: ['subscription', 'plan_limits', 'billing_cycles'],
+    ),
   ];
 
   static const Map<String, String> _routeToPanel = {
@@ -124,10 +145,11 @@ class PermissionPanels {
     AppRoutes.orderBilling: AppRoutes.billing,
     AppRoutes.splitBill: AppRoutes.billing,
 
-    // Nested orders flows
-    AppRoutes.orderDetail: AppRoutes.orders,
-    AppRoutes.newOrder: AppRoutes.orders,
-    AppRoutes.customerOrderStatus: AppRoutes.orders,
+    // Nested orders flows now belong to Tables
+    AppRoutes.orders: AppRoutes.tables,
+    AppRoutes.orderDetail: AppRoutes.tables,
+    AppRoutes.newOrder: AppRoutes.tables,
+    AppRoutes.customerOrderStatus: AppRoutes.tables,
 
     // Nested products flows
     AppRoutes.productDetail: AppRoutes.products,
@@ -161,6 +183,29 @@ class PermissionPanels {
   };
 
   static String resolvePanelRoute(String route) {
+    if (route == AppRoutes.subscription || route.startsWith('${AppRoutes.subscription}/')) {
+      return AppRoutes.subscription;
+    }
+    if (route == '/settings/subscription') {
+      return AppRoutes.subscription;
+    }
+    if (route == AppRoutes.settingsHardware) {
+      return AppRoutes.settingsHardware;
+    }
+    if (route == AppRoutes.settings ||
+        route == AppRoutes.settingsGeneral ||
+        route == AppRoutes.settingsAccount ||
+        route == AppRoutes.settingsBilling ||
+        route == AppRoutes.attendanceSettings ||
+        route == AppRoutes.themeSettings) {
+      return AppRoutes.settings;
+    }
+    if (route.startsWith('/settings/')) {
+      final tab = route.substring('/settings/'.length);
+      if (tab == 'hardware') return AppRoutes.settingsHardware;
+      if (tab == 'subscription') return AppRoutes.subscription;
+      return AppRoutes.settings;
+    }
     return _routeToPanel[route] ?? route;
   }
 

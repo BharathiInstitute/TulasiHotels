@@ -6,9 +6,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:tulasihotels/core/design/design_system.dart';
 import 'package:tulasihotels/core/utils/formatters.dart';
+import 'package:tulasihotels/features/permissions/permission_center.dart';
+import 'package:tulasihotels/features/permissions/providers/route_permission_provider.dart';
+import 'package:tulasihotels/features/permissions/widgets/permission_denied_view.dart';
 import 'package:tulasihotels/features/products/providers/products_provider.dart';
 import 'package:tulasihotels/features/products/widgets/add_product_modal.dart';
+import 'package:tulasihotels/features/staff/models/permission_config.dart';
 import 'package:tulasihotels/models/product_model.dart';
+import 'package:tulasihotels/router/app_router.dart';
 import 'package:tulasihotels/shared/widgets/loading_states.dart';
 
 class ProductDetailScreen extends ConsumerWidget {
@@ -226,6 +231,25 @@ class _ProductDetailViewState extends ConsumerState<_ProductDetailView> {
 
   @override
   Widget build(BuildContext context) {
+    final productPermissions = ref.watch(
+      routePermissionProvider(AppRoutes.products),
+    );
+
+    if (!productPermissions.isResolved) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (!productPermissions.canView) {
+      return Scaffold(
+        appBar: AppBar(title: Text(widget.product.name)),
+        body: PermissionDeniedView(
+          message: PermissionCenter.deniedViewMessage(AppRoutes.products),
+        ),
+      );
+    }
+
     final product = widget.product;
     final profit = product.profit;
     final profitPct = product.profitPercentage;
@@ -234,35 +258,39 @@ class _ProductDetailViewState extends ConsumerState<_ProductDetailView> {
       appBar: AppBar(
         title: Text(product.name),
         actions: [
-          IconButton(icon: const Icon(Icons.edit), onPressed: _showEditModal),
-          PopupMenuButton(
-            itemBuilder: (context) => [
-              const PopupMenuItem(
-                value: 'adjust',
-                child: ListTile(
-                  leading: Icon(Icons.restaurant_menu),
-                  title: Text('Adjust Stock'),
-                ),
-              ),
-              const PopupMenuItem(
-                value: 'delete',
-                child: ListTile(
-                  leading: Icon(Icons.delete, color: AppColors.error),
-                  title: Text(
-                    'Delete',
-                    style: TextStyle(color: AppColors.error),
+          if (productPermissions.canUpdate)
+            IconButton(icon: const Icon(Icons.edit), onPressed: _showEditModal),
+          if (productPermissions.canUpdate || productPermissions.canDelete)
+            PopupMenuButton(
+              itemBuilder: (context) => [
+                if (productPermissions.canUpdate)
+                  const PopupMenuItem(
+                    value: 'adjust',
+                    child: ListTile(
+                      leading: Icon(Icons.restaurant_menu),
+                      title: Text('Adjust Stock'),
+                    ),
                   ),
-                ),
-              ),
-            ],
-            onSelected: (value) {
-              if (value == 'adjust') {
-                _showStockAdjustment();
-              } else if (value == 'delete') {
-                _deleteProduct();
-              }
-            },
-          ),
+                if (productPermissions.canDelete)
+                  const PopupMenuItem(
+                    value: 'delete',
+                    child: ListTile(
+                      leading: Icon(Icons.delete, color: AppColors.error),
+                      title: Text(
+                        'Delete',
+                        style: TextStyle(color: AppColors.error),
+                      ),
+                    ),
+                  ),
+              ],
+              onSelected: (value) {
+                if (value == 'adjust') {
+                  _showStockAdjustment();
+                } else if (value == 'delete') {
+                  _deleteProduct();
+                }
+              },
+            ),
         ],
       ),
       body: Center(

@@ -79,6 +79,7 @@ class PermissionPolicy {
         AppRoutes.dashboard: viewOnly,
         AppRoutes.advancedReports: viewOnly,
         AppRoutes.myAttendance: viewOnly,
+        AppRoutes.settings: viewOnly,
       },
       StoreRole.staff => {
         AppRoutes.tables: viewOnly,

@@ -63,13 +63,50 @@ class PlanEnforcementService {
   static String? get _storeId =>
       ActiveStoreManager.storeId ?? FirebaseAuth.instance.currentUser?.uid;
 
-  /// Returns the Firebase Auth UID of the current user.
-  /// Subscription and plan data are ALWAYS stored under this UID, not the hotel ID.
-  static String? get _ownerUid => FirebaseAuth.instance.currentUser?.uid;
+  /// Resolve the owner UID for a given store.
+  ///
+  /// Subscription data lives on the owner's user document. For team members,
+  /// this resolves `users/{storeId}.ownerUid` and falls back to `storeId`
+  /// for legacy single-store records that predate ownerUid.
+  static Future<String?> resolveOwnerUidForStoreId({String? storeId}) async {
+    final fallbackUid = FirebaseAuth.instance.currentUser?.uid;
+    final resolvedStoreId = storeId ?? _storeId ?? fallbackUid;
+    if (resolvedStoreId == null || resolvedStoreId.isEmpty) return null;
+
+    try {
+      final serverDoc = await _firestore
+          .collection('users')
+          .doc(resolvedStoreId)
+          .get(const GetOptions(source: Source.server))
+          .timeout(const Duration(seconds: 5));
+      final ownerUid = serverDoc.data()?['ownerUid'] as String?;
+      if (ownerUid != null && ownerUid.isNotEmpty) return ownerUid;
+    } catch (_) {
+      // Best-effort server read; fall through to cache/local fallback.
+    }
+
+    try {
+      final cacheDoc = await _firestore
+          .collection('users')
+          .doc(resolvedStoreId)
+          .get(const GetOptions(source: Source.cache));
+      final ownerUid = cacheDoc.data()?['ownerUid'] as String?;
+      if (ownerUid != null && ownerUid.isNotEmpty) return ownerUid;
+    } catch (_) {
+      // Ignore cache failures; use legacy fallback below.
+    }
+
+    return resolvedStoreId;
+  }
+
+  /// Resolve owner UID for whichever store is currently active.
+  static Future<String?> resolveOwnerUidForActiveStore() async {
+    return resolveOwnerUidForStoreId(storeId: _storeId);
+  }
 
   /// Get the store's current [PlanConfig] from Firestore.
   static Future<PlanConfig> getCurrentPlanConfig() async {
-    final ownerUid = _ownerUid;
+    final ownerUid = await resolveOwnerUidForActiveStore();
     if (ownerUid == null) return PlanConfig.free;
 
     final doc = await _firestore.collection('users').doc(ownerUid).get();
@@ -82,7 +119,7 @@ class PlanEnforcementService {
 
   /// Get the store's current [UserLimits] from Firestore.
   static Future<UserLimits> getCurrentLimits() async {
-    final ownerUid = _ownerUid;
+    final ownerUid = await resolveOwnerUidForActiveStore();
     if (ownerUid == null) return UserLimits();
 
     final doc = await _firestore.collection('users').doc(ownerUid).get();
@@ -97,8 +134,8 @@ class PlanEnforcementService {
     // When offline, never block — all features should work offline
     if (ConnectivityService.isOffline) return const PlanCheckResult.allowed();
 
-    final storeId = _storeId;   // hotel ID — used for counting staff/tables/products
-    final ownerUid = _ownerUid; // Firebase Auth UID — used for subscription & limits
+    final storeId = _storeId; // hotel ID — used for counting staff/tables/products
+    final ownerUid = await resolveOwnerUidForStoreId(storeId: storeId);
 
     // Read subscription from owner's Firebase Auth UID doc (where Cloud Functions write it).
     // This is DIFFERENT from storeId (hotel ID) which has no subscription data.
@@ -293,8 +330,9 @@ class PlanEnforcementService {
     String? ownerUid,
   }) async {
     final resolvedStoreId = storeId ?? _storeId;
-    final resolvedOwnerUid = ownerUid ?? _ownerUid;
     if (resolvedStoreId == null) return null;
+    final resolvedOwnerUid =
+        ownerUid ?? await resolveOwnerUidForStoreId(storeId: resolvedStoreId);
 
     final db = _firestore;
     final userDoc = await db.collection('users').doc(resolvedStoreId).get();

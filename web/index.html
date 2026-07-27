@@ -15,11 +15,11 @@
   <!-- Content Security Policy -->
   <meta http-equiv="Content-Security-Policy" content="
     default-src 'self';
-    script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' blob: https://www.gstatic.com https://*.gstatic.com https://apis.google.com https://www.google.com https://www.recaptcha.net;
+    script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' blob: https://www.gstatic.com https://*.gstatic.com https://apis.google.com https://www.google.com https://www.recaptcha.net https://accounts.google.com https://www.googletagmanager.com;
     style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
     font-src 'self' https://fonts.gstatic.com;
     img-src 'self' data: blob: https://*.googleapis.com https://*.googleusercontent.com https://www.gstatic.com;
-    connect-src 'self' blob: data: https://*.googleapis.com https://*.gstatic.com https://fonts.gstatic.com https://*.firebaseio.com https://*.cloudfunctions.net https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://accounts.google.com https://oauth2.googleapis.com https://api.razorpay.com https://www.google.com https://www.recaptcha.net wss://*.firebaseio.com;
+    connect-src 'self' blob: data: https://*.googleapis.com https://*.gstatic.com https://fonts.gstatic.com https://*.firebaseio.com https://*.cloudfunctions.net https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://accounts.google.com https://oauth2.googleapis.com https://api.razorpay.com https://www.google.com https://www.google-analytics.com https://www.recaptcha.net wss://*.firebaseio.com;
     worker-src 'self' blob:;
     frame-src 'self' https://*.google.com https://accounts.google.com https://*.firebaseapp.com https://api.razorpay.com https://www.recaptcha.net;
     object-src 'none';
@@ -127,11 +127,26 @@
 
   <script src="flutter_bootstrap.js" async=""></script>
   <script>
-    // Register custom Tulasi Hotels service worker for offline caching
+    // Remove splash once Flutter paints first frame.
+    window.addEventListener('flutter-first-frame', function () {
+      removeSplashFromWeb();
+    });
+
+    // Fallback: remove splash even if the event is missed.
+    setTimeout(removeSplashFromWeb, 10000);
+
+    // One-time cleanup for legacy custom SW that conflicted with Flutter's SW.
+    // Flutter bootstrap handles web caching lifecycle.
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('tulasihotels-sw.js')
-        .then(function(reg) { console.log('[Tulasi Hotels] SW registered'); })
-        .catch(function(err) { console.warn('[Tulasi Hotels] SW failed:', err); });
+      navigator.serviceWorker.getRegistrations().then(function(registrations) {
+        registrations.forEach(function(reg) {
+          if (reg.active && reg.active.scriptURL && reg.active.scriptURL.includes('tulasihotels-sw.js')) {
+            reg.unregister();
+          }
+        });
+      }).catch(function(err) {
+        console.warn('[Tulasi Hotels] SW cleanup warning:', err);
+      });
     }
   </script>
 

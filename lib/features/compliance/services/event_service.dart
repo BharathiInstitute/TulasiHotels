@@ -3,7 +3,10 @@ library;
 
 import 'package:tulasihotels/core/services/active_store_manager.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:tulasihotels/features/permissions/services/module_mutation_guard.dart';
+import 'package:tulasihotels/features/staff/models/permission_config.dart';
 import 'package:tulasihotels/models/event_model.dart';
+import 'package:tulasihotels/router/app_router.dart';
 
 class EventService {
   static final _firestore = FirebaseFirestore.instance;
@@ -43,16 +46,28 @@ class EventService {
 
   /// Create an event
   static Future<void> createEvent(EventModel event) async {
+    await ModuleMutationGuard.requireAction(
+      AppRoutes.events,
+      PermissionAction.create,
+    );
     await _eventsRef.doc(event.id).set(event.toFirestore());
   }
 
   /// Update an event
   static Future<void> updateEvent(EventModel event) async {
+    await ModuleMutationGuard.requireAction(
+      AppRoutes.events,
+      PermissionAction.update,
+    );
     await _eventsRef.doc(event.id).update(event.toFirestore());
   }
 
   /// Delete an event
   static Future<void> deleteEvent(String eventId) async {
+    await ModuleMutationGuard.requireAction(
+      AppRoutes.events,
+      PermissionAction.delete,
+    );
     await _eventsRef.doc(eventId).delete();
   }
 }

@@ -2491,6 +2491,144 @@ export const repairTableLimits = functions
     });
 
 /**
+ * backfillStoreOwnerUids — One-time admin migration.
+ *
+ * Repairs stores missing `ownerUid` by resolving owner from
+ * `users/{storeId}/members` where role == owner.
+ *
+ * Options:
+ * - dryRun (default true): report only, no writes.
+ * - allowStoreIdFallback (default false): if no owner member is found,
+ *   fallback to ownerUid=storeId for legacy single-store records.
+ */
+export const backfillStoreOwnerUids = functions
+    .region("asia-south1")
+    .runWith({ timeoutSeconds: 540, memory: "1GB", maxInstances: 1 })
+    .https.onCall(async (data, context) => {
+        if (!context.auth) {
+            throw new functions.https.HttpsError("unauthenticated", "Must be authenticated");
+        }
+
+        const db = admin.firestore();
+        const callerEmail = context.auth.token.email || "";
+        const adminDoc = await db.collection("admins").doc(callerEmail).get();
+        if (!adminDoc.exists) {
+            throw new functions.https.HttpsError("permission-denied", "Admin access required");
+        }
+
+        const dryRun = (data?.dryRun as boolean | undefined) ?? true;
+        const allowStoreIdFallback = (data?.allowStoreIdFallback as boolean | undefined) ?? false;
+
+        const usersSnap = await db.collection("users").get();
+
+        let scanned = 0;
+        let alreadySet = 0;
+        let missingOwnerUid = 0;
+        let backfilled = 0;
+        let subscriptionCopied = 0;
+
+        const unresolved: string[] = [];
+
+        let batch = db.batch();
+        let writesInBatch = 0;
+
+        const flushBatch = async () => {
+            if (writesInBatch > 0) {
+                await batch.commit();
+                batch = db.batch();
+                writesInBatch = 0;
+            }
+        };
+
+        for (const storeDoc of usersSnap.docs) {
+            scanned++;
+            const storeId = storeDoc.id;
+            const storeData = storeDoc.data() || {};
+
+            const existingOwnerUid = (storeData.ownerUid as string | undefined)?.trim();
+            if (existingOwnerUid) {
+                alreadySet++;
+                continue;
+            }
+
+            missingOwnerUid++;
+
+            let resolvedOwnerUid: string | undefined;
+            const ownerMemberSnap = await db
+                .collection(`users/${storeId}/members`)
+                .where("role", "==", "owner")
+                .limit(1)
+                .get();
+
+            if (!ownerMemberSnap.empty) {
+                resolvedOwnerUid = ownerMemberSnap.docs[0].id;
+            } else if (allowStoreIdFallback) {
+                resolvedOwnerUid = storeId;
+            }
+
+            if (!resolvedOwnerUid || resolvedOwnerUid.trim().isEmpty) {
+                unresolved.push(storeId);
+                continue;
+            }
+
+            backfilled++;
+
+            if (!dryRun) {
+                batch.update(storeDoc.ref, {
+                    ownerUid: resolvedOwnerUid,
+                    ownerUidBackfilledAt: admin.firestore.FieldValue.serverTimestamp(),
+                    ownerUidBackfilledBy: context.auth.uid,
+                });
+                writesInBatch++;
+            }
+
+            const storeSub = storeData.subscription as Record<string, unknown> | undefined;
+            if (resolvedOwnerUid !== storeId && storeSub != null) {
+                const ownerRef = db.collection("users").doc(resolvedOwnerUid);
+                const ownerDoc = await ownerRef.get();
+                const ownerSub = ownerDoc.data()?.subscription as Record<string, unknown> | undefined;
+                if (ownerSub == null && !dryRun) {
+                    batch.set(ownerRef, {
+                        subscription: storeSub,
+                        subscriptionBackfilledFromStoreId: storeId,
+                        subscriptionBackfilledAt: admin.firestore.FieldValue.serverTimestamp(),
+                    }, { merge: true });
+                    writesInBatch++;
+                    subscriptionCopied++;
+                } else if (ownerSub == null && dryRun) {
+                    subscriptionCopied++;
+                }
+            }
+
+            if (writesInBatch >= 400) {
+                await flushBatch();
+            }
+        }
+
+        if (!dryRun) {
+            await flushBatch();
+        }
+
+        console.log(
+            `✅ backfillStoreOwnerUids: dryRun=${dryRun} scanned=${scanned} ` +
+            `alreadySet=${alreadySet} missing=${missingOwnerUid} backfilled=${backfilled} ` +
+            `subscriptionCopied=${subscriptionCopied} unresolved=${unresolved.length}`
+        );
+
+        return {
+            success: true,
+            dryRun,
+            scanned,
+            alreadySet,
+            missingOwnerUid,
+            backfilled,
+            subscriptionCopied,
+            unresolvedCount: unresolved.length,
+            unresolvedSample: unresolved.slice(0, 25),
+        };
+    });
+
+/**
  * seedAdmins — One-time callable to populate the /admins collection
  * from the hardcoded list. Run once after deploying the new rules.
  * Can be called by any existing admin (validated via old hardcoded list

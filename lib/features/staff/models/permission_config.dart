@@ -68,6 +68,7 @@ class PermissionConfig {
   static const String hospitalityCategory = 'Hospitality';
   static const String reportsCategory = 'Reports';
   static const String complianceCategory = 'Compliance';
+  static const String settingsCategory = 'Settings';
 
   static const List<String> categories = [
     coreCategory,
@@ -78,6 +79,7 @@ class PermissionConfig {
     hospitalityCategory,
     reportsCategory,
     complianceCategory,
+    settingsCategory,
   ];
 
   static const List<ScreenDef> allScreens = [
@@ -175,6 +177,22 @@ class PermissionConfig {
       label: 'Events',
       category: complianceCategory,
     ),
+    // Settings
+    ScreenDef(
+      route: AppRoutes.settings,
+      label: 'Settings',
+      category: settingsCategory,
+    ),
+    ScreenDef(
+      route: AppRoutes.settingsHardware,
+      label: 'Hardware',
+      category: settingsCategory,
+    ),
+    ScreenDef(
+      route: AppRoutes.subscription,
+      label: 'Subscription',
+      category: settingsCategory,
+    ),
   ];
 
   /// Default permission templates per role (for quick setup)
@@ -201,34 +219,76 @@ class PermissionConfig {
   static Map<String, List<String>> normalizePermissions(
     Map<String, List<String>> permissions,
   ) {
-    return {
-      for (final entry in permissions.entries)
-        entry.key: _normalizeActions(entry.key, entry.value),
+    final merged = <String, Set<String>>{};
+
+    for (final entry in permissions.entries) {
+      final route = resolvePermissionRoute(entry.key);
+      final actions = merged.putIfAbsent(route, () => <String>{});
+      actions.addAll(entry.value);
     }
+
+    final normalized = <String, List<String>>{
+      for (final entry in merged.entries)
+        entry.key: _normalizeActions(entry.key, entry.value.toList()),
+    };
+
+    normalized
       ..removeWhere((_, actions) => actions.isEmpty)
       ..remove(AppRoutes.gstExport);
+
+    return normalized;
   }
 
   static List<String> _normalizeActions(String route, List<String> actions) {
     final screen = screenForRoute(route);
-    if (screen == null) return List<String>.from(actions);
+    if (screen == null) {
+      final deduped = <String>[];
+      for (final action in actions) {
+        if (!deduped.contains(action)) deduped.add(action);
+      }
+      return deduped;
+    }
 
     final allowed = screen.supportedActionKeys.toSet();
-    return [for (final action in actions) if (allowed.contains(action)) action];
+    final filtered = [for (final action in actions) if (allowed.contains(action)) action];
+
+    final hasMutation = filtered.contains(PermissionAction.create.key) ||
+        filtered.contains(PermissionAction.update.key) ||
+        filtered.contains(PermissionAction.delete.key);
+
+    if (hasMutation &&
+        !filtered.contains(PermissionAction.view.key) &&
+        allowed.contains(PermissionAction.view.key)) {
+      filtered.add(PermissionAction.view.key);
+    }
+
+    final normalized = <String>[];
+    for (final key in screen.supportedActionKeys) {
+      if (filtered.contains(key) && !normalized.contains(key)) {
+        normalized.add(key);
+      }
+    }
+
+    return normalized;
   }
 
   /// Map of parent route → child routes that inherit permission
   /// e.g. /orders also covers /orders/:id, /orders/new, /orders/:id/bill
   static const Map<String, List<String>> _childRoutes = {
     AppRoutes.billing: [AppRoutes.orderBilling, AppRoutes.splitBill],
-    AppRoutes.orders: [AppRoutes.orderDetail, AppRoutes.newOrder],
     AppRoutes.products: [
       AppRoutes.productDetail,
       AppRoutes.combos,
       AppRoutes.dailySpecials,
     ],
     AppRoutes.khata: [AppRoutes.customerDetail],
-    AppRoutes.tables: [AppRoutes.tableLayout],
+    AppRoutes.tables: [
+      AppRoutes.orders,
+      AppRoutes.orderDetail,
+      AppRoutes.newOrder,
+      AppRoutes.customerOrderStatus,
+      AppRoutes.tableLayout,
+    ],
     AppRoutes.advancedReports: [
       AppRoutes.menuPerformance,
       AppRoutes.weeklyReport,
@@ -244,36 +304,39 @@ class PermissionConfig {
 
   /// Resolve a route to its parent permission route
   static String resolvePermissionRoute(String route) {
+    if (route == AppRoutes.subscription ||
+        route.startsWith('${AppRoutes.subscription}/') ||
+        route == '/settings/subscription') {
+      return AppRoutes.subscription;
+    }
+
+    if (route == AppRoutes.settingsHardware) {
+      return AppRoutes.settingsHardware;
+    }
+
+    if (route == AppRoutes.settings ||
+        route == AppRoutes.settingsGeneral ||
+        route == AppRoutes.settingsAccount ||
+        route == AppRoutes.settingsBilling ||
+        route == AppRoutes.attendanceSettings ||
+        route == AppRoutes.themeSettings) {
+      return AppRoutes.settings;
+    }
+
+    if (route.startsWith('/settings/')) {
+      final tab = route.substring('/settings/'.length);
+      if (tab == 'hardware') return AppRoutes.settingsHardware;
+      if (tab == 'subscription') return AppRoutes.subscription;
+      return AppRoutes.settings;
+    }
+
+    if (route == AppRoutes.orders || route.startsWith('${AppRoutes.orders}/')) {
+      return AppRoutes.tables;
+    }
+
     for (final entry in _childRoutes.entries) {
-      for (final childRoute in entry.value) {
-        if (_matchesRouteTemplate(route, childRoute)) {
-          return entry.key;
-        }
-      }
+      if (entry.value.contains(route)) return entry.key;
     }
     return route;
-  }
-
-  /// Matches concrete runtime paths (e.g. /orders/abc) to route templates
-  /// (e.g. /orders/:id), while allowing exact matches for static child routes.
-  static bool _matchesRouteTemplate(String route, String template) {
-    if (route == template) return true;
-
-    final routeParts = route.split('/').where((p) => p.isNotEmpty).toList();
-    final templateParts = template
-        .split('/')
-        .where((p) => p.isNotEmpty)
-        .toList();
-
-    if (routeParts.length != templateParts.length) return false;
-
-    for (var i = 0; i < templateParts.length; i++) {
-      final t = templateParts[i];
-      final r = routeParts[i];
-      if (t.startsWith(':')) continue;
-      if (t != r) return false;
-    }
-
-    return true;
   }
 }

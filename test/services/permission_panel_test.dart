@@ -14,15 +14,16 @@ void main() {
         AppRoutes.newOrder: [PermissionAction.create.key],
       });
 
-      expect(normalized.keys, contains(AppRoutes.orders));
+      expect(normalized.keys, contains(AppRoutes.tables));
       expect(
-        normalized[AppRoutes.orders],
+        normalized[AppRoutes.tables],
         containsAll([
           PermissionAction.view.key,
           PermissionAction.update.key,
           PermissionAction.create.key,
         ]),
       );
+      expect(normalized.keys, isNot(contains(AppRoutes.orders)));
       expect(normalized.keys, isNot(contains(AppRoutes.orderDetail)));
       expect(normalized.keys, isNot(contains(AppRoutes.newOrder)));
     });

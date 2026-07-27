@@ -5,6 +5,7 @@ import 'package:tulasihotels/core/services/active_store_manager.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:tulasihotels/features/permissions/permission_center.dart';
 import 'package:tulasihotels/features/permissions/providers/route_permission_provider.dart';
+import 'package:tulasihotels/features/permissions/services/module_mutation_guard.dart';
 import 'package:tulasihotels/features/staff/models/permission_config.dart';
 import 'package:tulasihotels/models/complaint_model.dart';
 import 'package:tulasihotels/router/app_router.dart';
@@ -48,6 +49,10 @@ class ComplaintService {
     ComplaintModel complaint,
     RoutePermissionState permissions,
   ) async {
+    await ModuleMutationGuard.requireAction(
+      AppRoutes.complaints,
+      PermissionAction.create,
+    );
     if (!permissions.canCreate) {
       throw StateError(
         PermissionCenter.deniedActionMessage(
@@ -67,6 +72,10 @@ class ComplaintService {
     ComplaintStatus status,
     RoutePermissionState permissions,
   ) async {
+    await ModuleMutationGuard.requireAction(
+      AppRoutes.complaints,
+      PermissionAction.update,
+    );
     if (!permissions.canUpdate) {
       throw StateError(
         PermissionCenter.deniedActionMessage(
@@ -90,6 +99,10 @@ class ComplaintService {
     ComplaintModel complaint,
     RoutePermissionState permissions,
   ) async {
+    await ModuleMutationGuard.requireAction(
+      AppRoutes.complaints,
+      PermissionAction.update,
+    );
     if (!permissions.canUpdate) {
       throw StateError(
         PermissionCenter.deniedActionMessage(
@@ -108,6 +121,10 @@ class ComplaintService {
     String complaintId,
     RoutePermissionState permissions,
   ) async {
+    await ModuleMutationGuard.requireAction(
+      AppRoutes.complaints,
+      PermissionAction.delete,
+    );
     if (!permissions.canDelete) {
       throw StateError(
         PermissionCenter.deniedActionMessage(

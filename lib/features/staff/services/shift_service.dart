@@ -3,7 +3,10 @@ library;
 
 import 'package:tulasihotels/core/services/active_store_manager.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:tulasihotels/features/permissions/services/module_mutation_guard.dart';
+import 'package:tulasihotels/features/staff/models/permission_config.dart';
 import 'package:tulasihotels/models/shift_model.dart';
+import 'package:tulasihotels/router/app_router.dart';
 
 class ShiftService {
   static final _firestore = FirebaseFirestore.instance;
@@ -58,21 +61,37 @@ class ShiftService {
 
   /// Create a shift
   static Future<void> createShift(ShiftModel shift) async {
+    await ModuleMutationGuard.requireAction(
+      AppRoutes.staff,
+      PermissionAction.create,
+    );
     await _shiftsRef.doc(shift.id).set(shift.toFirestore());
   }
 
   /// Update a shift
   static Future<void> updateShift(ShiftModel shift) async {
+    await ModuleMutationGuard.requireAction(
+      AppRoutes.staff,
+      PermissionAction.update,
+    );
     await _shiftsRef.doc(shift.id).update(shift.toFirestore());
   }
 
   /// Delete a shift
   static Future<void> deleteShift(String shiftId) async {
+    await ModuleMutationGuard.requireAction(
+      AppRoutes.staff,
+      PermissionAction.delete,
+    );
     await _shiftsRef.doc(shiftId).delete();
   }
 
   /// Bulk create shifts (for weekly scheduling)
   static Future<void> createBulkShifts(List<ShiftModel> shifts) async {
+    await ModuleMutationGuard.requireAction(
+      AppRoutes.staff,
+      PermissionAction.create,
+    );
     final batch = _firestore.batch();
     for (final shift in shifts) {
       batch.set(_shiftsRef.doc(shift.id), shift.toFirestore());
@@ -83,6 +102,10 @@ class ShiftService {
   /// Request a shift swap with another staff member
   static Future<void> requestSwap(
       String shiftId, String swapWithStaffId) async {
+    await ModuleMutationGuard.requireAction(
+      AppRoutes.staff,
+      PermissionAction.update,
+    );
     await _shiftsRef.doc(shiftId).update({
       'isSwapRequested': true,
       'swapWithStaffId': swapWithStaffId,
@@ -91,6 +114,10 @@ class ShiftService {
 
   /// Approve a shift swap â€” swap the staffId/staffName between the two shifts
   static Future<void> approveSwap(String shiftId) async {
+    await ModuleMutationGuard.requireAction(
+      AppRoutes.staff,
+      PermissionAction.update,
+    );
     final doc = await _shiftsRef.doc(shiftId).get();
     if (!doc.exists) return;
     final shift = ShiftModel.fromFirestore(doc);

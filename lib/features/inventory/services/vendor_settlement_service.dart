@@ -3,7 +3,10 @@ library;
 
 import 'package:tulasihotels/core/services/active_store_manager.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:tulasihotels/features/permissions/services/module_mutation_guard.dart';
+import 'package:tulasihotels/features/staff/models/permission_config.dart';
 import 'package:tulasihotels/models/purchase_model.dart';
+import 'package:tulasihotels/router/app_router.dart';
 
 class VendorSettlementService {
   static final _firestore = FirebaseFirestore.instance;
@@ -16,6 +19,10 @@ class VendorSettlementService {
     required double amount,
     String? note,
   }) async {
+    await ModuleMutationGuard.requireAction(
+      AppRoutes.vendors,
+      PermissionAction.update,
+    );
     final batch = _firestore.batch();
 
     // Add settlement record
@@ -41,6 +48,10 @@ class VendorSettlementService {
     required double amount,
     String? note,
   }) async {
+    await ModuleMutationGuard.requireAction(
+      AppRoutes.vendors,
+      PermissionAction.update,
+    );
     final batch = _firestore.batch();
 
     // Add settlement record

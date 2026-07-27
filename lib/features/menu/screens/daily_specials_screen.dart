@@ -3,8 +3,13 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:tulasihotels/features/permissions/permission_center.dart';
+import 'package:tulasihotels/features/permissions/providers/route_permission_provider.dart';
+import 'package:tulasihotels/features/permissions/widgets/permission_denied_view.dart';
 import 'package:tulasihotels/features/products/providers/products_provider.dart';
+import 'package:tulasihotels/features/staff/models/permission_config.dart';
 import 'package:tulasihotels/models/product_model.dart';
+import 'package:tulasihotels/router/app_router.dart';
 
 class DailySpecialsScreen extends ConsumerWidget {
   const DailySpecialsScreen({super.key});
@@ -12,6 +17,26 @@ class DailySpecialsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final productsAsync = ref.watch(productsProvider);
+    final productPermissions = ref.watch(
+      routePermissionProvider(AppRoutes.products),
+    );
+
+    if (!productPermissions.isResolved) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (!productPermissions.canView) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('Daily Specials ⭐'),
+        ),
+        body: PermissionDeniedView(
+          message: PermissionCenter.deniedViewMessage(AppRoutes.products),
+        ),
+      );
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -47,13 +72,17 @@ class DailySpecialsScreen extends ConsumerWidget {
                     children: [
                       Switch(
                         value: product.isSpecial,
-                        onChanged: (val) {
-                          _toggleSpecial(ref, product, val);
-                        },
+                        onChanged: productPermissions.canUpdate
+                            ? (val) {
+                                _toggleSpecial(ref, product, val);
+                              }
+                            : null,
                       ),
                       IconButton(
                         icon: const Icon(Icons.delete_outline),
-                        onPressed: () => _deleteProduct(context, ref, product),
+                        onPressed: productPermissions.canDelete
+                            ? () => _deleteProduct(context, ref, product)
+                            : null,
                       ),
                     ],
                   ),

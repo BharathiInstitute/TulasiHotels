@@ -10,8 +10,11 @@ import 'package:tulasihotels/core/services/offline_storage_service.dart';
 import 'package:tulasihotels/core/services/user_metrics_service.dart';
 import 'package:tulasihotels/core/utils/id_generator.dart';
 import 'package:tulasihotels/features/auth/providers/auth_provider.dart';
+import 'package:tulasihotels/features/permissions/services/module_mutation_guard.dart';
+import 'package:tulasihotels/features/staff/models/permission_config.dart';
 import 'package:tulasihotels/models/customer_model.dart';
 import 'package:tulasihotels/models/transaction_model.dart';
+import 'package:tulasihotels/router/app_router.dart';
 
 /// Customers list provider — real-time stream from Firestore
 /// Uses autoDispose to release Firestore listener when no longer watched.
@@ -69,6 +72,10 @@ class KhataService {
 
   /// Add new customer
   Future<String> addCustomer(CustomerModel customer) async {
+    await ModuleMutationGuard.requireAction(
+      AppRoutes.khata,
+      PermissionAction.create,
+    );
     if (_isDemoMode) {
       return DemoDataService.addCustomer(customer);
     }
@@ -108,6 +115,10 @@ class KhataService {
 
   /// Update customer
   Future<void> updateCustomer(CustomerModel customer) async {
+    await ModuleMutationGuard.requireAction(
+      AppRoutes.khata,
+      PermissionAction.update,
+    );
     if (_isDemoMode) {
       DemoDataService.updateCustomer(customer);
       return;
@@ -122,6 +133,10 @@ class KhataService {
     String? note,
     String paymentMode = 'cash',
   }) async {
+    await ModuleMutationGuard.requireAction(
+      AppRoutes.khata,
+      PermissionAction.update,
+    );
     if (_isDemoMode) {
       // Update customer balance (subtract payment)
       DemoDataService.updateCustomerBalance(customerId, -amount);
@@ -150,6 +165,10 @@ class KhataService {
     required double amount,
     String? billId,
   }) async {
+    await ModuleMutationGuard.requireAction(
+      AppRoutes.khata,
+      PermissionAction.create,
+    );
     if (_isDemoMode) {
       // Update customer balance
       DemoDataService.updateCustomerBalance(customerId, amount);
@@ -173,6 +192,10 @@ class KhataService {
 
   /// Delete customer
   Future<void> deleteCustomer(String customerId) async {
+    await ModuleMutationGuard.requireAction(
+      AppRoutes.khata,
+      PermissionAction.delete,
+    );
     if (_isDemoMode) {
       DemoDataService.deleteCustomer(customerId);
       return;

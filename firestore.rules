@@ -75,11 +75,19 @@ service cloud.firestore {
 
     function canOrderRead(userId) {
       return canModuleAction(userId, '/orders', 'view')
+        || canModuleAction(userId, '/tables', 'view')
         || canModuleAction(userId, '/kitchen', 'view');
     }
 
+    // Orders flows are currently anchored to the Tables panel in app-side
+    // permission normalization. Keep '/orders' for backward compatibility.
+    function canOrdersAction(userId, action) {
+      return canModuleAction(userId, '/orders', action)
+        || canModuleAction(userId, '/tables', action);
+    }
+
     function canOrderUpdate(userId) {
-      return canModuleAction(userId, '/orders', 'update');
+      return canOrdersAction(userId, 'update');
     }
 
     function canKitchenUpdate(userId) {
@@ -440,7 +448,7 @@ service cloud.firestore {
         allow get: if true;
         allow list: if isAuthenticated() && (canOrderRead(userId) || isAdmin())
           || (request.query.limit <= 10);
-        allow create: if (isAuthenticated() && canModuleAction(userId, '/orders', 'create')
+        allow create: if (isAuthenticated() && canOrdersAction(userId, 'create')
           && request.resource.data.items is list
           && request.resource.data.items.size() > 0
           && request.resource.data.items.size() <= 200
@@ -453,7 +461,7 @@ service cloud.firestore {
           && isReasonableSize());
         allow update: if isAuthenticated() && (canOrderUpdate(userId) || canKitchenUpdate(userId))
           && isReasonableSize();
-        allow delete: if isAuthenticated() && canModuleAction(userId, '/orders', 'delete');
+        allow delete: if isAuthenticated() && canOrdersAction(userId, 'delete');
       }
 
       // ===================

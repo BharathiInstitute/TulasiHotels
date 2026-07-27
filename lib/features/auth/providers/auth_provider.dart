@@ -1262,6 +1262,8 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
     required String password,
     required String name,
     bool emailVerified = false,
+    String? phone,
+    bool phoneVerified = false,
   }) async {
     try {
       state = state.copyWith(isLoading: true);
@@ -1302,6 +1304,8 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
           email: email,
           name: name,
           emailVerified: emailVerified,
+          phone: phone,
+          phoneVerified: phoneVerified,
         );
 
         // Load user profile so isLoading becomes false and router can navigate.
@@ -1347,15 +1351,19 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
     required String email,
     required String name,
     required bool emailVerified,
+    String? phone,
+    bool phoneVerified = false,
   }) async {
     await _firestore.collection('users').doc(uid).set({
       'email': email.trim().toLowerCase(),
       'ownerName': name.trim(),
-      'phone': '',
+      'phone': phone ?? '',
+      'phoneNumber': phone ?? '',
       'photoUrl': '',
       'isShopSetupComplete': false,
       'emailVerified': emailVerified,
-      'phoneVerified': false,
+      'phoneVerified': phoneVerified,
+      if (phoneVerified) 'phoneVerifiedAt': FieldValue.serverTimestamp(),
       'authProvider': 'email',
       'createdAt': FieldValue.serverTimestamp(),
       'subscription': {
@@ -2092,11 +2100,13 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
     if (user == null) return false;
 
     try {
-      await _firestore.collection('users').doc(user.uid).update({
+      await _firestore.collection('users').doc(user.uid).set({
         'phoneVerified': true,
         'phone': phone,
+        'phoneNumber': phone,
         'phoneVerifiedAt': FieldValue.serverTimestamp(),
-      });
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
 
       if (state.user != null) {
         state = state.copyWith(
@@ -2107,6 +2117,10 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
           ),
         );
       }
+
+      // Refresh from Firestore so Settings reflects the persisted value even
+      // if another auth/profile listener updated state in the same frame.
+      await _loadUserProfile(user);
       return true;
     } catch (e) {
       debugPrint('🔐 Error updating phone verified status: $e');

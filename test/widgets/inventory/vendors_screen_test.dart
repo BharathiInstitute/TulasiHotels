@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'dart:async';
 import 'package:tulasihotels/features/inventory/providers/inventory_provider.dart';
+import 'package:tulasihotels/features/permissions/permission_center.dart';
 import 'package:tulasihotels/features/permissions/providers/route_permission_provider.dart';
 import 'package:tulasihotels/features/inventory/screens/vendors_screen.dart';
 import 'package:tulasihotels/models/vendor_model.dart';
