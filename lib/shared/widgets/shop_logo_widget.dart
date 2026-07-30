@@ -76,21 +76,12 @@ class ShopLogoWidget extends StatelessWidget {
       width: size,
       height: size,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.primary,
         borderRadius: BorderRadius.circular(borderRadius),
       ),
       clipBehavior: Clip.antiAlias,
-      child: Image.asset(
-        'assets/images/restaurant_logo.png',
-        width: size,
-        height: size,
-        fit: BoxFit.contain,
-        errorBuilder: (_, _, _) => Container(
-          color: AppColors.primary,
-          child: Center(
-            child: Icon(Icons.hotel, color: Colors.white, size: iconSize),
-          ),
-        ),
+      child: Center(
+        child: Icon(Icons.hotel, color: Colors.white, size: iconSize),
       ),
     );
   }

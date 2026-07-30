@@ -114,7 +114,7 @@ class _AdvancedReportsScreenState extends ConsumerState<AdvancedReportsScreen> {
                         padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
                           color: isSelected
-                              ? Theme.of(context).colorScheme.primary.withOpacity(0.15)
+                              ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.15)
                               : Colors.transparent,
                           borderRadius: BorderRadius.circular(20),
                           border: Border.all(

@@ -122,13 +122,15 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
   }
 
   Future<void> _showInviteDialog(BuildContext context) async {
+    if (!mounted) return;
+    final dialogContext = context;
+
     // ── Check plan BEFORE opening the dialog ──
     final planCheck = await PlanEnforcementService.checkLimit(LimitType.staff);
     if (!planCheck.allowed) {
       if (!context.mounted) return;
-      final messenger = ScaffoldMessenger.of(context);
-      messenger.removeCurrentSnackBar();
-      messenger.showSnackBar(
+      ScaffoldMessenger.of(context).removeCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(planCheck.message ?? 'Upgrade your plan to add staff.'),
           backgroundColor: Colors.orange,
@@ -146,8 +148,10 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
     var showPassword = false;
     var showConfirm = false;
 
+    if (!mounted) return;
+    if (!dialogContext.mounted) return;
     final result = await showDialog<bool>(
-      context: context,
+      context: dialogContext,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) => AlertDialog(
           title: const Row(

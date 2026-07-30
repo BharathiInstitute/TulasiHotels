@@ -480,7 +480,6 @@ class _ProductsWebScreenState extends ConsumerState<ProductsWebScreen> {
                                                                 url: product.imageUrl!,
                                                                 width: 32,
                                                                 height: 32,
-                                                                fit: BoxFit.cover,
                                                                 errorWidget: Icon(
                                                                   Icons.image_not_supported_outlined,
                                                                   color: Theme.of(context)
@@ -763,7 +762,6 @@ class _ProductsWebScreenState extends ConsumerState<ProductsWebScreen> {
           SnackBar(
             content: Text(check.message ?? 'Upgrade your plan to add more products.'),
             backgroundColor: Colors.orange,
-            duration: const Duration(seconds: 4),
             action: SnackBarAction(
               label: 'Upgrade',
               textColor: Colors.white,
@@ -1120,7 +1118,6 @@ class _MobileProductCard extends StatelessWidget {
                           url: product.imageUrl!,
                           width: 48,
                           height: 48,
-                          fit: BoxFit.cover,
                           errorWidget: Icon(
                             Icons.image_not_supported_outlined,
                             color: Theme.of(context).colorScheme.outline,
@@ -1308,7 +1305,6 @@ class _GridProductCard extends StatelessWidget {
                                 url: product.imageUrl!,
                                 width: double.infinity,
                                 height: double.infinity,
-                                fit: BoxFit.cover,
                                 errorWidget: Icon(
                                   Icons.image_not_supported_outlined,
                                   color: Theme.of(context).colorScheme.outline,

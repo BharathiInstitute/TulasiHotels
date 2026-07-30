@@ -25,9 +25,9 @@ class StaffScreen extends ConsumerWidget {
     // Block both PIN-logged staff and Firebase Team Members who are not the owner.
     final loggedInStaff = ref.watch(loggedInStaffProvider);
     final currentHotel = ref.watch(currentHotelProvider);
-    final isOwner = currentHotel?.isOwner ?? false;
+    final isOwner = currentHotel?.isOwner ?? true;
 
-    if (loggedInStaff != null) {
+    if (loggedInStaff != null && currentHotel != null && !currentHotel.isOwner) {
       return _StaffProfileView(staff: loggedInStaff);
     }
 

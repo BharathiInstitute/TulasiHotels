@@ -71,8 +71,8 @@ class PlanConfig {
   static const free = PlanConfig(
     key: 'free',
     name: 'Free',
-    billsPerMonth: 300,
-    maxProducts: 50,
+    billsPerMonth: 50,
+    maxProducts: 100,
     maxTables: 5,
     maxStaff: 0,
     maxCustomers: 10,
@@ -82,6 +82,7 @@ class PlanConfig {
   static const starter = PlanConfig(
     key: 'starter',
     name: 'Starter',
+    billsPerMonth: 300,
     maxProducts: 200,
     maxTables: 15,
     maxStaff: 3,
@@ -99,6 +100,7 @@ class PlanConfig {
   static const pro = PlanConfig(
     key: 'pro',
     name: 'Pro',
+    billsPerMonth: 500,
     maxTables: 50,
     maxStaff: 10,
     features: {

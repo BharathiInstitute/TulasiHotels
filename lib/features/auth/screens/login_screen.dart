@@ -240,7 +240,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
     return AuthLayout(
       title: 'Welcome',
-      subtitle: 'Sign in to manage your restaurant',
+      subtitle: 'Sign in to manage your hotel',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [

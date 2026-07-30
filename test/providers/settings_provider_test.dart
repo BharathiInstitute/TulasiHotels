@@ -116,8 +116,18 @@ void main() {
   // â”€â”€ PrinterTypeOption enum â”€â”€
 
   group('PrinterTypeOption', () {
-    test('has 4 types', () {
-      expect(PrinterTypeOption.values.length, 4);
+    test('has 7 supported types', () {
+      expect(PrinterTypeOption.values.length, 7);
+      expect(PrinterTypeOption.values, contains(PrinterTypeOption.system));
+      expect(PrinterTypeOption.values, contains(PrinterTypeOption.bluetooth));
+      expect(PrinterTypeOption.values, contains(PrinterTypeOption.usb));
+      expect(PrinterTypeOption.values, contains(PrinterTypeOption.wifi));
+      expect(PrinterTypeOption.values, contains(PrinterTypeOption.sunmi));
+      expect(
+        PrinterTypeOption.values,
+        contains(PrinterTypeOption.webBluetooth),
+      );
+      expect(PrinterTypeOption.values, contains(PrinterTypeOption.webSerial));
     });
 
     test('system is not thermal', () {
@@ -144,6 +154,15 @@ void main() {
       );
       expect(PrinterTypeOption.fromString('usb'), PrinterTypeOption.usb);
       expect(PrinterTypeOption.fromString('wifi'), PrinterTypeOption.wifi);
+      expect(PrinterTypeOption.fromString('sunmi'), PrinterTypeOption.sunmi);
+      expect(
+        PrinterTypeOption.fromString('webBluetooth'),
+        PrinterTypeOption.webBluetooth,
+      );
+      expect(
+        PrinterTypeOption.fromString('webSerial'),
+        PrinterTypeOption.webSerial,
+      );
     });
 
     test('fromString defaults to system for unknown', () {

@@ -27,21 +27,36 @@ class SplashScreen extends StatelessWidget {
         backgroundColor: Colors.white,
         body: Stack(
           children: [
-            // Logo centered
             Center(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Image.asset(
-                    'assets/images/splash_logo.png',
-                    width: 120,
-                    height: 120,
-                    errorBuilder: (_, e, stack) => const Icon(
-                      Icons.storefront_outlined,
-                      size: 80,
-                      color: Color(0xFF2E7D32),
+                  const Icon(
+                    Icons.point_of_sale,
+                    size: 80,
+                    color: Color(0xFF2E7D32),
+                  ),
+                  const SizedBox(height: 20),
+                  const Text(
+                    'Tulasi Hotels',
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF1B5E20),
                     ),
                   ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'भारत का सबसे आसान बिलिंग ऐप',
+                    style: TextStyle(fontSize: 14, color: Colors.black54),
+                  ),
+                  if (message != null && message!.isNotEmpty) ...[
+                    const SizedBox(height: 16),
+                    Text(
+                      message!,
+                      style: const TextStyle(fontSize: 14, color: Colors.black87),
+                    ),
+                  ],
                   if (showError) ...[
                     const SizedBox(height: 32),
                     Padding(
@@ -63,8 +78,6 @@ class SplashScreen extends StatelessWidget {
                 ],
               ),
             ),
-
-            // Loading indicator at bottom
             if (!showError)
               const Positioned(
                 left: 0,

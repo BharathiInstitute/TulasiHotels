@@ -19,8 +19,8 @@ class SubscriptionPricing {
   static const Map<String, Map<String, double>> prices = {
     'free': {'monthly': 0, 'annual': 0},
     'starter': {'monthly': 10, 'annual': 96},
-    'pro': {'monthly': 20, 'annual': 204},
-    'business': {'monthly': 30, 'annual': 300},
+    'pro': {'monthly': 299, 'annual': 2999},
+    'business': {'monthly': 999, 'annual': 9999},
   };
 
   static double getPrice(String plan, String cycle) {

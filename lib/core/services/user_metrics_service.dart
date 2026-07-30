@@ -330,9 +330,7 @@ class UserMetricsService {
     try {
       final userRef = _firestore.collection('users').doc(userId);
       // Use cache-first read with a short timeout so we never hang offline
-      final snap = await userRef
-          .get(const GetOptions(source: Source.serverAndCache))
-          .timeout(const Duration(seconds: 3));
+      final snap = await userRef.get().timeout(const Duration(seconds: 3));
       final data = snap.data() ?? {};
       final limitsMap = data['limits'] as Map<String, dynamic>? ?? {};
       final now = DateTime.now();

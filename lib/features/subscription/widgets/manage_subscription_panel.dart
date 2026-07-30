@@ -793,21 +793,23 @@ class _ManageSubscriptionPanelState
     final phoneVerified = (doc.data()?['phoneVerified'] as bool?) ?? false;
     if (!phoneVerified) {
       if (mounted) {
-        showDialog(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            icon: const Icon(Icons.phone_android, size: 40, color: Colors.orange),
-            title: const Text('Phone Verification Required'),
-            content: const Text(
-              'Please verify your phone number before upgrading.\n\n'
-              'Go to Verification Status section and verify your phone.',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: const Text('OK'),
+        unawaited(
+          showDialog(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              icon: const Icon(Icons.phone_android, size: 40, color: Colors.orange),
+              title: const Text('Phone Verification Required'),
+              content: const Text(
+                'Please verify your phone number before upgrading.\n\n'
+                'Go to Verification Status section and verify your phone.',
               ),
-            ],
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text('OK'),
+                ),
+              ],
+            ),
           ),
         );
       }
@@ -872,6 +874,7 @@ class _ManageSubscriptionPanelState
     );
 
     if (!mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
     setState(() => _isUpgrading = false);
 
     if (result.success) {
@@ -879,7 +882,7 @@ class _ManageSubscriptionPanelState
         _currentPlan = planKey;
         _showPlans = false;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
+      messenger.showSnackBar(
         SnackBar(
           content: Text(
             'Upgraded to ${result.plan ?? planKey}! Enjoy your new features.',
@@ -888,7 +891,7 @@ class _ManageSubscriptionPanelState
         ),
       );
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
+      messenger.showSnackBar(
         SnackBar(
           content: Text(result.error ?? 'Payment failed. Please try again.'),
           backgroundColor: Colors.red,
@@ -944,9 +947,11 @@ class _ManageSubscriptionPanelState
           // Check if user needs to select active items
           await _promptActiveItemSelection(planKey);
 
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Downgraded to $planName successfully.')),
-          );
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Downgraded to $planName successfully.')),
+            );
+          }
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(

@@ -11,7 +11,6 @@ import 'package:tulasihotels/core/services/image_service.dart';
 import 'package:tulasihotels/core/services/barcode_scanner_service.dart';
 import 'package:tulasihotels/core/services/barcode_lookup_service.dart';
 import 'package:tulasihotels/core/utils/validators.dart';
-import 'package:tulasihotels/core/services/user_metrics_service.dart';
 import 'package:tulasihotels/features/products/providers/products_provider.dart';
 import 'package:tulasihotels/models/product_model.dart';
 import 'package:tulasihotels/shared/widgets/app_button.dart';
@@ -702,7 +701,7 @@ class _AddProductModalState extends ConsumerState<AddProductModal> {
                                                   child:
                                                       CircularProgressIndicator(),
                                                 ),
-                                      errorBuilder: (_, __, ___) => Column(
+                                      errorBuilder: (_, _, _) => Column(
                                         mainAxisAlignment:
                                             MainAxisAlignment.center,
                                         children: [

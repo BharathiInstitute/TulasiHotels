@@ -534,7 +534,6 @@ class _KhataWebScreenState extends ConsumerState<KhataWebScreen> {
           SnackBar(
             content: Text(check.message ?? 'Upgrade your plan to add more customers.'),
             backgroundColor: Colors.orange,
-            duration: const Duration(seconds: 4),
             action: SnackBarAction(
               label: 'Upgrade',
               textColor: Colors.white,

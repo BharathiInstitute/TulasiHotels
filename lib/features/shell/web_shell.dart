@@ -298,9 +298,13 @@ class _WebSidebar extends ConsumerWidget {
                           String route,
                           PlanFeature feature,
                         ) {
-                          if (!StaffPermissions.canViewRoute(staff, route)) return null;
+                          if (!StaffPermissions.canViewRoute(staff, route)) {
+                            return null;
+                          }
                           if (staff == null && !isOwner && member != null &&
-                              !MemberPermissionGuard.canAccess(member, route)) return null;
+                              !MemberPermissionGuard.canAccess(member, route)) {
+                            return null;
+                          }
                           final hasFeature = planConfig.has(feature);
                           if (hasFeature) {
                             return _SidebarRouteItem(

@@ -83,9 +83,11 @@ class UserSubscription {
   int get billsLimit {
     switch (plan) {
       case SubscriptionPlan.free:
-        return 300;
+        return 50;
       case SubscriptionPlan.starter:
+        return 300;
       case SubscriptionPlan.pro:
+        return 500;
       case SubscriptionPlan.business:
         return 999999;
     }

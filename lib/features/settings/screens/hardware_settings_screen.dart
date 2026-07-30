@@ -464,13 +464,13 @@ class _HardwareSettingsScreenState
           Card(
             child: Column(
               children: [
-                ListTile(
-                  leading: const Icon(Icons.wifi_off, color: Colors.green),
-                  title: const Text('Offline Billing'),
-                  subtitle: const Text(
+                const ListTile(
+                  leading: Icon(Icons.wifi_off, color: Colors.green),
+                  title: Text('Offline Billing'),
+                  subtitle: Text(
                     'Always enabled — bills are saved locally and sync automatically when back online.',
                   ),
-                  trailing: const Icon(Icons.check_circle, color: Colors.green),
+                  trailing: Icon(Icons.check_circle, color: Colors.green),
                 ),
                 const Divider(height: 1),
                 SwitchListTile(

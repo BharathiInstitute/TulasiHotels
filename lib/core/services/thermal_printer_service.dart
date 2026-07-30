@@ -87,12 +87,10 @@ class EscPosBuilder {
 
   // ── ESC/POS command helpers ──
 
-  /// Initialize printer. Resets all settings to defaults.
-  /// NOTE: Do NOT send codepage 0x6F (UTF-8) — many budget thermal printers
-  /// (e.g. Posiflow SR20) do not support it and interpret the bytes as
-  /// raster data, producing a black rectangle.
+  /// Initialize printer. Resets all settings to defaults and selects UTF-8.
   static List<int> init() => [
     0x1B, 0x40, // ESC @ — Initialize printer
+    0x1B, 0x74, 0x6F, // Select UTF-8 codepage
   ];
   static List<int> center() => [0x1B, 0x61, 0x01];
   static List<int> left() => [0x1B, 0x61, 0x00];

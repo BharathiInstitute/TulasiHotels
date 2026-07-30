@@ -19,7 +19,7 @@ void main() {
           activeStaffStreamProvider.overrideWith((_) => Stream.value([])),
         ],
       );
-      expect(find.text('Attendance'), findsOneWidget);
+      expect(find.text('Attendance'), findsWidgets);
     });
 
     testWidgets('shows Today and History tabs', (tester) async {

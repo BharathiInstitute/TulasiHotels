@@ -1,6 +1,8 @@
 /// Table management screen — floor-plan grid view
 library;
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -95,9 +97,11 @@ class _TablesScreenState extends ConsumerState<TablesScreen> {
   Future<void> _showAddTableDialog() async {
     // Button is already disabled when atTableLimit — no server call needed here
     if (!mounted) return;
-    showDialog(
-      context: context,
-      builder: (context) => const AddTableDialog(),
+    unawaited(
+      showDialog(
+        context: context,
+        builder: (context) => const AddTableDialog(),
+      ),
     );
   }
 }

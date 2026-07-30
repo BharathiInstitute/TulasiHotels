@@ -346,7 +346,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       return;
     }
     setState(() => _phoneError = null);
-    ref.read(phoneAuthProvider.notifier).sendOtp(phone);
+    unawaited(ref.read(phoneAuthProvider.notifier).sendOtp(phone));
   }
 
   /// Verify phone OTP
@@ -368,6 +368,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     if (!_formKey.currentState!.validate()) return;
     if (!_emailVerified) return;
 
+    if (!mounted) return;
+    final routeContext = context;
+
     setState(() => _isLoading = true);
     ref.read(authNotifierProvider.notifier).clearError();
 
@@ -382,6 +385,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
           );
 
       if (success && mounted) {
+        if (!routeContext.mounted) return;
         // Save phone number if verified during registration
         if (_phoneVerified && _phoneController.text.trim().isNotEmpty) {
           final phone = '${AppConstants.countryCode}${_phoneController.text.trim()}';
@@ -389,7 +393,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
               .read(authNotifierProvider.notifier)
               .updatePhoneVerified(phone: phone);
           if (!synced && mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
+            if (!routeContext.mounted) return;
+            ScaffoldMessenger.of(routeContext).showSnackBar(
               const SnackBar(
                 content: Text(
                   'Phone verification sync is delayed. Please verify once in Settings after login.',
@@ -399,13 +404,16 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
             );
           }
         }
-        ScaffoldMessenger.of(context).showSnackBar(
+        if (!routeContext.mounted) return;
+        ScaffoldMessenger.of(routeContext).showSnackBar(
           const SnackBar(
             content: Text('Account created & verified! ✅'),
             backgroundColor: Colors.green,
           ),
         );
-        context.go('/shop-setup');
+        if (routeContext.mounted) {
+          routeContext.go('/shop-setup');
+        }
       }
     } finally {
       if (mounted) {

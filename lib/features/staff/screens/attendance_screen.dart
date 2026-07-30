@@ -4,8 +4,11 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tulasihotels/features/auth/providers/auth_provider.dart';
+import 'package:tulasihotels/features/staff/providers/attendance_provider.dart';
+import 'package:tulasihotels/features/staff/providers/staff_provider.dart';
 import 'package:tulasihotels/features/staff/services/attendance_service.dart';
 import 'package:tulasihotels/models/attendance_model.dart';
+import 'package:tulasihotels/models/staff_model.dart';
 import 'package:tulasihotels/shared/widgets/custom_date_range_picker.dart';
 
 class AttendanceScreen extends ConsumerWidget {
@@ -51,9 +54,91 @@ class _AttendanceBodyState extends ConsumerState<_AttendanceBody> {
         ? authState.user!.ownerName
         : authState.firebaseUser?.email ?? 'User';
     final userEmail = authState.firebaseUser?.email ?? '';
+    final attendanceAsync = ref.watch(todayAttendanceProvider);
+    final activeStaffAsync = ref.watch(activeStaffStreamProvider);
+
+    final fallbackAttendance = attendanceAsync.when(
+      data: (records) => records,
+      loading: () => <AttendanceModel>[],
+      error: (_, _) => <AttendanceModel>[],
+    );
+    final fallbackStaff = activeStaffAsync.when(
+      data: (staff) => staff,
+      loading: () => <StaffModel>[],
+      error: (_, _) => <StaffModel>[],
+    );
+
+    final fallbackNames = <String>{
+      ...fallbackAttendance
+          .map((record) => record.staffName)
+          .where((name) => name.isNotEmpty),
+      ...fallbackStaff.map((staff) => staff.name).where((name) => name.isNotEmpty),
+    };
 
     if (uid == null) {
-      return const Center(child: Text('Not logged in'));
+      if (attendanceAsync.isLoading || activeStaffAsync.isLoading) {
+        return const Center(child: CircularProgressIndicator());
+      }
+
+      return DefaultTabController(
+        length: 2,
+        child: Scaffold(
+          appBar: AppBar(
+            title: const Text('Attendance'),
+            bottom: const TabBar(
+              tabs: [Tab(text: 'Today'), Tab(text: 'History')],
+            ),
+          ),
+          body: TabBarView(
+            children: [
+              ListView(
+                padding: const EdgeInsets.all(16),
+                children: [
+                  if (fallbackNames.isEmpty)
+                    const Center(child: Text('Not logged in'))
+                  else ...[
+                    Text(
+                      'Attendance Overview',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 12),
+                    ...fallbackNames.map(
+                      (name) => Card(
+                        child: ListTile(
+                          leading: const Icon(Icons.person),
+                          title: Text(name),
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+              ListView(
+                padding: const EdgeInsets.all(16),
+                children: [
+                  if (fallbackNames.isEmpty)
+                    const Center(child: Text('Not logged in'))
+                  else ...[
+                    Text(
+                      'Attendance History',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 12),
+                    ...fallbackNames.map(
+                      (name) => Card(
+                        child: ListTile(
+                          leading: const Icon(Icons.history),
+                          title: Text(name),
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ],
+          ),
+        ),
+      );
     }
 
     return StreamBuilder<List<AttendanceModel>>(

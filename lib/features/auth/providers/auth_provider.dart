@@ -125,8 +125,8 @@ class AuthState {
 
 /// Firebase Auth Notifier
 class FirebaseAuthNotifier extends StateNotifier<AuthState> {
-  final FirebaseAuth _auth = FirebaseAuth.instance;
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  late final FirebaseAuth _auth;
+  late final FirebaseFirestore _firestore;
   final Ref _ref;
   StreamSubscription<User?>? _authSub;
   bool _profileLoaded = false;
@@ -134,6 +134,7 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
   bool _pendingReauth = false;
   bool _signOutTriggered = false;
   bool _profileLoadInProgress = false;
+  bool _firebaseAvailable = false;
   Completer<void>? _profileLoadCompleter;
 
   /// Stores a Google credential while waiting for password to complete linking
@@ -145,6 +146,15 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
   Timer? _desktopAuthTimer;
 
   FirebaseAuthNotifier(this._ref) : super(const AuthState()) {
+    try {
+      _auth = FirebaseAuth.instance;
+      _firestore = FirebaseFirestore.instance;
+      _firebaseAvailable = true;
+    } catch (error) {
+      debugPrint('🔐 Firebase unavailable for auth notifier: $error');
+      state = const AuthState(isLoading: false);
+      return;
+    }
     _init();
   }
 
@@ -166,6 +176,11 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
 
   /// Initialize - listen to auth state changes
   void _init() {
+    if (!_firebaseAvailable) {
+      state = const AuthState(isLoading: false);
+      return;
+    }
+
     // Safety timeout: if authStateChanges doesn't fire within 5 seconds,
     // resolve loading state based on currentUser
     Future.delayed(const Duration(seconds: 5), () async {

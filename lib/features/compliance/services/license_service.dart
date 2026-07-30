@@ -55,12 +55,15 @@ class LicenseService {
     required DateTime newExpiryDate,
     String? newLicenseNumber,
   }) async {
-    await _licensesRef.doc(licenseId).update({
+    final updates = <String, Object>{
       'issueDate': Timestamp.fromDate(newIssueDate),
       'expiryDate': Timestamp.fromDate(newExpiryDate),
-      if (newLicenseNumber != null) 'licenseNumber': newLicenseNumber,
       'updatedAt': FieldValue.serverTimestamp(),
-    });
+    };
+    if (newLicenseNumber != null) {
+      updates['licenseNumber'] = newLicenseNumber;
+    }
+    await _licensesRef.doc(licenseId).update(updates);
   }
 
   /// Delete a license

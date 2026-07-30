@@ -67,6 +67,14 @@ class CouponsScreen extends ConsumerWidget {
                           ],
                         ),
                       ),
+                      Switch(
+                        value: coupon.isActive,
+                        onChanged: (value) async {
+                          await CouponService.updateCoupon(
+                            coupon.copyWith(isActive: value),
+                          );
+                        },
+                      ),
                       IconButton(
                         icon: const Icon(Icons.edit_outlined),
                         tooltip: 'Edit',
