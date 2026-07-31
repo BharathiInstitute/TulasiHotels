@@ -4,7 +4,7 @@
 #define MyAppName "Tulasi Restaurants"
 #define MyAppVersion "2.0.0"
 #define MyAppPublisher "Bharathi Institute"
-#define MyAppURL "https://login1-aa21c.web.app"
+#define MyAppURL "https://restaurants.tulasierp.com"
 #define MyAppExeName "tulasihotels.exe"
 
 [Setup]

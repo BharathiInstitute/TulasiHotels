@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://tulasihotels.com/sitemap.xml
+Sitemap: https://restaurants.tulasierp.com/sitemap.xml

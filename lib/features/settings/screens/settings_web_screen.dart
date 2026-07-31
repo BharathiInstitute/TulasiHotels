@@ -3415,7 +3415,7 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('📧 Email: support@tulasihotels.com'),
+            Text('📧 Email: support@restaurants.tulasierp.com'),
             SizedBox(height: 8),
             Text('📞 Phone: +91 9876543210'),
             SizedBox(height: 8),

@@ -831,7 +831,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                         ),
                         GestureDetector(
                           onTap: () => launchUrl(
-                            Uri.parse('https://tulasihotels.com/terms'),
+                            Uri.parse('https://restaurants.tulasierp.com/terms'),
                             mode: LaunchMode.externalApplication,
                           ),
                           child: Text(
@@ -852,7 +852,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                         ),
                         GestureDetector(
                           onTap: () => launchUrl(
-                            Uri.parse('https://tulasihotels.com/privacy'),
+                            Uri.parse(
+                              'https://restaurants.tulasierp.com/privacy',
+                            ),
                             mode: LaunchMode.externalApplication,
                           ),
                           child: Text(

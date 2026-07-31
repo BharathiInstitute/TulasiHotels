@@ -5,7 +5,10 @@ void main() {
   group('superAdminEmails', () {
     test('contains expected emails', () {
       expect(superAdminEmails, contains('kehsaram001@gmail.com'));
-      expect(superAdminEmails, contains('admin@tulasihotels.com'));
+      expect(
+        superAdminEmails,
+        contains('admin@restaurants.tulasierp.com'),
+      );
       expect(superAdminEmails, contains('admin@lite.app'));
     });
 
@@ -40,7 +43,7 @@ void main() {
     });
 
     test('trimmed email matches list entry', () {
-      const testEmail = '  admin@tulasihotels.com  ';
+      const testEmail = '  admin@restaurants.tulasierp.com  ';
       final normalized = testEmail.toLowerCase().trim();
       expect(superAdminEmails.contains(normalized), isTrue);
     });

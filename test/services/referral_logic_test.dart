@@ -17,7 +17,7 @@ String generateReferralCode(String uid, {int? seed}) {
 
 /// Extracted from ReferralService.share
 String buildShareMessage(String code) {
-  return 'Try Tulasi Hotels for your shop! Use my referral code $code to sign up: https://tulasihotels.com/refer?code=$code';
+  return 'Try Tulasi Hotels for your shop! Use my referral code $code to sign up: https://restaurants.tulasierp.com/refer?code=$code';
 }
 
 void main() {
@@ -71,7 +71,10 @@ void main() {
 
     test('contains referral URL', () {
       final msg = buildShareMessage('TEST0001');
-      expect(msg, contains('https://tulasihotels.com/refer?code=TEST0001'));
+      expect(
+        msg,
+        contains('https://restaurants.tulasierp.com/refer?code=TEST0001'),
+      );
     });
 
     test('mentions Tulasi Hotels', () {
@@ -81,7 +84,8 @@ void main() {
 
     test('URL is well-formed', () {
       final msg = buildShareMessage('XYZW5678');
-      final urlMatch = RegExp(r'https://tulasihotels\.com/refer\?code=\w+');
+        final urlMatch =
+            RegExp(r'https://restaurants\.tulasierp\.com/refer\?code=\w+');
       expect(urlMatch.hasMatch(msg), isTrue);
     });
 

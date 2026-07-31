@@ -9,7 +9,7 @@ import 'package:tulasihotels/features/super_admin/services/admin_firestore_servi
 /// Hardcoded super admin email fallback (used when Firestore is unavailable)
 const List<String> superAdminEmails = [
   'kehsaram001@gmail.com',
-  'admin@tulasihotels.com',
+  'admin@restaurants.tulasierp.com',
   'bharathiinstitute1@gmail.com',
   'bharahiinstitute1@gmail.com',
   'shivamsingh8556@gmail.com',

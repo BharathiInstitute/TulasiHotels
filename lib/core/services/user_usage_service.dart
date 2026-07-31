@@ -185,7 +185,7 @@ class UserUsageService {
   /// Super admin emails (synced with firestore.rules and super_admin_provider)
   static const List<String> _adminEmails = [
     'kehsaram001@gmail.com',
-    'admin@tulasihotels.com',
+    'admin@restaurants.tulasierp.com',
     'bharathiinstitute1@gmail.com',
     'bharahiinstitute1@gmail.com',
     'shivamsingh8556@gmail.com',

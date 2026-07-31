@@ -9,7 +9,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 const List<String> superAdminEmails = [
   'kehsaram001@gmail.com',
-  'admin@tulasihotels.com',
+  'admin@restaurants.tulasierp.com',
   'bharathiinstitute1@gmail.com',
   'bharahiinstitute1@gmail.com',
   'shivamsingh8556@gmail.com',

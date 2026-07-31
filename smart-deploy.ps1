@@ -21,7 +21,7 @@ $root = $PSScriptRoot
 if (-not $root) { $root = Get-Location }
 
 # --- Deployment URLs ---
-$websiteUrl = "https://tulasihotels.com/"
+$websiteUrl = "https://restaurants.tulasierp.com/"
 $appUrl = "https://login1-aa21c.web.app/app/"
 
 function Test-CommandAvailable {

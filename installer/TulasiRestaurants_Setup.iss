@@ -4,7 +4,7 @@
 #define MyAppName "Tulasi Restaurants"
 #define MyAppVersion "2.0.1"
 #define MyAppPublisher "Tulasi Restaurants"
-#define MyAppURL "https://tulasihotels.com"
+#define MyAppURL "https://restaurants.tulasierp.com"
 #define MyAppExeName "tulasihotels.exe"
 
 [Setup]
