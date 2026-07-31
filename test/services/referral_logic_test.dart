@@ -84,7 +84,8 @@ void main() {
 
     test('URL is well-formed', () {
       final msg = buildShareMessage('XYZW5678');
-      final urlMatch = RegExp(r'https://tulasihotels\.com/refer\?code=\w+');
+        final urlMatch =
+            RegExp(r'https://restaurants\.tulasierp\.com/refer\?code=\w+');
       expect(urlMatch.hasMatch(msg), isTrue);
     });
 

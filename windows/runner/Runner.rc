@@ -92,7 +92,7 @@ BEGIN
             VALUE "CompanyName", "Tulasi Hotels" "\0"
             VALUE "FileDescription", "Tulasi Hotels" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
-            VALUE "InternalName", "TulasiStores" "\0"
+            VALUE "InternalName", "TulasiHotels" "\0"
             VALUE "LegalCopyright", "Copyright (C) 2026 Tulasi Hotels. All rights reserved." "\0"
             VALUE "OriginalFilename", "tulasihotels.exe" "\0"
             VALUE "ProductName", "Tulasi Hotels" "\0"

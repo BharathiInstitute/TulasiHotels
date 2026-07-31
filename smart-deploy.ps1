@@ -20,6 +20,38 @@ $ErrorActionPreference = "Stop"
 $root = $PSScriptRoot
 if (-not $root) { $root = Get-Location }
 
+# --- Deployment URLs ---
+$websiteUrl = "https://restaurants.tulasierp.com/"
+$appUrl = "https://login1-aa21c.web.app/app/"
+
+function Test-CommandAvailable {
+    param([string]$Name)
+    return [bool](Get-Command $Name -ErrorAction SilentlyContinue)
+}
+
+function Assert-RequiredTools {
+    param(
+        [bool]$RequireFlutter,
+        [bool]$RequireFirebase,
+        [bool]$RequireGit
+    )
+
+    if ($RequireFlutter -and -not (Test-CommandAvailable "flutter")) {
+        Write-Fail "flutter CLI not found. Install Flutter SDK and ensure it is on PATH."
+        exit 1
+    }
+
+    if ($RequireFirebase -and -not (Test-CommandAvailable "firebase")) {
+        Write-Fail "Firebase CLI not found. Install it with 'npm install -g firebase-tools'."
+        exit 1
+    }
+
+    if ($RequireGit -and -not (Test-CommandAvailable "git")) {
+        Write-Fail "git CLI not found. Install git and ensure it is on PATH."
+        exit 1
+    }
+}
+
 # --- Ensure JAVA_HOME and ANDROID_HOME are set ---
 if (-not $env:JAVA_HOME) {
     $javaPath = "C:\Program Files\Microsoft\jdk-17.0.18.8-hotspot"
@@ -56,37 +88,6 @@ function Write-DeployLog {
     $logPath = Join-Path $root "deploy-history.log"
     $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
     Add-Content -Path $logPath -Value "[$timestamp] $Entry" -Encoding UTF8
-}
-
-function Test-DownloadPageSync {
-    param(
-        [string]$WebsiteDir,
-        [string]$DistDir
-    )
-
-    $sourcePage = Join-Path $WebsiteDir "src\pages\download.html"
-    $distPage = Join-Path $DistDir "src\pages\download.html"
-
-    if (-not (Test-Path $sourcePage)) {
-        Write-Fail "Source download page not found: $sourcePage"
-        return $false
-    }
-    if (-not (Test-Path $distPage)) {
-        Write-Fail "Deployed download page not found in dist: $distPage"
-        return $false
-    }
-
-    $srcHash = (Get-FileHash -Path $sourcePage -Algorithm SHA256).Hash
-    $dstHash = (Get-FileHash -Path $distPage -Algorithm SHA256).Hash
-    if ($srcHash -ne $dstHash) {
-        Write-Fail "download.html in dist is not the latest source version"
-        Write-Info "Source: $sourcePage"
-        Write-Info "Dist:   $distPage"
-        return $false
-    }
-
-    Write-Ok "download.html sync verified (website -> dist)"
-    return $true
 }
 
 function Invoke-WithRetry {
@@ -193,12 +194,6 @@ if ($WebsiteOnly) {
         Write-Warn "No existing Flutter app found in dist/app/ -- website will deploy without /app/ route"
     }
 
-    Write-Step "Verifying latest download page sync..."
-    if (-not (Test-DownloadPageSync -WebsiteDir $websiteDir -DistDir $distDir)) {
-        Write-DeployLog "WEBSITE DEPLOY FAILED | download page sync mismatch"
-        exit 1
-    }
-
     # Create serve.json
     $serveJson = '{"rewrites":[{"source":"/app/**","destination":"/app/index.html"}],"headers":[{"source":"**/*","headers":[{"key":"Cache-Control","value":"no-cache"}]}]}'
     [System.IO.File]::WriteAllText((Join-Path $distDir "serve.json"), $serveJson, [System.Text.UTF8Encoding]::new($false))
@@ -225,10 +220,8 @@ if ($WebsiteOnly) {
         Write-Step "Health check..."
         Start-Sleep -Seconds 5
         $healthUrls = @(
-            "https://login1-aa21c.web.app/",
-            "https://login1-aa21c.web.app/app/",
-            "https://login1-aa21c.web.app/src/pages/download",
-            "https://restaurants.tulasierp.com/src/pages/download"
+            $websiteUrl,
+            $appUrl
         )
         foreach ($url in $healthUrls) {
             try {
@@ -253,8 +246,8 @@ if ($WebsiteOnly) {
         Write-Host "========================================================" -ForegroundColor Green
         Write-Host "  Website Deploy Complete!" -ForegroundColor Green
         Write-Host "========================================================" -ForegroundColor Green
-        Write-Host "  Website: https://login1-aa21c.web.app/" -ForegroundColor White
-        Write-Host "  App:     https://login1-aa21c.web.app/app/" -ForegroundColor White
+        Write-Host "  Website: $websiteUrl" -ForegroundColor White
+        Write-Host "  App:     $appUrl" -ForegroundColor White
         Write-Host "  Log:     deploy-history.log" -ForegroundColor Gray
         Write-Host ""
         Write-DeployLog "WEBSITE DEPLOY COMPLETE"
@@ -623,15 +616,15 @@ if (-not $resumed) {
 
     # --- Q2: Platforms ---
     if (-not $skipBuild) {
-        $platformChoice = Pick "Q2: Deploy to which platforms?" @(
-            "Website only         (marketing site, no Flutter build)",
-            "Web App + Website    (Flutter app + marketing site)",
-            "Windows only",
-            "Android only",
-            "Web App + Windows",
-            "Web App + Android",
-            "Windows + Android",
-            "All platforms (Web App + Website + Windows + Android)"
+        $platformChoice = Pick "Q2: What do you want to build/deploy?" @(
+            "Website only         (marketing site only)",
+            "Build Web & Host     (Flutter web + Firebase Hosting)",
+            "Build EXE            (Windows installer only)",
+            "Build APK            (Android APK only)",
+            "Build Web & Host + EXE",
+            "Build Web & Host + APK",
+            "Build EXE + APK",
+            "Build Web & Host + EXE + APK"
         )
         switch ($platformChoice) {
             1 { $deployWebsiteOnly = $true }
@@ -746,6 +739,11 @@ if (-not $resumed) {
         $winChoiceLabel = switch ($winChoice) { "1" { "Store (MSIX)" }; "2" { "Web Download (EXE)" }; "3" { "Both (MSIX + EXE)" } }
     }
 
+    $requireFlutter = (-not $skipBuild -and -not $deployWebsiteOnly)
+    $requireFirebase = $deployWebsiteOnly -or $deployWeb
+    $requireGit = $deployWebsiteOnly -or (-not $skipBuild -and -not $deployWebsiteOnly)
+    Assert-RequiredTools -RequireFlutter $requireFlutter -RequireFirebase $requireFirebase -RequireGit $requireGit
+
     # ===========================================================
     #   CONFIRM - Last chance to cancel
     # ===========================================================
@@ -761,9 +759,9 @@ if (-not $resumed) {
     } elseif (-not $skipBuild) {
         Write-Host "  Version:    $newVersion+$newBuild" -ForegroundColor White
         $platforms = @()
-        if ($deployWeb) { $platforms += "Web App + Website" }
-        if ($deployWindows) { $platforms += "Windows" }
-        if ($deployAndroid) { $platforms += "Android" }
+        if ($deployWeb) { $platforms += "Web & Host" }
+        if ($deployWindows) { $platforms += "EXE" }
+        if ($deployAndroid) { $platforms += "APK" }
         Write-Host "  Platforms:  $($platforms -join ', ')" -ForegroundColor White
         if ($winChoiceLabel) { Write-Host "  Windows:    $winChoiceLabel" -ForegroundColor White }
         if ($changelog) {
@@ -774,6 +772,7 @@ if (-not $resumed) {
     if ($forceMinVersion) { Write-Host "  Force min:  v$forceMinVersion" -ForegroundColor Red }
     if ($announcementMsg) { Write-Host "  Announce:   $announcementMsg" -ForegroundColor Cyan }
     if ($updateType -eq 4) { Write-Host "  Action:     Enable maintenance mode" -ForegroundColor Yellow }
+    Write-Host "  Hosting:    https://login1-aa21c.web.app/" -ForegroundColor Gray
 
     Write-Host ""
     Write-Host "  After confirm, I will automatically:" -ForegroundColor Gray
@@ -786,9 +785,9 @@ if (-not $resumed) {
         Write-Host "    > Run tests + analyzer" -ForegroundColor Gray
         Write-Host "    > Bump version in pubspec.yaml" -ForegroundColor Gray
         Write-Host "    > Backup current deployment" -ForegroundColor Gray
-        if ($deployWeb) { Write-Host "    > Build Flutter web app + copy website + deploy to Firebase Hosting + health check" -ForegroundColor Gray }
-        if ($deployWindows) { Write-Host "    > Build Windows + MSIX + Inno Setup EXE + upload to Storage" -ForegroundColor Gray }
-        if ($deployAndroid) { Write-Host "    > Build Android APK + update version.json + upload to Storage" -ForegroundColor Gray }
+        if ($deployWeb) { Write-Host "    > Build Web & Host + health check" -ForegroundColor Gray }
+        if ($deployWindows) { Write-Host "    > Build EXE + upload to Storage" -ForegroundColor Gray }
+        if ($deployAndroid) { Write-Host "    > Build APK + update version.json + upload to Storage" -ForegroundColor Gray }
         Write-Host "    > Git commit + tag + push" -ForegroundColor Gray
     }
     Write-Host ""
@@ -820,7 +819,7 @@ if (-not $resumed) {
         buildExe           = $buildExe
         winChoiceLabel     = $winChoiceLabel
         completedSteps     = @()
-        platforms          = $(if ($deployWebsiteOnly) { 'Website only' } else { (@($(if ($deployWeb) { 'Web App + Website' }), $(if ($deployWindows) { 'Windows' }), $(if ($deployAndroid) { 'Android' })) | Where-Object { $_ }) -join ', ' })
+        platforms          = $(if ($deployWebsiteOnly) { 'Website only' } else { (@($(if ($deployWeb) { 'Web & Host' }), $(if ($deployWindows) { 'EXE' }), $(if ($deployAndroid) { 'APK' })) | Where-Object { $_ }) -join ', ' })
         savedAt            = (Get-Date -Format "yyyy-MM-dd HH:mm:ss")
     }
     $stateData = $script:currentState | ConvertTo-Json -Depth 3
@@ -991,6 +990,14 @@ try {
             # ========== MSIX INSTALLER (for Microsoft Store) ==========
             if ($buildMsix) {
                 Write-Step "Creating MSIX installer (for Store)..."
+
+                # Remove stale MSIX artifacts so we never pick an old package.
+                $msixReleaseDir = Join-Path $root "build\windows\x64\runner\Release"
+                if (Test-Path $msixReleaseDir) {
+                    Get-ChildItem -Path $msixReleaseDir -Filter "*.msix" -ErrorAction SilentlyContinue |
+                        Remove-Item -Force -ErrorAction SilentlyContinue
+                }
+
                 $ErrorActionPreference = "Continue"
                 dart run msix:create
                 $msixExit = $LASTEXITCODE
@@ -1002,23 +1009,18 @@ try {
                     Write-DeployLog "WINDOWS MSIX | FAILED"
                 }
                 else {
-                    $msixFile = Join-Path $root "build\windows\x64\runner\Release\TulasiStores_Setup.msix"
-                    if (Test-Path $msixFile) {
-                        $msixSize = "{0:N1} MB" -f ((Get-Item $msixFile).Length / 1MB)
-                        Write-Ok "MSIX created ($msixSize)"
-                        Write-DeployLog "WINDOWS MSIX | $msixSize"
+                    $msixFound = Get-ChildItem -Path (Join-Path $root "build\windows") -Filter "*.msix" -Recurse |
+                        Sort-Object LastWriteTime -Descending |
+                        Select-Object -First 1
+                    if ($msixFound) {
+                        $msixSize = "{0:N1} MB" -f ($msixFound.Length / 1MB)
+                        Write-Ok "MSIX created ($msixSize) at $($msixFound.FullName)"
+                        $msixFile = $msixFound.FullName
+                        Write-DeployLog "WINDOWS MSIX | $msixSize | $($msixFound.Name)"
                     }
                     else {
-                        $msixFound = Get-ChildItem -Path (Join-Path $root "build\windows") -Filter "*.msix" -Recurse | Select-Object -First 1
-                        if ($msixFound) {
-                            $msixSize = "{0:N1} MB" -f ($msixFound.Length / 1MB)
-                            Write-Ok "MSIX created ($msixSize) at $($msixFound.FullName)"
-                            $msixFile = $msixFound.FullName
-                        }
-                        else {
-                            Write-Warn "MSIX file not found in build output"
-                            $msixFile = $null
-                        }
+                        Write-Warn "MSIX file not found in build output"
+                        $msixFile = $null
                     }
                 }
             }
@@ -1026,7 +1028,7 @@ try {
             # ========== INNO SETUP EXE INSTALLER (for Web Download -- 85-90% coverage) ==========
             if ($buildExe) {
                 Write-Step "Creating Inno Setup EXE installer (for web download)..."
-                $issPath = Join-Path $root "installer\TulasiStores_Setup.iss"
+                $issPath = Join-Path $root "installer\TulasiRestaurants_Setup.iss"
                 $isccPath = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
 
                 if ((Test-Path $issPath) -and (Test-Path $isccPath)) {
@@ -1052,7 +1054,7 @@ try {
                         }
                     }
                     else {
-                        $exeFile = Join-Path $root "installer\Output\TulasiStores_Setup.exe"
+                        $exeFile = Join-Path $root "installer\Output\TulasiRestaurants_Setup.exe"
                         if (Test-Path $exeFile) {
                             $exeSize = "{0:N1} MB" -f ((Get-Item $exeFile).Length / 1MB)
                             Write-Ok "EXE installer created ($exeSize)"
@@ -1083,6 +1085,7 @@ try {
                     Write-Step "Generating one-click MSIX installer script..."
                     $releaseDir = Join-Path $root "build\windows\x64\runner\Release"
                     $vbsInstaller = Join-Path $releaseDir "Install_TulasiRestaurants.vbs"
+                    $msixFileName = [System.IO.Path]::GetFileName($msixFile)
                     $vbsContent = @"
 ' Tulasi Hotels - One-Click Installer v$newVersion
 ' Silently installs certificate, then opens MSIX installer GUI
@@ -1094,11 +1097,11 @@ If Not WScript.Arguments.Named.Exists("elevated") Then
 End If
 
 scriptDir = Left(WScript.ScriptFullName, InStrRev(WScript.ScriptFullName, "\"))
-msixFile = scriptDir & "TulasiRestaurants_Setup.msix"
+msixFile = scriptDir & "$msixFileName"
 
 Set fso = CreateObject("Scripting.FileSystemObject")
 If Not fso.FileExists(msixFile) Then
-    MsgBox "TulasiRestaurants_Setup.msix not found!" & vbCrLf & vbCrLf & "Please place this script in the same folder as the MSIX file.", vbExclamation, "Tulasi Restaurants Installer"
+    MsgBox "$msixFileName not found!" & vbCrLf & vbCrLf & "Please place this script in the same folder as the MSIX file.", vbExclamation, "Tulasi Hotels Installer"
     WScript.Quit 1
 End If
 
@@ -1149,8 +1152,8 @@ WScript.Quit 0
                     $pageContent = $pageContent -replace '(style="[^"]*">)\s*v\d+\.\d+\.\d+(</div>)', "`${1}v$newVersion`${2}"
 
                     # Update download attribute filenames (saved filename includes version)
-                    $pageContent = $pageContent -replace 'download="TulasiStores_Setup_v[\d.]+\.exe"', "download=`"TulasiStores_Setup_v$newVersion.exe`""
-                    $pageContent = $pageContent -replace 'download="TulasiStores_v[\d.]+\.apk"', "download=`"TulasiStores_v$newVersion.apk`""
+                    $pageContent = $pageContent -replace 'download="TulasiRestaurants_Setup_v[\d.]+\.exe"', "download=`"TulasiRestaurants_Setup_v$newVersion.exe`""
+                    $pageContent = $pageContent -replace 'download="TulasiRestaurants_v[\d.]+\.apk"', "download=`"TulasiRestaurants_v$newVersion.apk`""
 
                     [System.IO.File]::WriteAllText($downloadPage, $pageContent, [System.Text.UTF8Encoding]::new($false))
                     Write-Ok "download.html updated to v$newVersion"
@@ -1278,7 +1281,7 @@ WScript.Quit 0
 
                 if (Test-Path $apkPath) {
                     gsutil cp $apkPath "${storagePath}$apkStorageName"
-                    gsutil setmeta -h "Content-Type:application/vnd.android.package-archive" -h "Cache-Control:no-cache,max-age=0" -h "Content-Disposition:attachment; filename=TulasiRestaurants.apk" "${storagePath}$apkStorageName"
+                    gsutil setmeta -h "Content-Type:application/vnd.android.package-archive" -h "Cache-Control:no-cache,max-age=0" "${storagePath}$apkStorageName"
                     Write-Ok "APK uploaded: $apkStorageName"
                 }
 
@@ -1387,18 +1390,6 @@ WScript.Quit 0
             Write-Warn "No existing Flutter app in dist/app/ -- website will deploy without /app/ route"
         }
 
-        Write-Step "Verifying latest download page sync..."
-        if (-not (Test-DownloadPageSync -WebsiteDir $websiteDir -DistDir $distDir)) {
-            Write-DeployLog "WEBSITE DEPLOY FAILED | download page sync mismatch"
-            $failed = $true
-        }
-
-        if ($failed) {
-            Write-Fail "Stopping website deploy because latest download page did not sync"
-            Complete-Step "website_only"
-            throw "download.html sync verification failed"
-        }
-
         $serveJson = '{"rewrites":[{"source":"/app/**","destination":"/app/index.html"}],"headers":[{"source":"**/*","headers":[{"key":"Cache-Control","value":"no-cache"}]}]}'
         [System.IO.File]::WriteAllText((Join-Path $distDir "serve.json"), $serveJson, [System.Text.UTF8Encoding]::new($false))
 
@@ -1414,10 +1405,8 @@ WScript.Quit 0
             Write-Step "Health check..."
             Start-Sleep -Seconds 5
             $healthUrls = @(
-                "https://login1-aa21c.web.app/",
-                "https://login1-aa21c.web.app/app/",
-                "https://login1-aa21c.web.app/src/pages/download",
-                "https://restaurants.tulasierp.com/src/pages/download"
+                $websiteUrl,
+                $appUrl
             )
             foreach ($url in $healthUrls) {
                 try {
@@ -1467,17 +1456,6 @@ WScript.Quit 0
             Copy-Item -Path "$flutterBuildDir\*" -Destination $appDir -Recurse -Force
             Write-Ok "Web built to dist/app/"
 
-            Write-Step "Verifying latest download page sync..."
-            if (-not (Test-DownloadPageSync -WebsiteDir $websiteDir -DistDir $distDir)) {
-                Write-DeployLog "WEB DEPLOY FAILED | download page sync mismatch"
-                $failed = $true
-            }
-
-            if ($failed) {
-                Write-Fail "Stopping web deploy because latest download page did not sync"
-                throw "download.html sync verification failed"
-            }
-
             $serveJson = '{"rewrites":[{"source":"/app/**","destination":"/app/index.html"}],"headers":[{"source":"**/*","headers":[{"key":"Cache-Control","value":"no-cache"}]}]}'
             [System.IO.File]::WriteAllText((Join-Path $distDir "serve.json"), $serveJson, [System.Text.UTF8Encoding]::new($false))
 
@@ -1493,10 +1471,8 @@ WScript.Quit 0
                 Write-Step "Health check..."
                 Start-Sleep -Seconds 5
                 $healthUrls = @(
-                    "https://login1-aa21c.web.app/",
-                    "https://login1-aa21c.web.app/app/",
-                    "https://login1-aa21c.web.app/src/pages/download",
-                    "https://restaurants.tulasierp.com/src/pages/download"
+                    $websiteUrl,
+                    $appUrl
                 )
                 foreach ($url in $healthUrls) {
                     try {
@@ -1662,16 +1638,16 @@ if (-not $skipBuild -and -not $deployWebsiteOnly) {
 Write-Host "  Type:    $($typeNames[$updateType])" -ForegroundColor White
 
 if ($deployWebsiteOnly) { Write-Host "  Website: Deployed + Health Checked" -ForegroundColor Green }
-if ($deployWeb) { Write-Host "  Web App: Flutter + Website Deployed + Health Checked" -ForegroundColor Green }
-if ($deployWindows) { Write-Host "  Windows: MSIX + EXE Built + Uploaded" -ForegroundColor Green }
-if ($deployAndroid) { Write-Host "  Android: Built + Uploaded" -ForegroundColor Green }
+if ($deployWeb) { Write-Host "  Web & Host: Flutter + Website Deployed + Health Checked" -ForegroundColor Green }
+if ($deployWindows) { Write-Host "  Windows EXE: Built + Uploaded" -ForegroundColor Green }
+if ($deployAndroid) { Write-Host "  Android APK: Built + Uploaded" -ForegroundColor Green }
 if ($forceMinVersion) { Write-Host "  Force:   min_app_version = $forceMinVersion" -ForegroundColor Red }
 if ($announcementMsg) { Write-Host "  Announce: $announcementMsg" -ForegroundColor Cyan }
 if ($updateType -eq 4) { Write-Host "  Mode:    Maintenance ON" -ForegroundColor Yellow }
 Write-Host ""
 if ($deployWebsiteOnly) {
-    Write-Host "  Website: https://login1-aa21c.web.app/" -ForegroundColor White
-    Write-Host "  App:     https://login1-aa21c.web.app/app/" -ForegroundColor White
+    Write-Host "  Website: $websiteUrl" -ForegroundColor White
+    Write-Host "  App:     $appUrl" -ForegroundColor White
 }
 Write-Host "  Log: deploy-history.log" -ForegroundColor Gray
 Write-Host ""

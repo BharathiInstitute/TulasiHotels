@@ -45,7 +45,7 @@ void main() {
     test('email validation accepts valid emails', () {
       for (final valid in [
         'user@example.com',
-        'admin@tulasihotels.com',
+        'admin@restaurants.tulasierp.com',
         'test+tag@domain.org',
       ]) {
         final normalized = valid.toLowerCase().trim();

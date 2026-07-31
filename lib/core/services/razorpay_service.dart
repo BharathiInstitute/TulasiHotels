@@ -118,7 +118,7 @@ class RazorpayService {
       'description': description ?? RazorpayConfig.description,
       'prefill': {
         'contact': phone,
-        'email': customerEmail ?? 'user@tulasihotels.com',
+        'email': customerEmail ?? 'user@restaurants.tulasierp.com',
         'name': customerName,
       },
       'readonly': {'email': 1, 'contact': 1},

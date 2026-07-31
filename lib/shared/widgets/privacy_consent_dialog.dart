@@ -2,11 +2,11 @@
 /// Shows once on first login. Re-shows if consent version changes.
 library;
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tulasihotels/core/services/error_logging_service.dart';
-import 'package:tulasihotels/core/services/privacy_consent_service.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class PrivacyConsentDialog {
@@ -14,10 +14,9 @@ class PrivacyConsentDialog {
   /// Terms of Service are updated — all users will see the dialog again.
   static const String currentVersion = '1.0';
 
-    static const String _privacyUrl =
-      'https://restaurants.tulasierp.com/src/pages/privacy.html';
-    static const String _termsUrl =
-      'https://restaurants.tulasierp.com/src/pages/terms.html';
+  static const String _privacyUrl =
+      'https://restaurants.tulasierp.com/privacy';
+  static const String _termsUrl = 'https://restaurants.tulasierp.com/terms';
   static const String _prefsKey = 'privacy_consent_version';
 
   /// Shows the consent dialog if the user hasn't accepted the current version.
@@ -79,10 +78,10 @@ class _PrivacyConsentContentState extends State<_PrivacyConsentContent> {
 
     // Also save to Firestore (best-effort)
     try {
-      await PrivacyConsentService.recordDialogConsentVersion(
-        uid: widget.uid,
-        consentVersion: PrivacyConsentDialog.currentVersion,
-      );
+      await FirebaseFirestore.instance.collection('users').doc(widget.uid).set({
+        'consentVersion': PrivacyConsentDialog.currentVersion,
+        'consentedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
     } catch (e, st) {
       debugPrint('⚠️ Consent: save failed: $e');
       ErrorLoggingService.logError(

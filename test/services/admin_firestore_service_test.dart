@@ -98,9 +98,10 @@ void main() {
   });
 
   group('AdminUser model', () {
-    test('SubscriptionPlan has 3 values', () {
-      expect(SubscriptionPlan.values.length, 3);
+    test('SubscriptionPlan has 4 values', () {
+      expect(SubscriptionPlan.values.length, 4);
       expect(SubscriptionPlan.values, contains(SubscriptionPlan.free));
+      expect(SubscriptionPlan.values, contains(SubscriptionPlan.starter));
       expect(SubscriptionPlan.values, contains(SubscriptionPlan.pro));
       expect(SubscriptionPlan.values, contains(SubscriptionPlan.business));
     });

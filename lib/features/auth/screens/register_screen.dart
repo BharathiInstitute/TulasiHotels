@@ -4,7 +4,6 @@ library;
 
 import 'dart:async';
 
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart' show defaultTargetPlatform, kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -87,8 +86,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
   bool get _isWindowsDesktop =>
       !kIsWeb && defaultTargetPlatform == TargetPlatform.windows;
-
-  bool get _isPhoneVerificationRequired => !_isWindowsDesktop;
 
   Future<void> _handleGoogleRegister() async {
     setState(() => _isGoogleLoading = true);
@@ -343,18 +340,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
   /// Send phone OTP
   Future<void> _handleSendPhoneOtp() async {
-    if (_isWindowsDesktop) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Phone OTP is not supported on Windows app. Continue without it.',
-          ),
-        ),
-      );
-      return;
-    }
-
     final phone = _phoneController.text.trim();
     if (phone.isEmpty || phone.length < 10) {
       setState(() => _phoneError = 'Enter a valid 10-digit phone number');
@@ -366,11 +351,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
   /// Verify phone OTP
   Future<void> _handleVerifyPhoneOtp() async {
-    if (_isWindowsDesktop) {
-      setState(() => _phoneVerified = true);
-      return;
-    }
-
     final otp = _phoneOtpController.text.trim();
     if (otp.length != 6) {
       setState(() => _phoneError = 'Enter the 6-digit code');
@@ -388,6 +368,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     if (!_formKey.currentState!.validate()) return;
     if (!_emailVerified) return;
 
+    if (!mounted) return;
+    final routeContext = context;
+
     setState(() => _isLoading = true);
     ref.read(authNotifierProvider.notifier).clearError();
 
@@ -399,43 +382,19 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
             password: _passwordController.text,
             name: _nameController.text.trim(),
             emailVerified: true,
-            phone: _phoneVerified && _phoneController.text.trim().isNotEmpty
-                ? '${AppConstants.countryCode}${_phoneController.text.trim()}'
-                : null,
-            phoneVerified: _phoneVerified,
           );
 
       if (success && mounted) {
+        if (!routeContext.mounted) return;
         // Save phone number if verified during registration
-        if (!_isWindowsDesktop &&
-            _phoneVerified &&
-            _phoneController.text.trim().isNotEmpty) {
+        if (_phoneVerified && _phoneController.text.trim().isNotEmpty) {
           final phone = '${AppConstants.countryCode}${_phoneController.text.trim()}';
-
-          // If registration OTP was validated before account creation,
-          // link that verified phone credential to the newly created account.
-          final pendingCredential = ref
-              .read(phoneAuthProvider.notifier)
-              .lastVerifiedCredential;
-          if (pendingCredential != null) {
-            try {
-              await FirebaseAuth.instance.currentUser?.linkWithCredential(
-                pendingCredential,
-              );
-            } on FirebaseAuthException catch (e) {
-              if (e.code != 'provider-already-linked') {
-                debugPrint('🔐 Phone link skipped: ${e.code}');
-              }
-            } catch (e) {
-              debugPrint('🔐 Phone link error: $e');
-            }
-          }
-
           final synced = await ref
               .read(authNotifierProvider.notifier)
               .updatePhoneVerified(phone: phone);
           if (!synced && mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
+            if (!routeContext.mounted) return;
+            ScaffoldMessenger.of(routeContext).showSnackBar(
               const SnackBar(
                 content: Text(
                   'Phone verification sync is delayed. Please verify once in Settings after login.',
@@ -445,14 +404,16 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
             );
           }
         }
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
+        if (!routeContext.mounted) return;
+        ScaffoldMessenger.of(routeContext).showSnackBar(
           const SnackBar(
             content: Text('Account created & verified! ✅'),
             backgroundColor: Colors.green,
           ),
         );
-        context.go('/shop-setup');
+        if (routeContext.mounted) {
+          routeContext.go('/shop-setup');
+        }
       }
     } finally {
       if (mounted) {
@@ -745,18 +706,13 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   ],
 
                   // ── Phone Number Verification (only after email verified) ──
-                  if (_emailVerified && _isPhoneVerificationRequired) ...[
+                  if (_emailVerified) ...[
                     const SizedBox(height: AppSizes.md),
                     _buildPhoneVerificationSection(),
                   ],
 
-                  if (_emailVerified && !_isPhoneVerificationRequired) ...[
-                    const SizedBox(height: AppSizes.md),
-                    _buildWindowsPhoneInfo(),
-                  ],
-
                   // ── Password (only after phone verified) ──
-                  if (_phoneVerified || !_isPhoneVerificationRequired) ...[
+                  if (_phoneVerified) ...[
                     const SizedBox(height: AppSizes.md),
 
                     // Password
@@ -834,9 +790,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   SizedBox(
                     height: AppSizes.buttonHeight(context),
                     child: ElevatedButton.icon(
-                      onPressed: (_isLoading ||
-                              !_emailVerified ||
-                              (_isPhoneVerificationRequired && !_phoneVerified))
+                      onPressed: (_isLoading || !_emailVerified || !_phoneVerified)
                           ? null
                           : _handleRegister,
                       icon: _isLoading
@@ -854,7 +808,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                             ? 'Creating account...'
                             : !_emailVerified
                             ? 'Verify email first'
-                          : _isPhoneVerificationRequired && !_phoneVerified
+                            : !_phoneVerified
                             ? 'Verify phone first'
                             : 'Create Account',
                         style: AppTypography.button,
@@ -877,9 +831,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                         ),
                         GestureDetector(
                           onTap: () => launchUrl(
-                            Uri.parse(
-                              'https://restaurants.tulasierp.com/src/pages/terms.html',
-                            ),
+                            Uri.parse('https://restaurants.tulasierp.com/terms'),
                             mode: LaunchMode.externalApplication,
                           ),
                           child: Text(
@@ -901,7 +853,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                         GestureDetector(
                           onTap: () => launchUrl(
                             Uri.parse(
-                              'https://restaurants.tulasierp.com/src/pages/privacy.html',
+                              'https://restaurants.tulasierp.com/privacy',
                             ),
                             mode: LaunchMode.externalApplication,
                           ),
@@ -1119,31 +1071,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
           ),
         ],
       ],
-    );
-  }
-
-  Widget _buildWindowsPhoneInfo() {
-    return Container(
-      padding: const EdgeInsets.all(AppSizes.cardPadding),
-      decoration: BoxDecoration(
-        color: Colors.amber.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(AppSizes.radiusMd),
-        border: Border.all(color: Colors.amber.withValues(alpha: 0.35)),
-      ),
-      child: const Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(Icons.info_outline, color: Colors.amber, size: 20),
-          SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              'Phone OTP is not fully supported on Windows desktop app. '
-              'Create your account now and verify phone later from web/mobile in Settings.',
-              style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary),
-            ),
-          ),
-        ],
-      ),
     );
   }
 

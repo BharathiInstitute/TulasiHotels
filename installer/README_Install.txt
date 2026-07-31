@@ -2,7 +2,7 @@
   Tulasi Shop Lite - Installation Guide
 ========================================
 
-STEP 1: Run TulasiStores_Setup.exe
+STEP 1: Run TulasiRestaurants_Setup.exe
 
    Most computers will install without any issues.
    Just double-click and follow the steps.
@@ -24,7 +24,7 @@ B) "Smart App Control blocked a file" (No "Run anyway" button)
    3. Click "App & Browser Control"
    4. Click "Smart App Control settings"
    5. Select "Off"
-   6. Now run TulasiStores_Setup.exe again
+   6. Now run TulasiRestaurants_Setup.exe again
 
    Note: This is a one-time change. You won't see
    this problem again for any future updates.

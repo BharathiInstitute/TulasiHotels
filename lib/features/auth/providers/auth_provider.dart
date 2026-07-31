@@ -125,8 +125,8 @@ class AuthState {
 
 /// Firebase Auth Notifier
 class FirebaseAuthNotifier extends StateNotifier<AuthState> {
-  final FirebaseAuth _auth = FirebaseAuth.instance;
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  late final FirebaseAuth _auth;
+  late final FirebaseFirestore _firestore;
   final Ref _ref;
   StreamSubscription<User?>? _authSub;
   bool _profileLoaded = false;
@@ -134,6 +134,7 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
   bool _pendingReauth = false;
   bool _signOutTriggered = false;
   bool _profileLoadInProgress = false;
+  bool _firebaseAvailable = false;
   Completer<void>? _profileLoadCompleter;
 
   /// Stores a Google credential while waiting for password to complete linking
@@ -145,6 +146,15 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
   Timer? _desktopAuthTimer;
 
   FirebaseAuthNotifier(this._ref) : super(const AuthState()) {
+    try {
+      _auth = FirebaseAuth.instance;
+      _firestore = FirebaseFirestore.instance;
+      _firebaseAvailable = true;
+    } catch (error) {
+      debugPrint('🔐 Firebase unavailable for auth notifier: $error');
+      state = const AuthState(isLoading: false);
+      return;
+    }
     _init();
   }
 
@@ -166,6 +176,11 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
 
   /// Initialize - listen to auth state changes
   void _init() {
+    if (!_firebaseAvailable) {
+      state = const AuthState(isLoading: false);
+      return;
+    }
+
     // Safety timeout: if authStateChanges doesn't fire within 5 seconds,
     // resolve loading state based on currentUser
     Future.delayed(const Duration(seconds: 5), () async {
@@ -829,7 +844,7 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
       });
 
       // 3. Set login URL in state — UI shows embedded WebView (no browser needed)
-      // restaurants.tulasierp.com may not resolve on some networks/devices.
+      // Custom domains may not resolve on some networks/devices.
       // Use Firebase Hosting canonical domain for reliable desktop auth.
       const webAppUrl = 'https://login1-aa21c.web.app/desktop-login';
       final fullUrl = '$webAppUrl?code=$linkCode';
@@ -1262,8 +1277,6 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
     required String password,
     required String name,
     bool emailVerified = false,
-    String? phone,
-    bool phoneVerified = false,
   }) async {
     try {
       state = state.copyWith(isLoading: true);
@@ -1304,8 +1317,6 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
           email: email,
           name: name,
           emailVerified: emailVerified,
-          phone: phone,
-          phoneVerified: phoneVerified,
         );
 
         // Load user profile so isLoading becomes false and router can navigate.
@@ -1351,19 +1362,15 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
     required String email,
     required String name,
     required bool emailVerified,
-    String? phone,
-    bool phoneVerified = false,
   }) async {
     await _firestore.collection('users').doc(uid).set({
       'email': email.trim().toLowerCase(),
       'ownerName': name.trim(),
-      'phone': phone ?? '',
-      'phoneNumber': phone ?? '',
+      'phone': '',
       'photoUrl': '',
       'isShopSetupComplete': false,
       'emailVerified': emailVerified,
-      'phoneVerified': phoneVerified,
-      if (phoneVerified) 'phoneVerifiedAt': FieldValue.serverTimestamp(),
+      'phoneVerified': false,
       'authProvider': 'email',
       'createdAt': FieldValue.serverTimestamp(),
       'subscription': {
@@ -1775,13 +1782,13 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
     String? phone,
     String? address,
     String? gstNumber,
+    bool? gstEnabled,
     String? email,
     String? upiId,
     String? currency,
     String? timezone,
     String? receiptFooter,
     double? taxRate,
-    bool? gstEnabled,
   }) async {
     final user = _auth.currentUser;
     if (user == null) return false;
@@ -1804,11 +1811,11 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
       if (receiptFooter != null) {
         updates['settings.receiptFooter'] = receiptFooter;
       }
-      if (taxRate != null) {
-        updates['settings.taxRate'] = taxRate;
-      }
       if (gstEnabled != null) {
         updates['settings.gstEnabled'] = gstEnabled;
+      }
+      if (taxRate != null) {
+        updates['settings.taxRate'] = taxRate;
       }
 
       if (updates.isEmpty) return true;
@@ -1862,10 +1869,8 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
             upiId: upiId ?? state.user!.upiId,
             currency: currency ?? state.user!.currency,
             timezone: timezone ?? state.user!.timezone,
-            settings: (receiptFooter != null || taxRate != null ||
-                    gstEnabled != null)
+            settings: (receiptFooter != null || taxRate != null)
                 ? state.user!.settings.copyWith(
-                    gstEnabled: gstEnabled,
                     receiptFooter: receiptFooter,
                     taxRate: taxRate,
                   )
@@ -2100,13 +2105,11 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
     if (user == null) return false;
 
     try {
-      await _firestore.collection('users').doc(user.uid).set({
+      await _firestore.collection('users').doc(user.uid).update({
         'phoneVerified': true,
         'phone': phone,
-        'phoneNumber': phone,
         'phoneVerifiedAt': FieldValue.serverTimestamp(),
-        'updatedAt': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
+      });
 
       if (state.user != null) {
         state = state.copyWith(
@@ -2117,10 +2120,6 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
           ),
         );
       }
-
-      // Refresh from Firestore so Settings reflects the persisted value even
-      // if another auth/profile listener updated state in the same frame.
-      await _loadUserProfile(user);
       return true;
     } catch (e) {
       debugPrint('🔐 Error updating phone verified status: $e');
@@ -2295,7 +2294,7 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
         id: 'demo_user',
         shopName: 'Demo Restaurant',
         ownerName: 'Demo Owner',
-        email: 'demo@tulasihotels.com',
+        email: 'demo@restaurants.tulasierp.com',
         phone: '9876543210',
         settings: const UserSettings(),
         createdAt: DateTime.now(),

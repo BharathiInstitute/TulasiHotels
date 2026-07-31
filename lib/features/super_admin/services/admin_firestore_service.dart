@@ -45,7 +45,7 @@ class AdminFirestoreService {
       final batch = _firestore.batch();
       const emails = [
         primaryOwnerEmail,
-        'admin@tulasihotels.com',
+        'admin@restaurants.tulasierp.com',
         'bharathiinstitute1@gmail.com',
         'bharahiinstitute1@gmail.com',
         'shivamsingh8556@gmail.com',
