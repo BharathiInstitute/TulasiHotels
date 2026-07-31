@@ -990,6 +990,14 @@ try {
             # ========== MSIX INSTALLER (for Microsoft Store) ==========
             if ($buildMsix) {
                 Write-Step "Creating MSIX installer (for Store)..."
+
+                # Remove stale MSIX artifacts so we never pick an old package.
+                $msixReleaseDir = Join-Path $root "build\windows\x64\runner\Release"
+                if (Test-Path $msixReleaseDir) {
+                    Get-ChildItem -Path $msixReleaseDir -Filter "*.msix" -ErrorAction SilentlyContinue |
+                        Remove-Item -Force -ErrorAction SilentlyContinue
+                }
+
                 $ErrorActionPreference = "Continue"
                 dart run msix:create
                 $msixExit = $LASTEXITCODE
@@ -1001,23 +1009,18 @@ try {
                     Write-DeployLog "WINDOWS MSIX | FAILED"
                 }
                 else {
-                    $msixFile = Join-Path $root "build\windows\x64\runner\Release\TulasiRestaurants_Setup.msix"
-                    if (Test-Path $msixFile) {
-                        $msixSize = "{0:N1} MB" -f ((Get-Item $msixFile).Length / 1MB)
-                        Write-Ok "MSIX created ($msixSize)"
-                        Write-DeployLog "WINDOWS MSIX | $msixSize"
+                    $msixFound = Get-ChildItem -Path (Join-Path $root "build\windows") -Filter "*.msix" -Recurse |
+                        Sort-Object LastWriteTime -Descending |
+                        Select-Object -First 1
+                    if ($msixFound) {
+                        $msixSize = "{0:N1} MB" -f ($msixFound.Length / 1MB)
+                        Write-Ok "MSIX created ($msixSize) at $($msixFound.FullName)"
+                        $msixFile = $msixFound.FullName
+                        Write-DeployLog "WINDOWS MSIX | $msixSize | $($msixFound.Name)"
                     }
                     else {
-                        $msixFound = Get-ChildItem -Path (Join-Path $root "build\windows") -Filter "*.msix" -Recurse | Select-Object -First 1
-                        if ($msixFound) {
-                            $msixSize = "{0:N1} MB" -f ($msixFound.Length / 1MB)
-                            Write-Ok "MSIX created ($msixSize) at $($msixFound.FullName)"
-                            $msixFile = $msixFound.FullName
-                        }
-                        else {
-                            Write-Warn "MSIX file not found in build output"
-                            $msixFile = $null
-                        }
+                        Write-Warn "MSIX file not found in build output"
+                        $msixFile = $null
                     }
                 }
             }
@@ -1082,6 +1085,7 @@ try {
                     Write-Step "Generating one-click MSIX installer script..."
                     $releaseDir = Join-Path $root "build\windows\x64\runner\Release"
                     $vbsInstaller = Join-Path $releaseDir "Install_TulasiRestaurants.vbs"
+                    $msixFileName = [System.IO.Path]::GetFileName($msixFile)
                     $vbsContent = @"
 ' Tulasi Hotels - One-Click Installer v$newVersion
 ' Silently installs certificate, then opens MSIX installer GUI
@@ -1093,11 +1097,11 @@ If Not WScript.Arguments.Named.Exists("elevated") Then
 End If
 
 scriptDir = Left(WScript.ScriptFullName, InStrRev(WScript.ScriptFullName, "\"))
-msixFile = scriptDir & "TulasiRestaurants_Setup.msix"
+msixFile = scriptDir & "$msixFileName"
 
 Set fso = CreateObject("Scripting.FileSystemObject")
 If Not fso.FileExists(msixFile) Then
-    MsgBox "TulasiRestaurants_Setup.msix not found!" & vbCrLf & vbCrLf & "Please place this script in the same folder as the MSIX file.", vbExclamation, "Tulasi Hotels Installer"
+    MsgBox "$msixFileName not found!" & vbCrLf & vbCrLf & "Please place this script in the same folder as the MSIX file.", vbExclamation, "Tulasi Hotels Installer"
     WScript.Quit 1
 End If
 
