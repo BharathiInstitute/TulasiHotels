@@ -4,7 +4,6 @@ library;
 import 'package:tulasihotels/core/services/active_store_manager.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:tulasihotels/features/permissions/permission_center.dart';
-import 'package:tulasihotels/features/permissions/providers/route_permission_provider.dart';
 import 'package:tulasihotels/features/permissions/services/module_mutation_guard.dart';
 import 'package:tulasihotels/features/staff/models/permission_config.dart';
 import 'package:tulasihotels/models/equipment_model.dart';
@@ -20,7 +19,10 @@ class EquipmentService {
 
   /// Stream all equipment
   static Stream<List<EquipmentModel>> equipmentStream() {
-    return _equipmentRef.orderBy('name').snapshots().map(
+    return _equipmentRef
+        .orderBy('name')
+        .snapshots()
+        .map(
           (snapshot) => snapshot.docs
               .map((doc) => EquipmentModel.fromFirestore(doc))
               .toList(),
@@ -29,12 +31,13 @@ class EquipmentService {
 
   /// Stream equipment needing service (next service date approaching)
   static Stream<List<EquipmentModel>> needsServiceStream() {
-    final thirtyDaysFromNow =
-        DateTime.now().add(const Duration(days: 30));
+    final thirtyDaysFromNow = DateTime.now().add(const Duration(days: 30));
 
     return _equipmentRef
-        .where('nextServiceDate',
-            isLessThanOrEqualTo: Timestamp.fromDate(thirtyDaysFromNow))
+        .where(
+          'nextServiceDate',
+          isLessThanOrEqualTo: Timestamp.fromDate(thirtyDaysFromNow),
+        )
         .snapshots()
         .map(
           (snapshot) => snapshot.docs

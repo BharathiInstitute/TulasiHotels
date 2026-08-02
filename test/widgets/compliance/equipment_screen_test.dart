@@ -3,17 +3,34 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tulasihotels/features/compliance/providers/compliance_provider.dart';
 import 'package:tulasihotels/features/compliance/screens/equipment_screen.dart';
+import 'package:tulasihotels/features/permissions/permission_center.dart';
+import 'package:tulasihotels/features/permissions/providers/route_permission_provider.dart';
 
 import '../../helpers/pump_app.dart';
 import '../../helpers/test_factories_extended.dart';
 
 void main() {
   group('EquipmentScreen', () {
+    List<Override> baseOverrides() => [
+      routePermissionProvider.overrideWith(
+        (ref, route) => const RoutePermissionState(
+          isResolved: true,
+          canView: true,
+          canCreate: true,
+          canUpdate: true,
+          canDelete: true,
+        ),
+      ),
+    ];
+
     testWidgets('shows AppBar title', (tester) async {
       await pumpWidget(
         tester,
         const EquipmentScreen(),
-        overrides: [equipmentProvider.overrideWith((_) => Stream.value([]))],
+        overrides: [
+          ...baseOverrides(),
+          equipmentProvider.overrideWith((_) => Stream.value([])),
+        ],
       );
       expect(find.text('Equipment'), findsOneWidget);
     });
@@ -22,7 +39,10 @@ void main() {
       await pumpWidget(
         tester,
         const EquipmentScreen(),
-        overrides: [equipmentProvider.overrideWith((_) => Stream.value([]))],
+        overrides: [
+          ...baseOverrides(),
+          equipmentProvider.overrideWith((_) => Stream.value([])),
+        ],
       );
       expect(find.byType(FloatingActionButton), findsOneWidget);
       expect(find.text('Add Equipment'), findsOneWidget);
@@ -36,7 +56,10 @@ void main() {
       await pumpWidget(
         tester,
         const EquipmentScreen(),
-        overrides: [equipmentProvider.overrideWith((_) => Stream.value(items))],
+        overrides: [
+          ...baseOverrides(),
+          equipmentProvider.overrideWith((_) => Stream.value(items)),
+        ],
       );
       expect(find.text('Industrial Mixer'), findsOneWidget);
       expect(find.text('Walk-in Cooler'), findsOneWidget);
@@ -53,7 +76,10 @@ void main() {
       await pumpWidget(
         tester,
         const EquipmentScreen(),
-        overrides: [equipmentProvider.overrideWith((_) => Stream.value(items))],
+        overrides: [
+          ...baseOverrides(),
+          equipmentProvider.overrideWith((_) => Stream.value(items)),
+        ],
       );
       expect(find.textContaining('Bakers Pride'), findsOneWidget);
       expect(find.textContaining('SN-12345'), findsOneWidget);
@@ -63,6 +89,7 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
+            ...baseOverrides(),
             equipmentProvider.overrideWith((_) => const Stream.empty()),
           ],
           child: const MaterialApp(home: Scaffold(body: EquipmentScreen())),
@@ -82,7 +109,10 @@ void main() {
       await pumpWidget(
         tester,
         const EquipmentScreen(),
-        overrides: [equipmentProvider.overrideWith((_) => Stream.value(items))],
+        overrides: [
+          ...baseOverrides(),
+          equipmentProvider.overrideWith((_) => Stream.value(items)),
+        ],
       );
       expect(find.textContaining('SERVICE DUE'), findsOneWidget);
     });

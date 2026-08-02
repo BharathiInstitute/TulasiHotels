@@ -3,14 +3,29 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tulasihotels/features/inventory/providers/inventory_provider.dart';
 import 'package:tulasihotels/features/inventory/screens/ingredients_screen.dart';
+import 'package:tulasihotels/features/permissions/permission_center.dart';
+import 'package:tulasihotels/features/permissions/providers/route_permission_provider.dart';
 
 import '../../helpers/pump_app.dart';
 import '../../helpers/test_factories_extended.dart';
 
 void main() {
   group('IngredientsScreen', () {
+    List<Override> baseOverrides() => [
+      routePermissionProvider.overrideWith(
+        (ref, route) => const RoutePermissionState(
+          isResolved: true,
+          canView: true,
+          canCreate: true,
+          canUpdate: true,
+          canDelete: true,
+        ),
+      ),
+    ];
+
     testWidgets('shows AppBar title', (tester) async {
       await pumpWidget(tester, const IngredientsScreen(), overrides: [
+        ...baseOverrides(),
         ingredientsProvider.overrideWith((_) => Stream.value([])),
       ]);
       expect(find.text('Ingredients'), findsOneWidget);
@@ -18,6 +33,7 @@ void main() {
 
     testWidgets('shows FAB for adding ingredient', (tester) async {
       await pumpWidget(tester, const IngredientsScreen(), overrides: [
+        ...baseOverrides(),
         ingredientsProvider.overrideWith((_) => Stream.value([])),
       ]);
       expect(find.byType(FloatingActionButton), findsOneWidget);
@@ -30,6 +46,7 @@ void main() {
         makeIngredient(id: 'ing-2', name: 'Turmeric Powder'),
       ];
       await pumpWidget(tester, const IngredientsScreen(), overrides: [
+        ...baseOverrides(),
         ingredientsProvider.overrideWith((_) => Stream.value(items)),
       ]);
       expect(find.text('Basmati Rice'), findsOneWidget);
@@ -41,6 +58,7 @@ void main() {
         makeIngredient(name: 'Salt', currentStock: 2),
       ];
       await pumpWidget(tester, const IngredientsScreen(), overrides: [
+        ...baseOverrides(),
         ingredientsProvider.overrideWith((_) => Stream.value(items)),
       ]);
       // Low stock item should be visible with some indication
@@ -51,6 +69,7 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
+            ...baseOverrides(),
             ingredientsProvider.overrideWith((_) => const Stream.empty()),
           ],
           child: const MaterialApp(

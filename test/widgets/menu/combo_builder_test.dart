@@ -3,17 +3,34 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tulasihotels/features/menu/providers/combo_provider.dart';
 import 'package:tulasihotels/features/menu/screens/combo_builder_screen.dart';
+import 'package:tulasihotels/features/permissions/permission_center.dart';
+import 'package:tulasihotels/features/permissions/providers/route_permission_provider.dart';
 
 import '../../helpers/pump_app.dart';
 import '../../helpers/test_factories_extended.dart';
 
 void main() {
   group('ComboBuilderScreen', () {
+    List<Override> baseOverrides() => [
+      routePermissionProvider.overrideWith(
+        (ref, route) => const RoutePermissionState(
+          isResolved: true,
+          canView: true,
+          canCreate: true,
+          canUpdate: true,
+          canDelete: true,
+        ),
+      ),
+    ];
+
     testWidgets('shows AppBar title', (tester) async {
       await pumpWidget(
         tester,
         const ComboBuilderScreen(),
-        overrides: [combosStreamProvider.overrideWith((_) => Stream.value([]))],
+        overrides: [
+          ...baseOverrides(),
+          combosStreamProvider.overrideWith((_) => Stream.value([])),
+        ],
       );
       expect(find.text('Combo Meals'), findsOneWidget);
     });
@@ -27,6 +44,7 @@ void main() {
         tester,
         const ComboBuilderScreen(),
         overrides: [
+          ...baseOverrides(),
           combosStreamProvider.overrideWith((_) => Stream.value(combos)),
         ],
       );
@@ -38,7 +56,10 @@ void main() {
       await pumpWidget(
         tester,
         const ComboBuilderScreen(),
-        overrides: [combosStreamProvider.overrideWith((_) => Stream.value([]))],
+        overrides: [
+          ...baseOverrides(),
+          combosStreamProvider.overrideWith((_) => Stream.value([])),
+        ],
       );
       expect(find.byType(FloatingActionButton), findsOneWidget);
     });
@@ -49,6 +70,7 @@ void main() {
         tester,
         const ComboBuilderScreen(),
         overrides: [
+          ...baseOverrides(),
           combosStreamProvider.overrideWith((_) => Stream.value(combos)),
         ],
       );
@@ -59,6 +81,7 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
+            ...baseOverrides(),
             combosStreamProvider.overrideWith((_) => const Stream.empty()),
           ],
           child: const MaterialApp(home: Scaffold(body: ComboBuilderScreen())),

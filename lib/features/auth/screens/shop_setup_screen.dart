@@ -300,24 +300,25 @@ class _ShopSetupScreenState extends ConsumerState<ShopSetupScreen> {
       final verified = (data?['phoneVerified'] as bool?) ?? false;
 
       if (!mounted) return;
+      final messenger = ScaffoldMessenger.of(context);
       if (verified) {
         setState(() => _phoneVerified = true);
-        await _logWindowsPhoneHandoffEvent('verification_synced');
-        ScaffoldMessenger.of(context).showSnackBar(
+        messenger.showSnackBar(
           const SnackBar(
             content: Text('Phone verification synced successfully.'),
             backgroundColor: Colors.green,
           ),
         );
+        await _logWindowsPhoneHandoffEvent('verification_synced');
       } else {
-        await _logWindowsPhoneHandoffEvent('verification_pending');
-        ScaffoldMessenger.of(context).showSnackBar(
+        messenger.showSnackBar(
           const SnackBar(
             content: Text(
               'Phone is not verified yet. Complete OTP in browser and retry.',
             ),
           ),
         );
+        await _logWindowsPhoneHandoffEvent('verification_pending');
       }
     } finally {
       if (mounted) {

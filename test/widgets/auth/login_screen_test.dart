@@ -38,7 +38,7 @@ void main() {
 
     testWidgets('shows sign in subtitle', (tester) async {
       await pumpLogin(tester);
-      expect(find.text('Sign in to manage your hotel'), findsOneWidget);
+      expect(find.text('Sign in to manage your restaurant'), findsOneWidget);
     });
 
     testWidgets('shows email reference', (tester) async {

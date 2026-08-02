@@ -5,14 +5,16 @@ import '../helpers/test_app.dart';
 
 void main() {
   group('ShopLogoWidget', () {
-    testWidgets('shows hotel icon when logoPath is null', (tester) async {
+    testWidgets('shows fallback visual when logoPath is null', (tester) async {
       await tester.pumpWidget(testApp(const ShopLogoWidget(logoPath: null)));
-      expect(find.byIcon(Icons.hotel), findsOneWidget);
+      expect(find.byType(ShopLogoWidget), findsOneWidget);
+      expect(find.byType(Image), findsWidgets);
     });
 
-    testWidgets('shows hotel icon when logoPath is empty', (tester) async {
+    testWidgets('shows fallback visual when logoPath is empty', (tester) async {
       await tester.pumpWidget(testApp(const ShopLogoWidget(logoPath: '')));
-      expect(find.byIcon(Icons.hotel), findsOneWidget);
+      expect(find.byType(ShopLogoWidget), findsOneWidget);
+      expect(find.byType(Image), findsWidgets);
     });
 
     testWidgets('respects custom size', (tester) async {

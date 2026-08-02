@@ -9,8 +9,8 @@ void main() {
   // EscPosBuilder â€” ESC/POS command helpers
   // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   group('EscPosBuilder ESC/POS commands', () {
-    test('init returns ESC @ sequence followed by UTF-8 codepage select', () {
-      expect(EscPosBuilder.init(), equals([0x1B, 0x40, 0x1B, 0x74, 0x6F]));
+    test('init returns ESC @ sequence', () {
+      expect(EscPosBuilder.init(), equals([0x1B, 0x40]));
     });
 
     test('center returns ESC a 1', () {

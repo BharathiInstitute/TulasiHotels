@@ -3,14 +3,29 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tulasihotels/features/compliance/providers/compliance_provider.dart';
 import 'package:tulasihotels/features/compliance/screens/events_screen.dart';
+import 'package:tulasihotels/features/permissions/permission_center.dart';
+import 'package:tulasihotels/features/permissions/providers/route_permission_provider.dart';
 
 import '../../helpers/pump_app.dart';
 import '../../helpers/test_factories_extended.dart';
 
 void main() {
   group('EventsScreen', () {
+    List<Override> baseOverrides() => [
+      routePermissionProvider.overrideWith(
+        (ref, route) => const RoutePermissionState(
+          isResolved: true,
+          canView: true,
+          canCreate: true,
+          canUpdate: true,
+          canDelete: true,
+        ),
+      ),
+    ];
+
     testWidgets('shows AppBar title', (tester) async {
       await pumpWidget(tester, const EventsScreen(), overrides: [
+        ...baseOverrides(),
         allEventsProvider.overrideWith((_) => Stream.value([])),
         upcomingEventsProvider.overrideWith((_) => Stream.value([])),
       ]);
@@ -19,6 +34,7 @@ void main() {
 
     testWidgets('shows FAB for new event', (tester) async {
       await pumpWidget(tester, const EventsScreen(), overrides: [
+        ...baseOverrides(),
         allEventsProvider.overrideWith((_) => Stream.value([])),
         upcomingEventsProvider.overrideWith((_) => Stream.value([])),
       ]);
@@ -32,6 +48,7 @@ void main() {
         makeEvent(id: 'ev2', eventName: 'Birthday Party'),
       ];
       await pumpWidget(tester, const EventsScreen(), overrides: [
+        ...baseOverrides(),
         allEventsProvider.overrideWith((_) => Stream.value(events)),
         upcomingEventsProvider.overrideWith((_) => Stream.value(events)),
       ]);
@@ -48,6 +65,7 @@ void main() {
         ),
       ];
       await pumpWidget(tester, const EventsScreen(), overrides: [
+        ...baseOverrides(),
         allEventsProvider.overrideWith((_) => Stream.value(events)),
         upcomingEventsProvider.overrideWith((_) => Stream.value(events)),
       ]);
@@ -58,6 +76,7 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
+            ...baseOverrides(),
             allEventsProvider.overrideWith((_) => const Stream.empty()),
             upcomingEventsProvider.overrideWith((_) => const Stream.empty()),
           ],
@@ -71,6 +90,7 @@ void main() {
     testWidgets('filter chip switches upcoming/all', (tester) async {
       final events = [makeEvent(eventName: 'Gala')];
       await pumpWidget(tester, const EventsScreen(), overrides: [
+        ...baseOverrides(),
         allEventsProvider.overrideWith((_) => Stream.value(events)),
         upcomingEventsProvider.overrideWith((_) => Stream.value(events)),
       ]);

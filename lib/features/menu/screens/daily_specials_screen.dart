@@ -7,7 +7,6 @@ import 'package:tulasihotels/features/permissions/permission_center.dart';
 import 'package:tulasihotels/features/permissions/providers/route_permission_provider.dart';
 import 'package:tulasihotels/features/permissions/widgets/permission_denied_view.dart';
 import 'package:tulasihotels/features/products/providers/products_provider.dart';
-import 'package:tulasihotels/features/staff/models/permission_config.dart';
 import 'package:tulasihotels/models/product_model.dart';
 import 'package:tulasihotels/router/app_router.dart';
 

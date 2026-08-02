@@ -1,4 +1,4 @@
-﻿/// Product detail screen
+/// Product detail screen
 library;
 
 import 'package:flutter/material.dart';
@@ -11,7 +11,6 @@ import 'package:tulasihotels/features/permissions/providers/route_permission_pro
 import 'package:tulasihotels/features/permissions/widgets/permission_denied_view.dart';
 import 'package:tulasihotels/features/products/providers/products_provider.dart';
 import 'package:tulasihotels/features/products/widgets/add_product_modal.dart';
-import 'package:tulasihotels/features/staff/models/permission_config.dart';
 import 'package:tulasihotels/models/product_model.dart';
 import 'package:tulasihotels/router/app_router.dart';
 import 'package:tulasihotels/shared/widgets/loading_states.dart';

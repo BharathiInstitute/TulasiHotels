@@ -23,7 +23,13 @@ StaffModel _staff() {
 }
 
 RoutePermissionState _fullAccess(String route) {
-  return const RoutePermissionState.fullAccess();
+  return const RoutePermissionState(
+    isResolved: true,
+    canView: true,
+    canCreate: true,
+    canUpdate: true,
+    canDelete: true,
+  );
 }
 
 Finder _panelRow(String label) {

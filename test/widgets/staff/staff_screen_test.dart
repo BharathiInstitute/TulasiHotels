@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:tulasihotels/features/admin/models/store_member.dart';
 import 'package:tulasihotels/features/admin/providers/members_provider.dart';
 import 'package:tulasihotels/features/hotels/providers/hotel_provider.dart';
+import 'package:tulasihotels/features/permissions/permission_center.dart';
 import 'package:tulasihotels/features/permissions/providers/route_permission_provider.dart';
 import 'package:tulasihotels/features/staff/providers/staff_provider.dart';
 import 'package:tulasihotels/features/staff/screens/staff_screen.dart';
@@ -19,7 +20,13 @@ void main() {
         (ref) => Stream.value(const <StoreMember>[]),
       ),
       routePermissionProvider.overrideWith(
-        (ref, route) => const RoutePermissionState.fullAccess(),
+        (ref, route) => const RoutePermissionState(
+          isResolved: true,
+          canView: true,
+          canCreate: true,
+          canUpdate: true,
+          canDelete: true,
+        ),
       ),
     ];
 

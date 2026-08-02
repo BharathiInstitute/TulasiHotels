@@ -252,7 +252,13 @@ String _getRestoredInitialLocation() {
   if (saved != null && saved.isNotEmpty && saved.startsWith('/')) {
     // Volatile detail routes are NOT restored on launch - the item
     // may be deleted or belong to a different session.
-    const volatilePrefixes = ['/product/', '/orders/', '/bills/', '/customers/', '/staff/'];
+    const volatilePrefixes = [
+      '/product/',
+      '/orders/',
+      '/bills/',
+      '/customers/',
+      '/staff/',
+    ];
     final isVolatile = volatilePrefixes.any((p) => saved.startsWith(p));
     if (!isVolatile) {
       debugPrint('Restoring route: $saved');
@@ -501,13 +507,11 @@ final routerProvider = Provider<GoRouter>((ref) {
             route: currentPath,
             isOwner: false,
             staff: loggedInStaff,
-            member: null,
           );
           if (!canView) {
             return PermissionCenter.homeRoute(
               isOwner: false,
               staff: loggedInStaff,
-              member: null,
             );
           }
         }
@@ -520,7 +524,8 @@ final routerProvider = Provider<GoRouter>((ref) {
         final member = memberAsync.valueOrNull;
         final hotelId = ref.read(currentHotelIdProvider);
         final currentHotel = ref.read(currentHotelProvider);
-        final isOwner = currentHotel?.isOwner == true ||
+        final isOwner =
+            currentHotel?.isOwner == true ||
             (hotelId != null && hotelId == authState.firebaseUser?.uid);
 
         if (!isOwner) {
@@ -530,14 +535,9 @@ final routerProvider = Provider<GoRouter>((ref) {
                 !PermissionCenter.canView(
                   route: currentPath,
                   isOwner: false,
-                  staff: null,
                   member: member,
                 )) {
-              return PermissionCenter.homeRoute(
-                isOwner: false,
-                staff: null,
-                member: member,
-              );
+              return PermissionCenter.homeRoute(isOwner: false, member: member);
             }
           } else if (!memberAsync.isLoading) {
             // Member doc not found and not loading — block access

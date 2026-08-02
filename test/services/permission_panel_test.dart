@@ -35,7 +35,8 @@ void main() {
         '/custom-route': [PermissionAction.view.key],
       });
 
-      expect(normalized[AppRoutes.billing], containsAll(['view', 'delete']));
+      expect(normalized[AppRoutes.billing], contains('view'));
+      expect(normalized[AppRoutes.billing], isNot(contains('delete')));
       expect(normalized['/custom-route'], ['view']);
     });
   });

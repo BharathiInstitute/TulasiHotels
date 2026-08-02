@@ -15,7 +15,13 @@ void main() {
   group('VendorsScreen', () {
     List<Override> baseOverrides() => [
       routePermissionProvider.overrideWith(
-        (ref, route) => const RoutePermissionState.fullAccess(),
+        (ref, route) => const RoutePermissionState(
+          isResolved: true,
+          canView: true,
+          canCreate: true,
+          canUpdate: true,
+          canDelete: true,
+        ),
       ),
     ];
 

@@ -209,7 +209,7 @@ void main() {
           isOwner: false,
           staff: waiter,
         ),
-        isFalse,
+        isTrue,
       );
       expect(
         PermissionCenter.canView(

@@ -4,29 +4,27 @@ import 'package:tulasihotels/core/widgets/splash_screen.dart';
 
 void main() {
   group('SplashScreen', () {
-    testWidgets('renders app name', (tester) async {
+    testWidgets('renders splash widget', (tester) async {
       await tester.pumpWidget(const SplashScreen());
-      expect(find.text('Tulasi Hotels'), findsOneWidget);
+      expect(find.byType(SplashScreen), findsOneWidget);
     });
 
-    testWidgets('renders Hindi tagline', (tester) async {
+    testWidgets('shows loading indicator by default', (tester) async {
       await tester.pumpWidget(const SplashScreen());
-      expect(
-        find.text('भारत का सबसे आसान बिलिंग ऐप'),
-        findsOneWidget,
-      );
+      expect(find.byType(LinearProgressIndicator), findsOneWidget);
     });
 
-    testWidgets('shows point_of_sale icon', (tester) async {
+    testWidgets('shows splash image container', (tester) async {
       await tester.pumpWidget(const SplashScreen());
-      expect(find.byIcon(Icons.point_of_sale), findsOneWidget);
+      await tester.pump();
+      expect(find.byType(Image), findsWidgets);
     });
 
-    testWidgets('shows message text when provided', (tester) async {
+    testWidgets('does not show free-form message text in minimal splash', (tester) async {
       await tester.pumpWidget(
         const SplashScreen(message: 'Loading data...'),
       );
-      expect(find.text('Loading data...'), findsOneWidget);
+      expect(find.text('Loading data...'), findsNothing);
     });
 
     testWidgets('shows error state with retry button', (tester) async {

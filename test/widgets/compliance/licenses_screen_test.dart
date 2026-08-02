@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tulasihotels/features/compliance/providers/compliance_provider.dart';
 import 'package:tulasihotels/features/compliance/screens/licenses_screen.dart';
+import 'package:tulasihotels/features/permissions/permission_center.dart';
+import 'package:tulasihotels/features/permissions/providers/route_permission_provider.dart';
 import 'package:tulasihotels/models/license_model.dart';
 
 import '../../helpers/pump_app.dart';
@@ -10,8 +12,21 @@ import '../../helpers/test_factories_extended.dart';
 
 void main() {
   group('LicensesScreen', () {
+    List<Override> baseOverrides() => [
+      routePermissionProvider.overrideWith(
+        (ref, route) => const RoutePermissionState(
+          isResolved: true,
+          canView: true,
+          canCreate: true,
+          canUpdate: true,
+          canDelete: true,
+        ),
+      ),
+    ];
+
     testWidgets('shows AppBar title', (tester) async {
       await pumpWidget(tester, const LicensesScreen(), overrides: [
+        ...baseOverrides(),
         licensesProvider.overrideWith((_) => Stream.value([])),
       ]);
       expect(find.text('Licenses & Permits'), findsOneWidget);
@@ -19,6 +34,7 @@ void main() {
 
     testWidgets('shows FAB for adding license', (tester) async {
       await pumpWidget(tester, const LicensesScreen(), overrides: [
+        ...baseOverrides(),
         licensesProvider.overrideWith((_) => Stream.value([])),
       ]);
       expect(find.byType(FloatingActionButton), findsOneWidget);
@@ -32,6 +48,7 @@ void main() {
         ),
       ];
       await pumpWidget(tester, const LicensesScreen(), overrides: [
+        ...baseOverrides(),
         licensesProvider.overrideWith((_) => Stream.value(licenses)),
       ]);
       expect(find.textContaining('FSSAI-9876'), findsOneWidget);
@@ -45,6 +62,7 @@ void main() {
         ),
       ];
       await pumpWidget(tester, const LicensesScreen(), overrides: [
+        ...baseOverrides(),
         licensesProvider.overrideWith((_) => Stream.value(licenses)),
       ]);
       // Should show "Expired" or red urgency chip
@@ -59,6 +77,7 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
+            ...baseOverrides(),
             licensesProvider.overrideWith((_) => const Stream.empty()),
           ],
           child: const MaterialApp(home: Scaffold(body: LicensesScreen())),
@@ -78,6 +97,7 @@ void main() {
         ),
       ];
       await pumpWidget(tester, const LicensesScreen(), overrides: [
+        ...baseOverrides(),
         licensesProvider.overrideWith((_) => Stream.value(licenses)),
       ]);
       expect(find.textContaining('LIC-001'), findsOneWidget);

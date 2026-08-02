@@ -1,11 +1,10 @@
-﻿/// Reservation management service
+/// Reservation management service
 library;
 
 import 'package:tulasihotels/core/services/active_store_manager.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:tulasihotels/features/permissions/permission_center.dart';
-import 'package:tulasihotels/features/permissions/providers/route_permission_provider.dart';
 import 'package:tulasihotels/features/staff/models/permission_config.dart';
 import 'package:tulasihotels/router/app_router.dart';
 import 'package:tulasihotels/models/reservation_model.dart';

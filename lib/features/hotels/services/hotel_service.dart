@@ -27,19 +27,97 @@ class HotelService {
 
   /// Stream all hotels the current user has access to
   static Stream<List<HotelInfo>> hotelsStream() {
-    return _hotelsRef
-        .orderBy('createdAt')
-        .snapshots()
-        .map(
-          (snapshot) =>
-              snapshot.docs.map((doc) => HotelInfo.fromFirestore(doc)).toList(),
-        );
+    final userId = _userId;
+    if (userId == null) return Stream.value(const <HotelInfo>[]);
+
+    return _hotelsRef.orderBy('createdAt').snapshots().asyncMap((
+      snapshot,
+    ) async {
+      final hotels = snapshot.docs
+          .map((doc) => HotelInfo.fromFirestore(doc))
+          .toList();
+      return _hydrateHotelsWithLiveMembership(hotels, userId);
+    });
   }
 
   /// Get all hotels (one-shot)
   static Future<List<HotelInfo>> getHotels() async {
+    final userId = _userId;
+    if (userId == null) return const <HotelInfo>[];
+
     final snapshot = await _hotelsRef.orderBy('createdAt').get();
-    return snapshot.docs.map((doc) => HotelInfo.fromFirestore(doc)).toList();
+    final hotels = snapshot.docs
+        .map((doc) => HotelInfo.fromFirestore(doc))
+        .toList();
+    return _hydrateHotelsWithLiveMembership(hotels, userId);
+  }
+
+  /// user_hotels is a lightweight mapping and can become stale when owner
+  /// renames a restaurant or changes a member role. Read live docs so selector
+  /// always shows current restaurant name and role label.
+  static Future<List<HotelInfo>> _hydrateHotelsWithLiveMembership(
+    List<HotelInfo> hotels,
+    String userId,
+  ) async {
+    return Future.wait(
+      hotels.map((hotel) async {
+        var name = hotel.name;
+        var role = hotel.role;
+        var customRoleName = hotel.customRoleName;
+
+        // Keep displayed hotel name synced with users/{hotelId}.shopName.
+        try {
+          final storeDoc = await _firestore
+              .collection('users')
+              .doc(hotel.id)
+              .get();
+          final liveName = (storeDoc.data()?['shopName'] as String?)?.trim();
+          if (liveName != null && liveName.isNotEmpty) {
+            name = liveName;
+          }
+        } catch (_) {
+          // Ignore read failures and fall back to cached mapping value.
+        }
+
+        // For non-owner entries, prefer live role from members/{uid}.
+        if (!hotel.isOwner) {
+          try {
+            final memberDoc = await _firestore
+                .collection('users/${hotel.id}/members')
+                .doc(userId)
+                .get();
+            final data = memberDoc.data();
+            final liveRole = (data?['role'] as String?)?.trim();
+            if (liveRole != null && liveRole.isNotEmpty) {
+              role = liveRole;
+            }
+
+            final liveCustomRole = (data?['customRoleName'] as String?)?.trim();
+            customRoleName = (liveCustomRole == null || liveCustomRole.isEmpty)
+                ? null
+                : liveCustomRole;
+          } catch (_) {
+            // Ignore read failures and fall back to cached mapping value.
+          }
+        }
+
+        if (name == hotel.name &&
+            role == hotel.role &&
+            customRoleName == hotel.customRoleName) {
+          return hotel;
+        }
+
+        return HotelInfo(
+          id: hotel.id,
+          name: name,
+          slug: hotel.slug,
+          role: role,
+          customRoleName: customRoleName,
+          status: hotel.status,
+          createdAt: hotel.createdAt,
+        );
+      }),
+    );
   }
 
   /// Check if user has any hotels registered
@@ -232,14 +310,34 @@ class HotelService {
       final sub = data['subscription'] as Map<String, dynamic>? ?? {};
       final limits = data['limits'] as Map<String, dynamic>? ?? {};
       final plan = (sub['plan'] as String?) ?? 'free';
-      final tablesDefault =
-          plan == 'business' ? 999999 : plan == 'pro' ? 50 : plan == 'starter' ? 15 : 5;
-      final staffDefault =
-          plan == 'business' ? 999999 : plan == 'pro' ? 10 : plan == 'starter' ? 3 : 0;
-      final productsDefault =
-          plan == 'business' ? 999999 : plan == 'pro' ? 999999 : plan == 'starter' ? 200 : 50;
-      final customersDefault =
-          plan == 'business' ? 999999 : plan == 'pro' ? 999999 : plan == 'starter' ? 100 : 10;
+      final tablesDefault = plan == 'business'
+          ? 999999
+          : plan == 'pro'
+          ? 50
+          : plan == 'starter'
+          ? 15
+          : 5;
+      final staffDefault = plan == 'business'
+          ? 999999
+          : plan == 'pro'
+          ? 10
+          : plan == 'starter'
+          ? 3
+          : 0;
+      final productsDefault = plan == 'business'
+          ? 999999
+          : plan == 'pro'
+          ? 999999
+          : plan == 'starter'
+          ? 200
+          : 50;
+      final customersDefault = plan == 'business'
+          ? 999999
+          : plan == 'pro'
+          ? 999999
+          : plan == 'starter'
+          ? 100
+          : 10;
 
       final updates = <String, dynamic>{};
       if ((limits['tablesLimit'] as int? ?? 0) < tablesDefault) {

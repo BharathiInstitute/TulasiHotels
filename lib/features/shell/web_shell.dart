@@ -527,8 +527,6 @@ class _WebSidebar extends ConsumerWidget {
                       onTap: () {
                         launchUrl(
                           Uri.parse(websiteUrl),
-                          mode: LaunchMode.platformDefault,
-                          webOnlyWindowName: '_blank',
                         );
                       },
                     ),

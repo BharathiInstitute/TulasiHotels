@@ -11,7 +11,7 @@ import 'package:tulasihotels/core/design/app_theme.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
-  GoogleFonts.config.allowRuntimeFetching = false;
+  GoogleFonts.config.allowRuntimeFetching = true;
 
   // Pre-build themes inside a guarded zone so async google_fonts
   // font-loading errors are suppressed (fonts fall back to platform default).

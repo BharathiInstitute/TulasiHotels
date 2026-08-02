@@ -134,7 +134,6 @@ class MemberService {
       status: isNewAccount ? MemberStatus.active : MemberStatus.invited,
       permissions: initialPermissions,
       customPermissions: initialPermissions,
-      permissionMode: PermissionMode.customOnly,
       joinedAt: DateTime.now(),
       invitedBy: ownerId,
     );
@@ -212,8 +211,8 @@ class MemberService {
         : PermissionPanels.normalizeToPanelPermissions(permissions);
     await _membersRef.doc(uid).update({
       'role': role.name,
-      if (normalized != null) 'permissions': normalized,
-      if (normalized != null) 'customPermissions': normalized,
+      'permissions': ?normalized,
+      'customPermissions': ?normalized,
       if (normalized != null) 'permissionMode': PermissionMode.customOnly.key,
     });
   }

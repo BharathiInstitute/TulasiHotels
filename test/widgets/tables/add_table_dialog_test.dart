@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:tulasihotels/features/permissions/permission_center.dart';
 import 'package:tulasihotels/features/permissions/providers/route_permission_provider.dart';
 import 'package:tulasihotels/features/tables/widgets/add_table_dialog.dart';
 
@@ -11,7 +12,13 @@ void main() {
   group('AddTableDialog', () {
     List<Override> overrides() => [
       routePermissionProvider.overrideWith(
-        (ref, route) => const RoutePermissionState.fullAccess(),
+        (ref, route) => const RoutePermissionState(
+          isResolved: true,
+          canView: true,
+          canCreate: true,
+          canUpdate: true,
+          canDelete: true,
+        ),
       ),
     ];
 

@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tulasihotels/features/compliance/providers/compliance_provider.dart';
 import 'package:tulasihotels/features/compliance/screens/complaints_screen.dart';
+import 'package:tulasihotels/features/permissions/permission_center.dart';
+import 'package:tulasihotels/features/permissions/providers/route_permission_provider.dart';
 import 'package:tulasihotels/models/complaint_model.dart';
 
 import '../../helpers/pump_app.dart';
@@ -10,8 +12,21 @@ import '../../helpers/test_factories_extended.dart';
 
 void main() {
   group('ComplaintsScreen', () {
+    List<Override> baseOverrides() => [
+      routePermissionProvider.overrideWith(
+        (ref, route) => const RoutePermissionState(
+          isResolved: true,
+          canView: true,
+          canCreate: true,
+          canUpdate: true,
+          canDelete: true,
+        ),
+      ),
+    ];
+
     testWidgets('shows AppBar title', (tester) async {
       await pumpWidget(tester, const ComplaintsScreen(), overrides: [
+        ...baseOverrides(),
         allComplaintsProvider.overrideWith((_) => Stream.value([])),
         activeComplaintsProvider.overrideWith((_) => Stream.value([])),
       ]);
@@ -20,6 +35,7 @@ void main() {
 
     testWidgets('shows empty state when no complaints', (tester) async {
       await pumpWidget(tester, const ComplaintsScreen(), overrides: [
+        ...baseOverrides(),
         allComplaintsProvider.overrideWith((_) => Stream.value([])),
         activeComplaintsProvider.overrideWith((_) => Stream.value([])),
       ]);
@@ -33,6 +49,7 @@ void main() {
         makeComplaint(id: 'c2', description: 'Late delivery'),
       ];
       await pumpWidget(tester, const ComplaintsScreen(), overrides: [
+        ...baseOverrides(),
         allComplaintsProvider.overrideWith((_) => Stream.value(complaints)),
         activeComplaintsProvider.overrideWith((_) => Stream.value(complaints)),
       ]);
@@ -42,6 +59,7 @@ void main() {
 
     testWidgets('shows FAB for new complaint', (tester) async {
       await pumpWidget(tester, const ComplaintsScreen(), overrides: [
+        ...baseOverrides(),
         allComplaintsProvider.overrideWith((_) => Stream.value([])),
         activeComplaintsProvider.overrideWith((_) => Stream.value([])),
       ]);
@@ -54,6 +72,7 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
+            ...baseOverrides(),
             allComplaintsProvider.overrideWith((_) => const Stream.empty()),
             activeComplaintsProvider.overrideWith((_) => const Stream.empty()),
           ],
@@ -76,6 +95,7 @@ void main() {
         ),
       ];
       await pumpWidget(tester, const ComplaintsScreen(), overrides: [
+        ...baseOverrides(),
         allComplaintsProvider.overrideWith((_) => Stream.value(complaints)),
         activeComplaintsProvider.overrideWith(
           (_) => Stream.value([complaints.first]),

@@ -12,7 +12,13 @@ final routePermissionProvider =
     Provider.family<RoutePermissionState, String>((ref, route) {
       final staff = ref.watch(loggedInStaffProvider);
 
-      final authUser = FirebaseAuth.instance.currentUser;
+      final authUser = () {
+        try {
+          return FirebaseAuth.instance.currentUser;
+        } catch (_) {
+          return null;
+        }
+      }();
       final storeId = ref.watch(currentHotelIdProvider);
 
       if (authUser == null || storeId == null) {
@@ -21,7 +27,6 @@ final routePermissionProvider =
           contextResolved: false,
           isOwner: false,
           staff: staff,
-          member: null,
         );
       }
 
@@ -36,7 +41,6 @@ final routePermissionProvider =
           contextResolved: false,
           isOwner: isOwner,
           staff: staff,
-          member: null,
         );
       }
 

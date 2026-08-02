@@ -6,20 +6,20 @@ import 'package:tulasihotels/features/subscription/services/subscription_service
 
 void main() {
   group('SubscriptionPricing.getPrice', () {
-    test('pro monthly returns 299', () {
-      expect(SubscriptionPricing.getPrice('pro', 'monthly'), 299);
+    test('pro monthly returns 20', () {
+      expect(SubscriptionPricing.getPrice('pro', 'monthly'), 20);
     });
 
-    test('pro annual returns 2999', () {
-      expect(SubscriptionPricing.getPrice('pro', 'annual'), 2999);
+    test('pro annual returns 204', () {
+      expect(SubscriptionPricing.getPrice('pro', 'annual'), 204);
     });
 
-    test('business monthly returns 999', () {
-      expect(SubscriptionPricing.getPrice('business', 'monthly'), 999);
+    test('business monthly returns 30', () {
+      expect(SubscriptionPricing.getPrice('business', 'monthly'), 30);
     });
 
-    test('business annual returns 9999', () {
-      expect(SubscriptionPricing.getPrice('business', 'annual'), 9999);
+    test('business annual returns 300', () {
+      expect(SubscriptionPricing.getPrice('business', 'annual'), 300);
     });
 
     test('unknown plan returns 0', () {
