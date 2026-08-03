@@ -71,33 +71,6 @@ class _HotelSelectorScreenState extends ConsumerState<HotelSelectorScreen> {
         ) ??
         false;
 
-    final deleteHotelButton = isOwner
-        ? (hotelsAsync.whenOrNull(
-                data: (hotels) {
-                  final ownedHotels = hotels.where((h) => h.isOwner).toList();
-                  if (ownedHotels.length < 2) {
-                    return const SizedBox.shrink();
-                  }
-                  return OutlinedButton.icon(
-                    icon: Icon(
-                      Icons.delete_outline,
-                      size: 18,
-                      color: theme.colorScheme.error,
-                    ),
-                    label: Text(
-                      'Delete Restaurant',
-                      style: TextStyle(color: theme.colorScheme.error),
-                    ),
-                    style: OutlinedButton.styleFrom(
-                      side: BorderSide(color: theme.colorScheme.error),
-                    ),
-                    onPressed: () => _showDeleteHotelDialog(context, ownedHotels),
-                  );
-                },
-              ) ??
-              const SizedBox.shrink())
-        : const SizedBox.shrink();
-
     return Scaffold(
       body: SafeArea(
         child: Column(
@@ -165,7 +138,6 @@ class _HotelSelectorScreenState extends ConsumerState<HotelSelectorScreen> {
                           label: const Text('Create Restaurant'),
                           onPressed: () => _showCreateHotelDialog(context),
                         ),
-                      if (isOwner) deleteHotelButton,
                       OutlinedButton.icon(
                         icon: const Icon(Icons.logout, size: 18),
                         label: const Text('Logout'),
@@ -273,98 +245,6 @@ class _HotelSelectorScreenState extends ConsumerState<HotelSelectorScreen> {
         ),
       ),
     );
-  }
-
-  Future<void> _showDeleteHotelDialog(
-      BuildContext context, List<HotelInfo> hotels) async {
-    HotelInfo? selected = hotels.first;
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialogState) => AlertDialog(
-          title: const Text('Delete Restaurant'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('Select the restaurant to permanently delete:'),
-              const SizedBox(height: 12),
-              DropdownButtonFormField<HotelInfo>(
-                initialValue: selected,
-                decoration: const InputDecoration(
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.hotel_outlined),
-                  contentPadding:
-                      EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                ),
-                items: hotels
-                    .map(
-                      (h) => DropdownMenuItem(
-                        value: h,
-                        child: Text(h.name),
-                      ),
-                    )
-                    .toList(),
-                onChanged: (h) => setDialogState(() => selected = h),
-              ),
-              const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: Colors.red.shade50,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.red.shade200),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.warning_amber_rounded,
-                        color: Colors.red.shade700, size: 18),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'This cannot be undone. All data for this hotel will be permanently removed.',
-                        style: TextStyle(
-                            color: Colors.red.shade700, fontSize: 12),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              style: FilledButton.styleFrom(
-                  backgroundColor: Colors.red.shade600),
-              onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('Delete'),
-            ),
-          ],
-        ),
-      ),
-    );
-
-    if (confirmed == true && selected != null && context.mounted) {
-      final hotelName = selected!.name;
-      try {
-        await HotelService.deleteHotel(selected!.id);
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('"$hotelName" deleted')),
-          );
-        }
-      } catch (e) {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error: $e')),
-          );
-        }
-      }
-    }
   }
 
   Future<void> _showCreateHotelDialog(BuildContext context) async {

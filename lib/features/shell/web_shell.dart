@@ -183,7 +183,8 @@ class _WebSidebar extends ConsumerWidget {
     final authUid = ref.watch(authUidProvider).valueOrNull;
     final staff = ref.watch(loggedInStaffProvider);
     final member = ref.watch(currentMemberProvider).valueOrNull;
-    final isOwner = currentHotel?.isOwner == true ||
+    final isOwner =
+        currentHotel?.isOwner == true ||
         (hotelId != null && hotelId == authUid);
 
     final roleLabel = staff != null
@@ -202,10 +203,15 @@ class _WebSidebar extends ConsumerWidget {
     );
     final ownerPlanLabel = ref.watch(planConfigProvider).name;
     final planLabel = selectedPlanLabel == 'Free' && ownerPlanLabel != 'Free'
-      ? ownerPlanLabel
-      : selectedPlanLabel;
+        ? ownerPlanLabel
+        : selectedPlanLabel;
 
     final navItems = _resolvedNavItems();
+    final displayShopName = (currentHotel?.name ?? '').trim().isNotEmpty
+        ? currentHotel!.name
+        : ((user?.shopName ?? '').trim().isNotEmpty
+              ? user!.shopName
+              : AppConstants.defaultShopName);
     // Identify if we are in settings (since it might be outside standard index)
     final isSettings = currentPath.startsWith(AppRoutes.settings);
     final userToggle = ref.watch(sidebarCollapsedProvider);
@@ -221,35 +227,43 @@ class _WebSidebar extends ConsumerWidget {
       child: Column(
         children: [
           // Logo Area — tap to go back to hotel selector
-          GestureDetector(
-            onTap: () => context.go(AppRoutes.hotelSelector),
-            child: MouseRegion(
-              cursor: SystemMouseCursors.click,
-              child: Container(
-                height: 70,
-                padding: EdgeInsets.symmetric(horizontal: isCollapsed ? 0 : 24),
-                alignment: isCollapsed
-                    ? Alignment.center
-                    : Alignment.centerLeft,
-                child: isCollapsed
-                    ? ShopLogoWidget(logoPath: user?.shopLogoPath)
-                    : Row(
-                        children: [
-                          ShopLogoWidget(logoPath: user?.shopLogoPath),
-                          const SizedBox(width: 12),
-                          Flexible(
-                            child: Text(
-                              user?.shopName ?? AppConstants.defaultShopName,
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                color: Theme.of(context).colorScheme.onSurface,
+          Tooltip(
+            message: 'Go to My Restaurants',
+            waitDuration: const Duration(milliseconds: 500),
+            child: GestureDetector(
+              onTap: () => context.go(AppRoutes.hotelSelector),
+              child: MouseRegion(
+                cursor: SystemMouseCursors.click,
+                child: Container(
+                  height: 70,
+                  padding: EdgeInsets.symmetric(
+                    horizontal: isCollapsed ? 0 : 24,
+                  ),
+                  alignment: isCollapsed
+                      ? Alignment.center
+                      : Alignment.centerLeft,
+                  child: isCollapsed
+                      ? ShopLogoWidget(logoPath: user?.shopLogoPath)
+                      : Row(
+                          children: [
+                            ShopLogoWidget(logoPath: user?.shopLogoPath),
+                            const SizedBox(width: 12),
+                            Flexible(
+                              child: Text(
+                                displayShopName,
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurface,
+                                ),
+                                overflow: TextOverflow.ellipsis,
                               ),
-                              overflow: TextOverflow.ellipsis,
                             ),
-                          ),
-                        ],
-                      ),
+                          ],
+                        ),
+                ),
               ),
             ),
           ),
@@ -288,8 +302,9 @@ class _WebSidebar extends ConsumerWidget {
                             .read(authNotifierProvider)
                             .firebaseUser
                             ?.uid;
-                        final isOwner = currentHotel?.isOwner == true ||
-                          (hotelId != null && hotelId == uid);
+                        final isOwner =
+                            currentHotel?.isOwner == true ||
+                            (hotelId != null && hotelId == uid);
                         Widget? routeItem(
                           IconData icon,
                           String label,
@@ -441,8 +456,9 @@ class _WebSidebar extends ConsumerWidget {
                           child: Material(
                             color: Colors.transparent,
                             child: InkWell(
-                              onTap: () =>
-                                  GoRouter.of(context).go(AppRoutes.notifications),
+                              onTap: () => GoRouter.of(
+                                context,
+                              ).go(AppRoutes.notifications),
                               borderRadius: BorderRadius.circular(8),
                               child: Container(
                                 padding: const EdgeInsets.symmetric(
@@ -451,7 +467,9 @@ class _WebSidebar extends ConsumerWidget {
                                 ),
                                 decoration: BoxDecoration(
                                   color: isNotificationsRoute
-                                      ? AppColors.primary.withValues(alpha: 0.12)
+                                      ? AppColors.primary.withValues(
+                                          alpha: 0.12,
+                                        )
                                       : Colors.transparent,
                                   borderRadius: BorderRadius.circular(8),
                                 ),
@@ -481,9 +499,9 @@ class _WebSidebar extends ConsumerWidget {
                                               : FontWeight.w500,
                                           color: isNotificationsRoute
                                               ? AppColors.primary
-                                              : Theme.of(context)
-                                                    .colorScheme
-                                                    .onSurfaceVariant,
+                                              : Theme.of(
+                                                  context,
+                                                ).colorScheme.onSurfaceVariant,
                                         ),
                                       ),
                                     ),
@@ -525,9 +543,7 @@ class _WebSidebar extends ConsumerWidget {
                       isSelected: false,
                       isCollapsed: isCollapsed,
                       onTap: () {
-                        launchUrl(
-                          Uri.parse(websiteUrl),
-                        );
+                        launchUrl(Uri.parse(websiteUrl));
                       },
                     ),
 
@@ -548,12 +564,13 @@ class _WebSidebar extends ConsumerWidget {
                           .watch(currentMemberProvider)
                           .valueOrNull;
                       final hotelId = ref.read(currentHotelIdProvider);
-                        final currentHotel = ref.read(currentHotelProvider);
+                      final currentHotel = ref.read(currentHotelProvider);
                       final uid = ref
                           .read(authNotifierProvider)
                           .firebaseUser
                           ?.uid;
-                        final isOwner = currentHotel?.isOwner == true ||
+                      final isOwner =
+                          currentHotel?.isOwner == true ||
                           (hotelId != null && hotelId == uid);
 
                       bool canSee(String route) {
@@ -817,13 +834,16 @@ class _WebSidebar extends ConsumerWidget {
                               children: [
                                 InkWell(
                                   borderRadius: BorderRadius.circular(6),
-                                  onTap: () => context.go(AppRoutes.subscription),
+                                  onTap: () =>
+                                      context.go(AppRoutes.subscription),
                                   child: Padding(
                                     padding: const EdgeInsets.all(2),
                                     child: Icon(
                                       Icons.workspace_premium_outlined,
                                       size: 14,
-                                      color: Theme.of(context).colorScheme.outline,
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.outline,
                                     ),
                                   ),
                                 ),
@@ -953,7 +973,9 @@ class _SidebarItem extends StatelessWidget {
                                 : FontWeight.w500,
                             color: isSelected
                                 ? AppColors.primary
-                                : Theme.of(context).colorScheme.onSurfaceVariant,
+                                : Theme.of(
+                                    context,
+                                  ).colorScheme.onSurfaceVariant,
                           ),
                         ),
                       ),
@@ -961,7 +983,11 @@ class _SidebarItem extends StatelessWidget {
                       if (lockBadge)
                         const Padding(
                           padding: EdgeInsets.only(left: 4),
-                          child: Icon(Icons.lock_outline, size: 12, color: Colors.orange),
+                          child: Icon(
+                            Icons.lock_outline,
+                            size: 12,
+                            color: Colors.orange,
+                          ),
                         ),
                     ],
                   ),

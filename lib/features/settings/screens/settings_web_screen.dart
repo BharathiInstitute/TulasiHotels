@@ -24,9 +24,11 @@ import 'package:tulasihotels/features/auth/providers/phone_auth_provider.dart';
 import 'package:tulasihotels/features/permissions/permission_center.dart';
 import 'package:tulasihotels/features/permissions/providers/route_permission_provider.dart';
 import 'package:tulasihotels/features/permissions/widgets/permission_denied_view.dart';
+import 'package:tulasihotels/features/hotels/providers/hotel_provider.dart';
 import 'package:tulasihotels/features/settings/providers/settings_provider.dart';
 import 'package:tulasihotels/features/settings/providers/theme_settings_provider.dart';
 import 'package:tulasihotels/features/staff/models/permission_config.dart';
+import 'package:tulasihotels/models/user_model.dart';
 import 'package:tulasihotels/models/theme_settings_model.dart';
 import 'package:tulasihotels/core/services/sync_settings_service.dart';
 import 'package:tulasihotels/core/services/image_service.dart';
@@ -52,6 +54,23 @@ enum SettingsTab {
   attendance,
 }
 
+final activeStoreProfileProvider = StreamProvider<UserModel?>((ref) {
+  final authUser = FirebaseAuth.instance.currentUser;
+  if (authUser == null) return Stream.value(null);
+
+  final selectedHotelId = ref.watch(currentHotelIdProvider);
+  final storeId = selectedHotelId ?? authUser.uid;
+
+  return FirebaseFirestore.instance
+      .collection('users')
+      .doc(storeId)
+      .snapshots()
+      .map((doc) {
+        if (!doc.exists) return null;
+        return UserModel.fromFirestore(doc);
+      });
+});
+
 class SettingsWebScreen extends ConsumerStatefulWidget {
   final String initialTab;
 
@@ -62,6 +81,9 @@ class SettingsWebScreen extends ConsumerStatefulWidget {
 }
 
 class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
+  static const String _defaultReceiptFooter =
+      '1. Goods once sold will not be taken back.\n2. Subject to local jurisdiction.\n3. Warranty as per manufacturer terms.';
+
   // Text controllers for editable fields
   late TextEditingController _shopNameController;
   late TextEditingController _ownerNameController;
@@ -87,6 +109,7 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
   String _referralCode = '';
   int _referralCount = 0;
   StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _limitsSub;
+  String? _hydratedStoreId;
 
   @override
   void initState() {
@@ -106,10 +129,31 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
     _selectedGstRate = user?.settings.taxRate ?? 5.0;
     _loadAvailablePrinters();
     _termsController = TextEditingController(
-      text:
-          user?.settings.receiptFooter ??
-          '1. Goods once sold will not be taken back.\n2. Subject to local jurisdiction.\n3. Warranty as per manufacturer terms.',
+      text: user?.settings.receiptFooter ?? _defaultReceiptFooter,
     );
+  }
+
+  void _syncControllersFromStore(UserModel storeProfile) {
+    if (_hydratedStoreId == storeProfile.id) return;
+
+    _shopNameController.text = storeProfile.shopName;
+    _ownerNameController.text = storeProfile.ownerName;
+    _contactNumberController.text = storeProfile.phone;
+    _shopAddressController.text = storeProfile.address ?? '';
+    _emailController.text = storeProfile.email ?? _emailController.text;
+    _gstController.text = storeProfile.gstNumber ?? '';
+    _upiController.text = storeProfile.upiId ?? '';
+    _termsController.text = storeProfile.settings.receiptFooter.isNotEmpty
+        ? storeProfile.settings.receiptFooter
+        : _defaultReceiptFooter;
+
+    _selectedCurrency = storeProfile.currency;
+    _selectedTimezone = storeProfile.timezone;
+    _selectedGstRate = storeProfile.settings.taxRate;
+    _hydratedStoreId = storeProfile.id;
+    if (mounted) {
+      setState(() {});
+    }
   }
 
   @override
@@ -916,6 +960,14 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final storeProfile = ref.watch(activeStoreProfileProvider).valueOrNull;
+    if (storeProfile != null && _hydratedStoreId != storeProfile.id) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _syncControllersFromStore(storeProfile);
+      });
+    }
+
     final tabInfo = _tabData[_selectedTab]!;
     final isMobile = ResponsiveHelper.isMobile(context);
     final isTablet = ResponsiveHelper.isTablet(context);
@@ -977,6 +1029,9 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
   /// Top bar with app branding + back arrow — consistent with main shell look
   Widget _buildTopBar() {
     final user = ref.watch(currentUserProvider);
+    final storeProfile = ref.watch(activeStoreProfileProvider).valueOrNull;
+    final displayProfile = storeProfile ?? user;
+    final displayShopName = displayProfile?.shopName ?? '';
     return Container(
       height: 56,
       padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -1004,14 +1059,14 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
           const SizedBox(width: 8),
           // App icon / Store logo
           ShopLogoWidget(
-            logoPath: user?.shopLogoPath,
+            logoPath: displayProfile?.shopLogoPath,
             size: 30,
             borderRadius: 6,
             iconSize: 16,
           ),
           const SizedBox(width: 10),
           Text(
-            user?.shopName ?? 'Settings',
+            displayShopName.isNotEmpty ? displayShopName : 'Settings',
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w600,
@@ -1388,6 +1443,8 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
   // ============ GENERAL TAB ============
   Widget _buildGeneralTab() {
     final user = ref.watch(currentUserProvider);
+    final storeProfile = ref.watch(activeStoreProfileProvider).valueOrNull;
+    final displayProfile = storeProfile ?? user;
 
     return _responsiveColumns(
       [
@@ -1416,7 +1473,7 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
                     ),
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(12),
-                      child: _buildLogoPreview(user?.shopLogoPath),
+                      child: _buildLogoPreview(displayProfile?.shopLogoPath),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -3013,6 +3070,8 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
   // ============ BILLING TAB ============
   Widget _buildBillingTab() {
     final user = ref.watch(currentUserProvider);
+    final storeProfile = ref.watch(activeStoreProfileProvider).valueOrNull;
+    final displayProfile = storeProfile ?? user;
 
     return _responsiveColumns(
       [
@@ -3124,7 +3183,7 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
                       ),
                     ),
                     Switch(
-                      value: user?.settings.gstEnabled ?? true,
+                      value: displayProfile?.settings.gstEnabled ?? true,
                       onChanged: (v) async {
                         try {
                           await ref
@@ -4003,7 +4062,11 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
             // Auto-close on successful verification
             if (isVerified) {
               WidgetsBinding.instance.addPostFrameCallback((_) async {
-                final phone = phoneController.text.trim();
+                final rawPhone = phoneController.text.trim();
+                final digits = rawPhone.replaceAll(RegExp(r'[^0-9]'), '');
+                final phone = digits.length >= 10
+                    ? '${AppConstants.countryCode}${digits.substring(digits.length - 10)}'
+                    : rawPhone;
                 await ref
                     .read(authNotifierProvider.notifier)
                     .updatePhoneVerified(phone: phone);

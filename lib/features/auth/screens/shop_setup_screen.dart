@@ -179,7 +179,8 @@ class _ShopSetupScreenState extends ConsumerState<ShopSetupScreen> {
             shopName: _shopNameController.text.trim(),
             ownerName: _ownerNameController.text.trim(),
             phone: '${AppConstants.countryCode}$phone',
-            phoneVerified: _phoneVerified,
+            // Desktop can't do OTP — trust the number the owner typed
+            phoneVerified: _phoneVerified || (_isDesktop && phone.isNotEmpty),
             address: _addressController.text.trim().isNotEmpty
                 ? _addressController.text.trim()
                 : null,

@@ -68,6 +68,15 @@ class PhoneAuthNotifier extends StateNotifier<PhoneAuthState> {
   String get _windowsUnsupportedMessage =>
       'Phone OTP is not supported on Windows desktop. Use web or mobile for phone verification.';
 
+  bool _shouldRetryWithRecaptcha(FirebaseAuthException e) {
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) {
+      return false;
+    }
+    return e.code == 'missing-client-identifier' ||
+        e.code == 'invalid-app-credential' ||
+        e.code == 'captcha-check-failed';
+  }
+
   /// Format phone number to E.164 format
   /// Accepts optional [countryCode] for international support (defaults to AppConstants.countryCode)
   String _formatPhoneNumber(String phone, {String? countryCode}) {
@@ -155,8 +164,64 @@ class PhoneAuthNotifier extends StateNotifier<PhoneAuthState> {
       return;
     }
 
+    final preferAndroidRecaptcha =
+      !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+
     // Safety timeout — if Firebase never calls callbacks, unblock the UI
     bool callbackCalled = false;
+    bool retriedWithRecaptcha = false;
+    Future<void> startNativeVerification({
+      required bool forceRecaptchaFlow,
+    }) async {
+      await _auth.setSettings(
+        appVerificationDisabledForTesting: false,
+        forceRecaptchaFlow: forceRecaptchaFlow,
+      );
+
+      await _auth.verifyPhoneNumber(
+        phoneNumber: formattedPhone,
+        timeout: const Duration(seconds: 60),
+        forceResendingToken: previousResendToken,
+        verificationCompleted: (c) {
+          callbackCalled = true;
+          _onVerificationCompleted(c);
+        },
+        verificationFailed: (e) async {
+          callbackCalled = true;
+          if (!retriedWithRecaptcha && _shouldRetryWithRecaptcha(e)) {
+            retriedWithRecaptcha = true;
+            state = state.copyWith(
+              status: PhoneAuthStatus.sending,
+              error:
+                  'Retrying with fallback verification. Please wait a moment...',
+            );
+            try {
+              await startNativeVerification(forceRecaptchaFlow: true);
+              return;
+            } on FirebaseAuthException catch (retryError) {
+              _onVerificationFailed(retryError);
+              return;
+            } catch (_) {
+              state = state.copyWith(
+                status: PhoneAuthStatus.error,
+                error: 'Failed to send OTP. Please try again.',
+              );
+              return;
+            }
+          }
+          _onVerificationFailed(e);
+        },
+        codeSent: (id, token) {
+          callbackCalled = true;
+          _onCodeSent(id, token);
+        },
+        codeAutoRetrievalTimeout: (id) {
+          callbackCalled = true;
+          _onAutoRetrievalTimeout(id);
+        },
+      );
+    }
+
     Future.delayed(const Duration(seconds: 30), () {
       if (!callbackCalled && state.status == PhoneAuthStatus.sending) {
         debugPrint('📱 Phone auth timeout — no callback after 30s');
@@ -168,26 +233,8 @@ class PhoneAuthNotifier extends StateNotifier<PhoneAuthState> {
     });
 
     try {
-      await _auth.verifyPhoneNumber(
-        phoneNumber: formattedPhone,
-        timeout: const Duration(seconds: 60),
-        forceResendingToken: previousResendToken,
-        verificationCompleted: (c) {
-          callbackCalled = true;
-          _onVerificationCompleted(c);
-        },
-        verificationFailed: (e) {
-          callbackCalled = true;
-          _onVerificationFailed(e);
-        },
-        codeSent: (id, token) {
-          callbackCalled = true;
-          _onCodeSent(id, token);
-        },
-        codeAutoRetrievalTimeout: (id) {
-          callbackCalled = true;
-          _onAutoRetrievalTimeout(id);
-        },
+      await startNativeVerification(
+        forceRecaptchaFlow: preferAndroidRecaptcha,
       );
     } on FirebaseAuthException catch (e) {
       callbackCalled = true;
@@ -220,9 +267,17 @@ class PhoneAuthNotifier extends StateNotifier<PhoneAuthState> {
       return;
     }
 
+    final preferAndroidRecaptcha =
+        !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+
     state = state.copyWith(status: PhoneAuthStatus.sending);
 
     try {
+      await _auth.setSettings(
+        appVerificationDisabledForTesting: false,
+        forceRecaptchaFlow: preferAndroidRecaptcha,
+      );
+
       await _auth.verifyPhoneNumber(
         phoneNumber: state.phoneNumber!,
         timeout: const Duration(seconds: 60),
@@ -370,8 +425,12 @@ class PhoneAuthNotifier extends StateNotifier<PhoneAuthState> {
       state = state.copyWith(status: PhoneAuthStatus.verifying);
       try {
         await _webConfirmationResult!.confirm(smsCode.trim());
+        // Only sign out the temp session in non-link flows; never disrupt
+        // an existing signed-in user's session during shop setup.
         if (!_webIsLinkFlow && _auth.currentUser != null) {
+          final uid = _auth.currentUser!.uid;
           await _auth.signOut();
+          debugPrint('📱 Cleared temp phone-auth session (uid: $uid)');
         }
         _webConfirmationResult = null;
         _webIsLinkFlow = false;
@@ -503,15 +562,19 @@ class PhoneAuthNotifier extends StateNotifier<PhoneAuthState> {
             'Phone provider is disabled in Firebase Auth. Enable it in Console.';
         break;
       case 'invalid-app-credential':
-        message =
-            'App verification failed. For web, ensure domain is authorized and reCAPTCHA can load.';
+        message = kIsWeb
+            ? 'App verification failed. Ensure domain is authorized and reCAPTCHA can load.'
+            : 'App verification failed on this device. Update Google Play services, disable VPN/ad-blockers, and try again.';
         break;
       case 'missing-client-identifier':
-        message =
-            'Browser verification missing. Reload and try again (disable strict blockers).';
+        message = kIsWeb
+            ? 'Browser verification missing. Reload and try again (disable strict blockers).'
+            : 'Device verification did not start. Ensure Google Play services are available, then retry OTP.';
         break;
       case 'captcha-check-failed':
-        message = 'reCAPTCHA verification failed. Please try again.';
+        message = kIsWeb
+            ? 'reCAPTCHA verification failed. Please try again.'
+            : 'Device reCAPTCHA check failed. Retry with stable internet and Google Play services enabled.';
         break;
       case 'web-context-cancelled':
         message =

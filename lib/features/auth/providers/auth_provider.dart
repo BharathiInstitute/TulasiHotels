@@ -239,6 +239,15 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
     _authSub = _auth.authStateChanges().listen(
       (User? user) async {
         if (user != null) {
+          if (_isTransientPhoneOnlyAuth(user)) {
+            debugPrint(
+              '🔐 Ignoring transient phone-only auth session during registration',
+            );
+            try {
+              await _auth.signOut();
+            } catch (_) {}
+            return;
+          }
           if (_authResolved && !_pendingReauth) {
             return; // Prevent double load from timeout + listener race
           }
@@ -266,6 +275,19 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
         }
       },
     );
+  }
+
+  bool _isTransientPhoneOnlyAuth(User user) {
+    final email = user.email?.trim() ?? '';
+    if (email.isNotEmpty) return false;
+
+    final providers = user.providerData
+        .map((p) => p.providerId.trim())
+        .where((p) => p.isNotEmpty)
+        .toSet();
+
+    if (providers.isEmpty) return false;
+    return providers.every((p) => p == 'phone' || p == 'firebase');
   }
 
   /// Ensure Firestore user document exists (called after redirect sign-in)
@@ -339,6 +361,8 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
     _profileLoadCompleter = Completer<void>();
     try {
       debugPrint('🔐 _loadUserProfile: START for ${firebaseUser.uid}');
+      // Reload to get the freshest Firebase Auth state (e.g. linked phoneNumber)
+      try { await firebaseUser.reload(); } catch (_) {}
       final doc = await _firestore
           .collection('users')
           .doc(firebaseUser.uid)
@@ -467,7 +491,9 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
             settings: UserSettings.fromMap(
               (data['settings'] as Map<String, dynamic>?) ?? {},
             ),
-            phoneVerified: (data['phoneVerified'] as bool?) ?? false,
+            // Trust Firebase Auth's linked phone (set when OTP completes)
+            phoneVerified: (data['phoneVerified'] as bool?) == true ||
+                (_auth.currentUser?.phoneNumber?.isNotEmpty == true),
             emailVerified: emailVerified,
             phoneVerifiedAt: (data['phoneVerifiedAt'] as Timestamp?)?.toDate(),
             createdAt:
@@ -478,6 +504,17 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
         // Keep Razorpay checkout title up to date with user's shop name
         RazorpayConfig.setShopName(data['shopName'] as String? ?? '');
         _refreshSettingsProviders();
+
+        // Backfill Firestore when Firebase Auth has a linked phone but Firestore is stale
+        final firestorePhoneVerified = (data['phoneVerified'] as bool?) == true;
+        if (!firestorePhoneVerified &&
+            _auth.currentUser?.phoneNumber?.isNotEmpty == true) {
+          unawaited(_firestore.collection('users').doc(firebaseUser.uid).set({
+            'phoneVerified': true,
+            'phoneVerifiedAt': FieldValue.serverTimestamp(),
+          }, SetOptions(merge: true)));
+        }
+
         debugPrint(
           '🔐 _loadUserProfile: State set isLoggedIn=true, isShopSetup=$isShopSetupComplete',
         );
@@ -1017,7 +1054,8 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
   Future<bool> _googleSignInMobile() async {
     final googleSignIn = GoogleSignIn(
       scopes: ['email', 'profile'],
-      serverClientId: '883551466761-9s896hmfvmilcj85v70a90jhea1j8g90.apps.googleusercontent.com',
+      serverClientId:
+          '883551466761-9s896hmfvmilcj85v70a90jhea1j8g90.apps.googleusercontent.com',
     );
     final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
     if (googleUser == null) {
@@ -1681,7 +1719,16 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
     if (user == null) return false;
 
     try {
-      final alreadyVerified = state.user?.phoneVerified ?? false;
+      var alreadyVerified = state.user?.phoneVerified ?? false;
+      try {
+        final latestDoc = await _firestore
+            .collection('users')
+            .doc(user.uid)
+            .get();
+        final latestVerified =
+            (latestDoc.data()?['phoneVerified'] as bool?) ?? false;
+        alreadyVerified = alreadyVerified || latestVerified;
+      } catch (_) {}
       final effectivePhoneVerified = phoneVerified || alreadyVerified;
 
       final data = <String, dynamic>{
@@ -1692,7 +1739,8 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
         'isShopSetupComplete': true,
       };
       if (phone != null && phone.isNotEmpty) {
-        data['phone'] = phone;
+        final normalizedPhone = _normalizePhoneE164(phone);
+        data['phone'] = normalizedPhone;
         data['phoneVerified'] = effectivePhoneVerified;
         if (effectivePhoneVerified) {
           data['phoneVerifiedAt'] = FieldValue.serverTimestamp();
@@ -1712,7 +1760,10 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
             .collection('user_hotels/${user.uid}/hotels')
             .doc(user.uid);
         final hotelDoc = await hotelRef.get();
-        final slug = shopName.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '-');
+        final slug = shopName.toLowerCase().replaceAll(
+          RegExp(r'[^a-z0-9]'),
+          '-',
+        );
         if (hotelDoc.exists) {
           await hotelRef.update({'name': shopName, 'slug': slug});
         } else {
@@ -1742,7 +1793,9 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
         user: state.user?.copyWith(
           shopName: shopName,
           ownerName: ownerName,
-          phone: phone ?? state.user?.phone,
+          phone: (phone != null && phone.isNotEmpty)
+              ? _normalizePhoneE164(phone)
+              : state.user?.phone,
           phoneVerified: effectivePhoneVerified,
           address: address,
           gstNumber: gstNumber,
@@ -1821,7 +1874,10 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
       if (updates.isEmpty) return true;
 
       // Update the active store doc — offline-safe with 8s timeout.
-      final write = _firestore.collection('users').doc(activeStoreId).update(updates);
+      final write = _firestore
+          .collection('users')
+          .doc(activeStoreId)
+          .update(updates);
       try {
         await write.timeout(const Duration(seconds: 8));
       } catch (_) {
@@ -1843,9 +1899,13 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
                   .collection('user_hotels/${user.uid}/hotels')
                   .doc(activeStoreId)
                   .update({
-                'name': shopName,
-                'slug': shopName.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '-'),
-              }).timeout(const Duration(seconds: 8));
+                    'name': shopName,
+                    'slug': shopName.toLowerCase().replaceAll(
+                      RegExp(r'[^a-z0-9]'),
+                      '-',
+                    ),
+                  })
+                  .timeout(const Duration(seconds: 8));
             }
           } catch (_) {}
         }());
@@ -2105,17 +2165,18 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
     if (user == null) return false;
 
     try {
-      await _firestore.collection('users').doc(user.uid).update({
+      final normalizedPhone = _normalizePhoneE164(phone);
+      await _firestore.collection('users').doc(user.uid).set({
         'phoneVerified': true,
-        'phone': phone,
+        'phone': normalizedPhone,
         'phoneVerifiedAt': FieldValue.serverTimestamp(),
-      });
+      }, SetOptions(merge: true));
 
       if (state.user != null) {
         state = state.copyWith(
           user: state.user!.copyWith(
             phoneVerified: true,
-            phone: phone,
+            phone: normalizedPhone,
             phoneVerifiedAt: DateTime.now(),
           ),
         );
@@ -2135,9 +2196,7 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
 
     try {
       // Normalize phone to E.164 format (+91XXXXXXXXXX)
-      final normalizedPhone = phone.startsWith(AppConstants.countryCode)
-          ? phone
-          : '${AppConstants.countryCode}$phone';
+      final normalizedPhone = _normalizePhoneE164(phone);
 
       final query = await _firestore
           .collection('users')
@@ -2162,6 +2221,21 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
       // will catch actual duplicates server-side (credential-already-in-use)
       return false;
     }
+  }
+
+  String _normalizePhoneE164(String rawPhone) {
+    final digits = rawPhone.replaceAll(RegExp(r'[^0-9]'), '');
+    if (digits.isEmpty) return rawPhone.trim();
+    if (digits.length == 10) {
+      return '${AppConstants.countryCode}$digits';
+    }
+    if (digits.length > 10) {
+      return '${AppConstants.countryCode}${digits.substring(digits.length - 10)}';
+    }
+    if (rawPhone.trim().startsWith('+')) {
+      return rawPhone.trim();
+    }
+    return '${AppConstants.countryCode}$digits';
   }
 
   /// Change password (requires re-authentication)

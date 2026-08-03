@@ -245,11 +245,11 @@ class _AddCustomerModalState extends ConsumerState<AddCustomerModal> {
                         ),
                         const SizedBox(height: 16),
 
-                        // Opening balance (read-only in edit mode to force transactions)
+                        // Users with update access can edit the saved balance here.
                         CurrencyTextField(
                           label: 'Opening Balance (Optional)',
                           controller: _balanceController,
-                          readOnly: _isEditMode,
+                          readOnly: !canSubmit,
                         ),
                         const SizedBox(height: 8),
 

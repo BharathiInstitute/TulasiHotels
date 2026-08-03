@@ -522,10 +522,10 @@ service cloud.firestore {
       // SHIFTS (sub-collection for staff scheduling)
       // ===================
       match /shifts/{shiftId} {
-        allow read: if isAuthenticated() && (canModuleAction(userId, '/shifts', 'view') || isAdmin());
-        allow create: if isAuthenticated() && canModuleAction(userId, '/shifts', 'create') && isReasonableSize();
-        allow update: if isAuthenticated() && canModuleAction(userId, '/shifts', 'update') && isReasonableSize();
-        allow delete: if isAuthenticated() && canModuleAction(userId, '/shifts', 'delete');
+        allow read: if isAuthenticated() && ((canModuleAction(userId, '/staff', 'view') || canModuleAction(userId, '/shifts', 'view')) || isAdmin());
+        allow create: if isAuthenticated() && (canModuleAction(userId, '/staff', 'create') || canModuleAction(userId, '/shifts', 'create')) && isReasonableSize();
+        allow update: if isAuthenticated() && (canModuleAction(userId, '/staff', 'update') || canModuleAction(userId, '/shifts', 'update')) && isReasonableSize();
+        allow delete: if isAuthenticated() && (canModuleAction(userId, '/staff', 'delete') || canModuleAction(userId, '/shifts', 'delete'));
       }
 
       // ===================

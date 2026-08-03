@@ -48,8 +48,8 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.onStockUpdate = exports.onNewOrderKitchenAlert = exports.onWastageLogged = exports.onComplaintCreated = exports.equipmentServiceReminder = exports.licenseExpiryReminder = exports.onNewReservation = exports.onNewFeedback = exports.onLowIngredientStock = exports.onOrderReady = exports.onCustomerOrderCreated = exports.onRushOrderCreated = exports.seedUserUsage = exports.scheduledFirestoreBackup = exports.sendNotificationToPlan = exports.sendNotificationToAll = exports.getSubscriptionLimits = exports.seedAdmins = exports.repairTableLimits = exports.onLocalStaffDeleted = exports.onLocalStaffCreated = exports.onStaffDeleted = exports.onStaffCreated = exports.onTableDeleted = exports.onTableCreated = exports.onCustomerDeleted = exports.onCustomerCreated = exports.onProductDeleted = exports.onProductCreated = exports.onBillCreated = exports.processReferralReward = exports.redeemReferralCode = exports.onSubscriptionWrite = exports.generateMonthlyReport = exports.exchangeIdToken = exports.sendDailySalesSummary = exports.checkChurnedUsers = exports.checkSubscriptionExpiry = exports.activateSubscription = exports.checkLowStock = exports.cleanupOldNotifications = exports.sendPushNotification = exports.onNewUserSignup = exports.generateDesktopToken = exports.deleteUserAccount = exports.onUserDeleted = exports.verifyRegistrationOTP = exports.sendRegistrationOTP = exports.razorpayWebhook = exports.createPaymentLink = void 0;
-exports.sendOrderReadySMS = exports.sendDailySummaryWhatsApp = exports.sendReservationReminder = exports.sendFeedbackRequest = exports.sendOrderConfirmation = exports.verifyPayment = exports.checkOrderStatus = exports.createOrder = exports.markPhoneVerifiedFromWeb = exports.createPhoneVerificationHandoff = exports.createPaymentToken = exports.razorpayReconciliation = void 0;
+exports.onNewOrderKitchenAlert = exports.onWastageLogged = exports.onComplaintCreated = exports.equipmentServiceReminder = exports.licenseExpiryReminder = exports.onNewReservation = exports.onNewFeedback = exports.onLowIngredientStock = exports.onOrderReady = exports.onCustomerOrderCreated = exports.onRushOrderCreated = exports.seedUserUsage = exports.scheduledFirestoreBackup = exports.sendNotificationToPlan = exports.sendNotificationToAll = exports.getSubscriptionLimits = exports.seedAdmins = exports.backfillStoreOwnerUids = exports.repairTableLimits = exports.onLocalStaffDeleted = exports.onLocalStaffCreated = exports.onStaffDeleted = exports.onStaffCreated = exports.onTableDeleted = exports.onTableCreated = exports.onCustomerDeleted = exports.onCustomerCreated = exports.onProductDeleted = exports.onProductCreated = exports.onBillCreated = exports.processReferralReward = exports.redeemReferralCode = exports.onSubscriptionWrite = exports.generateMonthlyReport = exports.exchangeIdToken = exports.sendDailySalesSummary = exports.checkChurnedUsers = exports.checkSubscriptionExpiry = exports.activateSubscription = exports.checkLowStock = exports.cleanupOldNotifications = exports.sendPushNotification = exports.onNewUserSignup = exports.generateDesktopToken = exports.deleteUserAccount = exports.onUserDeleted = exports.verifyRegistrationOTP = exports.sendRegistrationOTP = exports.razorpayWebhook = exports.createPaymentLink = void 0;
+exports.sendOrderReadySMS = exports.sendDailySummaryWhatsApp = exports.sendReservationReminder = exports.sendFeedbackRequest = exports.sendOrderConfirmation = exports.verifyPayment = exports.checkOrderStatus = exports.createOrder = exports.markPhoneVerifiedFromWeb = exports.createPhoneVerificationHandoff = exports.createPaymentToken = exports.razorpayReconciliation = exports.onStockUpdate = void 0;
 const functions = __importStar(require("firebase-functions"));
 const admin = __importStar(require("firebase-admin"));
 const crypto = __importStar(require("crypto"));
@@ -2198,6 +2198,124 @@ exports.repairTableLimits = functions
         plan,
         before: { tablesCount: prevCount, tablesLimit: prevLimit },
         after: { tablesCount: actualTablesCount, tablesLimit: correctTablesLimit },
+    };
+});
+/**
+ * backfillStoreOwnerUids — One-time admin migration.
+ *
+ * Repairs stores missing `ownerUid` by resolving owner from
+ * `users/{storeId}/members` where role == owner.
+ *
+ * Options:
+ * - dryRun (default true): report only, no writes.
+ * - allowStoreIdFallback (default false): if no owner member is found,
+ *   fallback to ownerUid=storeId for legacy single-store records.
+ */
+exports.backfillStoreOwnerUids = functions
+    .region("asia-south1")
+    .runWith({ timeoutSeconds: 540, memory: "1GB", maxInstances: 1 })
+    .https.onCall(async (data, context) => {
+    var _a, _b, _c, _d;
+    if (!context.auth) {
+        throw new functions.https.HttpsError("unauthenticated", "Must be authenticated");
+    }
+    const db = admin.firestore();
+    const callerEmail = context.auth.token.email || "";
+    const adminDoc = await db.collection("admins").doc(callerEmail).get();
+    if (!adminDoc.exists) {
+        throw new functions.https.HttpsError("permission-denied", "Admin access required");
+    }
+    const dryRun = (_a = data === null || data === void 0 ? void 0 : data.dryRun) !== null && _a !== void 0 ? _a : true;
+    const allowStoreIdFallback = (_b = data === null || data === void 0 ? void 0 : data.allowStoreIdFallback) !== null && _b !== void 0 ? _b : false;
+    const usersSnap = await db.collection("users").get();
+    let scanned = 0;
+    let alreadySet = 0;
+    let missingOwnerUid = 0;
+    let backfilled = 0;
+    let subscriptionCopied = 0;
+    const unresolved = [];
+    let batch = db.batch();
+    let writesInBatch = 0;
+    const flushBatch = async () => {
+        if (writesInBatch > 0) {
+            await batch.commit();
+            batch = db.batch();
+            writesInBatch = 0;
+        }
+    };
+    for (const storeDoc of usersSnap.docs) {
+        scanned++;
+        const storeId = storeDoc.id;
+        const storeData = storeDoc.data() || {};
+        const existingOwnerUid = (_c = storeData.ownerUid) === null || _c === void 0 ? void 0 : _c.trim();
+        if (existingOwnerUid) {
+            alreadySet++;
+            continue;
+        }
+        missingOwnerUid++;
+        let resolvedOwnerUid;
+        const ownerMemberSnap = await db
+            .collection(`users/${storeId}/members`)
+            .where("role", "==", "owner")
+            .limit(1)
+            .get();
+        if (!ownerMemberSnap.empty) {
+            resolvedOwnerUid = ownerMemberSnap.docs[0].id;
+        }
+        else if (allowStoreIdFallback) {
+            resolvedOwnerUid = storeId;
+        }
+        if (!resolvedOwnerUid || resolvedOwnerUid.trim().length == 0) {
+            unresolved.push(storeId);
+            continue;
+        }
+        backfilled++;
+        if (!dryRun) {
+            batch.update(storeDoc.ref, {
+                ownerUid: resolvedOwnerUid,
+                ownerUidBackfilledAt: admin.firestore.FieldValue.serverTimestamp(),
+                ownerUidBackfilledBy: context.auth.uid,
+            });
+            writesInBatch++;
+        }
+        const storeSub = storeData.subscription;
+        if (resolvedOwnerUid !== storeId && storeSub != null) {
+            const ownerRef = db.collection("users").doc(resolvedOwnerUid);
+            const ownerDoc = await ownerRef.get();
+            const ownerSub = (_d = ownerDoc.data()) === null || _d === void 0 ? void 0 : _d.subscription;
+            if (ownerSub == null && !dryRun) {
+                batch.set(ownerRef, {
+                    subscription: storeSub,
+                    subscriptionBackfilledFromStoreId: storeId,
+                    subscriptionBackfilledAt: admin.firestore.FieldValue.serverTimestamp(),
+                }, { merge: true });
+                writesInBatch++;
+                subscriptionCopied++;
+            }
+            else if (ownerSub == null && dryRun) {
+                subscriptionCopied++;
+            }
+        }
+        if (writesInBatch >= 400) {
+            await flushBatch();
+        }
+    }
+    if (!dryRun) {
+        await flushBatch();
+    }
+    console.log(`✅ backfillStoreOwnerUids: dryRun=${dryRun} scanned=${scanned} ` +
+        `alreadySet=${alreadySet} missing=${missingOwnerUid} backfilled=${backfilled} ` +
+        `subscriptionCopied=${subscriptionCopied} unresolved=${unresolved.length}`);
+    return {
+        success: true,
+        dryRun,
+        scanned,
+        alreadySet,
+        missingOwnerUid,
+        backfilled,
+        subscriptionCopied,
+        unresolvedCount: unresolved.length,
+        unresolvedSample: unresolved.slice(0, 25),
     };
 });
 /**

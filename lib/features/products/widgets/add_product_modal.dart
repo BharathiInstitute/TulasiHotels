@@ -20,6 +20,7 @@ import 'package:tulasihotels/models/product_model.dart';
 import 'package:tulasihotels/shared/widgets/app_button.dart';
 import 'package:tulasihotels/shared/widgets/app_text_field.dart';
 import 'package:tulasihotels/shared/widgets/upgrade_prompt_modal.dart';
+import 'package:tulasihotels/shared/widgets/web_safe_image.dart';
 
 class AddProductModal extends ConsumerStatefulWidget {
   final ProductModel? product;
@@ -194,9 +195,7 @@ class _AddProductModalState extends ConsumerState<AddProductModal> {
             content: Text(
               PermissionCenter.deniedActionMessage(
                 AppRoutes.products,
-                _isEditing
-                    ? PermissionAction.update
-                    : PermissionAction.create,
+                _isEditing ? PermissionAction.update : PermissionAction.create,
               ),
             ),
             backgroundColor: AppColors.warning,
@@ -739,110 +738,118 @@ class _AddProductModalState extends ConsumerState<AddProductModal> {
                                 Center(
                                   child: ClipRRect(
                                     borderRadius: BorderRadius.circular(12),
-                                    child: Image.network(
-                                      _imageUrl!,
-                                      key: ValueKey(_imageUrl),
+                                    child: SizedBox(
+                                      width: double.infinity,
                                       height: 120,
-                                      fit: BoxFit.contain,
-                                      loadingBuilder: (_, child, progress) =>
-                                          progress == null
-                                              ? child
-                                              : const Center(
-                                                  child:
-                                                      CircularProgressIndicator(),
-                                                ),
-                                      errorBuilder: (_, _, _) => Column(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.center,
-                                        children: [
-                                          const Icon(
-                                            Icons.broken_image,
-                                            size: 32,
-                                            color: Colors.grey,
-                                          ),
-                                          const SizedBox(height: 4),
-                                          Text(
-                                            'Image unavailable',
-                                            style: TextStyle(
-                                              fontSize: 11,
-                                              color: Theme.of(context)
-                                                  .colorScheme
-                                                  .onSurfaceVariant,
+                                      child: WebSafeImage(
+                                        key: ValueKey(_imageUrl),
+                                        url: _imageUrl!,
+                                        width: double.infinity,
+                                        height: 120,
+                                        fit: BoxFit.contain,
+                                        placeholder: const Center(
+                                          child: CircularProgressIndicator(),
+                                        ),
+                                        errorWidget: Column(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.center,
+                                          children: [
+                                            const Icon(
+                                              Icons.broken_image,
+                                              size: 32,
+                                              color: Colors.grey,
                                             ),
-                                          ),
-                                          const SizedBox(height: 6),
-                                          TextButton.icon(
-                                            style: TextButton.styleFrom(
-                                              padding: const EdgeInsets.symmetric(
-                                                horizontal: 8,
-                                                vertical: 2,
+                                            const SizedBox(height: 4),
+                                            Text(
+                                              'Image unavailable',
+                                              style: TextStyle(
+                                                fontSize: 11,
+                                                color: Theme.of(
+                                                  context,
+                                                ).colorScheme.onSurfaceVariant,
                                               ),
-                                              visualDensity:
-                                                  VisualDensity.compact,
                                             ),
-                                            icon: const Icon(
-                                              Icons.upload,
-                                              size: 14,
-                                            ),
-                                            label: const Text(
-                                              'Re-upload',
-                                              style: TextStyle(fontSize: 12),
-                                            ),
-                                            onPressed: () async {
-                                              setState(() {
-                                                _imageUrl = null;
-                                                _isUploadingImage = true;
-                                              });
-                                              try {
-                                                final url = await ImageService
-                                                    .pickAndUploadProductImage();
-                                                if (url != null &&
-                                                    context.mounted) {
-                                                  setState(() => _imageUrl = url);
-                                                  ScaffoldMessenger.of(context)
-                                                      .showSnackBar(
-                                                        const SnackBar(
-                                                          content: Text(
-                                                            '✅ Image uploaded',
-                                                          ),
-                                                          backgroundColor:
-                                                              AppColors.success,
+                                            const SizedBox(height: 6),
+                                            TextButton.icon(
+                                              style: TextButton.styleFrom(
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                      horizontal: 8,
+                                                      vertical: 2,
+                                                    ),
+                                                visualDensity:
+                                                    VisualDensity.compact,
+                                              ),
+                                              icon: const Icon(
+                                                Icons.upload,
+                                                size: 14,
+                                              ),
+                                              label: const Text(
+                                                'Re-upload',
+                                                style: TextStyle(fontSize: 12),
+                                              ),
+                                              onPressed: () async {
+                                                setState(() {
+                                                  _imageUrl = null;
+                                                  _isUploadingImage = true;
+                                                });
+                                                try {
+                                                  final url =
+                                                      await ImageService.pickAndUploadProductImage();
+                                                  if (url != null &&
+                                                      context.mounted) {
+                                                    setState(
+                                                      () => _imageUrl = url,
+                                                    );
+                                                    ScaffoldMessenger.of(
+                                                      context,
+                                                    ).showSnackBar(
+                                                      const SnackBar(
+                                                        content: Text(
+                                                          '✅ Image uploaded',
                                                         ),
-                                                      );
-                                                } else {
+                                                        backgroundColor:
+                                                            AppColors.success,
+                                                      ),
+                                                    );
+                                                  } else {
+                                                    setState(
+                                                      () => _imageUrl = null,
+                                                    );
+                                                  }
+                                                } catch (e) {
+                                                  if (context.mounted) {
+                                                    ScaffoldMessenger.of(
+                                                      context,
+                                                    ).showSnackBar(
+                                                      SnackBar(
+                                                        content: Text(
+                                                          'Upload failed: ${e.toString().replaceAll('Exception: ', '')}',
+                                                        ),
+                                                        backgroundColor:
+                                                            AppColors.error,
+                                                        duration:
+                                                            const Duration(
+                                                              seconds: 5,
+                                                            ),
+                                                      ),
+                                                    );
+                                                  }
                                                   setState(
                                                     () => _imageUrl = null,
                                                   );
+                                                } finally {
+                                                  if (mounted) {
+                                                    setState(
+                                                      () => _isUploadingImage =
+                                                          false,
+                                                    );
+                                                  }
                                                 }
-                                              } catch (e) {
-                                                if (context.mounted) {
-                                                  ScaffoldMessenger.of(context)
-                                                      .showSnackBar(
-                                                        SnackBar(
-                                                          content: Text(
-                                                            'Upload failed: ${e.toString().replaceAll('Exception: ', '')}',
-                                                          ),
-                                                          backgroundColor:
-                                                              AppColors.error,
-                                                          duration:
-                                                              const Duration(
-                                                                seconds: 5,
-                                                              ),
-                                                        ),
-                                                      );
-                                                }
-                                                setState(() => _imageUrl = null);
-                                              } finally {
-                                                if (mounted) {
-                                                  setState(
-                                                    () => _isUploadingImage =
-                                                        false,
-                                                  );
-                                                }
-                                              }
-                                            },
-                                          ),
-                                        ],
+                                              },
+                                            ),
+                                          ],
+                                        ),
                                       ),
                                     ),
                                   ),

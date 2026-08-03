@@ -1127,7 +1127,8 @@ WScript.Quit 0
                 # Update version.json with EXE download URL
                 $winVersionPath = Join-Path $root "installer\version.json"
                 $exeStorageName = "TulasiRestaurants_Setup.exe"
-                $exeDownloadUrl = "https://firebasestorage.googleapis.com/v0/b/login1-aa21c.firebasestorage.app/o/downloads%2Fwindows%2F$exeStorageName`?alt=media"
+                $exeStorageNameWeb = "TulasiRestaurants_Setup_v$newVersion.exe"
+                $exeDownloadUrl = "https://firebasestorage.googleapis.com/v0/b/login1-aa21c.firebasestorage.app/o/downloads%2Fwindows%2F$exeStorageNameWeb`?alt=media"
 
                 $versionJson = @{
                     version        = $newVersion
@@ -1145,6 +1146,7 @@ WScript.Quit 0
                 if (Test-Path $downloadPage) {
                     Write-Step "Updating website download page..."
                     $pageContent = Get-Content $downloadPage -Raw
+                    $exeDownloadUrlWeb = "https://firebasestorage.googleapis.com/v0/b/login1-aa21c.firebasestorage.app/o/downloads%2Fwindows%2F$exeStorageNameWeb`?alt=media"
 
                     # Update version display only (URLs are now fixed/stable)
                     $pageContent = $pageContent -replace '(<span>v)\d+\.\d+\.\d+(</span>)', "`${1}$newVersion`${2}"
@@ -1152,8 +1154,11 @@ WScript.Quit 0
                     $pageContent = $pageContent -replace '(style="[^"]*">)\s*v\d+\.\d+\.\d+(</div>)', "`${1}v$newVersion`${2}"
 
                     # Update download attribute filenames (saved filename includes version)
-                    $pageContent = $pageContent -replace 'download="TulasiRestaurants_Setup_v[\d.]+\.exe"', "download=`"TulasiRestaurants_Setup_v$newVersion.exe`""
-                    $pageContent = $pageContent -replace 'download="TulasiRestaurants_v[\d.]+\.apk"', "download=`"TulasiRestaurants_v$newVersion.apk`""
+                    $pageContent = $pageContent -replace 'download="TulasiRestaurants_Setup(?:_v[\d.]+)?\.exe"', "download=`"TulasiRestaurants_Setup_v$newVersion.exe`""
+                    $pageContent = $pageContent -replace 'download="TulasiRestaurants(?:_v[\d.]+)?\.apk"', "download=`"TulasiRestaurants_v$newVersion.apk`""
+
+                    # Keep EXE button URL versioned so browser download notifications show vX.Y.Z filename
+                    $pageContent = $pageContent -replace '(id="windows-exe-btn"[^>]*href=")[^"]*(")', "`${1}$exeDownloadUrlWeb`${2}"
 
                     [System.IO.File]::WriteAllText($downloadPage, $pageContent, [System.Text.UTF8Encoding]::new($false))
                     Write-Ok "download.html updated to v$newVersion"
@@ -1173,6 +1178,8 @@ WScript.Quit 0
                     if ($exeFile -and (Test-Path $exeFile)) {
                         gsutil cp $exeFile "${storagePath}$exeStorageName"
                         gsutil setmeta -h "Content-Type:application/octet-stream" -h "Cache-Control:no-cache,max-age=0" "${storagePath}$exeStorageName"
+                        gsutil cp $exeFile "${storagePath}$exeStorageNameWeb"
+                        gsutil setmeta -h "Content-Type:application/octet-stream" -h "Cache-Control:no-cache,max-age=0" "${storagePath}$exeStorageNameWeb"
                         Write-Ok "EXE uploaded: $exeStorageName"
                     }
 
@@ -1240,7 +1247,9 @@ WScript.Quit 0
             # Update android-version.json
             $androidVersionPath = Join-Path $root "installer\android-version.json"
             $apkStorageName = "TulasiRestaurants.apk"
-            $apkDownloadUrl = "https://firebasestorage.googleapis.com/v0/b/login1-aa21c.firebasestorage.app/o/downloads%2Fandroid%2F$apkStorageName`?alt=media"
+            $apkStorageNameWeb = "TulasiRestaurants_v$newVersion.apk"
+            $apkDownloadUrl = "https://firebasestorage.googleapis.com/v0/b/login1-aa21c.firebasestorage.app/o/downloads%2Fandroid%2F$apkStorageNameWeb`?alt=media"
+            $apkDownloadUrlWeb = "https://firebasestorage.googleapis.com/v0/b/login1-aa21c.firebasestorage.app/o/downloads%2Fandroid%2F$apkStorageNameWeb`?alt=media"
 
             $versionJson = @{
                 version     = $newVersion
@@ -1257,6 +1266,12 @@ WScript.Quit 0
             if (Test-Path $downloadPage) {
                 Write-Step "Updating website download page (Android)..."
                 $pageContent = Get-Content $downloadPage -Raw
+
+                # Keep direct APK button pointing to latest stable APK URL
+                $pageContent = $pageContent -replace '(id="android-apk-btn"[^>]*href=")[^"]*(")', "`${1}$apkDownloadUrlWeb`${2}"
+
+                # Keep download attribute versioned so browser download notifications show vX.Y.Z filename
+                $pageContent = $pageContent -replace 'download="TulasiRestaurants(?:_v[\d.]+)?\.apk"', "download=`"TulasiRestaurants_v$newVersion.apk`""
 
                 # Update APK file size display only (URL is now fixed/stable)
                 if (Test-Path $apkPath) {
@@ -1282,6 +1297,8 @@ WScript.Quit 0
                 if (Test-Path $apkPath) {
                     gsutil cp $apkPath "${storagePath}$apkStorageName"
                     gsutil setmeta -h "Content-Type:application/vnd.android.package-archive" -h "Cache-Control:no-cache,max-age=0" "${storagePath}$apkStorageName"
+                    gsutil cp $apkPath "${storagePath}$apkStorageNameWeb"
+                    gsutil setmeta -h "Content-Type:application/vnd.android.package-archive" -h "Cache-Control:no-cache,max-age=0" "${storagePath}$apkStorageNameWeb"
                     Write-Ok "APK uploaded: $apkStorageName"
                 }
 

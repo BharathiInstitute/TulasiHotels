@@ -1,4 +1,4 @@
-/// Staff management service â€” Firestore CRUD for staff members
+﻿/// Staff management service â€” Firestore CRUD for staff members
 library;
 
 import 'package:tulasihotels/core/services/active_store_manager.dart';

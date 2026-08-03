@@ -3,11 +3,13 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:tulasihotels/core/utils/id_generator.dart';
 import 'package:tulasihotels/features/compliance/providers/compliance_provider.dart';
 import 'package:tulasihotels/features/compliance/services/event_service.dart';
 import 'package:tulasihotels/features/permissions/permission_center.dart';
 import 'package:tulasihotels/features/permissions/providers/route_permission_provider.dart';
+import 'package:tulasihotels/features/permissions/services/module_mutation_guard.dart';
 import 'package:tulasihotels/features/permissions/widgets/permission_denied_view.dart';
 import 'package:tulasihotels/features/staff/models/permission_config.dart';
 import 'package:tulasihotels/router/app_router.dart';
@@ -21,25 +23,10 @@ class EventsScreen extends ConsumerStatefulWidget {
 }
 
 class _EventsScreenState extends ConsumerState<EventsScreen> {
-  final _nameCtrl = TextEditingController();
-  final _clientNameCtrl = TextEditingController();
-  final _phoneCtrl = TextEditingController();
-  final _guestsCtrl = TextEditingController();
-  final _instructionsCtrl = TextEditingController();
-  final _priceCtrl = TextEditingController();
-  final _advanceCtrl = TextEditingController();
-  DateTime _date = DateTime.now().add(const Duration(days: 7));
   bool _showAll = false;
 
   @override
   void dispose() {
-    _nameCtrl.dispose();
-    _clientNameCtrl.dispose();
-    _phoneCtrl.dispose();
-    _guestsCtrl.dispose();
-    _instructionsCtrl.dispose();
-    _priceCtrl.dispose();
-    _advanceCtrl.dispose();
     super.dispose();
   }
 
@@ -101,6 +88,24 @@ class _EventsScreenState extends ConsumerState<EventsScreen> {
                   leading: Icon(
                     Icons.event,
                     color: isPast ? Colors.grey : Colors.blue,
+                  ),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (eventPermissions.canUpdate)
+                        IconButton(
+                          tooltip: 'Edit Event',
+                          icon: const Icon(Icons.edit_outlined),
+                          onPressed: () => _showEventForm(existing: event),
+                        ),
+                      if (eventPermissions.canDelete)
+                        IconButton(
+                          tooltip: 'Delete Event',
+                          icon: const Icon(Icons.delete_outline),
+                          onPressed: () => _deleteEvent(event),
+                        ),
+                      const Icon(Icons.expand_more),
+                    ],
                   ),
                   title: Text(event.eventName),
                   subtitle: Text(
@@ -169,30 +174,50 @@ class _EventsScreenState extends ConsumerState<EventsScreen> {
     );
   }
 
-  void _showEventForm() {
+  void _showEventForm({EventModel? existing}) {
+    final nameCtrl = TextEditingController(
+      text: existing?.eventName ?? '',
+    );
+    final clientNameCtrl = TextEditingController(
+      text: existing?.clientName ?? '',
+    );
+    final phoneCtrl = TextEditingController(
+      text: existing?.clientPhone ?? '',
+    );
+    final guestsCtrl = TextEditingController(
+      text: existing?.guestCount.toString() ?? '',
+    );
+    final instructionsCtrl = TextEditingController(
+      text: existing?.specialInstructions ?? '',
+    );
+    final priceCtrl = TextEditingController(
+      text: existing?.perPlatePrice.toStringAsFixed(0) ?? '',
+    );
+    final advanceCtrl = TextEditingController(
+      text: existing?.advancePaid.toStringAsFixed(0) ?? '',
+    );
+    var selectedDate = existing?.eventDate ?? DateTime.now().add(const Duration(days: 7));
+
     final permissions = ref.read(routePermissionProvider(AppRoutes.events));
-    if (!permissions.canCreate) {
+    final isEditing = existing != null;
+    final requiredAction =
+        isEditing ? PermissionAction.update : PermissionAction.create;
+    final hasPermission =
+        isEditing ? permissions.canUpdate : permissions.canCreate;
+
+    if (!hasPermission) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
             PermissionCenter.deniedActionMessage(
               AppRoutes.events,
-              PermissionAction.create,
+              requiredAction,
             ),
           ),
         ),
       );
       return;
     }
-
-    _nameCtrl.clear();
-    _clientNameCtrl.clear();
-    _phoneCtrl.clear();
-    _guestsCtrl.clear();
-    _instructionsCtrl.clear();
-    _priceCtrl.clear();
-    _advanceCtrl.clear();
-    _date = DateTime.now().add(const Duration(days: 7));
 
     showModalBottomSheet(
       context: context,
@@ -209,10 +234,13 @@ class _EventsScreenState extends ConsumerState<EventsScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text('New Event', style: Theme.of(ctx).textTheme.titleLarge),
+                Text(
+                  isEditing ? 'Edit Event' : 'New Event',
+                  style: Theme.of(ctx).textTheme.titleLarge,
+                ),
                 const SizedBox(height: 16),
                 TextField(
-                  controller: _nameCtrl,
+                  controller: nameCtrl,
                   decoration: const InputDecoration(
                     labelText: 'Event Name',
                     border: OutlineInputBorder(),
@@ -223,19 +251,21 @@ class _EventsScreenState extends ConsumerState<EventsScreen> {
                   onPressed: () async {
                     final picked = await showDatePicker(
                       context: ctx,
-                      initialDate: _date,
+                      initialDate: selectedDate,
                       firstDate: DateTime.now(),
                       lastDate: DateTime.now().add(const Duration(days: 365)),
                     );
-                    if (picked != null) setSheetState(() => _date = picked);
+                    if (picked != null) {
+                      setSheetState(() => selectedDate = picked);
+                    }
                   },
                   child: Text(
-                    'Date: ${_date.day}/${_date.month}/${_date.year}',
+                    'Date: ${selectedDate.day}/${selectedDate.month}/${selectedDate.year}',
                   ),
                 ),
                 const SizedBox(height: 12),
                 TextField(
-                  controller: _clientNameCtrl,
+                  controller: clientNameCtrl,
                   decoration: const InputDecoration(
                     labelText: 'Client Name',
                     border: OutlineInputBorder(),
@@ -243,7 +273,7 @@ class _EventsScreenState extends ConsumerState<EventsScreen> {
                 ),
                 const SizedBox(height: 12),
                 TextField(
-                  controller: _phoneCtrl,
+                  controller: phoneCtrl,
                   keyboardType: TextInputType.phone,
                   decoration: const InputDecoration(
                     labelText: 'Client Phone',
@@ -252,7 +282,7 @@ class _EventsScreenState extends ConsumerState<EventsScreen> {
                 ),
                 const SizedBox(height: 12),
                 TextField(
-                  controller: _guestsCtrl,
+                  controller: guestsCtrl,
                   keyboardType: TextInputType.number,
                   decoration: const InputDecoration(
                     labelText: 'Guest Count',
@@ -261,7 +291,7 @@ class _EventsScreenState extends ConsumerState<EventsScreen> {
                 ),
                 const SizedBox(height: 12),
                 TextField(
-                  controller: _priceCtrl,
+                  controller: priceCtrl,
                   keyboardType: TextInputType.number,
                   decoration: const InputDecoration(
                     labelText: 'Per Plate Price (₹)',
@@ -270,7 +300,7 @@ class _EventsScreenState extends ConsumerState<EventsScreen> {
                 ),
                 const SizedBox(height: 12),
                 TextField(
-                  controller: _advanceCtrl,
+                  controller: advanceCtrl,
                   keyboardType: TextInputType.number,
                   decoration: const InputDecoration(
                     labelText: 'Advance Paid (₹)',
@@ -279,7 +309,7 @@ class _EventsScreenState extends ConsumerState<EventsScreen> {
                 ),
                 const SizedBox(height: 12),
                 TextField(
-                  controller: _instructionsCtrl,
+                  controller: instructionsCtrl,
                   maxLines: 2,
                   decoration: const InputDecoration(
                     labelText: 'Special Instructions (optional)',
@@ -290,8 +320,19 @@ class _EventsScreenState extends ConsumerState<EventsScreen> {
                 SizedBox(
                   width: double.infinity,
                   child: FilledButton(
-                    onPressed: () => _submitEvent(ctx),
-                    child: const Text('Create Event'),
+                    onPressed: () => _submitEvent(
+                      ctx,
+                      existing: existing,
+                      selectedDate: selectedDate,
+                      nameCtrl: nameCtrl,
+                      clientNameCtrl: clientNameCtrl,
+                      phoneCtrl: phoneCtrl,
+                      guestsCtrl: guestsCtrl,
+                      instructionsCtrl: instructionsCtrl,
+                      priceCtrl: priceCtrl,
+                      advanceCtrl: advanceCtrl,
+                    ),
+                    child: Text(isEditing ? 'Update Event' : 'Create Event'),
                   ),
                 ),
               ],
@@ -299,18 +340,59 @@ class _EventsScreenState extends ConsumerState<EventsScreen> {
           ),
         ),
       ),
-    );
+    ).whenComplete(() {
+      nameCtrl.dispose();
+      clientNameCtrl.dispose();
+      phoneCtrl.dispose();
+      guestsCtrl.dispose();
+      instructionsCtrl.dispose();
+      priceCtrl.dispose();
+      advanceCtrl.dispose();
+    });
   }
 
-  Future<void> _submitEvent(BuildContext ctx) async {
-    final name = _nameCtrl.text.trim();
-    final clientName = _clientNameCtrl.text.trim();
-    final clientPhone = _phoneCtrl.text.trim();
-    final guestCount = int.tryParse(_guestsCtrl.text.trim()) ?? 0;
+  Future<void> _submitEvent(
+    BuildContext ctx, {
+    EventModel? existing,
+    required DateTime selectedDate,
+    required TextEditingController nameCtrl,
+    required TextEditingController clientNameCtrl,
+    required TextEditingController phoneCtrl,
+    required TextEditingController guestsCtrl,
+    required TextEditingController instructionsCtrl,
+    required TextEditingController priceCtrl,
+    required TextEditingController advanceCtrl,
+  }) async {
+    final permissions = ref.read(routePermissionProvider(AppRoutes.events));
+    final isEditing = existing != null;
+    final requiredAction =
+        isEditing ? PermissionAction.update : PermissionAction.create;
+    final hasPermission =
+        isEditing ? permissions.canUpdate : permissions.canCreate;
+    if (!hasPermission) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              PermissionCenter.deniedActionMessage(
+                AppRoutes.events,
+                requiredAction,
+              ),
+            ),
+          ),
+        );
+      }
+      return;
+    }
+
+    final name = nameCtrl.text.trim();
+    final clientName = clientNameCtrl.text.trim();
+    final clientPhone = phoneCtrl.text.trim();
+    final guestCount = int.tryParse(guestsCtrl.text.trim()) ?? 0;
 
     if (name.isEmpty || clientName.isEmpty || guestCount <= 0) {
-      if (ctx.mounted) {
-        ScaffoldMessenger.of(ctx).showSnackBar(
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
               name.isEmpty
@@ -325,39 +407,144 @@ class _EventsScreenState extends ConsumerState<EventsScreen> {
       return;
     }
 
-    final perPlate = double.tryParse(_priceCtrl.text.trim()) ?? 0;
-    final advance = double.tryParse(_advanceCtrl.text.trim()) ?? 0;
+    final perPlate = double.tryParse(priceCtrl.text.trim()) ?? 0;
+    final advance = double.tryParse(advanceCtrl.text.trim()) ?? 0;
 
     final event = EventModel(
-      id: generateSafeId('event'),
+      id: existing?.id ?? generateSafeId('event'),
       eventName: name,
       clientName: clientName,
       clientPhone: clientPhone,
-      eventDate: _date,
+      eventDate: selectedDate,
       guestCount: guestCount,
       perPlatePrice: perPlate,
       totalAmount: perPlate * guestCount,
       advancePaid: advance,
-      specialInstructions: _instructionsCtrl.text.trim().isEmpty
+      specialInstructions: instructionsCtrl.text.trim().isEmpty
           ? null
-          : _instructionsCtrl.text.trim(),
-      createdAt: DateTime.now(),
+          : instructionsCtrl.text.trim(),
+      createdAt: existing?.createdAt ?? DateTime.now(),
     );
 
     try {
-      await EventService.createEvent(event);
+      if (isEditing) {
+        await EventService.updateEvent(event);
+      } else {
+        await EventService.createEvent(event);
+      }
       if (ctx.mounted) {
-        Navigator.pop(ctx);
+        Navigator.of(ctx).pop();
+      }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(isEditing ? 'Event updated ✓' : 'Event created ✓'),
+          ),
+        );
+      }
+    } on ModulePermissionDenied catch (e) {
+      if (mounted) {
         ScaffoldMessenger.of(
-          ctx,
-        ).showSnackBar(const SnackBar(content: Text('Event created ✓')));
+          context,
+        ).showSnackBar(SnackBar(content: Text(e.message)));
+      }
+    } on FirebaseException catch (e) {
+      if (mounted) {
+        final denied =
+            e.code == 'permission-denied' ||
+            (e.message ?? '').toLowerCase().contains(
+              'missing or insufficient permissions',
+            );
+        final message = denied
+            ? PermissionCenter.deniedActionMessage(
+                AppRoutes.events,
+                requiredAction,
+              )
+            : 'Failed to save event: ${e.message ?? e.code}';
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(message)));
       }
     } catch (e) {
-      if (ctx.mounted) {
+      if (mounted) {
         ScaffoldMessenger.of(
-          ctx,
-        ).showSnackBar(SnackBar(content: Text('Failed to create event: $e')));
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to save event: $e')));
       }
+    }
+  }
+
+  Future<void> _deleteEvent(EventModel event) async {
+    final permissions = ref.read(routePermissionProvider(AppRoutes.events));
+    if (!permissions.canDelete) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            PermissionCenter.deniedActionMessage(
+              AppRoutes.events,
+              PermissionAction.delete,
+            ),
+          ),
+        ),
+      );
+      return;
+    }
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete Event?'),
+        content: Text(
+          'Are you sure you want to delete "${event.eventName}"?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    try {
+      await EventService.deleteEvent(event.id);
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Event deleted ✓')));
+      }
+    } on ModulePermissionDenied catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(e.message)));
+    } on FirebaseException catch (e) {
+      if (!mounted) return;
+      final denied =
+          e.code == 'permission-denied' ||
+          (e.message ?? '').toLowerCase().contains(
+            'missing or insufficient permissions',
+          );
+      final message = denied
+          ? PermissionCenter.deniedActionMessage(
+              AppRoutes.events,
+              PermissionAction.delete,
+            )
+          : 'Failed to delete event: ${e.message ?? e.code}';
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to delete event: $e')));
     }
   }
 }

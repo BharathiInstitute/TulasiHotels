@@ -4,6 +4,7 @@ library;
 
 import 'dart:async';
 
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart' show defaultTargetPlatform, kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -55,6 +56,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   // Phone OTP state
   bool _phoneVerified = false;
   String? _phoneError;
+  bool _isOpeningWindowsPhoneVerify = false;
 
   void _startOtpCooldown() {
     _otpCooldownSeconds = 60;
@@ -345,6 +347,53 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       setState(() => _phoneError = 'Enter a valid 10-digit phone number');
       return;
     }
+
+    final phoneState = ref.read(phoneAuthProvider);
+    final hasWindowsUnsupportedError =
+        (phoneState.error ?? '').toLowerCase().contains(
+          'not supported on windows desktop',
+        ) ||
+        (phoneState.error ?? '').toLowerCase().contains(
+          'not available on windows desktop',
+        );
+    final shouldUseBrowserHandoff =
+        _isWindowsDesktop || hasWindowsUnsupportedError;
+
+    if (shouldUseBrowserHandoff) {
+      if (_isOpeningWindowsPhoneVerify) return;
+      setState(() {
+        _phoneError = null;
+        _isOpeningWindowsPhoneVerify = true;
+      });
+      ref.read(authNotifierProvider.notifier).clearError();
+      ref.read(phoneAuthProvider.notifier).clearError();
+
+      try {
+        final started = await ref
+            .read(authNotifierProvider.notifier)
+            .signInDesktop();
+
+        if (!mounted) return;
+
+        if (started) {
+          // After desktop handoff sign-in, continue setup where browser-based
+          // phone verification is already supported.
+          context.go('/shop-setup');
+        } else {
+          final authError = ref.read(authNotifierProvider).error;
+          setState(() {
+            _phoneError = authError ??
+                'Could not open secure browser verification. Please try again.';
+          });
+        }
+      } finally {
+        if (mounted) {
+          setState(() => _isOpeningWindowsPhoneVerify = false);
+        }
+      }
+      return;
+    }
+
     setState(() => _phoneError = null);
     unawaited(ref.read(phoneAuthProvider.notifier).sendOtp(phone));
   }
@@ -359,6 +408,16 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     setState(() => _phoneError = null);
     final ok = await ref.read(phoneAuthProvider.notifier).verifyOtp(otp);
     if (ok && mounted) {
+      final authUser = FirebaseAuth.instance.currentUser;
+      final hasOnlyPhoneAuth =
+          authUser != null &&
+          (authUser.email?.trim().isEmpty ?? true) &&
+          (authUser.phoneNumber?.trim().isNotEmpty ?? false);
+      if (hasOnlyPhoneAuth) {
+        try {
+          await FirebaseAuth.instance.signOut();
+        } catch (_) {}
+      }
       setState(() => _phoneVerified = true);
     }
   }
@@ -388,7 +447,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
         if (!routeContext.mounted) return;
         // Save phone number if verified during registration
         if (_phoneVerified && _phoneController.text.trim().isNotEmpty) {
-          final phone = '${AppConstants.countryCode}${_phoneController.text.trim()}';
+          final phone =
+              '${AppConstants.countryCode}${_phoneController.text.trim()}';
           final synced = await ref
               .read(authNotifierProvider.notifier)
               .updatePhoneVerified(phone: phone);
@@ -722,67 +782,67 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                       textInputAction: TextInputAction.next,
                       onChanged: (value) {
                         setState(() => _passwordText = value);
-                    },
-                    decoration: InputDecoration(
-                      labelText: 'Password',
-                      hintText: 'At least 6 characters',
-                      prefixIcon: const Icon(Icons.lock_outlined),
-                      suffixIcon: IconButton(
-                        icon: Icon(
-                          _obscurePassword
-                              ? Icons.visibility_off_outlined
-                              : Icons.visibility_outlined,
-                        ),
-                        onPressed: () => setState(
-                          () => _obscurePassword = !_obscurePassword,
-                        ),
-                      ),
-                    ),
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Password is required';
-                      }
-                      if (value.length < 6) {
-                        return 'Password must be at least 6 characters';
-                      }
-                      return null;
-                    },
-                  ),
-                  // Password strength indicator
-                  PasswordStrengthIndicator(password: _passwordText),
-                  const SizedBox(height: AppSizes.md),
-                  TextFormField(
-                    controller: _confirmPasswordController,
-                    obscureText: _obscureConfirmPassword,
-                    textInputAction: TextInputAction.done,
-                    onFieldSubmitted: (_) =>
-                        _emailVerified ? _handleRegister() : null,
-                    decoration: InputDecoration(
-                      labelText: 'Confirm Password',
-                      hintText: 'Re-enter your password',
-                      prefixIcon: const Icon(Icons.lock_outlined),
-                      suffixIcon: IconButton(
-                        icon: Icon(
-                          _obscureConfirmPassword
-                              ? Icons.visibility_off_outlined
-                              : Icons.visibility_outlined,
-                        ),
-                        onPressed: () => setState(
-                          () => _obscureConfirmPassword =
-                              !_obscureConfirmPassword,
+                      },
+                      decoration: InputDecoration(
+                        labelText: 'Password',
+                        hintText: 'At least 6 characters',
+                        prefixIcon: const Icon(Icons.lock_outlined),
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                            _obscurePassword
+                                ? Icons.visibility_off_outlined
+                                : Icons.visibility_outlined,
+                          ),
+                          onPressed: () => setState(
+                            () => _obscurePassword = !_obscurePassword,
+                          ),
                         ),
                       ),
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Password is required';
+                        }
+                        if (value.length < 6) {
+                          return 'Password must be at least 6 characters';
+                        }
+                        return null;
+                      },
                     ),
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Please confirm your password';
-                      }
-                      if (value != _passwordController.text) {
-                        return 'Passwords do not match';
-                      }
-                      return null;
-                    },
-                  ),
+                    // Password strength indicator
+                    PasswordStrengthIndicator(password: _passwordText),
+                    const SizedBox(height: AppSizes.md),
+                    TextFormField(
+                      controller: _confirmPasswordController,
+                      obscureText: _obscureConfirmPassword,
+                      textInputAction: TextInputAction.done,
+                      onFieldSubmitted: (_) =>
+                          _emailVerified ? _handleRegister() : null,
+                      decoration: InputDecoration(
+                        labelText: 'Confirm Password',
+                        hintText: 'Re-enter your password',
+                        prefixIcon: const Icon(Icons.lock_outlined),
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                            _obscureConfirmPassword
+                                ? Icons.visibility_off_outlined
+                                : Icons.visibility_outlined,
+                          ),
+                          onPressed: () => setState(
+                            () => _obscureConfirmPassword =
+                                !_obscureConfirmPassword,
+                          ),
+                        ),
+                      ),
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Please confirm your password';
+                        }
+                        if (value != _passwordController.text) {
+                          return 'Passwords do not match';
+                        }
+                        return null;
+                      },
+                    ),
                   ], // end if (_phoneVerified)
                   const SizedBox(height: AppSizes.xl),
 
@@ -790,7 +850,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   SizedBox(
                     height: AppSizes.buttonHeight(context),
                     child: ElevatedButton.icon(
-                      onPressed: (_isLoading || !_emailVerified || !_phoneVerified)
+                      onPressed:
+                          (_isLoading || !_emailVerified || !_phoneVerified)
                           ? null
                           : _handleRegister,
                       icon: _isLoading
@@ -831,7 +892,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                         ),
                         GestureDetector(
                           onTap: () => launchUrl(
-                            Uri.parse('https://restaurants.tulasierp.com/terms'),
+                            Uri.parse(
+                              'https://restaurants.tulasierp.com/terms',
+                            ),
                             mode: LaunchMode.externalApplication,
                           ),
                           child: Text(
@@ -901,6 +964,14 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     final isCodeSent = phoneState.status == PhoneAuthStatus.codeSent;
     final isSending = phoneState.status == PhoneAuthStatus.sending;
     final isVerifying = phoneState.status == PhoneAuthStatus.verifying;
+    final hasWindowsUnsupportedError =
+        (phoneState.error ?? '').toLowerCase().contains(
+          'not supported on windows desktop',
+        ) ||
+        (phoneState.error ?? '').toLowerCase().contains(
+          'not available on windows desktop',
+        );
+    final useBrowserHandoff = _isWindowsDesktop || hasWindowsUnsupportedError;
 
     if (_phoneVerified) {
       return Container(
@@ -953,15 +1024,30 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
           SizedBox(
             height: 44,
             child: OutlinedButton.icon(
-              onPressed: isSending ? null : _handleSendPhoneOtp,
-              icon: isSending
+              onPressed: (isSending || _isOpeningWindowsPhoneVerify)
+                  ? null
+                  : _handleSendPhoneOtp,
+              icon: (isSending || _isOpeningWindowsPhoneVerify)
                   ? const SizedBox(
                       height: 18,
                       width: 18,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
-                  : const Icon(Icons.sms_outlined, size: 18),
-              label: Text(isSending ? 'Sending OTP...' : 'Verify Phone'),
+                  : Icon(
+                      useBrowserHandoff
+                          ? Icons.open_in_browser
+                          : Icons.sms_outlined,
+                      size: 18,
+                    ),
+              label: Text(
+                (isSending || _isOpeningWindowsPhoneVerify)
+                    ? (useBrowserHandoff
+                        ? 'Opening browser...'
+                        : 'Sending OTP...')
+                    : (useBrowserHandoff
+                        ? 'Verify in Browser'
+                        : 'Verify Phone'),
+              ),
               style: OutlinedButton.styleFrom(
                 foregroundColor: Colors.teal.shade700,
                 side: BorderSide(color: Colors.teal.shade300),
@@ -971,6 +1057,14 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
               ),
             ),
           ),
+          if (useBrowserHandoff) ...[
+            const SizedBox(height: 6),
+            const Text(
+              'Windows opens a secure browser flow for phone verification.',
+              style: TextStyle(fontSize: 12, color: AppColors.textMuted),
+              textAlign: TextAlign.center,
+            ),
+          ],
         ],
 
         // OTP input (after code sent)
@@ -1024,7 +1118,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   children: [
                     TextButton.icon(
                       onPressed: phoneState.canResend
-                          ? () => ref.read(phoneAuthProvider.notifier).resendOtp()
+                          ? () =>
+                                ref.read(phoneAuthProvider.notifier).resendOtp()
                           : null,
                       icon: const Icon(Icons.refresh, size: 16),
                       label: Text(

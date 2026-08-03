@@ -55,8 +55,6 @@ class _AppShellState extends ConsumerState<AppShell> {
     if (location.startsWith('/staff') ||
         location.startsWith('/shifts') ||
         location.startsWith('/cash-register') ||
-        location.startsWith('/tasks') ||
-        location.startsWith('/messages') ||
         location.startsWith('/salary')) {
       return 8;
     }
@@ -188,6 +186,12 @@ class _AppShellState extends ConsumerState<AppShell> {
     }
 
     final user = ref.watch(currentUserProvider);
+    final currentHotel = ref.watch(currentHotelProvider);
+    final displayShopName = (currentHotel?.name ?? '').trim().isNotEmpty
+        ? currentHotel!.name
+        : ((user?.shopName ?? '').trim().isNotEmpty
+              ? user!.shopName
+              : AppConstants.defaultShopName);
 
     return Scaffold(
       key: _scaffoldKey,
@@ -248,8 +252,8 @@ class _AppShellState extends ConsumerState<AppShell> {
                                 ),
                               ],
                             )
-                          : Text(
-                              user?.shopName ?? AppConstants.defaultShopName,
+                            : Text(
+                              displayShopName,
                               style: TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w600,
@@ -336,6 +340,12 @@ class _AppShellState extends ConsumerState<AppShell> {
     final theme = Theme.of(context);
     final roleLabel = _resolveRoleLabel(loggedInStaff);
     final planLabel = _resolvePlanLabel();
+    final currentHotel = ref.watch(currentHotelProvider);
+    final displayShopName = (currentHotel?.name ?? '').trim().isNotEmpty
+        ? currentHotel!.name
+        : ((user?.shopName ?? '').trim().isNotEmpty
+              ? user!.shopName
+              : AppConstants.defaultShopName);
 
     final allNavItems =
         <int, ({IconData icon, IconData activeIcon, String label})>{
@@ -419,7 +429,7 @@ class _AppShellState extends ConsumerState<AppShell> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                user?.shopName ?? AppConstants.defaultShopName,
+                                displayShopName,
                                 style: theme.textTheme.titleMedium?.copyWith(
                                   fontWeight: FontWeight.bold,
                                 ),
@@ -725,6 +735,12 @@ class _AppShellState extends ConsumerState<AppShell> {
 
   void _showProfileSheet(BuildContext context) {
     final user = ref.watch(currentUserProvider);
+    final currentHotel = ref.watch(currentHotelProvider);
+    final displayShopName = (currentHotel?.name ?? '').trim().isNotEmpty
+        ? currentHotel!.name
+        : ((user?.shopName ?? '').trim().isNotEmpty
+              ? user!.shopName
+              : AppConstants.defaultShopName);
 
     showModalBottomSheet(
       context: context,
@@ -783,9 +799,9 @@ class _AppShellState extends ConsumerState<AppShell> {
               ),
               const SizedBox(height: 10),
               // Shop name (prominent)
-              if (user?.shopName != null && user!.shopName.isNotEmpty) ...[
+              if (displayShopName.isNotEmpty) ...[
                 Text(
-                  user.shopName,
+                  displayShopName,
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
@@ -1036,6 +1052,12 @@ class _AppShellState extends ConsumerState<AppShell> {
     final isExpanded = deviceType == DeviceType.desktop;
     final l10n = context.l10n;
     final loggedInStaff = ref.watch(loggedInStaffProvider);
+    final currentHotel = ref.watch(currentHotelProvider);
+    final displayShopName = (currentHotel?.name ?? '').trim().isNotEmpty
+      ? currentHotel!.name
+      : ((user?.shopName ?? '').trim().isNotEmpty
+          ? user!.shopName
+          : l10n.appName);
     final roleLabel = _resolveRoleLabel(loggedInStaff);
     final planLabel = _resolvePlanLabel();
 
@@ -1086,7 +1108,7 @@ class _AppShellState extends ConsumerState<AppShell> {
                   const SizedBox(width: 12),
                   Flexible(
                     child: Text(
-                      user?.shopName ?? l10n.appName,
+                      displayShopName,
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.bold,
                         color: Theme.of(context).colorScheme.onSurface,

@@ -3,11 +3,17 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:tulasihotels/core/utils/id_generator.dart';
+import 'package:tulasihotels/features/permissions/permission_center.dart';
+import 'package:tulasihotels/features/permissions/providers/route_permission_provider.dart';
+import 'package:tulasihotels/features/permissions/services/module_mutation_guard.dart';
+import 'package:tulasihotels/features/staff/models/permission_config.dart';
 import 'package:tulasihotels/features/staff/providers/shift_provider.dart';
 import 'package:tulasihotels/features/staff/services/shift_service.dart';
 import 'package:tulasihotels/models/shift_model.dart';
 import 'package:tulasihotels/models/staff_model.dart';
+import 'package:tulasihotels/router/app_router.dart';
 
 class ShiftScheduleScreen extends ConsumerWidget {
   const ShiftScheduleScreen({super.key});
@@ -20,7 +26,7 @@ class ShiftScheduleScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('Shift Schedule')),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showShiftForm(context),
+        onPressed: () => _showShiftForm(context, ref),
         icon: const Icon(Icons.add),
         label: const Text('Add Shift'),
       ),
@@ -58,7 +64,22 @@ class ShiftScheduleScreen extends ConsumerWidget {
     );
   }
 
-  void _showShiftForm(BuildContext context) {
+  void _showShiftForm(BuildContext context, WidgetRef ref) {
+    final permissions = ref.read(routePermissionProvider(AppRoutes.staff));
+    if (!permissions.isResolved || !permissions.canCreate) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            PermissionCenter.deniedActionMessage(
+              AppRoutes.staff,
+              PermissionAction.create,
+            ),
+          ),
+        ),
+      );
+      return;
+    }
+
     final nameCtrl = TextEditingController();
     var shiftType = ShiftType.morning;
 
@@ -110,7 +131,7 @@ class ShiftScheduleScreen extends ConsumerWidget {
                   ),
                   const SizedBox(height: 16),
                   FilledButton(
-                    onPressed: () {
+                    onPressed: () async {
                       if (nameCtrl.text.isEmpty) return;
                       final now = DateTime.now();
                       final today = DateTime(now.year, now.month, now.day);
@@ -125,8 +146,33 @@ class ShiftScheduleScreen extends ConsumerWidget {
                         endTime: today.add(const Duration(hours: 17)),
                         createdAt: now,
                       );
-                      ShiftService.createShift(shift);
-                      Navigator.of(context).pop();
+                      try {
+                        await ShiftService.createShift(shift);
+                        if (context.mounted) {
+                          Navigator.of(context).pop();
+                        }
+                      } on ModulePermissionDenied catch (e) {
+                        if (!context.mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text(e.message)),
+                        );
+                      } on FirebaseException catch (e) {
+                        if (!context.mounted) return;
+                        final denied =
+                            e.code == 'permission-denied' ||
+                            (e.message ?? '').toLowerCase().contains(
+                              'missing or insufficient permissions',
+                            );
+                        final message = denied
+                            ? PermissionCenter.deniedActionMessage(
+                                AppRoutes.staff,
+                                PermissionAction.create,
+                              )
+                            : 'Unable to create shift. Please try again.';
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text(message)),
+                        );
+                      }
                     },
                     child: const Text('Create Shift'),
                   ),

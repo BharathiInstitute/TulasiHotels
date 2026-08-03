@@ -1,4 +1,4 @@
-/// Product detail screen
+﻿/// Product detail screen
 library;
 
 import 'package:flutter/material.dart';
@@ -235,9 +235,7 @@ class _ProductDetailViewState extends ConsumerState<_ProductDetailView> {
     );
 
     if (!productPermissions.isResolved) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
     if (!productPermissions.canView) {

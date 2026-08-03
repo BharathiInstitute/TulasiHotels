@@ -367,23 +367,6 @@ class HotelService {
     await _hotelsRef.doc(hotelId).update({'status': HotelStatus.archived.name});
   }
 
-  /// Delete a hotel — removes the user_hotels entry and marks the store as
-  /// deleted so it no longer appears in the selector.
-  static Future<void> deleteHotel(String hotelId) async {
-    final userId = _userId;
-    if (userId == null) return;
-    // Remove from user's hotel list
-    await _hotelsRef.doc(hotelId).delete();
-    // Mark the store document as deleted (non-destructive to subcollections)
-    try {
-      await _firestore.collection('users').doc(hotelId).update({
-        'deleted': true,
-        'deletedAt': FieldValue.serverTimestamp(),
-        'deletedBy': userId,
-      });
-    } catch (_) {} // Store doc may not exist for staff-only entries
-  }
-
   /// Remove user_hotels entries where the user has no valid member doc.
   /// Also removes ghost "owner" entries created by an old bug (staff members
   /// whose users/{uid} doc was auto-created before the staff-detection fix).

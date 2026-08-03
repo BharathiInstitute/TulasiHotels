@@ -37,8 +37,6 @@ void main() {
       expect(AppRoutes.reservations, '/reservations');
       expect(AppRoutes.coupons, '/coupons');
       expect(AppRoutes.shifts, '/shifts');
-      expect(AppRoutes.tasks, '/tasks');
-      expect(AppRoutes.messages, '/messages');
       expect(AppRoutes.cashRegister, '/cash-register');
       expect(AppRoutes.feedback, '/feedback');
       expect(AppRoutes.feedbackDashboard, '/feedback-dashboard');

@@ -61,8 +61,6 @@ import 'package:tulasihotels/features/tables/screens/table_layout_editor.dart';
 import 'package:tulasihotels/features/reservations/screens/reservations_screen.dart';
 import 'package:tulasihotels/features/coupons/screens/coupons_screen.dart';
 import 'package:tulasihotels/features/staff/screens/shift_schedule_screen.dart';
-import 'package:tulasihotels/features/staff/screens/task_board_screen.dart';
-import 'package:tulasihotels/features/staff/screens/messages_screen.dart';
 import 'package:tulasihotels/features/staff/screens/cash_register_screen.dart';
 import 'package:tulasihotels/features/feedback/screens/feedback_screen.dart';
 import 'package:tulasihotels/features/inventory/screens/ingredients_screen.dart';
@@ -161,8 +159,6 @@ class AppRoutes {
   static const String reservations = '/reservations';
   static const String coupons = '/coupons';
   static const String shifts = '/shifts';
-  static const String tasks = '/tasks';
-  static const String messages = '/messages';
   static const String cashRegister = '/cash-register';
   static const String feedback = '/feedback';
   static const String ingredients = '/ingredients';
@@ -884,14 +880,6 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: AppRoutes.shifts,
             builder: (context, state) => const ShiftScheduleScreen(),
-          ),
-          GoRoute(
-            path: AppRoutes.tasks,
-            builder: (context, state) => const TaskBoardScreen(),
-          ),
-          GoRoute(
-            path: AppRoutes.messages,
-            builder: (context, state) => const MessagesScreen(),
           ),
           GoRoute(
             path: AppRoutes.cashRegister,

@@ -31,6 +31,11 @@ const List<PermissionAction> _viewCreateActions = [
   PermissionAction.create,
 ];
 
+const List<PermissionAction> _viewUpdateActions = [
+  PermissionAction.view,
+  PermissionAction.update,
+];
+
 /// A screen that can be permission-controlled
 class ScreenDef {
   final String route;
@@ -133,7 +138,7 @@ class PermissionConfig {
       route: AppRoutes.myAttendance,
       label: 'My Attendance',
       category: staffCategory,
-      supportedActions: _viewOnlyActions,
+      supportedActions: _fullCrudActions,
     ),
     // Inventory
     ScreenDef(
@@ -182,16 +187,19 @@ class PermissionConfig {
       route: AppRoutes.settings,
       label: 'Settings',
       category: settingsCategory,
+      supportedActions: _viewUpdateActions,
     ),
     ScreenDef(
       route: AppRoutes.settingsHardware,
       label: 'Hardware',
       category: settingsCategory,
+      supportedActions: _viewUpdateActions,
     ),
     ScreenDef(
       route: AppRoutes.subscription,
       label: 'Subscription',
       category: settingsCategory,
+      supportedActions: _viewUpdateActions,
     ),
   ];
 
@@ -282,6 +290,13 @@ class PermissionConfig {
       AppRoutes.dailySpecials,
     ],
     AppRoutes.khata: [AppRoutes.customerDetail],
+    AppRoutes.staff: [
+      AppRoutes.shifts,
+      AppRoutes.cashRegister,
+      AppRoutes.salary,
+      AppRoutes.staffAttendanceDetail,
+      AppRoutes.staffPayrollDetail,
+    ],
     AppRoutes.tables: [
       AppRoutes.orders,
       AppRoutes.orderDetail,

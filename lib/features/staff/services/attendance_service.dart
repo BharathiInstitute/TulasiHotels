@@ -5,9 +5,12 @@ import 'package:tulasihotels/core/services/active_store_manager.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:tulasihotels/core/utils/id_generator.dart';
+import 'package:tulasihotels/features/permissions/services/module_mutation_guard.dart';
 import 'package:tulasihotels/features/settings/services/attendance_settings_service.dart';
+import 'package:tulasihotels/features/staff/models/permission_config.dart';
 import 'package:tulasihotels/features/staff/services/location_service.dart';
 import 'package:tulasihotels/models/attendance_model.dart';
+import 'package:tulasihotels/router/app_router.dart';
 
 class AttendanceService {
   static final _firestore = FirebaseFirestore.instance;
@@ -16,6 +19,46 @@ class AttendanceService {
 
   static CollectionReference<Map<String, dynamic>> get _attendanceRef =>
       _firestore.collection('$_basePath/attendance');
+
+  static Future<void> _requireAttendanceCreate(ClockSource source) async {
+    if (source == ClockSource.admin || source == ClockSource.manual) {
+      await ModuleMutationGuard.requireAction(
+        AppRoutes.staff,
+        PermissionAction.create,
+      );
+      return;
+    }
+    await ModuleMutationGuard.requireAnyAction([
+      const ModuleActionRequirement(
+        route: AppRoutes.myAttendance,
+        action: PermissionAction.create,
+      ),
+      const ModuleActionRequirement(
+        route: AppRoutes.staff,
+        action: PermissionAction.create,
+      ),
+    ]);
+  }
+
+  static Future<void> _requireAttendanceClockOut(ClockSource source) async {
+    if (source == ClockSource.admin || source == ClockSource.manual) {
+      await ModuleMutationGuard.requireAction(
+        AppRoutes.staff,
+        PermissionAction.create,
+      );
+      return;
+    }
+    await ModuleMutationGuard.requireAnyAction([
+      const ModuleActionRequirement(
+        route: AppRoutes.myAttendance,
+        action: PermissionAction.create,
+      ),
+      const ModuleActionRequirement(
+        route: AppRoutes.staff,
+        action: PermissionAction.create,
+      ),
+    ]);
+  }
 
   /// Stream today's attendance records (real-time)
   static Stream<List<AttendanceModel>> todayAttendanceStream() {
@@ -80,6 +123,7 @@ class AttendanceService {
     ClockSource source = ClockSource.staff,
     bool captureLocation = true,
   }) async {
+    await _requireAttendanceCreate(source);
     final now = DateTime.now();
     final id = generateSafeId('att');
     final hotelId = ActiveStoreManager.storeId;
@@ -151,6 +195,7 @@ class AttendanceService {
     ClockSource source = ClockSource.staff,
     bool captureLocation = true,
   }) async {
+    await _requireAttendanceClockOut(source);
     final hotelId = ActiveStoreManager.storeId;
 
     // -- Geo-fence enforcement -------------------------------------
@@ -248,6 +293,10 @@ class AttendanceService {
     String? editedBy,
     String? editNote,
   }) async {
+    await ModuleMutationGuard.requireAction(
+      AppRoutes.staff,
+      PermissionAction.create,
+    );
     final id = generateSafeId('att');
     final attendance = AttendanceModel(
       id: id,
@@ -276,6 +325,10 @@ class AttendanceService {
     String? editedBy,
     String? editNote,
   }) async {
+    await ModuleMutationGuard.requireAction(
+      AppRoutes.staff,
+      PermissionAction.update,
+    );
     final updates = <String, dynamic>{};
     if (clockIn != null) updates['clockIn'] = Timestamp.fromDate(clockIn);
     if (clockOut != null) updates['clockOut'] = Timestamp.fromDate(clockOut);
@@ -292,6 +345,10 @@ class AttendanceService {
 
   /// Delete an attendance record (owner correction)
   static Future<void> deleteRecord(String recordId) async {
+    await ModuleMutationGuard.requireAction(
+      AppRoutes.staff,
+      PermissionAction.delete,
+    );
     await _attendanceRef.doc(recordId).delete();
     debugPrint('Record $recordId deleted');
   }

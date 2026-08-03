@@ -1,4 +1,4 @@
-/// Complaint management service
+﻿/// Complaint management service
 library;
 
 import 'package:tulasihotels/core/services/active_store_manager.dart';
@@ -60,9 +60,7 @@ class ComplaintService {
         ),
       );
     }
-    await _complaintsRef
-        .doc(complaint.id)
-        .set(complaint.toFirestore());
+    await _complaintsRef.doc(complaint.id).set(complaint.toFirestore());
   }
 
   /// Update complaint status
@@ -110,9 +108,7 @@ class ComplaintService {
         ),
       );
     }
-    await _complaintsRef
-        .doc(complaint.id)
-        .update(complaint.toFirestore());
+    await _complaintsRef.doc(complaint.id).update(complaint.toFirestore());
   }
 
   /// Delete a complaint

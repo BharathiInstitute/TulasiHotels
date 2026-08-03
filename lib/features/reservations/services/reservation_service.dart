@@ -1,4 +1,4 @@
-/// Reservation management service
+﻿/// Reservation management service
 library;
 
 import 'package:tulasihotels/core/services/active_store_manager.dart';
@@ -24,14 +24,18 @@ class ReservationService {
     final endOfDay = startOfDay.add(const Duration(days: 1));
 
     return _reservationsRef
-        .where('dateTime', isGreaterThanOrEqualTo: Timestamp.fromDate(startOfDay))
+        .where(
+          'dateTime',
+          isGreaterThanOrEqualTo: Timestamp.fromDate(startOfDay),
+        )
         .where('dateTime', isLessThan: Timestamp.fromDate(endOfDay))
         .snapshots()
         .map(
-          (snapshot) => snapshot.docs
-              .map((doc) => ReservationModel.fromFirestore(doc))
-              .toList()
-            ..sort((a, b) => a.dateTime.compareTo(b.dateTime)),
+          (snapshot) =>
+              snapshot.docs
+                  .map((doc) => ReservationModel.fromFirestore(doc))
+                  .toList()
+                ..sort((a, b) => a.dateTime.compareTo(b.dateTime)),
         );
   }
 
@@ -45,10 +49,11 @@ class ReservationService {
         .where('dateTime', isLessThan: Timestamp.fromDate(weekLater))
         .snapshots()
         .map(
-          (snapshot) => snapshot.docs
-              .map((doc) => ReservationModel.fromFirestore(doc))
-              .toList()
-            ..sort((a, b) => a.dateTime.compareTo(b.dateTime)),
+          (snapshot) =>
+              snapshot.docs
+                  .map((doc) => ReservationModel.fromFirestore(doc))
+                  .toList()
+                ..sort((a, b) => a.dateTime.compareTo(b.dateTime)),
         );
   }
 
@@ -65,11 +70,10 @@ class ReservationService {
         ),
       );
     }
-    await _reservationsRef
-        .doc(reservation.id)
-        .set(reservation.toFirestore());
+    await _reservationsRef.doc(reservation.id).set(reservation.toFirestore());
     debugPrint(
-        'âœ… Created reservation for ${reservation.guestName} at ${reservation.dateTime}');
+      'Created reservation for ${reservation.guestName} at ${reservation.dateTime}',
+    );
     return reservation;
   }
 
@@ -153,7 +157,9 @@ class ReservationService {
 
   /// Check if a table is available at a given time
   static Future<bool> isTableAvailable(
-      String tableId, DateTime dateTime) async {
+    String tableId,
+    DateTime dateTime,
+  ) async {
     final start = dateTime.subtract(const Duration(minutes: 90));
     final end = dateTime.add(const Duration(minutes: 90));
 

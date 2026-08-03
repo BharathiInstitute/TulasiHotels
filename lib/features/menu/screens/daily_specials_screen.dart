@@ -21,16 +21,12 @@ class DailySpecialsScreen extends ConsumerWidget {
     );
 
     if (!productPermissions.isResolved) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
     if (!productPermissions.canView) {
       return Scaffold(
-        appBar: AppBar(
-          title: const Text('Daily Specials ⭐'),
-        ),
+        appBar: AppBar(title: const Text('Daily Specials ⭐')),
         body: PermissionDeniedView(
           message: PermissionCenter.deniedViewMessage(AppRoutes.products),
         ),
@@ -38,9 +34,7 @@ class DailySpecialsScreen extends ConsumerWidget {
     }
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Daily Specials ⭐'),
-      ),
+      appBar: AppBar(title: const Text('Daily Specials ⭐')),
       body: productsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('Error: $e')),
@@ -99,7 +93,11 @@ class DailySpecialsScreen extends ConsumerWidget {
     ref.read(productsServiceProvider).updateProduct(updated);
   }
 
-  void _deleteProduct(BuildContext context, WidgetRef ref, ProductModel product) {
+  void _deleteProduct(
+    BuildContext context,
+    WidgetRef ref,
+    ProductModel product,
+  ) {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(

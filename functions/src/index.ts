@@ -2566,7 +2566,7 @@ export const backfillStoreOwnerUids = functions
                 resolvedOwnerUid = storeId;
             }
 
-            if (!resolvedOwnerUid || resolvedOwnerUid.trim().isEmpty) {
+            if (!resolvedOwnerUid || resolvedOwnerUid.trim().length == 0) {
                 unresolved.push(storeId);
                 continue;
             }

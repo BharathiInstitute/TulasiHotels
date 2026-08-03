@@ -30,16 +30,12 @@ class _ComboBuilderScreenState extends ConsumerState<ComboBuilderScreen> {
     );
 
     if (!comboPermissions.isResolved) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
     if (!comboPermissions.canView) {
       return Scaffold(
-        appBar: AppBar(
-          title: const Text('Combo Meals'),
-        ),
+        appBar: AppBar(title: const Text('Combo Meals')),
         body: PermissionDeniedView(
           message: PermissionCenter.deniedViewMessage(AppRoutes.products),
         ),
@@ -47,12 +43,11 @@ class _ComboBuilderScreenState extends ConsumerState<ComboBuilderScreen> {
     }
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Combo Meals'),
-      ),
+      appBar: AppBar(title: const Text('Combo Meals')),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: comboPermissions.canCreate
-            ? () => _showComboForm(context, canCreate: comboPermissions.canCreate)
+            ? () =>
+                  _showComboForm(context, canCreate: comboPermissions.canCreate)
             : null,
         icon: const Icon(Icons.add),
         label: const Text('New Combo'),
@@ -74,9 +69,11 @@ class _ComboBuilderScreenState extends ConsumerState<ComboBuilderScreen> {
               return Card(
                 child: ListTile(
                   leading: CircleAvatar(
-                    child: Text(combo.dietaryTag.emoji.isNotEmpty
-                        ? combo.dietaryTag.emoji
-                        : '🍽️'),
+                    child: Text(
+                      combo.dietaryTag.emoji.isNotEmpty
+                          ? combo.dietaryTag.emoji
+                          : '🍽️',
+                    ),
                   ),
                   title: Text(combo.name),
                   subtitle: Text(
@@ -89,7 +86,7 @@ class _ComboBuilderScreenState extends ConsumerState<ComboBuilderScreen> {
                         value: combo.isAvailable,
                         onChanged: comboPermissions.canUpdate
                             ? (val) =>
-                                ComboService.toggleAvailability(combo.id, val)
+                                  ComboService.toggleAvailability(combo.id, val)
                             : null,
                       ),
                       IconButton(
@@ -143,8 +140,10 @@ class _ComboBuilderScreenState extends ConsumerState<ComboBuilderScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          Text('New Combo',
-                              style: Theme.of(context).textTheme.headlineSmall),
+                          Text(
+                            'New Combo',
+                            style: Theme.of(context).textTheme.headlineSmall,
+                          ),
                           const SizedBox(height: 16),
                           TextField(
                             controller: nameController,
@@ -166,8 +165,10 @@ class _ComboBuilderScreenState extends ConsumerState<ComboBuilderScreen> {
 
                           // Selected items chips
                           if (selectedItems.isNotEmpty) ...[
-                            Text('Selected Items (${selectedItems.length})',
-                                style: Theme.of(context).textTheme.titleSmall),
+                            Text(
+                              'Selected Items (${selectedItems.length})',
+                              style: Theme.of(context).textTheme.titleSmall,
+                            ),
                             const SizedBox(height: 8),
                             Wrap(
                               spacing: 8,
@@ -177,7 +178,9 @@ class _ComboBuilderScreenState extends ConsumerState<ComboBuilderScreen> {
                                   label: Text(p.name),
                                   deleteIcon: const Icon(Icons.close, size: 18),
                                   onDeleted: () {
-                                    setModalState(() => selectedItems.remove(p));
+                                    setModalState(
+                                      () => selectedItems.remove(p),
+                                    );
                                   },
                                 );
                               }).toList(),
@@ -193,7 +196,9 @@ class _ComboBuilderScreenState extends ConsumerState<ComboBuilderScreen> {
                               border: OutlineInputBorder(),
                             ),
                             onChanged: (value) {
-                              setModalState(() => searchQuery = value.toLowerCase());
+                              setModalState(
+                                () => searchQuery = value.toLowerCase(),
+                              );
                             },
                           ),
                           const SizedBox(height: 8),
@@ -201,23 +206,36 @@ class _ComboBuilderScreenState extends ConsumerState<ComboBuilderScreen> {
                           // Menu items list
                           Expanded(
                             child: productsAsync.when(
-                              loading: () => const Center(child: CircularProgressIndicator()),
+                              loading: () => const Center(
+                                child: CircularProgressIndicator(),
+                              ),
                               error: (e, _) => Center(child: Text('Error: $e')),
                               data: (products) {
-                                var filtered = products.where((p) => p.isAvailable).toList();
+                                var filtered = products
+                                    .where((p) => p.isAvailable)
+                                    .toList();
                                 if (searchQuery.isNotEmpty) {
-                                  filtered = filtered.where((p) =>
-                                      p.name.toLowerCase().contains(searchQuery)).toList();
+                                  filtered = filtered
+                                      .where(
+                                        (p) => p.name.toLowerCase().contains(
+                                          searchQuery,
+                                        ),
+                                      )
+                                      .toList();
                                 }
                                 if (filtered.isEmpty) {
-                                  return const Center(child: Text('No items found'));
+                                  return const Center(
+                                    child: Text('No items found'),
+                                  );
                                 }
                                 return ListView.builder(
                                   controller: scrollController,
                                   itemCount: filtered.length,
                                   itemBuilder: (context, index) {
                                     final product = filtered[index];
-                                    final isSelected = selectedItems.any((p) => p.id == product.id);
+                                    final isSelected = selectedItems.any(
+                                      (p) => p.id == product.id,
+                                    );
                                     return ListTile(
                                       leading: CircleAvatar(
                                         child: Text(
@@ -227,14 +245,23 @@ class _ComboBuilderScreenState extends ConsumerState<ComboBuilderScreen> {
                                         ),
                                       ),
                                       title: Text(product.name),
-                                      subtitle: Text('₹${product.price.toStringAsFixed(0)}'),
+                                      subtitle: Text(
+                                        '₹${product.price.toStringAsFixed(0)}',
+                                      ),
                                       trailing: isSelected
-                                          ? const Icon(Icons.check_circle, color: Colors.green)
-                                          : const Icon(Icons.add_circle_outline),
+                                          ? const Icon(
+                                              Icons.check_circle,
+                                              color: Colors.green,
+                                            )
+                                          : const Icon(
+                                              Icons.add_circle_outline,
+                                            ),
                                       onTap: () {
                                         setModalState(() {
                                           if (isSelected) {
-                                            selectedItems.removeWhere((p) => p.id == product.id);
+                                            selectedItems.removeWhere(
+                                              (p) => p.id == product.id,
+                                            );
                                           } else {
                                             selectedItems.add(product);
                                           }
@@ -252,20 +279,28 @@ class _ComboBuilderScreenState extends ConsumerState<ComboBuilderScreen> {
                             onPressed: !canCreate
                                 ? null
                                 : () {
-                              if (nameController.text.isEmpty) return;
-                              final combo = ComboModel(
-                                id: generateSafeId('combo'),
-                                name: nameController.text,
-                                price: double.tryParse(priceController.text) ?? 0,
-                                items: selectedItems.map((p) => ComboItem(
-                                  productId: p.id,
-                                  name: p.name,
-                                )).toList(),
-                                createdAt: DateTime.now(),
-                              );
-                              ComboService.createCombo(combo);
-                              Navigator.of(context).pop();
-                            },
+                                    if (nameController.text.isEmpty) return;
+                                    final combo = ComboModel(
+                                      id: generateSafeId('combo'),
+                                      name: nameController.text,
+                                      price:
+                                          double.tryParse(
+                                            priceController.text,
+                                          ) ??
+                                          0,
+                                      items: selectedItems
+                                          .map(
+                                            (p) => ComboItem(
+                                              productId: p.id,
+                                              name: p.name,
+                                            ),
+                                          )
+                                          .toList(),
+                                      createdAt: DateTime.now(),
+                                    );
+                                    ComboService.createCombo(combo);
+                                    Navigator.of(context).pop();
+                                  },
                             child: const Text('Create Combo'),
                           ),
                           const SizedBox(height: 16),

@@ -19,6 +19,10 @@ if (keystorePropertiesFile.exists()) {
     keystoreProperties.load(FileInputStream(keystorePropertiesFile))
 }
 
+val isReleaseTaskRequested = gradle.startParameter.taskNames.any {
+    it.contains("release", ignoreCase = true)
+}
+
 android {
     namespace = "in.liteapp.tulasihotels"
     compileSdk = flutter.compileSdkVersion
@@ -57,8 +61,11 @@ android {
         release {
             if (keystorePropertiesFile.exists()) {
                 signingConfig = signingConfigs.getByName("release")
+            } else if (isReleaseTaskRequested) {
+                throw GradleException(
+                    "Release signing is not configured. Add android/key.properties with your release keystore details.",
+                )
             } else {
-                // Fallback to debug signing for local development only
                 signingConfig = signingConfigs.getByName("debug")
             }
             // Enable code shrinking, obfuscation, and optimization

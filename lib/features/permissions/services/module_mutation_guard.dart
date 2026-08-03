@@ -61,10 +61,11 @@ class ModuleMutationGuard {
       throw const ModulePermissionDenied('You must be signed in.');
     }
 
-    final isOwner = storeId == user.uid;
+    // When a staff session is active, enforce staff/member permissions.
+    final isOwner = staff == null && storeId == user.uid;
 
     StoreMember? member;
-    if (!isOwner) {
+    if (!isOwner && staff == null) {
       final memberDoc = await FirebaseFirestore.instance
           .collection('users/$storeId/members')
           .doc(user.uid)

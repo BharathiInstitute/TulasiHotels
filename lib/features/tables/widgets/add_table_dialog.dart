@@ -1,6 +1,8 @@
 /// Add/Edit table dialog
 library;
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tulasihotels/features/permissions/permission_center.dart';
@@ -245,6 +247,18 @@ class _AddTableDialogState extends ConsumerState<AddTableDialog> {
       }
 
       if (mounted) Navigator.pop(context);
+    } on TimeoutException {
+      // In offline/slow-network mode Firestore may apply local writes but delay
+      // server acknowledgement. Treat timeout as queued success and close dialog.
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).removeCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Saved offline, will sync when online.'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+      Navigator.pop(context);
     } catch (e) {
       if (mounted) {
         final msg = e.toString().replaceFirst('Exception: ', '');
