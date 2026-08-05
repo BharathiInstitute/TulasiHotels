@@ -196,6 +196,7 @@ class _EventsScreenState extends ConsumerState<EventsScreen> {
     final advanceCtrl = TextEditingController(
       text: existing?.advancePaid.toStringAsFixed(0) ?? '',
     );
+    final isSubmitting = ValueNotifier<bool>(false);
     var selectedDate = existing?.eventDate ?? DateTime.now().add(const Duration(days: 7));
 
     final permissions = ref.read(routePermissionProvider(AppRoutes.events));
@@ -219,7 +220,7 @@ class _EventsScreenState extends ConsumerState<EventsScreen> {
       return;
     }
 
-    showModalBottomSheet(
+    unawaited(showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       builder: (ctx) => StatefulBuilder(
@@ -319,20 +320,30 @@ class _EventsScreenState extends ConsumerState<EventsScreen> {
                 const SizedBox(height: 16),
                 SizedBox(
                   width: double.infinity,
-                  child: FilledButton(
-                    onPressed: () => _submitEvent(
-                      ctx,
-                      existing: existing,
-                      selectedDate: selectedDate,
-                      nameCtrl: nameCtrl,
-                      clientNameCtrl: clientNameCtrl,
-                      phoneCtrl: phoneCtrl,
-                      guestsCtrl: guestsCtrl,
-                      instructionsCtrl: instructionsCtrl,
-                      priceCtrl: priceCtrl,
-                      advanceCtrl: advanceCtrl,
+                  child: ValueListenableBuilder<bool>(
+                    valueListenable: isSubmitting,
+                    builder: (context, submitting, _) => FilledButton(
+                      onPressed: submitting
+                          ? null
+                          : () => _submitEvent(
+                                ctx,
+                                existing: existing,
+                                selectedDate: selectedDate,
+                                nameCtrl: nameCtrl,
+                                clientNameCtrl: clientNameCtrl,
+                                phoneCtrl: phoneCtrl,
+                                guestsCtrl: guestsCtrl,
+                                instructionsCtrl: instructionsCtrl,
+                                priceCtrl: priceCtrl,
+                                advanceCtrl: advanceCtrl,
+                                isSubmitting: isSubmitting,
+                              ),
+                      child: Text(
+                        submitting
+                            ? (isEditing ? 'Updating...' : 'Creating...')
+                            : (isEditing ? 'Update Event' : 'Create Event'),
+                      ),
                     ),
-                    child: Text(isEditing ? 'Update Event' : 'Create Event'),
                   ),
                 ),
               ],
@@ -340,15 +351,7 @@ class _EventsScreenState extends ConsumerState<EventsScreen> {
           ),
         ),
       ),
-    ).whenComplete(() {
-      nameCtrl.dispose();
-      clientNameCtrl.dispose();
-      phoneCtrl.dispose();
-      guestsCtrl.dispose();
-      instructionsCtrl.dispose();
-      priceCtrl.dispose();
-      advanceCtrl.dispose();
-    });
+    ));
   }
 
   Future<void> _submitEvent(
@@ -362,7 +365,12 @@ class _EventsScreenState extends ConsumerState<EventsScreen> {
     required TextEditingController instructionsCtrl,
     required TextEditingController priceCtrl,
     required TextEditingController advanceCtrl,
+    required ValueNotifier<bool> isSubmitting,
   }) async {
+    if (isSubmitting.value) return;
+    isSubmitting.value = true;
+    var keepSubmitting = true;
+
     final permissions = ref.read(routePermissionProvider(AppRoutes.events));
     final isEditing = existing != null;
     final requiredAction =
@@ -382,6 +390,7 @@ class _EventsScreenState extends ConsumerState<EventsScreen> {
           ),
         );
       }
+      isSubmitting.value = false;
       return;
     }
 
@@ -404,6 +413,7 @@ class _EventsScreenState extends ConsumerState<EventsScreen> {
           ),
         );
       }
+      isSubmitting.value = false;
       return;
     }
 
@@ -435,6 +445,7 @@ class _EventsScreenState extends ConsumerState<EventsScreen> {
       if (ctx.mounted) {
         Navigator.of(ctx).pop();
       }
+      keepSubmitting = false;
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -470,6 +481,10 @@ class _EventsScreenState extends ConsumerState<EventsScreen> {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('Failed to save event: $e')));
+      }
+    } finally {
+      if (keepSubmitting) {
+        isSubmitting.value = false;
       }
     }
   }

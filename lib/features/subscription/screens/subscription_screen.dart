@@ -6,16 +6,33 @@ import 'package:flutter/foundation.dart' show defaultTargetPlatform, kIsWeb, Tar
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:tulasihotels/core/services/active_store_manager.dart';
 import 'package:tulasihotels/features/permissions/permission_center.dart';
 import 'package:tulasihotels/features/permissions/providers/route_permission_provider.dart';
 import 'package:tulasihotels/features/permissions/widgets/permission_denied_view.dart';
 import 'package:tulasihotels/router/app_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:tulasihotels/core/services/cloud_function_helper.dart';
+import 'package:tulasihotels/features/hotels/providers/hotel_provider.dart';
 import 'package:tulasihotels/features/subscription/providers/subscription_provider.dart';
 import 'package:tulasihotels/features/subscription/services/subscription_service.dart';
 import 'package:tulasihotels/features/subscription/models/plan_config.dart';
-import 'package:tulasihotels/features/subscription/services/plan_enforcement_service.dart';
+
+final _activeSubscriptionMetaProvider =
+    StreamProvider<Map<String, dynamic>?>((ref) {
+      final hotelId = ref.watch(currentHotelIdProvider);
+      final authUid = FirebaseAuth.instance.currentUser?.uid;
+      final storeId = hotelId ?? ActiveStoreManager.storeId ?? authUid;
+      if (storeId == null || storeId.isEmpty) {
+        return Stream.value(null);
+      }
+
+      return FirebaseFirestore.instance
+          .collection('users')
+          .doc(storeId)
+          .snapshots()
+          .map((doc) => doc.data()?['subscription'] as Map<String, dynamic>?);
+    });
 
 /// Screen for viewing and managing subscription plans.
 ///
@@ -44,12 +61,13 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
   }
 
   Future<void> _loadCurrentSubscription() async {
-    final ownerUid = await PlanEnforcementService.resolveOwnerUidForActiveStore();
-    if (ownerUid == null) return;
+    final restaurantId =
+        ActiveStoreManager.storeId ?? FirebaseAuth.instance.currentUser?.uid;
+    if (restaurantId == null || restaurantId.isEmpty) return;
 
     final doc = await FirebaseFirestore.instance
         .collection('users')
-      .doc(ownerUid)
+      .doc(restaurantId)
         .get();
     final sub = doc.data()?['subscription'] as Map<String, dynamic>?;
     if (sub != null && mounted) {
@@ -76,6 +94,26 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
       if (plan != _currentPlan) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) setState(() => _currentPlan = plan);
+        });
+      }
+    });
+
+    // Keep status/expiry in sync when plan is changed from any platform.
+    final metaAsync = ref.watch(_activeSubscriptionMetaProvider);
+    metaAsync.whenData((sub) {
+      final nextStatus = (sub?['status'] as String?) ?? 'active';
+      final nextExpiresAt = (sub?['expiresAt'] as Timestamp?)?.toDate();
+      final changedStatus = nextStatus != _subscriptionStatus;
+      final changedExpiry =
+          nextExpiresAt?.millisecondsSinceEpoch !=
+          _expiresAt?.millisecondsSinceEpoch;
+      if (changedStatus || changedExpiry) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          setState(() {
+            _subscriptionStatus = nextStatus;
+            _expiresAt = nextExpiresAt;
+          });
         });
       }
     });
@@ -307,6 +345,10 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
     final cycle = _isAnnual ? 'annual' : 'monthly';
 
     final user = FirebaseAuth.instance.currentUser;
+    final restaurantId =
+        ref.read(currentHotelIdProvider) ??
+        ActiveStoreManager.storeId ??
+        user?.uid;
     if (user == null) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -355,6 +397,9 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
 
       final platform = kIsWeb ? 'web' : isWindows ? 'windows' : 'android';
       final queryParams = <String, String>{'plan': planKey, 'cycle': cycle, 'platform': platform};
+      if (restaurantId != null && restaurantId.isNotEmpty) {
+        queryParams['restaurantId'] = restaurantId;
+      }
       if (customToken != null) queryParams['token'] = customToken;
       if (email.isNotEmpty) queryParams['email'] = email;
       if (phone.isNotEmpty) queryParams['phone'] = phone;

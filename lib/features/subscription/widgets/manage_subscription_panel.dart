@@ -12,6 +12,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tulasihotels/core/services/active_store_manager.dart';
 import 'package:tulasihotels/core/services/cloud_function_helper.dart';
 import 'package:tulasihotels/core/services/user_metrics_service.dart';
+import 'package:tulasihotels/features/hotels/providers/hotel_provider.dart';
 import 'package:tulasihotels/features/subscription/models/plan_config.dart';
 import 'package:tulasihotels/features/subscription/providers/subscription_provider.dart';
 import 'package:tulasihotels/features/subscription/services/active_items_service.dart';
@@ -44,7 +45,6 @@ class _ManageSubscriptionPanelState
   DateTime? _lastResync;
   bool _subscriptionLoaded = false;
   bool _limitsLoaded = false;
-  StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _ownerSub;
   StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _docSub;
 
   @override
@@ -72,13 +72,10 @@ class _ManageSubscriptionPanelState
 
     final storeId =
         ActiveStoreManager.storeId ?? FirebaseAuth.instance.currentUser?.uid;
-    final ownerUid =
-      await PlanEnforcementService.resolveOwnerUidForStoreId(storeId: storeId);
     if (storeId == null) return;
     try {
       final result = await PlanEnforcementService.resyncUsageAndRepairLimits(
         storeId: storeId,
-        ownerUid: ownerUid,
       );
       if (result == null) return;
 
@@ -98,42 +95,12 @@ class _ManageSubscriptionPanelState
     }
   }
 
-  /// Real-time listeners:
-  /// - Owner doc for subscription plan/status
-  /// - Active store doc for usage limits/counters
+  /// Real-time listener on active store doc for subscription + usage limits.
   Future<void> _subscribeToData() async {
-    final ownerUid = await PlanEnforcementService.resolveOwnerUidForActiveStore();
-    if (ownerUid == null) {
-      _subscriptionLoaded = true;
-      _updateLoadingState();
-    } else {
-      _ownerSub = FirebaseFirestore.instance
-          .collection('users')
-          .doc(ownerUid)
-          .snapshots()
-          .listen((doc) {
-        if (doc.exists && mounted) {
-          final data = doc.data()!;
-          final sub = data['subscription'] as Map<String, dynamic>?;
-          setState(() {
-            _currentPlan = (sub?['plan'] as String?) ?? 'free';
-            _status = (sub?['status'] as String?) ?? 'active';
-            _expiresAt = (sub?['expiresAt'] as Timestamp?)?.toDate();
-            _userPhone ??=
-                (data['phone'] as String?) ?? (data['phoneNumber'] as String?);
-          });
-        }
-        _subscriptionLoaded = true;
-        _updateLoadingState();
-      }, onError: (_) {
-        _subscriptionLoaded = true;
-        _updateLoadingState();
-      });
-    }
-
     final storeId =
         ActiveStoreManager.storeId ?? FirebaseAuth.instance.currentUser?.uid;
     if (storeId == null) {
+      _subscriptionLoaded = true;
       _limitsLoaded = true;
       _updateLoadingState();
       return;
@@ -146,16 +113,22 @@ class _ManageSubscriptionPanelState
         .listen((doc) {
       if (doc.exists && mounted) {
         final data = doc.data()!;
+        final sub = data['subscription'] as Map<String, dynamic>?;
         final limitsMap = data['limits'] as Map<String, dynamic>?;
         setState(() {
+          _currentPlan = (sub?['plan'] as String?) ?? 'free';
+          _status = (sub?['status'] as String?) ?? 'active';
+          _expiresAt = (sub?['expiresAt'] as Timestamp?)?.toDate();
           _limits = UserLimits.fromMap(limitsMap);
           _userPhone ??=
               (data['phone'] as String?) ?? (data['phoneNumber'] as String?);
         });
       }
+      _subscriptionLoaded = true;
       _limitsLoaded = true;
       _updateLoadingState();
     }, onError: (_) {
+      _subscriptionLoaded = true;
       _limitsLoaded = true;
       _updateLoadingState();
     });
@@ -168,7 +141,6 @@ class _ManageSubscriptionPanelState
 
   @override
   void dispose() {
-    _ownerSub?.cancel();
     _docSub?.cancel();
     super.dispose();
   }
@@ -771,6 +743,9 @@ class _ManageSubscriptionPanelState
 
   Future<void> _handleUpgradeFromPanel(String planKey) async {
     final user = FirebaseAuth.instance.currentUser;
+    final selectedHotelId = ref.read(currentHotelIdProvider);
+    final restaurantId =
+        selectedHotelId ?? ActiveStoreManager.storeId ?? user?.uid;
     if (user == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please sign in to upgrade.')),
@@ -832,6 +807,9 @@ class _ManageSubscriptionPanelState
 
       final platform = kIsWeb ? 'web' : isWindows ? 'windows' : 'android';
       final queryParams = <String, String>{'plan': planKey, 'platform': platform};
+      if (restaurantId != null && restaurantId.isNotEmpty) {
+        queryParams['restaurantId'] = restaurantId;
+      }
       if (customToken != null) queryParams['token'] = customToken;
       if (email.isNotEmpty) queryParams['email'] = email;
       if (phone.isNotEmpty) queryParams['phone'] = phone;

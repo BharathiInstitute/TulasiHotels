@@ -532,6 +532,7 @@
     var isAnnual = false;
     var pendingOrder = null; // { orderId, plan, cycle } — for UPI fallback check
     var platformParam = new URLSearchParams(window.location.search).get('platform') || 'web'; // web | windows | android
+    var restaurantIdParam = '';
 
     // ─── Auth State ───
     auth.onAuthStateChanged(function(user) {
@@ -595,6 +596,7 @@
       var plan = params.get('plan');
       var cycle = params.get('cycle');
       var token = params.get('token');
+      restaurantIdParam = params.get('restaurantId') || '';
       paramEmail = params.get('email') || '';
       paramPhone = params.get('phone') || '';
       paramName = params.get('name') || '';
@@ -794,7 +796,11 @@
 
       try {
         var createOrderFn = functions.httpsCallable('createOrder');
-        var result = await createOrderFn({ plan: plan, cycle: cycle });
+        var result = await createOrderFn({
+          plan: plan,
+          cycle: cycle,
+          restaurantId: restaurantIdParam || (currentUser ? currentUser.uid : ''),
+        });
         var data = result.data;
         if (!data.success || !data.orderId) { throw new Error(data.error || 'Failed to create order'); }
         closePaymentOverlay();
@@ -834,6 +840,7 @@
           plan: plan,
           cycle: cycle,
           uid: currentUser.uid,
+          restaurantId: restaurantIdParam || currentUser.uid,
         },
         theme: { color: '#F97316' },
         modal: {
@@ -887,7 +894,12 @@
         }
         try {
           var checkFn = functions.httpsCallable('checkOrderStatus');
-          var result = await checkFn({ orderId: orderId, plan: plan, cycle: cycle });
+          var result = await checkFn({
+            orderId: orderId,
+            plan: plan,
+            cycle: cycle,
+            restaurantId: restaurantIdParam || (currentUser ? currentUser.uid : ''),
+          });
           if (result.data.success) {
             stopPaymentPolling();
             pendingOrder = null;
@@ -916,6 +928,7 @@
           razorpayPaymentId: paymentId,
           razorpayOrderId: orderId,
           razorpaySignature: signature || '',
+          restaurantId: restaurantIdParam || (currentUser ? currentUser.uid : ''),
         });
         if (result.data.success) { showPaymentSuccess(plan); }
         else { showPaymentError('Verification failed. Plan will activate within 5 minutes.'); }
@@ -938,7 +951,12 @@
 
       try {
         var checkFn = functions.httpsCallable('checkOrderStatus');
-        var result = await checkFn({ orderId: order.orderId, plan: order.plan, cycle: order.cycle });
+        var result = await checkFn({
+          orderId: order.orderId,
+          plan: order.plan,
+          cycle: order.cycle,
+          restaurantId: restaurantIdParam || (currentUser ? currentUser.uid : ''),
+        });
         if (result.data.success) {
           showPaymentSuccess(order.plan);
         } else {

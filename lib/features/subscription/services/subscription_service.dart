@@ -9,10 +9,10 @@ library;
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:tulasihotels/core/services/active_store_manager.dart';
 import 'package:tulasihotels/core/services/cloud_function_helper.dart';
 import 'package:tulasihotels/core/services/razorpay_service.dart';
 import 'package:tulasihotels/core/services/user_metrics_service.dart';
-import 'package:tulasihotels/features/subscription/services/plan_enforcement_service.dart';
 
 /// Pricing map for subscription plans
 class SubscriptionPricing {
@@ -32,14 +32,17 @@ class SubscriptionPricing {
 class SubscriptionService {
   SubscriptionService();
 
+  String? get _activeRestaurantId =>
+      ActiveStoreManager.storeId ?? FirebaseAuth.instance.currentUser?.uid;
+
   /// Get the current user's subscription from Firestore
   Future<UserSubscription> getCurrentSubscription() async {
-    final ownerUid = await PlanEnforcementService.resolveOwnerUidForActiveStore();
-    if (ownerUid == null) return UserSubscription();
+    final restaurantId = _activeRestaurantId;
+    if (restaurantId == null || restaurantId.isEmpty) return UserSubscription();
 
     final doc = await FirebaseFirestore.instance
         .collection('users')
-      .doc(ownerUid)
+      .doc(restaurantId)
         .get();
     final subMap = doc.data()?['subscription'] as Map<String, dynamic>?;
     return UserSubscription.fromMap(subMap);
@@ -61,6 +64,11 @@ class SubscriptionService {
     String? customerEmail,
     String? customerPhone,
   }) async {
+    final restaurantId = _activeRestaurantId;
+    if (restaurantId == null || restaurantId.isEmpty) {
+      return SubscriptionResult.failure('No active restaurant selected');
+    }
+
     final price = SubscriptionPricing.getPrice(plan, cycle);
     if (price <= 0) {
       return SubscriptionResult.failure('Invalid plan or cycle');
@@ -89,11 +97,10 @@ class SubscriptionService {
         'razorpayPaymentId': paymentResult.paymentId,
         'razorpayOrderId': paymentResult.orderId,
         'razorpaySignature': paymentResult.signature,
+        'restaurantId': restaurantId,
       });
 
       if (data['success'] == true) {
-        // Sync Firestore limits to match the new plan
-        await PlanEnforcementService.syncLimitsForPlan(plan);
         return SubscriptionResult.success(
           plan: plan,
           cycle: cycle,
@@ -131,12 +138,13 @@ class SubscriptionService {
   /// Cancel subscription — sets status to 'cancelled'.
   /// Plan remains active until expiresAt, then auto-downgrades to Free.
   Future<bool> cancelSubscription() async {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid == null) return false;
+    final restaurantId = _activeRestaurantId;
+    if (restaurantId == null || restaurantId.isEmpty) return false;
 
     try {
-      await FirebaseFirestore.instance.collection('users').doc(uid).update({
-        'subscription.status': 'cancelled',
+      await CloudFunctionHelper.call('updateRestaurantSubscription', {
+        'action': 'cancel',
+        'restaurantId': restaurantId,
       });
       return true;
     } catch (e) {
@@ -146,12 +154,13 @@ class SubscriptionService {
 
   /// Resume a cancelled subscription (before expiry).
   Future<bool> resumeSubscription() async {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid == null) return false;
+    final restaurantId = _activeRestaurantId;
+    if (restaurantId == null || restaurantId.isEmpty) return false;
 
     try {
-      await FirebaseFirestore.instance.collection('users').doc(uid).update({
-        'subscription.status': 'active',
+      await CloudFunctionHelper.call('updateRestaurantSubscription', {
+        'action': 'resume',
+        'restaurantId': restaurantId,
       });
       return true;
     } catch (e) {
@@ -161,15 +170,15 @@ class SubscriptionService {
 
   /// Downgrade to a lower plan immediately.
   Future<bool> changePlan(String newPlan) async {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid == null) return false;
+    final restaurantId = _activeRestaurantId;
+    if (restaurantId == null || restaurantId.isEmpty) return false;
 
     try {
-      await FirebaseFirestore.instance.collection('users').doc(uid).update({
-        'subscription.plan': newPlan,
-        'subscription.status': 'active',
+      await CloudFunctionHelper.call('updateRestaurantSubscription', {
+        'action': 'changePlan',
+        'restaurantId': restaurantId,
+        'plan': newPlan,
       });
-      await PlanEnforcementService.syncLimitsForPlan(newPlan);
       return true;
     } catch (e) {
       return false;

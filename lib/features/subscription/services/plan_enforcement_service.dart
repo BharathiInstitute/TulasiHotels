@@ -58,72 +58,77 @@ class PlanEnforcementService {
 
   static final _firestore = FirebaseFirestore.instance;
 
-  /// Returns the active store/owner UID — always the owner's doc regardless
-  /// of whether the current Firebase user is the owner or a team member.
+  /// Returns active restaurant/store document ID.
   static String? get _storeId =>
       ActiveStoreManager.storeId ?? FirebaseAuth.instance.currentUser?.uid;
 
-  /// Resolve the owner UID for a given store.
-  ///
-  /// Subscription data lives on the owner's user document. For team members,
-  /// this resolves `users/{storeId}.ownerUid` and falls back to `storeId`
-  /// for legacy single-store records that predate ownerUid.
+  /// Kept for backward compatibility with older callers.
+  /// Subscription is now restaurant-scoped, so this resolves to storeId.
   static Future<String?> resolveOwnerUidForStoreId({String? storeId}) async {
     final fallbackUid = FirebaseAuth.instance.currentUser?.uid;
     final resolvedStoreId = storeId ?? _storeId ?? fallbackUid;
     if (resolvedStoreId == null || resolvedStoreId.isEmpty) return null;
-
-    try {
-      final serverDoc = await _firestore
-          .collection('users')
-          .doc(resolvedStoreId)
-          .get(const GetOptions(source: Source.server))
-          .timeout(const Duration(seconds: 5));
-      final ownerUid = serverDoc.data()?['ownerUid'] as String?;
-      if (ownerUid != null && ownerUid.isNotEmpty) return ownerUid;
-    } catch (_) {
-      // Best-effort server read; fall through to cache/local fallback.
-    }
-
-    try {
-      final cacheDoc = await _firestore
-          .collection('users')
-          .doc(resolvedStoreId)
-          .get(const GetOptions(source: Source.cache));
-      final ownerUid = cacheDoc.data()?['ownerUid'] as String?;
-      if (ownerUid != null && ownerUid.isNotEmpty) return ownerUid;
-    } catch (_) {
-      // Ignore cache failures; use legacy fallback below.
-    }
-
     return resolvedStoreId;
   }
 
-  /// Resolve owner UID for whichever store is currently active.
+  /// Kept for backward compatibility with older callers.
   static Future<String?> resolveOwnerUidForActiveStore() async {
     return resolveOwnerUidForStoreId(storeId: _storeId);
   }
 
+  static Future<DocumentSnapshot<Map<String, dynamic>>?> _readStoreDoc({
+    String? storeId,
+    Source source = Source.server,
+  }) async {
+    final id = storeId ?? _storeId;
+    if (id == null || id.isEmpty) return null;
+    return _firestore.collection('users').doc(id).get(
+      GetOptions(source: source),
+    );
+  }
+
   /// Get the store's current [PlanConfig] from Firestore.
   static Future<PlanConfig> getCurrentPlanConfig() async {
-    final ownerUid = await resolveOwnerUidForActiveStore();
-    if (ownerUid == null) return PlanConfig.free;
-
-    final doc = await _firestore.collection('users').doc(ownerUid).get();
-    final planKey =
-        (doc.data()?['subscription'] as Map<String, dynamic>?)?['plan']
-            as String? ??
-        'free';
-    return PlanConfig.fromKey(planKey);
+    try {
+      final doc = await _readStoreDoc(source: Source.server)
+          .timeout(const Duration(seconds: 5));
+      final planKey =
+          (doc?.data()?['subscription'] as Map<String, dynamic>?)?['plan']
+              as String? ??
+          'free';
+      return PlanConfig.fromKey(planKey);
+    } catch (_) {
+      try {
+        final cached = await _readStoreDoc(source: Source.cache);
+        final planKey =
+            (cached?.data()?['subscription'] as Map<String, dynamic>?)?['plan']
+                as String? ??
+            'free';
+        return PlanConfig.fromKey(planKey);
+      } catch (_) {
+        return PlanConfig.free;
+      }
+    }
   }
 
   /// Get the store's current [UserLimits] from Firestore.
   static Future<UserLimits> getCurrentLimits() async {
-    final ownerUid = await resolveOwnerUidForActiveStore();
-    if (ownerUid == null) return UserLimits();
-
-    final doc = await _firestore.collection('users').doc(ownerUid).get();
-    return UserLimits.fromMap(doc.data()?['limits'] as Map<String, dynamic>?);
+    try {
+      final doc = await _readStoreDoc(source: Source.server)
+          .timeout(const Duration(seconds: 5));
+      return UserLimits.fromMap(
+        doc?.data()?['limits'] as Map<String, dynamic>?,
+      );
+    } catch (_) {
+      try {
+        final cached = await _readStoreDoc(source: Source.cache);
+        return UserLimits.fromMap(
+          cached?.data()?['limits'] as Map<String, dynamic>?,
+        );
+      } catch (_) {
+        return UserLimits();
+      }
+    }
   }
 
   /// Check whether the user can perform an action that requires a numeric limit.
@@ -134,28 +139,25 @@ class PlanEnforcementService {
     // When offline, never block — all features should work offline
     if (ConnectivityService.isOffline) return const PlanCheckResult.allowed();
 
-    final storeId = _storeId; // hotel ID — used for counting staff/tables/products
-    final ownerUid = await resolveOwnerUidForStoreId(storeId: storeId);
+    final storeId = _storeId;
 
-    // Read subscription from owner's Firebase Auth UID doc (where Cloud Functions write it).
-    // This is DIFFERENT from storeId (hotel ID) which has no subscription data.
+    // Read subscription + limits from the active restaurant document.
     Map<String, dynamic>? subscriptionData;
     Map<String, dynamic>? limitsData;
-    if (ownerUid != null) {
+    if (storeId != null) {
       try {
-        // Force server read with timeout — subscription is always on owner's Firebase Auth UID doc
         final doc = await _firestore
             .collection('users')
-            .doc(ownerUid)
+            .doc(storeId)
             .get(const GetOptions(source: Source.server))
             .timeout(const Duration(seconds: 5));
         final data = doc.data();
         subscriptionData = data?['subscription'] as Map<String, dynamic>?;
         limitsData = data?['limits'] as Map<String, dynamic>?;
-      } catch (e) {
+      } catch (_) {
         // Server unavailable or timeout — fall back to cache
         try {
-          final doc = await _firestore.collection('users').doc(ownerUid).get(const GetOptions(source: Source.cache));
+          final doc = await _firestore.collection('users').doc(storeId).get(const GetOptions(source: Source.cache));
           final data = doc.data();
           subscriptionData = data?['subscription'] as Map<String, dynamic>?;
           limitsData = data?['limits'] as Map<String, dynamic>?;
@@ -331,21 +333,15 @@ class PlanEnforcementService {
   }) async {
     final resolvedStoreId = storeId ?? _storeId;
     if (resolvedStoreId == null) return null;
-    final resolvedOwnerUid =
-        ownerUid ?? await resolveOwnerUidForStoreId(storeId: resolvedStoreId);
 
     final db = _firestore;
     final userDoc = await db.collection('users').doc(resolvedStoreId).get();
     final currentLimits = userDoc.data()?['limits'] as Map<String, dynamic>? ?? {};
 
-    var currentPlan = 'free';
-    if (resolvedOwnerUid != null) {
-      final ownerDoc = await db.collection('users').doc(resolvedOwnerUid).get();
-      currentPlan =
-          (ownerDoc.data()?['subscription'] as Map<String, dynamic>?)?['plan']
-              as String? ??
-          'free';
-    }
+    final currentPlan =
+      (userDoc.data()?['subscription'] as Map<String, dynamic>?)?['plan']
+        as String? ??
+      'free';
 
     final base = 'users/$resolvedStoreId';
     final results = await Future.wait([

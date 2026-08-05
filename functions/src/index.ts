@@ -90,6 +90,160 @@ interface PaymentLinkResponse {
     error?: string;
 }
 
+type SubscriptionPlanKey = "free" | "starter" | "pro" | "business";
+type SubscriptionCycle = "monthly" | "annual";
+
+type PlanLimits = {
+    bills: number;
+    products: number;
+    tables: number;
+    staff: number;
+    customers: number;
+};
+
+const SUBSCRIPTION_PLAN_LIMITS: Record<SubscriptionPlanKey, PlanLimits> = {
+    free: { bills: 300, products: 50, tables: 5, staff: 0, customers: 10 },
+    starter: { bills: 999999, products: 200, tables: 15, staff: 3, customers: 100 },
+    pro: { bills: 999999, products: 999999, tables: 50, staff: 10, customers: 999999 },
+    business: { bills: 999999, products: 999999, tables: 999999, staff: 999999, customers: 999999 },
+};
+
+const SUBSCRIPTION_PRICING_INR: Record<Exclude<SubscriptionPlanKey, "free">, Record<SubscriptionCycle, number>> = {
+    starter: { monthly: 10, annual: 100 },
+    pro: { monthly: 20, annual: 200 },
+    business: { monthly: 30, annual: 300 },
+};
+
+const PAID_SUBSCRIPTION_PLANS = new Set(["starter", "pro", "business"]);
+
+const isPaidPlan = (plan: string): plan is Exclude<SubscriptionPlanKey, "free"> =>
+    PAID_SUBSCRIPTION_PLANS.has(plan);
+
+const isValidCycle = (cycle: string): cycle is SubscriptionCycle =>
+    cycle === "monthly" || cycle === "annual";
+
+const getPlanLimits = (plan: string): PlanLimits => {
+    if (plan === "free" || plan === "starter" || plan === "pro" || plan === "business") {
+        return SUBSCRIPTION_PLAN_LIMITS[plan];
+    }
+    return SUBSCRIPTION_PLAN_LIMITS.free;
+};
+
+const getPlanDisplayName = (plan: string): string => {
+    switch (plan) {
+        case "starter":
+            return "Starter";
+        case "pro":
+            return "Pro";
+        case "business":
+            return "Business";
+        default:
+            return "Free";
+    }
+};
+
+const computeExpiryDate = (cycle: SubscriptionCycle): Date => {
+    const daysToAdd = cycle === "annual" ? 365 : 30;
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + daysToAdd);
+    return expiresAt;
+};
+
+const resolveRestaurantId = (restaurantId: unknown, userId: string): string => {
+    const candidate = typeof restaurantId === "string" ? restaurantId.trim() : "";
+    return candidate || userId;
+};
+
+const assertRestaurantOwnership = async (
+    db: FirebaseFirestore.Firestore,
+    userId: string,
+    restaurantId: string
+): Promise<void> => {
+    const storeDoc = await db.collection("users").doc(restaurantId).get();
+    if (!storeDoc.exists) {
+        throw new functions.https.HttpsError("not-found", "Restaurant not found");
+    }
+
+    const ownerUid = ((storeDoc.data()?.ownerUid as string | undefined) || "").trim();
+    if (ownerUid.length > 0 && ownerUid !== userId) {
+        throw new functions.https.HttpsError("permission-denied", "Only the restaurant owner can change subscription");
+    }
+
+    if (ownerUid.length === 0 && restaurantId !== userId) {
+        const memberDoc = await db
+            .collection("users")
+            .doc(restaurantId)
+            .collection("members")
+            .doc(userId)
+            .get();
+        const role = ((memberDoc.data()?.role as string | undefined) || "").toLowerCase();
+        if (role !== "owner") {
+            throw new functions.https.HttpsError("permission-denied", "Restaurant ownership could not be verified");
+        }
+    }
+};
+
+const applyPlanToRestaurantDoc = async (
+    db: FirebaseFirestore.Firestore,
+    options: {
+        restaurantId: string;
+        plan: SubscriptionPlanKey;
+        status: "active" | "cancelled" | "expired";
+        expiresAt?: Date;
+        razorpayOrderId?: string;
+        razorpayPaymentId?: string;
+        razorpaySubscriptionId?: string;
+    }
+): Promise<void> => {
+    const limits = getPlanLimits(options.plan);
+    const updates: Record<string, unknown> = {
+        "subscription.plan": options.plan,
+        "subscription.status": options.status,
+        "subscription.startedAt": admin.firestore.FieldValue.serverTimestamp(),
+        "subscription.restaurantId": options.restaurantId,
+        "limits.billsLimit": limits.bills,
+        "limits.productsLimit": limits.products,
+        "limits.customersLimit": limits.customers,
+        "limits.tablesLimit": limits.tables,
+        "limits.staffLimit": limits.staff,
+    };
+
+    if (options.expiresAt) {
+        updates["subscription.expiresAt"] = admin.firestore.Timestamp.fromDate(options.expiresAt);
+    }
+    if (options.razorpayOrderId) {
+        updates["subscription.razorpayOrderId"] = options.razorpayOrderId;
+    }
+    if (options.razorpayPaymentId) {
+        updates["subscription.razorpayPaymentId"] = options.razorpayPaymentId;
+    }
+    if (options.razorpaySubscriptionId) {
+        updates["subscription.razorpaySubscriptionId"] = options.razorpaySubscriptionId;
+    }
+
+    await db.collection("users").doc(options.restaurantId).set(updates, { merge: true });
+};
+
+const markPaymentActivation = async (
+    db: FirebaseFirestore.Firestore,
+    paymentId: string,
+    payload: { userId: string; restaurantId: string; plan: SubscriptionPlanKey; cycle: SubscriptionCycle }
+): Promise<{ alreadyProcessed: boolean; existing?: FirebaseFirestore.DocumentData }> => {
+    const ref = db.collection("subscription_payment_activations").doc(paymentId);
+    return db.runTransaction(async (tx) => {
+        const snap = await tx.get(ref);
+        if (snap.exists) {
+            return { alreadyProcessed: true, existing: snap.data() };
+        }
+
+        tx.set(ref, {
+            ...payload,
+            processedAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+        return { alreadyProcessed: false };
+    });
+};
+
 /**
  * Create a Razorpay Payment Link
  * 
@@ -334,18 +488,27 @@ export const razorpayWebhook = functions
                         break;
                     }
 
-                    const { userId: chargedUserId, cycle } = chargedSnap.data()!;
+                    const {
+                        userId: chargedUserId,
+                        restaurantId: chargedRestaurantId,
+                        cycle,
+                    } = chargedSnap.data()! as {
+                        userId: string;
+                        restaurantId?: string;
+                        cycle: SubscriptionCycle;
+                    };
+                    const targetRestaurantId = resolveRestaurantId(chargedRestaurantId, chargedUserId);
                     const daysToAdd = cycle === "annual" ? 365 : 30;
                     const newExpiry = new Date();
                     newExpiry.setDate(newExpiry.getDate() + daysToAdd);
 
-                    await admin.firestore().collection("users").doc(chargedUserId).update({
+                    await admin.firestore().collection("users").doc(targetRestaurantId).update({
                         "subscription.status": "active",
                         "subscription.expiresAt": admin.firestore.Timestamp.fromDate(newExpiry),
                         "limits.billsThisMonth": 0,
                         "limits.lastResetMonth": `${newExpiry.getFullYear()}-${String(newExpiry.getMonth() + 1).padStart(2, "0")}`,
                     });
-                    console.log(`subscription.charged: extended expiry for user ${chargedUserId} to ${newExpiry.toISOString()}`);
+                    console.log(`subscription.charged: extended expiry for restaurant ${targetRestaurantId} to ${newExpiry.toISOString()}`);
 
                     // Send renewal success notification
                     await admin.firestore().collection("users").doc(chargedUserId)
@@ -371,18 +534,18 @@ export const razorpayWebhook = functions
 
                     if (!haltedSnap.exists) break;
 
-                    const { userId: haltedUserId } = haltedSnap.data()!;
-                    await admin.firestore().collection("users").doc(haltedUserId).update({
-                        "subscription.status": "expired",
-                        "subscription.plan": "free",
-                        "limits.billsLimit": 300,
-                        "limits.productsLimit": 50,
-                        "limits.customersLimit": 10,
-                        "limits.tablesLimit": 5,
-                        "limits.staffLimit": 0,
+                    const {
+                        userId: haltedUserId,
+                        restaurantId: haltedRestaurantId,
+                    } = haltedSnap.data()! as { userId: string; restaurantId?: string };
+                    const targetRestaurantId = resolveRestaurantId(haltedRestaurantId, haltedUserId);
+                    await applyPlanToRestaurantDoc(admin.firestore(), {
+                        restaurantId: targetRestaurantId,
+                        plan: "free",
+                        status: "expired",
                     });
                     await haltedSnap.ref.update({ status: "halted" });
-                    console.log(`subscription.halted: downgraded user ${haltedUserId} to free`);
+                    console.log(`subscription.halted: downgraded restaurant ${targetRestaurantId} to free`);
 
                     // Notify user
                     await admin.firestore().collection("users").doc(haltedUserId)
@@ -408,8 +571,12 @@ export const razorpayWebhook = functions
 
                     if (!cancelledSnap.exists) break;
 
-                    const { userId: cancelledUserId } = cancelledSnap.data()!;
-                    await admin.firestore().collection("users").doc(cancelledUserId).update({
+                    const {
+                        userId: cancelledUserId,
+                        restaurantId: cancelledRestaurantId,
+                    } = cancelledSnap.data()! as { userId: string; restaurantId?: string };
+                    const targetRestaurantId = resolveRestaurantId(cancelledRestaurantId, cancelledUserId);
+                    await admin.firestore().collection("users").doc(targetRestaurantId).update({
                         "subscription.status": "cancelled",
                     });
                     await cancelledSnap.ref.update({ status: "cancelled" });
@@ -1179,17 +1346,22 @@ export const activateSubscription = functions
         razorpayOrderId?: string;
         razorpaySignature?: string;
         razorpaySubscriptionId?: string;
+        restaurantId?: string;
     }, context) => {
         if (!context.auth) {
             throw new functions.https.HttpsError("unauthenticated", "Login required");
         }
 
-        const { plan, cycle, razorpayPaymentId, razorpaySubscriptionId } = data;
+        const { plan, cycle, razorpayPaymentId, razorpayOrderId, razorpaySubscriptionId } = data;
         const userId = context.auth.uid;
+        const restaurantId = resolveRestaurantId(data.restaurantId, userId);
+        const db = admin.firestore();
 
-        if (!plan || !cycle || !razorpayPaymentId) {
-            throw new functions.https.HttpsError("invalid-argument", "plan, cycle and razorpayPaymentId are required");
+        if (!isPaidPlan(plan) || !isValidCycle(cycle) || !razorpayPaymentId) {
+            throw new functions.https.HttpsError("invalid-argument", "Valid plan, cycle and razorpayPaymentId are required");
         }
+
+        await assertRestaurantOwnership(db, userId, restaurantId);
 
         const razorpayConfig = getRazorpayConfig();
         if (!razorpayConfig.keyId || !razorpayConfig.keySecret) {
@@ -1216,46 +1388,41 @@ export const activateSubscription = functions
             throw new functions.https.HttpsError("internal", "Could not verify payment");
         }
 
-        // Determine plan limits and expiry
-        const daysToAdd = cycle === "annual" ? 365 : 30;
-        const expiresAt = new Date();
-        expiresAt.setDate(expiresAt.getDate() + daysToAdd);
+        const activation = await markPaymentActivation(db, razorpayPaymentId, {
+            userId,
+            restaurantId,
+            plan,
+            cycle,
+        });
 
-        // Limits must match client-side PlanConfig exactly
-        const planLimits: Record<string, { bills: number; products: number; tables: number; staff: number; customers: number }> = {
-            starter: { bills: 999999, products: 200, tables: 15, staff: 3, customers: 100 },
-            pro:     { bills: 999999, products: 999999, tables: 50, staff: 10, customers: 999999 },
-            business:{ bills: 999999, products: 999999, tables: 999999, staff: 999999, customers: 999999 },
-        };
-        const limits = planLimits[plan] || planLimits.starter;
-        const billsLimit = limits.bills;
-        const productsLimit = limits.products;
-        const customersLimit = limits.customers;
-        const tablesLimit = limits.tables;
-        const staffLimit = limits.staff;
+        if (activation.alreadyProcessed) {
+            return {
+                success: true,
+                plan,
+                cycle,
+                restaurantId,
+                message: "Payment already processed",
+            };
+        }
 
-        const db = admin.firestore();
+        const expiresAt = computeExpiryDate(cycle);
+        const limits = getPlanLimits(plan);
 
-        // Update user document
-        await db.collection("users").doc(userId).update({
-            "subscription.plan": plan,
-            "subscription.status": "active",
-            "subscription.startedAt": admin.firestore.FieldValue.serverTimestamp(),
-            "subscription.expiresAt": admin.firestore.Timestamp.fromDate(expiresAt),
-            ...(razorpaySubscriptionId && {
-                "subscription.razorpaySubscriptionId": razorpaySubscriptionId,
-            }),
-            "limits.billsLimit": billsLimit,
-            "limits.productsLimit": productsLimit,
-            "limits.customersLimit": customersLimit,
-            "limits.tablesLimit": tablesLimit,
-            "limits.staffLimit": staffLimit,
+        await applyPlanToRestaurantDoc(db, {
+            restaurantId,
+            plan,
+            status: "active",
+            expiresAt,
+            razorpayOrderId,
+            razorpayPaymentId,
+            razorpaySubscriptionId,
         });
 
         // Store subscription→user mapping for webhook lookups
         if (razorpaySubscriptionId) {
             await db.collection("razorpay_subscriptions").doc(razorpaySubscriptionId).set({
                 userId,
+                restaurantId,
                 plan,
                 cycle,
                 status: "active",
@@ -1266,7 +1433,7 @@ export const activateSubscription = functions
         }
 
         // Welcome notification
-        const planDisplayName = plan === "starter" ? "Starter" : plan === "pro" ? "Pro" : "Business";
+        const planDisplayName = getPlanDisplayName(plan);
         await db.collection("users").doc(userId)
             .collection("notifications").add({
                 title: `Welcome to ${planDisplayName} Plan! 🎉`,
@@ -1276,15 +1443,16 @@ export const activateSubscription = functions
                 createdAt: admin.firestore.FieldValue.serverTimestamp(),
             });
 
-        console.log(`✅ activateSubscription: user ${userId} activated ${plan} (${cycle}), expires ${expiresAt.toISOString()}`);
+        console.log(`✅ activateSubscription: user ${userId} activated ${plan} for restaurant ${restaurantId} (${cycle}), expires ${expiresAt.toISOString()}`);
 
         return {
             success: true,
             plan,
             cycle,
+            restaurantId,
             expiresAt: expiresAt.toISOString(),
-            billsLimit,
-            productsLimit,
+            billsLimit: limits.bills,
+            productsLimit: limits.products,
         };
     });
 
@@ -2268,20 +2436,11 @@ export const onTableCreated = functions
 
             const data = userDoc.data()!;
             const limits = data.limits || {};
-           let sub = data.subscription || {};
-// If store doc has ownerUid different from storeId, read subscription
-// from the owner's auth document (where activateSubscription writes it).
-const ownerUid = data.ownerUid as string | undefined;
-if (ownerUid && ownerUid !== userId) {
-    const ownerDoc = await db.collection("users").doc(ownerUid).get();
-    if (ownerDoc.exists && ownerDoc.data()?.subscription) {
-        sub = ownerDoc.data()!.subscription;
-    }
-}
-const plan = (sub.plan as string) || "free";
+            const sub = data.subscription || {};
+            const plan = (sub.plan as string) || "free";
 
             // Always derive limit from plan — never let stale stored value block creation
-            const defaultTablesLimit = plan === "business" ? 999999 : plan === "pro" ? 50 : plan === "starter" ? 15 : 5;
+            const defaultTablesLimit = getPlanLimits(plan).tables;
             const storedTablesLimit = (limits.tablesLimit as number) ?? 0;
             // Use whichever is higher: plan config OR stored limit (guards against stale Firestore values)
             const tablesLimit = Math.max(defaultTablesLimit, storedTablesLimit);
@@ -3726,24 +3885,22 @@ export const markPhoneVerifiedFromWeb = functions
 export const createOrder = functions
     .region("asia-south1")
     .runWith({ timeoutSeconds: 30, memory: "256MB", maxInstances: 50 })
-    .https.onCall(async (data: { plan: string; cycle: string }, context) => {
+    .https.onCall(async (data: { plan: string; cycle: string; restaurantId?: string }, context) => {
         if (!context.auth) {
             throw new functions.https.HttpsError("unauthenticated", "Login required");
         }
 
         const { plan, cycle } = data;
-        if (!plan || !cycle) {
-            throw new functions.https.HttpsError("invalid-argument", "plan and cycle are required");
+        if (!isPaidPlan(plan) || !isValidCycle(cycle)) {
+            throw new functions.https.HttpsError("invalid-argument", "Valid plan and cycle are required");
         }
 
-        // Pricing (in rupees) — TEST PRICES (revert to production later)
-        const pricing: Record<string, Record<string, number>> = {
-            starter: { monthly: 10, annual: 100 },
-            pro: { monthly: 20, annual: 200 },
-            business: { monthly: 30, annual: 300 },
-        };
+        const userId = context.auth.uid;
+        const restaurantId = resolveRestaurantId(data.restaurantId, userId);
+        const db = admin.firestore();
+        await assertRestaurantOwnership(db, userId, restaurantId);
 
-        const amount = pricing[plan]?.[cycle];
+        const amount = SUBSCRIPTION_PRICING_INR[plan][cycle];
         if (!amount) {
             throw new functions.https.HttpsError("invalid-argument", `Invalid plan (${plan}) or cycle (${cycle})`);
         }
@@ -3764,9 +3921,10 @@ export const createOrder = functions
                 body: JSON.stringify({
                     amount: amount * 100, // paise
                     currency: "INR",
-                    receipt: `sub_${context.auth.uid.substring(0, 8)}_${Date.now()}`,
+                    receipt: `sub_${restaurantId.substring(0, 8)}_${Date.now()}`,
                     notes: {
-                        userId: context.auth.uid,
+                        userId,
+                        restaurantId,
                         plan,
                         cycle,
                     },
@@ -3780,7 +3938,7 @@ export const createOrder = functions
             }
 
             const order = await orderRes.json() as { id: string; amount: number };
-            return { success: true, orderId: order.id, amount };
+            return { success: true, orderId: order.id, amount, restaurantId };
         } catch (err: any) {
             if (err instanceof functions.https.HttpsError) throw err;
             console.error("createOrder error:", err);
@@ -3795,17 +3953,20 @@ export const createOrder = functions
 export const checkOrderStatus = functions
     .region("asia-south1")
     .runWith({ timeoutSeconds: 30, memory: "256MB", maxInstances: 50 })
-    .https.onCall(async (data: { orderId: string; plan: string; cycle: string }, context) => {
+    .https.onCall(async (data: { orderId: string; plan: string; cycle: string; restaurantId?: string }, context) => {
         if (!context.auth) {
             throw new functions.https.HttpsError("unauthenticated", "Login required");
         }
 
         const { orderId, plan, cycle } = data;
-        if (!orderId || !plan || !cycle) {
+        if (!orderId || !isPaidPlan(plan) || !isValidCycle(cycle)) {
             throw new functions.https.HttpsError("invalid-argument", "Missing required fields");
         }
 
         const userId = context.auth.uid;
+        const restaurantId = resolveRestaurantId(data.restaurantId, userId);
+        const db = admin.firestore();
+        await assertRestaurantOwnership(db, userId, restaurantId);
         const razorpayConfig = getRazorpayConfig();
         const auth = Buffer.from(`${razorpayConfig.keyId}:${razorpayConfig.keySecret}`).toString("base64");
 
@@ -3838,35 +3999,28 @@ export const checkOrderStatus = functions
             return { success: false, status: "payment_not_captured" };
         }
 
-        // Activate subscription
-        const daysToAdd = cycle === "annual" ? 365 : 30;
-        const expiresAt = new Date();
-        expiresAt.setDate(expiresAt.getDate() + daysToAdd);
-
-        // Limits must match client-side PlanConfig
-        const orderPlanLimits: Record<string, { bills: number; products: number; tables: number; staff: number; customers: number }> = {
-            starter: { bills: 999999, products: 200, tables: 15, staff: 3, customers: 100 },
-            pro:     { bills: 999999, products: 999999, tables: 50, staff: 10, customers: 999999 },
-            business:{ bills: 999999, products: 999999, tables: 999999, staff: 999999, customers: 999999 },
-        };
-        const orderLimits = orderPlanLimits[plan] || orderPlanLimits.starter;
-
-        const db = admin.firestore();
-        await db.collection("users").doc(userId).update({
-            "subscription.plan": plan,
-            "subscription.status": "active",
-            "subscription.startedAt": admin.firestore.FieldValue.serverTimestamp(),
-            "subscription.expiresAt": admin.firestore.Timestamp.fromDate(expiresAt),
-            "subscription.razorpayOrderId": orderId,
-            "subscription.razorpayPaymentId": capturedPayment.id,
-            "limits.billsLimit": orderLimits.bills,
-            "limits.productsLimit": orderLimits.products,
-            "limits.customersLimit": orderLimits.customers,
-            "limits.tablesLimit": orderLimits.tables,
-            "limits.staffLimit": orderLimits.staff,
+        const activation = await markPaymentActivation(db, capturedPayment.id, {
+            userId,
+            restaurantId,
+            plan,
+            cycle,
         });
 
-        return { success: true, paymentId: capturedPayment.id };
+        if (activation.alreadyProcessed) {
+            return { success: true, paymentId: capturedPayment.id, restaurantId, message: "Payment already processed" };
+        }
+
+        const expiresAt = computeExpiryDate(cycle);
+        await applyPlanToRestaurantDoc(db, {
+            restaurantId,
+            plan,
+            status: "active",
+            expiresAt,
+            razorpayOrderId: orderId,
+            razorpayPaymentId: capturedPayment.id,
+        });
+
+        return { success: true, paymentId: capturedPayment.id, restaurantId };
     });
 
 /**
@@ -3882,17 +4036,21 @@ export const verifyPayment = functions
         razorpayPaymentId: string;
         razorpayOrderId: string;
         razorpaySignature: string;
+        restaurantId?: string;
     }, context) => {
         if (!context.auth) {
             throw new functions.https.HttpsError("unauthenticated", "Login required");
         }
 
         const { plan, cycle, razorpayPaymentId, razorpayOrderId, razorpaySignature } = data;
-        if (!plan || !cycle || !razorpayPaymentId || !razorpayOrderId) {
+        if (!isPaidPlan(plan) || !isValidCycle(cycle) || !razorpayPaymentId || !razorpayOrderId) {
             throw new functions.https.HttpsError("invalid-argument", "Missing required fields");
         }
 
         const userId = context.auth.uid;
+        const restaurantId = resolveRestaurantId(data.restaurantId, userId);
+        const db = admin.firestore();
+        await assertRestaurantOwnership(db, userId, restaurantId);
         const razorpayConfig = getRazorpayConfig();
 
         // Verify signature
@@ -3927,37 +4085,27 @@ export const verifyPayment = functions
             throw new functions.https.HttpsError("internal", "Could not verify payment");
         }
 
-        // Activate subscription
-        const daysToAdd = cycle === "annual" ? 365 : 30;
-        const expiresAt = new Date();
-        expiresAt.setDate(expiresAt.getDate() + daysToAdd);
-
-        // Limits must match client-side PlanConfig exactly
-        const planLimitsMap: Record<string, { bills: number; products: number; tables: number; staff: number; customers: number }> = {
-            starter: { bills: 999999, products: 200, tables: 15, staff: 3, customers: 100 },
-            pro:     { bills: 999999, products: 999999, tables: 50, staff: 10, customers: 999999 },
-            business:{ bills: 999999, products: 999999, tables: 999999, staff: 999999, customers: 999999 },
-        };
-        const planLimits = planLimitsMap[plan] || planLimitsMap.starter;
-
-        const db = admin.firestore();
-
-        await db.collection("users").doc(userId).update({
-            "subscription.plan": plan,
-            "subscription.status": "active",
-            "subscription.startedAt": admin.firestore.FieldValue.serverTimestamp(),
-            "subscription.expiresAt": admin.firestore.Timestamp.fromDate(expiresAt),
-            "subscription.razorpayOrderId": razorpayOrderId,
-            "subscription.razorpayPaymentId": razorpayPaymentId,
-            "limits.billsLimit": planLimits.bills,
-            "limits.productsLimit": planLimits.products,
-            "limits.customersLimit": planLimits.customers,
-            "limits.tablesLimit": planLimits.tables,
-            "limits.staffLimit": planLimits.staff,
+        const expiresAt = computeExpiryDate(cycle);
+        const activation = await markPaymentActivation(db, razorpayPaymentId, {
+            userId,
+            restaurantId,
+            plan,
+            cycle,
         });
 
+        if (!activation.alreadyProcessed) {
+            await applyPlanToRestaurantDoc(db, {
+                restaurantId,
+                plan,
+                status: "active",
+                expiresAt,
+                razorpayOrderId,
+                razorpayPaymentId,
+            });
+        }
+
         // Welcome notification
-        const planName = plan === "starter" ? "Starter" : plan === "pro" ? "Pro" : "Business";
+        const planName = getPlanDisplayName(plan);
         await db.collection("users").doc(userId)
             .collection("notifications").add({
                 title: `Welcome to ${planName} Plan! 🎉`,
@@ -3967,9 +4115,157 @@ export const verifyPayment = functions
                 createdAt: admin.firestore.FieldValue.serverTimestamp(),
             });
 
-        console.log(`✅ verifyPayment: user ${userId} activated ${plan} (${cycle}), expires ${expiresAt.toISOString()}`);
+        console.log(`✅ verifyPayment: user ${userId} activated ${plan} for restaurant ${restaurantId} (${cycle}), expires ${expiresAt.toISOString()}`);
 
-        return { success: true, plan, cycle, expiresAt: expiresAt.toISOString() };
+        return { success: true, plan, cycle, restaurantId, expiresAt: expiresAt.toISOString() };
+    });
+
+/**
+ * cleanupLeakedRestaurantPlans — one-time owner tool to fix legacy plan leakage.
+ *
+ * Keeps the selected restaurant as-is and resets all other owned restaurants
+ * back to Free limits/plan.
+ */
+export const cleanupLeakedRestaurantPlans = functions
+    .region("asia-south1")
+    .runWith({ timeoutSeconds: 60, memory: "256MB", maxInstances: 20 })
+    .https.onCall(async (data: { keepRestaurantId: string }, context) => {
+        if (!context.auth) {
+            throw new functions.https.HttpsError("unauthenticated", "Login required");
+        }
+
+        const keepRestaurantId = (data?.keepRestaurantId || "").trim();
+        if (!keepRestaurantId) {
+            throw new functions.https.HttpsError("invalid-argument", "keepRestaurantId is required");
+        }
+
+        const userId = context.auth.uid;
+        const db = admin.firestore();
+        await assertRestaurantOwnership(db, userId, keepRestaurantId);
+
+        const ownedStoresSnap = await db.collection("users")
+            .where("ownerUid", "==", userId)
+            .get();
+
+        const ownedRestaurantIds = new Set<string>(ownedStoresSnap.docs.map((d) => d.id));
+
+        // Include legacy default store doc (uid-based) if present.
+        const defaultStoreDoc = await db.collection("users").doc(userId).get();
+        if (defaultStoreDoc.exists) {
+            ownedRestaurantIds.add(userId);
+        }
+
+        if (!ownedRestaurantIds.has(keepRestaurantId)) {
+            throw new functions.https.HttpsError("permission-denied", "keepRestaurantId is not owned by current user");
+        }
+
+        const batch = db.batch();
+        let resetCount = 0;
+        for (const restaurantId of ownedRestaurantIds) {
+            if (restaurantId === keepRestaurantId) continue;
+            const freeLimits = getPlanLimits("free");
+            batch.set(db.collection("users").doc(restaurantId), {
+                "subscription.plan": "free",
+                "subscription.status": "active",
+                "subscription.restaurantId": restaurantId,
+                "limits.billsLimit": freeLimits.bills,
+                "limits.productsLimit": freeLimits.products,
+                "limits.customersLimit": freeLimits.customers,
+                "limits.tablesLimit": freeLimits.tables,
+                "limits.staffLimit": freeLimits.staff,
+            }, { merge: true });
+            resetCount += 1;
+        }
+
+        if (resetCount > 0) {
+            await batch.commit();
+        }
+
+        await db.collection("users").doc(userId)
+            .collection("notifications")
+            .add({
+                title: "Restaurant Plan Cleanup Completed",
+                body: `Reset ${resetCount} restaurant(s) to Free. Kept plan on ${keepRestaurantId}.`,
+                type: "subscription",
+                read: false,
+                createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            });
+
+        return {
+            success: true,
+            keepRestaurantId,
+            resetCount,
+        };
+    });
+
+/**
+ * updateRestaurantSubscription — centralized non-payment subscription actions.
+ */
+export const updateRestaurantSubscription = functions
+    .region("asia-south1")
+    .runWith({ timeoutSeconds: 30, memory: "256MB", maxInstances: 20 })
+    .https.onCall(async (data: {
+        action: "cancel" | "resume" | "changePlan";
+        restaurantId?: string;
+        plan?: SubscriptionPlanKey;
+        cycle?: SubscriptionCycle;
+    }, context) => {
+        if (!context.auth) {
+            throw new functions.https.HttpsError("unauthenticated", "Login required");
+        }
+
+        const action = data?.action;
+        if (!action) {
+            throw new functions.https.HttpsError("invalid-argument", "action is required");
+        }
+
+        const userId = context.auth.uid;
+        const restaurantId = resolveRestaurantId(data.restaurantId, userId);
+        const db = admin.firestore();
+        await assertRestaurantOwnership(db, userId, restaurantId);
+
+        if (action === "cancel") {
+            await db.collection("users").doc(restaurantId).set({
+                "subscription.status": "cancelled",
+            }, { merge: true });
+            return { success: true, restaurantId, action };
+        }
+
+        if (action === "resume") {
+            await db.collection("users").doc(restaurantId).set({
+                "subscription.status": "active",
+            }, { merge: true });
+            return { success: true, restaurantId, action };
+        }
+
+        if (action === "changePlan") {
+            const plan = data.plan;
+            if (!plan || (plan !== "free" && !isPaidPlan(plan))) {
+                throw new functions.https.HttpsError("invalid-argument", "Valid plan is required for changePlan");
+            }
+
+            if (plan === "free") {
+                await applyPlanToRestaurantDoc(db, {
+                    restaurantId,
+                    plan: "free",
+                    status: "active",
+                });
+                return { success: true, restaurantId, action, plan };
+            }
+
+            const cycle: SubscriptionCycle = isValidCycle(data.cycle || "")
+                ? (data.cycle as SubscriptionCycle)
+                : "monthly";
+            await applyPlanToRestaurantDoc(db, {
+                restaurantId,
+                plan,
+                status: "active",
+                expiresAt: computeExpiryDate(cycle),
+            });
+            return { success: true, restaurantId, action, plan, cycle };
+        }
+
+        throw new functions.https.HttpsError("invalid-argument", "Unsupported action");
     });
 
 // ─── Phase 8: WhatsApp & SMS Cloud Functions ───

@@ -21,6 +21,7 @@ import 'package:tulasihotels/router/app_router.dart';
 import 'package:tulasihotels/models/bill_model.dart';
 import 'package:tulasihotels/models/coupon_model.dart';
 import 'package:tulasihotels/models/order_model.dart';
+import 'package:tulasihotels/models/user_model.dart';
 
 class OrderBillingScreen extends ConsumerStatefulWidget {
   final String orderId;
@@ -427,12 +428,26 @@ class _OrderBillingScreenState extends ConsumerState<OrderBillingScreen> {
       }
 
       if (mounted) {
+        final user = ref.read(currentUserProvider);
         final printerState = ref.read(printerProvider);
         final messenger = ScaffoldMessenger.of(context);
 
         // Auto-print if enabled
         if (printerState.autoPrint) {
-          unawaited(_printReceipt(bill, messenger));
+          unawaited(
+            PrintHelper.printReceipt(
+              bill: bill,
+              printerState: printerState,
+              user: user,
+              scaffoldMessenger: messenger,
+              onRetry: () => PrintHelper.printReceipt(
+                bill: bill,
+                printerState: printerState,
+                user: user,
+                scaffoldMessenger: messenger,
+              ),
+            ),
+          );
         }
 
         if (orderFinalizePending) {
@@ -449,7 +464,12 @@ class _OrderBillingScreenState extends ConsumerState<OrderBillingScreen> {
         Navigator.pop(context);
 
         // Show success with print option
-        _showBillCompleteDialog(bill, orderFinalizePending: orderFinalizePending);
+        _showBillCompleteDialog(
+          bill,
+          user: user,
+          printerState: printerState,
+          orderFinalizePending: orderFinalizePending,
+        );
       }
     } on TimeoutException catch (e) {
       if (mounted) {
@@ -476,24 +496,10 @@ class _OrderBillingScreenState extends ConsumerState<OrderBillingScreen> {
     }
   }
 
-  Future<void> _printReceipt(
-    BillModel bill,
-    ScaffoldMessengerState scaffoldMessenger,
-  ) async {
-    final user = ref.read(currentUserProvider);
-    final printerState = ref.read(printerProvider);
-
-    await PrintHelper.printReceipt(
-      bill: bill,
-      printerState: printerState,
-      user: user,
-      scaffoldMessenger: scaffoldMessenger,
-      onRetry: () => _printReceipt(bill, scaffoldMessenger),
-    );
-  }
-
   void _showBillCompleteDialog(
     BillModel bill, {
+    required UserModel? user,
+    required PrinterState printerState,
     bool orderFinalizePending = false,
   }) {
     showDialog(
@@ -533,9 +539,20 @@ class _OrderBillingScreenState extends ConsumerState<OrderBillingScreen> {
                   Expanded(
                     child: OutlinedButton.icon(
                       onPressed: () async {
-                        final messenger = ScaffoldMessenger.of(context);
+                        final messenger = ScaffoldMessenger.of(dialogContext);
                         Navigator.pop(dialogContext);
-                        await _printReceipt(bill, messenger);
+                        await PrintHelper.printReceipt(
+                          bill: bill,
+                          printerState: printerState,
+                          user: user,
+                          scaffoldMessenger: messenger,
+                          onRetry: () => PrintHelper.printReceipt(
+                            bill: bill,
+                            printerState: printerState,
+                            user: user,
+                            scaffoldMessenger: messenger,
+                          ),
+                        );
                       },
                       icon: const Icon(Icons.print),
                       label: const Text('Print'),
