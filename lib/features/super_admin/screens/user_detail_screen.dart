@@ -3,9 +3,9 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:tulasihotels/features/super_admin/models/admin_user_model.dart';
 import 'package:tulasihotels/features/super_admin/providers/super_admin_provider.dart';
-import 'package:tulasihotels/features/super_admin/services/admin_firestore_service.dart';
 
 class UserDetailScreen extends ConsumerWidget {
   final String userId;
@@ -22,6 +22,10 @@ class UserDetailScreen extends ConsumerWidget {
         title: const Text('User Details'),
         backgroundColor: Colors.deepPurple,
         foregroundColor: Colors.white,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => context.go('/super-admin/users'),
+        ),
       ),
       body: userAsync.when(
         data: (user) {
@@ -63,8 +67,6 @@ class UserDetailScreen extends ConsumerWidget {
               _buildUsageStatsCard(user),
               const SizedBox(height: 16),
               _buildActivityCard(user),
-              const SizedBox(height: 16),
-              _buildAdminActionsCard(context, user, ref),
             ],
           ),
         ),
@@ -86,8 +88,6 @@ class UserDetailScreen extends ConsumerWidget {
         _buildUsageStatsCard(user),
         const SizedBox(height: 16),
         _buildActivityCard(user),
-        const SizedBox(height: 16),
-        _buildAdminActionsCard(context, user, ref),
       ],
     );
   }
@@ -390,198 +390,6 @@ class UserDetailScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildAdminActionsCard(
-    BuildContext context,
-    AdminUser user,
-    WidgetRef ref,
-  ) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Admin Actions',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 16),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                icon: const Icon(Icons.upgrade),
-                label: const Text('Change Subscription'),
-                onPressed: () =>
-                    _showChangeSubscriptionDialog(context, user, ref),
-              ),
-            ),
-            const SizedBox(height: 8),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                icon: const Icon(Icons.refresh),
-                label: const Text('Reset Monthly Limits'),
-                onPressed: () => _resetLimits(context, user, ref),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _showChangeSubscriptionDialog(
-    BuildContext context,
-    AdminUser user,
-    WidgetRef ref,
-  ) {
-    final scaffoldMessenger = ScaffoldMessenger.of(context);
-    showDialog(
-      context: context,
-      builder: (dialogCtx) => AlertDialog(
-        title: const Text('Change Subscription'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text('Current plan: ${user.subscription.planDisplayName}'),
-            const SizedBox(height: 16),
-            ...SubscriptionPlan.values.map(
-              (plan) => ListTile(
-                title: Text(plan.name.toUpperCase()),
-                subtitle: Text(
-                  plan == SubscriptionPlan.free
-                      ? 'Free'
-                      : '\u{20B9}${UserSubscription(plan: plan).planPrice}/month',
-                ),
-                trailing: user.subscription.plan == plan
-                    ? const Icon(Icons.check, color: Colors.green)
-                    : null,
-                onTap: () async {
-                  Navigator.pop(dialogCtx);
-                  final newSubscription = UserSubscription(
-                    plan: plan,
-                    startedAt: DateTime.now(),
-                    expiresAt: plan == SubscriptionPlan.free
-                        ? null
-                        : DateTime.now().add(const Duration(days: 30)),
-                  );
-                  final success =
-                      await AdminFirestoreService.updateUserSubscription(
-                        user.id,
-                        newSubscription,
-                      );
-                  scaffoldMessenger.showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        success ? 'Subscription updated!' : 'Failed to update',
-                      ),
-                      backgroundColor: success ? Colors.green : Colors.red,
-                    ),
-                  );
-                  if (success) {
-                    ref.invalidate(userDetailProvider(user.id));
-                  }
-                },
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogCtx),
-            child: const Text('Cancel'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _resetLimits(BuildContext context, AdminUser user, WidgetRef ref) {
-    final scaffoldMessenger = ScaffoldMessenger.of(context);
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Row(
-          children: [
-            Icon(Icons.refresh, color: Colors.orange),
-            SizedBox(width: 8),
-            Text('Reset Monthly Limits'),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Current usage: ${user.limits.billsThisMonth} bills this month',
-            ),
-            const SizedBox(height: 12),
-            const Text(
-              'This will reset the monthly bill count to 0. This action is typically used when:',
-            ),
-            const SizedBox(height: 8),
-            const Text('• User had billing issues'),
-            const Text('• Manual adjustment required'),
-            const Text('• Testing purposes'),
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.orange.shade50,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.orange.shade200),
-              ),
-              child: const Row(
-                children: [
-                  Icon(Icons.warning, color: Colors.orange, size: 20),
-                  SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'This action cannot be undone.',
-                      style: TextStyle(fontSize: 13),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              Navigator.pop(ctx);
-              final success = await AdminFirestoreService.resetUserLimits(
-                user.id,
-              );
-              scaffoldMessenger.showSnackBar(
-                SnackBar(
-                  content: Text(
-                    success
-                        ? 'Monthly limits reset successfully!'
-                        : 'Failed to reset limits',
-                  ),
-                  backgroundColor: success ? Colors.green : Colors.red,
-                ),
-              );
-              if (success) {
-                ref.invalidate(userDetailProvider(user.id));
-              }
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.orange,
-              foregroundColor: Colors.white,
-            ),
-            child: const Text('Reset Limits'),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildPlanBadge(SubscriptionPlan plan, {bool large = false}) {
     return Container(
       padding: EdgeInsets.symmetric(
@@ -594,7 +402,7 @@ class UserDetailScreen extends ConsumerWidget {
         border: Border.all(color: _getPlanColor(plan)),
       ),
       child: Text(
-        plan.name.toUpperCase(),
+        plan.name[0].toUpperCase() + plan.name.substring(1),
         style: TextStyle(
           fontSize: large ? 14 : 10,
           fontWeight: FontWeight.bold,

@@ -49,7 +49,7 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.onNewOrderKitchenAlert = exports.onWastageLogged = exports.onComplaintCreated = exports.equipmentServiceReminder = exports.licenseExpiryReminder = exports.onNewReservation = exports.onNewFeedback = exports.onLowIngredientStock = exports.onOrderReady = exports.onCustomerOrderCreated = exports.onRushOrderCreated = exports.seedUserUsage = exports.scheduledFirestoreBackup = exports.sendNotificationToPlan = exports.sendNotificationToAll = exports.getSubscriptionLimits = exports.seedAdmins = exports.backfillStoreOwnerUids = exports.repairTableLimits = exports.onLocalStaffDeleted = exports.onLocalStaffCreated = exports.onStaffDeleted = exports.onStaffCreated = exports.onTableDeleted = exports.onTableCreated = exports.onCustomerDeleted = exports.onCustomerCreated = exports.onProductDeleted = exports.onProductCreated = exports.onBillCreated = exports.processReferralReward = exports.redeemReferralCode = exports.onSubscriptionWrite = exports.generateMonthlyReport = exports.exchangeIdToken = exports.sendDailySalesSummary = exports.checkChurnedUsers = exports.checkSubscriptionExpiry = exports.activateSubscription = exports.checkLowStock = exports.cleanupOldNotifications = exports.sendPushNotification = exports.onNewUserSignup = exports.generateDesktopToken = exports.deleteUserAccount = exports.onUserDeleted = exports.verifyRegistrationOTP = exports.sendRegistrationOTP = exports.razorpayWebhook = exports.createPaymentLink = void 0;
-exports.sendOrderReadySMS = exports.sendDailySummaryWhatsApp = exports.sendReservationReminder = exports.sendFeedbackRequest = exports.sendOrderConfirmation = exports.updateRestaurantSubscription = exports.cleanupLeakedRestaurantPlans = exports.verifyPayment = exports.checkOrderStatus = exports.createOrder = exports.markPhoneVerifiedFromWeb = exports.createPhoneVerificationHandoff = exports.createPaymentToken = exports.razorpayReconciliation = exports.onStockUpdate = void 0;
+exports.sendOrderReadySMS = exports.sendDailySummaryWhatsApp = exports.sendReservationReminder = exports.sendFeedbackRequest = exports.sendOrderConfirmation = exports.updateRestaurantSubscription = exports.createRestaurant = exports.migrateSubscriptionModel = exports.cleanupLeakedRestaurantPlans = exports.verifyPayment = exports.checkOrderStatus = exports.createOrder = exports.markPhoneVerifiedFromWeb = exports.createPhoneVerificationHandoff = exports.createPaymentToken = exports.razorpayReconciliation = exports.onStockUpdate = void 0;
 const functions = __importStar(require("firebase-functions"));
 const admin = __importStar(require("firebase-admin"));
 const crypto = __importStar(require("crypto"));
@@ -110,6 +110,9 @@ const SUBSCRIPTION_PRICING_INR = {
     business: { monthly: 30, annual: 300 },
 };
 const PAID_SUBSCRIPTION_PLANS = new Set(["starter", "pro", "business"]);
+const OWNER_ENTITLEMENTS_COLLECTION = "owner_entitlements";
+const SINGLE_STORE_PLAN_MAX_RESTAURANTS = 1;
+const BUSINESS_PLAN_MAX_RESTAURANTS = 3;
 const isPaidPlan = (plan) => PAID_SUBSCRIPTION_PLANS.has(plan);
 const isValidCycle = (cycle) => cycle === "monthly" || cycle === "annual";
 const getPlanLimits = (plan) => {
@@ -130,6 +133,12 @@ const getPlanDisplayName = (plan) => {
             return "Free";
     }
 };
+const generateRestaurantSlug = (name) => {
+    return name
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "");
+};
 const computeExpiryDate = (cycle) => {
     const daysToAdd = cycle === "annual" ? 365 : 30;
     const expiresAt = new Date();
@@ -139,6 +148,102 @@ const computeExpiryDate = (cycle) => {
 const resolveRestaurantId = (restaurantId, userId) => {
     const candidate = typeof restaurantId === "string" ? restaurantId.trim() : "";
     return candidate || userId;
+};
+const normalizePlanKey = (value) => {
+    const key = typeof value === "string" ? value.trim().toLowerCase() : "";
+    if (key === "starter" || key === "pro" || key === "business") {
+        return key;
+    }
+    return "free";
+};
+const normalizeSubscriptionStatus = (value) => {
+    const status = typeof value === "string" ? value.trim().toLowerCase() : "";
+    if (status === "cancelled" || status === "expired") {
+        return status;
+    }
+    return "active";
+};
+const getSubscriptionMap = (storeData) => {
+    return (storeData === null || storeData === void 0 ? void 0 : storeData.subscription) || {};
+};
+const getStoredDirectPlan = (storeData) => {
+    const sub = getSubscriptionMap(storeData);
+    const direct = normalizePlanKey(sub.directPlan);
+    if (direct !== "free") {
+        return direct;
+    }
+    const legacy = normalizePlanKey(sub.plan);
+    return legacy === "business" ? "free" : legacy;
+};
+const getStoredDirectStatus = (storeData) => {
+    var _a;
+    const sub = getSubscriptionMap(storeData);
+    return normalizeSubscriptionStatus((_a = sub.directStatus) !== null && _a !== void 0 ? _a : sub.status);
+};
+const getStoredEffectivePlan = (storeData) => {
+    var _a;
+    const sub = getSubscriptionMap(storeData);
+    return normalizePlanKey((_a = sub.effectivePlan) !== null && _a !== void 0 ? _a : sub.plan);
+};
+const getStoredEntitlementSource = (storeData) => {
+    const sub = getSubscriptionMap(storeData);
+    return sub.entitlementSource === "owner_bundle" ? "owner_bundle" : "direct";
+};
+const ownerEntitlementRef = (db, ownerUid) => {
+    return db.collection(OWNER_ENTITLEMENTS_COLLECTION).doc(ownerUid);
+};
+const getRestaurantOwnerUid = async (db, restaurantId) => {
+    var _a;
+    const storeDoc = await db.collection("users").doc(restaurantId).get();
+    if (!storeDoc.exists) {
+        throw new functions.https.HttpsError("not-found", "Restaurant not found");
+    }
+    const ownerUid = (((_a = storeDoc.data()) === null || _a === void 0 ? void 0 : _a.ownerUid) || "").trim();
+    return ownerUid || restaurantId;
+};
+const buildSubscriptionUpdates = (options) => {
+    const limits = getPlanLimits(options.effectivePlan);
+    const updates = {
+        "subscription.plan": options.effectivePlan,
+        "subscription.status": options.effectiveStatus,
+        "subscription.restaurantId": options.restaurantId,
+        "subscription.effectivePlan": options.effectivePlan,
+        "subscription.effectiveStatus": options.effectiveStatus,
+        "subscription.entitlementSource": options.entitlementSource,
+        "subscription.startedAt": admin.firestore.FieldValue.serverTimestamp(),
+        "limits.billsLimit": limits.bills,
+        "limits.productsLimit": limits.products,
+        "limits.customersLimit": limits.customers,
+        "limits.tablesLimit": limits.tables,
+        "limits.staffLimit": limits.staff,
+    };
+    if (options.directPlan) {
+        updates["subscription.directPlan"] = options.directPlan;
+    }
+    if (options.directStatus) {
+        updates["subscription.directStatus"] = options.directStatus;
+    }
+    if (options.entitlementSource === "owner_bundle") {
+        updates["subscription.entitlementOwnerUid"] = options.entitlementOwnerUid || "";
+        updates["subscription.entitlementId"] = options.entitlementId || "";
+    }
+    else {
+        updates["subscription.entitlementOwnerUid"] = admin.firestore.FieldValue.delete();
+        updates["subscription.entitlementId"] = admin.firestore.FieldValue.delete();
+    }
+    if (options.expiresAt) {
+        updates["subscription.expiresAt"] = admin.firestore.Timestamp.fromDate(options.expiresAt);
+    }
+    if (options.razorpayOrderId) {
+        updates["subscription.razorpayOrderId"] = options.razorpayOrderId;
+    }
+    if (options.razorpayPaymentId) {
+        updates["subscription.razorpayPaymentId"] = options.razorpayPaymentId;
+    }
+    if (options.razorpaySubscriptionId) {
+        updates["subscription.razorpaySubscriptionId"] = options.razorpaySubscriptionId;
+    }
+    return updates;
 };
 const assertRestaurantOwnership = async (db, userId, restaurantId) => {
     var _a, _b;
@@ -163,32 +268,279 @@ const assertRestaurantOwnership = async (db, userId, restaurantId) => {
         }
     }
 };
-const applyPlanToRestaurantDoc = async (db, options) => {
-    const limits = getPlanLimits(options.plan);
-    const updates = {
-        "subscription.plan": options.plan,
-        "subscription.status": options.status,
-        "subscription.startedAt": admin.firestore.FieldValue.serverTimestamp(),
-        "subscription.restaurantId": options.restaurantId,
-        "limits.billsLimit": limits.bills,
-        "limits.productsLimit": limits.products,
-        "limits.customersLimit": limits.customers,
-        "limits.tablesLimit": limits.tables,
-        "limits.staffLimit": limits.staff,
-    };
-    if (options.expiresAt) {
-        updates["subscription.expiresAt"] = admin.firestore.Timestamp.fromDate(options.expiresAt);
-    }
-    if (options.razorpayOrderId) {
-        updates["subscription.razorpayOrderId"] = options.razorpayOrderId;
-    }
-    if (options.razorpayPaymentId) {
-        updates["subscription.razorpayPaymentId"] = options.razorpayPaymentId;
-    }
-    if (options.razorpaySubscriptionId) {
-        updates["subscription.razorpaySubscriptionId"] = options.razorpaySubscriptionId;
-    }
+const applyDirectPlanToRestaurantDoc = async (db, options) => {
+    const updates = buildSubscriptionUpdates({
+        restaurantId: options.restaurantId,
+        effectivePlan: options.plan,
+        effectiveStatus: options.status,
+        directPlan: options.plan,
+        directStatus: options.status,
+        entitlementSource: "direct",
+        expiresAt: options.expiresAt,
+        razorpayOrderId: options.razorpayOrderId,
+        razorpayPaymentId: options.razorpayPaymentId,
+        razorpaySubscriptionId: options.razorpaySubscriptionId,
+    });
     await db.collection("users").doc(options.restaurantId).set(updates, { merge: true });
+};
+const applyOwnerBundlePlanToRestaurantDoc = async (db, options) => {
+    const storeDoc = await db.collection("users").doc(options.restaurantId).get();
+    const data = storeDoc.data();
+    const directPlan = getStoredDirectPlan(data);
+    const directStatus = getStoredDirectStatus(data);
+    const updates = buildSubscriptionUpdates({
+        restaurantId: options.restaurantId,
+        effectivePlan: "business",
+        effectiveStatus: options.status,
+        directPlan,
+        directStatus,
+        entitlementSource: "owner_bundle",
+        entitlementOwnerUid: options.ownerUid,
+        entitlementId: options.entitlementId,
+        expiresAt: options.expiresAt,
+    });
+    await db.collection("users").doc(options.restaurantId).set(updates, { merge: true });
+};
+const restoreRestaurantToDirectPlan = async (db, restaurantId, overridePlan, overrideStatus, expiresAt) => {
+    const storeDoc = await db.collection("users").doc(restaurantId).get();
+    const data = storeDoc.data();
+    const restoredPlan = overridePlan !== null && overridePlan !== void 0 ? overridePlan : getStoredDirectPlan(data);
+    const restoredStatus = overrideStatus !== null && overrideStatus !== void 0 ? overrideStatus : getStoredDirectStatus(data);
+    await applyDirectPlanToRestaurantDoc(db, {
+        restaurantId,
+        plan: restoredPlan,
+        status: restoredStatus,
+        expiresAt,
+    });
+};
+const setBusinessEntitlementStatus = async (db, ownerUid, status, expiresAt) => {
+    var _a;
+    const entSnap = await ownerEntitlementRef(db, ownerUid).get();
+    if (!entSnap.exists) {
+        return;
+    }
+    const ent = entSnap.data();
+    const assignedRestaurantIds = Array.isArray(ent.assignedRestaurantIds)
+        ? ent.assignedRestaurantIds.filter((id) => typeof id === "string" && id.trim().length > 0)
+        : [];
+    await ownerEntitlementRef(db, ownerUid).set(Object.assign({ status }, (expiresAt ? { expiresAt: admin.firestore.Timestamp.fromDate(expiresAt) } : {})), { merge: true });
+    for (const restaurantId of assignedRestaurantIds) {
+        await applyOwnerBundlePlanToRestaurantDoc(db, {
+            restaurantId,
+            ownerUid,
+            status,
+            expiresAt: expiresAt !== null && expiresAt !== void 0 ? expiresAt : (_a = ent.expiresAt) === null || _a === void 0 ? void 0 : _a.toDate(),
+            entitlementId: ownerUid,
+        });
+    }
+};
+const getNormalizedBusinessAssignedRestaurantIds = async (db, ownerUid, seedAssignedRestaurantIds = []) => {
+    const ownedStoreIds = [];
+    const defaultStoreDoc = await db.collection("users").doc(ownerUid).get();
+    if (defaultStoreDoc.exists) {
+        ownedStoreIds.push(ownerUid);
+    }
+    const ownedStoresSnap = await db.collection("users")
+        .where("ownerUid", "==", ownerUid)
+        .orderBy("createdAt")
+        .get();
+    for (const storeDoc of ownedStoresSnap.docs) {
+        if (!ownedStoreIds.includes(storeDoc.id)) {
+            ownedStoreIds.push(storeDoc.id);
+        }
+    }
+    const normalized = [];
+    for (const restaurantId of seedAssignedRestaurantIds) {
+        if (ownedStoreIds.includes(restaurantId) && !normalized.includes(restaurantId)) {
+            normalized.push(restaurantId);
+        }
+        if (normalized.length >= BUSINESS_PLAN_MAX_RESTAURANTS) {
+            return normalized;
+        }
+    }
+    for (const restaurantId of ownedStoreIds) {
+        if (normalized.includes(restaurantId))
+            continue;
+        normalized.push(restaurantId);
+        if (normalized.length >= BUSINESS_PLAN_MAX_RESTAURANTS) {
+            break;
+        }
+    }
+    return normalized;
+};
+const getOwnedRestaurantDocs = async (db, ownerUid) => {
+    const defaultStoreDoc = await db.collection("users").doc(ownerUid).get();
+    const ownedStoresSnap = await db.collection("users")
+        .where("ownerUid", "==", ownerUid)
+        .get();
+    return [
+        ...(defaultStoreDoc.exists ? [defaultStoreDoc] : []),
+        ...ownedStoresSnap.docs.filter((doc) => doc.id !== ownerUid),
+    ];
+};
+const getOwnedRestaurantIdsForCreationCap = async (db, ownerUid) => {
+    var _a;
+    const ownedRestaurantIds = new Set();
+    // Prefer canonical owner mappings the app actually uses for "My Restaurants".
+    // This avoids counting stale legacy profile/store docs as extra restaurants.
+    try {
+        const hotelsSnap = await db
+            .collection("user_hotels")
+            .doc(ownerUid)
+            .collection("hotels")
+            .get();
+        const hotelIds = hotelsSnap.docs.map((doc) => doc.id);
+        const storeDocs = await Promise.all(hotelIds.map((id) => db.collection("users").doc(id).get()));
+        for (const storeDoc of storeDocs) {
+            if (!storeDoc.exists)
+                continue;
+            const storeOwnerUid = (((_a = storeDoc.data()) === null || _a === void 0 ? void 0 : _a.ownerUid) || "").trim();
+            if (storeOwnerUid.length > 0 && storeOwnerUid !== ownerUid) {
+                continue;
+            }
+            if (storeOwnerUid.length === 0 && storeDoc.id !== ownerUid) {
+                continue;
+            }
+            ownedRestaurantIds.add(storeDoc.id);
+        }
+        if (ownedRestaurantIds.size > 0) {
+            return Array.from(ownedRestaurantIds);
+        }
+    }
+    catch (error) {
+        console.warn(`getOwnedRestaurantIdsForCreationCap fallback for ${ownerUid}`, error);
+    }
+    // Fallback for legacy users missing user_hotels mappings.
+    const ownedDocs = await getOwnedRestaurantDocs(db, ownerUid);
+    return ownedDocs.map((doc) => doc.id);
+};
+const ownerHasBusinessPlan = async (db, ownerUid) => {
+    const entSnap = await ownerEntitlementRef(db, ownerUid).get();
+    const ent = entSnap.data();
+    if ((ent === null || ent === void 0 ? void 0 : ent.plan) === "business" && ent.status !== "expired") {
+        return true;
+    }
+    const ownedDocs = await getOwnedRestaurantDocs(db, ownerUid);
+    return ownedDocs.some((doc) => {
+        var _a, _b;
+        const sub = getSubscriptionMap(doc.data());
+        const plan = normalizePlanKey((_a = sub.effectivePlan) !== null && _a !== void 0 ? _a : sub.plan);
+        const status = normalizeSubscriptionStatus((_b = sub.effectiveStatus) !== null && _b !== void 0 ? _b : sub.status);
+        return plan === "business" && status !== "expired";
+    });
+};
+const assertRestaurantCreationAllowed = async (db, ownerUid) => {
+    const ownedRestaurantIds = await getOwnedRestaurantIdsForCreationCap(db, ownerUid);
+    const ownedStoreDocs = await Promise.all(ownedRestaurantIds.map((id) => db.collection("users").doc(id).get()));
+    const hasBusinessFromOwnedStores = ownedStoreDocs.some((doc) => {
+        var _a, _b;
+        const sub = getSubscriptionMap(doc.data());
+        const plan = normalizePlanKey((_a = sub.effectivePlan) !== null && _a !== void 0 ? _a : sub.plan);
+        const status = normalizeSubscriptionStatus((_b = sub.effectiveStatus) !== null && _b !== void 0 ? _b : sub.status);
+        return plan === "business" && status !== "expired";
+    });
+    const hasBusiness = hasBusinessFromOwnedStores || await ownerHasBusinessPlan(db, ownerUid);
+    const maxRestaurants = hasBusiness
+        ? BUSINESS_PLAN_MAX_RESTAURANTS
+        : SINGLE_STORE_PLAN_MAX_RESTAURANTS;
+    if (ownedRestaurantIds.length >= maxRestaurants) {
+        if (!hasBusiness) {
+            throw new functions.https.HttpsError("failed-precondition", "Free, Starter, and Pro plans allow only 1 restaurant. Upgrade to Business plan to add more.");
+        }
+        throw new functions.https.HttpsError("failed-precondition", `Business plan allows only ${BUSINESS_PLAN_MAX_RESTAURANTS} restaurants`);
+    }
+};
+const activateBusinessEntitlement = async (db, options) => {
+    const entSnap = await ownerEntitlementRef(db, options.ownerUid).get();
+    const existing = entSnap.exists ? entSnap.data() : undefined;
+    const assignedRestaurantIds = await getNormalizedBusinessAssignedRestaurantIds(db, options.ownerUid, [
+        options.restaurantId,
+        ...(Array.isArray(existing === null || existing === void 0 ? void 0 : existing.assignedRestaurantIds) ? existing.assignedRestaurantIds : []),
+    ]);
+    await ownerEntitlementRef(db, options.ownerUid).set(Object.assign(Object.assign(Object.assign({ plan: "business", status: "active", cycle: options.cycle, maxRestaurants: BUSINESS_PLAN_MAX_RESTAURANTS, assignedRestaurantIds, primaryRestaurantId: options.restaurantId, expiresAt: admin.firestore.Timestamp.fromDate(options.expiresAt), startedAt: admin.firestore.FieldValue.serverTimestamp() }, (options.razorpayOrderId ? { razorpayOrderId: options.razorpayOrderId } : {})), (options.razorpayPaymentId ? { razorpayPaymentId: options.razorpayPaymentId } : {})), (options.razorpaySubscriptionId ? { razorpaySubscriptionId: options.razorpaySubscriptionId } : {})), { merge: true });
+    for (const assignedRestaurantId of assignedRestaurantIds) {
+        await applyOwnerBundlePlanToRestaurantDoc(db, {
+            restaurantId: assignedRestaurantId,
+            ownerUid: options.ownerUid,
+            status: "active",
+            expiresAt: options.expiresAt,
+            entitlementId: options.ownerUid,
+        });
+    }
+    return assignedRestaurantIds;
+};
+const assignRestaurantsToBusinessEntitlement = async (db, ownerUid, restaurantIds) => {
+    var _a;
+    const entSnap = await ownerEntitlementRef(db, ownerUid).get();
+    if (!entSnap.exists) {
+        throw new functions.https.HttpsError("failed-precondition", "Active Business plan not found");
+    }
+    const ent = entSnap.data();
+    if (ent.plan !== "business" || ent.status === "expired") {
+        throw new functions.https.HttpsError("failed-precondition", "Business plan is not active");
+    }
+    const assignedSet = new Set(Array.isArray(ent.assignedRestaurantIds) ? ent.assignedRestaurantIds : []);
+    for (const restaurantId of restaurantIds) {
+        assignedSet.add(restaurantId);
+    }
+    if (assignedSet.size > BUSINESS_PLAN_MAX_RESTAURANTS) {
+        throw new functions.https.HttpsError("failed-precondition", `Business plan can cover at most ${BUSINESS_PLAN_MAX_RESTAURANTS} restaurants`);
+    }
+    const assignedRestaurantIds = Array.from(assignedSet);
+    await ownerEntitlementRef(db, ownerUid).set({ assignedRestaurantIds }, { merge: true });
+    for (const restaurantId of restaurantIds) {
+        await applyOwnerBundlePlanToRestaurantDoc(db, {
+            restaurantId,
+            ownerUid,
+            status: normalizeSubscriptionStatus(ent.status),
+            expiresAt: (_a = ent.expiresAt) === null || _a === void 0 ? void 0 : _a.toDate(),
+            entitlementId: ownerUid,
+        });
+    }
+    return assignedRestaurantIds;
+};
+const removeRestaurantFromBusinessEntitlement = async (db, ownerUid, restaurantId) => {
+    const entSnap = await ownerEntitlementRef(db, ownerUid).get();
+    if (!entSnap.exists) {
+        throw new functions.https.HttpsError("failed-precondition", "Active Business plan not found");
+    }
+    const ent = entSnap.data();
+    const assignedRestaurantIds = (Array.isArray(ent.assignedRestaurantIds) ? ent.assignedRestaurantIds : [])
+        .filter((id) => id !== restaurantId);
+    await ownerEntitlementRef(db, ownerUid).set({ assignedRestaurantIds }, { merge: true });
+    await restoreRestaurantToDirectPlan(db, restaurantId);
+    return assignedRestaurantIds;
+};
+const downgradeBusinessEntitlementToSingleStorePlan = async (db, options) => {
+    const entSnap = await ownerEntitlementRef(db, options.ownerUid).get();
+    if (!entSnap.exists) {
+        throw new functions.https.HttpsError("failed-precondition", "Business plan not found");
+    }
+    const ent = entSnap.data();
+    const assignedRestaurantIds = Array.isArray(ent.assignedRestaurantIds) ? ent.assignedRestaurantIds : [];
+    if (!assignedRestaurantIds.includes(options.keepRestaurantId)) {
+        throw new functions.https.HttpsError("invalid-argument", "keepRestaurantId must be a covered restaurant");
+    }
+    const expiry = options.plan === "free"
+        ? undefined
+        : computeExpiryDate(options.cycle || "monthly");
+    for (const restaurantId of assignedRestaurantIds) {
+        if (restaurantId === options.keepRestaurantId) {
+            await applyDirectPlanToRestaurantDoc(db, {
+                restaurantId,
+                plan: options.plan,
+                status: "active",
+                expiresAt: expiry,
+            });
+            continue;
+        }
+        await restoreRestaurantToDirectPlan(db, restaurantId);
+    }
+    await ownerEntitlementRef(db, options.ownerUid).delete();
+    return assignedRestaurantIds;
+};
+const applyPlanToRestaurantDoc = async (db, options) => {
+    await applyDirectPlanToRestaurantDoc(db, options);
 };
 const markPaymentActivation = async (db, paymentId, payload) => {
     const ref = db.collection("subscription_payment_activations").doc(paymentId);
@@ -406,17 +758,24 @@ exports.razorpayWebhook = functions
                     console.warn("subscription.charged: unknown subscription", chargedSubId);
                     break;
                 }
-                const { userId: chargedUserId, restaurantId: chargedRestaurantId, cycle, } = chargedSnap.data();
+                const { userId: chargedUserId, restaurantId: chargedRestaurantId, cycle, plan, } = chargedSnap.data();
                 const targetRestaurantId = resolveRestaurantId(chargedRestaurantId, chargedUserId);
                 const daysToAdd = cycle === "annual" ? 365 : 30;
                 const newExpiry = new Date();
                 newExpiry.setDate(newExpiry.getDate() + daysToAdd);
-                await admin.firestore().collection("users").doc(targetRestaurantId).update({
-                    "subscription.status": "active",
-                    "subscription.expiresAt": admin.firestore.Timestamp.fromDate(newExpiry),
-                    "limits.billsThisMonth": 0,
-                    "limits.lastResetMonth": `${newExpiry.getFullYear()}-${String(newExpiry.getMonth() + 1).padStart(2, "0")}`,
-                });
+                if (plan === "business") {
+                    await setBusinessEntitlementStatus(admin.firestore(), chargedUserId, "active", newExpiry);
+                }
+                else {
+                    await admin.firestore().collection("users").doc(targetRestaurantId).update({
+                        "subscription.status": "active",
+                        "subscription.effectiveStatus": "active",
+                        "subscription.directStatus": "active",
+                        "subscription.expiresAt": admin.firestore.Timestamp.fromDate(newExpiry),
+                        "limits.billsThisMonth": 0,
+                        "limits.lastResetMonth": `${newExpiry.getFullYear()}-${String(newExpiry.getMonth() + 1).padStart(2, "0")}`,
+                    });
+                }
                 console.log(`subscription.charged: extended expiry for restaurant ${targetRestaurantId} to ${newExpiry.toISOString()}`);
                 // Send renewal success notification
                 await admin.firestore().collection("users").doc(chargedUserId)
@@ -440,13 +799,22 @@ exports.razorpayWebhook = functions
                     .get();
                 if (!haltedSnap.exists)
                     break;
-                const { userId: haltedUserId, restaurantId: haltedRestaurantId, } = haltedSnap.data();
+                const { userId: haltedUserId, restaurantId: haltedRestaurantId, plan, } = haltedSnap.data();
                 const targetRestaurantId = resolveRestaurantId(haltedRestaurantId, haltedUserId);
-                await applyPlanToRestaurantDoc(admin.firestore(), {
-                    restaurantId: targetRestaurantId,
-                    plan: "free",
-                    status: "expired",
-                });
+                if (plan === "business") {
+                    await downgradeBusinessEntitlementToSingleStorePlan(admin.firestore(), {
+                        ownerUid: haltedUserId,
+                        keepRestaurantId: targetRestaurantId,
+                        plan: "free",
+                    });
+                }
+                else {
+                    await applyPlanToRestaurantDoc(admin.firestore(), {
+                        restaurantId: targetRestaurantId,
+                        plan: "free",
+                        status: "expired",
+                    });
+                }
                 await haltedSnap.ref.update({ status: "halted" });
                 console.log(`subscription.halted: downgraded restaurant ${targetRestaurantId} to free`);
                 // Notify user
@@ -471,11 +839,18 @@ exports.razorpayWebhook = functions
                     .get();
                 if (!cancelledSnap.exists)
                     break;
-                const { userId: cancelledUserId, restaurantId: cancelledRestaurantId, } = cancelledSnap.data();
+                const { userId: cancelledUserId, restaurantId: cancelledRestaurantId, plan, } = cancelledSnap.data();
                 const targetRestaurantId = resolveRestaurantId(cancelledRestaurantId, cancelledUserId);
-                await admin.firestore().collection("users").doc(targetRestaurantId).update({
-                    "subscription.status": "cancelled",
-                });
+                if (plan === "business") {
+                    await setBusinessEntitlementStatus(admin.firestore(), cancelledUserId, "cancelled");
+                }
+                else {
+                    await admin.firestore().collection("users").doc(targetRestaurantId).update({
+                        "subscription.status": "cancelled",
+                        "subscription.effectiveStatus": "cancelled",
+                        "subscription.directStatus": "cancelled",
+                    });
+                }
                 await cancelledSnap.ref.update({ status: "cancelled" });
                 console.log(`subscription.cancelled: marked user ${cancelledUserId}`);
                 break;
@@ -1182,15 +1557,29 @@ exports.activateSubscription = functions
     }
     const expiresAt = computeExpiryDate(cycle);
     const limits = getPlanLimits(plan);
-    await applyPlanToRestaurantDoc(db, {
-        restaurantId,
-        plan,
-        status: "active",
-        expiresAt,
-        razorpayOrderId,
-        razorpayPaymentId,
-        razorpaySubscriptionId,
-    });
+    const ownerUid = await getRestaurantOwnerUid(db, restaurantId);
+    if (plan === "business") {
+        await activateBusinessEntitlement(db, {
+            ownerUid,
+            restaurantId,
+            cycle,
+            expiresAt,
+            razorpayOrderId,
+            razorpayPaymentId,
+            razorpaySubscriptionId,
+        });
+    }
+    else {
+        await applyPlanToRestaurantDoc(db, {
+            restaurantId,
+            plan,
+            status: "active",
+            expiresAt,
+            razorpayOrderId,
+            razorpayPaymentId,
+            razorpaySubscriptionId,
+        });
+    }
     // Store subscription→user mapping for webhook lookups
     if (razorpaySubscriptionId) {
         await db.collection("razorpay_subscriptions").doc(razorpaySubscriptionId).set({
@@ -3502,6 +3891,7 @@ exports.verifyPayment = functions
         throw new functions.https.HttpsError("internal", "Could not verify payment");
     }
     const expiresAt = computeExpiryDate(cycle);
+    const ownerUid = await getRestaurantOwnerUid(db, restaurantId);
     const activation = await markPaymentActivation(db, razorpayPaymentId, {
         userId,
         restaurantId,
@@ -3509,14 +3899,26 @@ exports.verifyPayment = functions
         cycle,
     });
     if (!activation.alreadyProcessed) {
-        await applyPlanToRestaurantDoc(db, {
-            restaurantId,
-            plan,
-            status: "active",
-            expiresAt,
-            razorpayOrderId,
-            razorpayPaymentId,
-        });
+        if (plan === "business") {
+            await activateBusinessEntitlement(db, {
+                ownerUid,
+                restaurantId,
+                cycle,
+                expiresAt,
+                razorpayOrderId,
+                razorpayPaymentId,
+            });
+        }
+        else {
+            await applyPlanToRestaurantDoc(db, {
+                restaurantId,
+                plan,
+                status: "active",
+                expiresAt,
+                razorpayOrderId,
+                razorpayPaymentId,
+            });
+        }
     }
     // Welcome notification
     const planName = getPlanDisplayName(plan);
@@ -3568,17 +3970,15 @@ exports.cleanupLeakedRestaurantPlans = functions
     for (const restaurantId of ownedRestaurantIds) {
         if (restaurantId === keepRestaurantId)
             continue;
-        const freeLimits = getPlanLimits("free");
-        batch.set(db.collection("users").doc(restaurantId), {
-            "subscription.plan": "free",
-            "subscription.status": "active",
-            "subscription.restaurantId": restaurantId,
-            "limits.billsLimit": freeLimits.bills,
-            "limits.productsLimit": freeLimits.products,
-            "limits.customersLimit": freeLimits.customers,
-            "limits.tablesLimit": freeLimits.tables,
-            "limits.staffLimit": freeLimits.staff,
-        }, { merge: true });
+        const updates = buildSubscriptionUpdates({
+            restaurantId,
+            effectivePlan: "free",
+            effectiveStatus: "active",
+            directPlan: "free",
+            directStatus: "active",
+            entitlementSource: "direct",
+        });
+        batch.set(db.collection("users").doc(restaurantId), updates, { merge: true });
         resetCount += 1;
     }
     if (resetCount > 0) {
@@ -3600,12 +4000,219 @@ exports.cleanupLeakedRestaurantPlans = functions
     };
 });
 /**
+ * migrateSubscriptionModel — admin migration/backfill for direct/effective plan fields.
+ *
+ * Backfills restaurant docs to the new subscription shape and creates
+ * owner_entitlements docs for legacy Business owners.
+ */
+exports.migrateSubscriptionModel = functions
+    .region("asia-south1")
+    .runWith({ timeoutSeconds: 540, memory: "1GB", maxInstances: 1 })
+    .https.onCall(async (data, context) => {
+    var _a, _b, _c, _d, _e, _f, _g, _h;
+    if (!context.auth) {
+        throw new functions.https.HttpsError("unauthenticated", "Must be authenticated");
+    }
+    const db = admin.firestore();
+    const callerEmail = context.auth.token.email || "";
+    const adminDoc = await db.collection("admins").doc(callerEmail).get();
+    if (!adminDoc.exists) {
+        throw new functions.https.HttpsError("permission-denied", "Admin access required");
+    }
+    const dryRun = (_a = data === null || data === void 0 ? void 0 : data.dryRun) !== null && _a !== void 0 ? _a : true;
+    const usersSnap = await db.collection("users").get();
+    let scanned = 0;
+    let storeDocs = 0;
+    let updatedStores = 0;
+    let businessOwners = 0;
+    let entitlementsCreated = 0;
+    const ownerToStores = new Map();
+    const storeSnapshots = new Map();
+    for (const doc of usersSnap.docs) {
+        scanned += 1;
+        const data = doc.data();
+        const sub = getSubscriptionMap(data);
+        const hasSubscriptionSignals = "subscription" in data ||
+            "limits" in data ||
+            typeof data.ownerUid === "string" ||
+            typeof data.shopName === "string";
+        if (!hasSubscriptionSignals) {
+            continue;
+        }
+        storeDocs += 1;
+        storeSnapshots.set(doc.id, doc);
+        const ownerUid = (data.ownerUid || doc.id).trim() || doc.id;
+        ownerToStores.set(ownerUid, [...((_b = ownerToStores.get(ownerUid)) !== null && _b !== void 0 ? _b : []), doc.id]);
+        const effectivePlan = getStoredEffectivePlan(data);
+        const effectiveStatus = normalizeSubscriptionStatus((_c = sub.effectiveStatus) !== null && _c !== void 0 ? _c : sub.status);
+        const directPlan = getStoredDirectPlan(data);
+        const directStatus = getStoredDirectStatus(data);
+        const entitlementSource = getStoredEntitlementSource(data);
+        const expiresAt = (_d = sub.expiresAt) === null || _d === void 0 ? void 0 : _d.toDate();
+        const needsBackfill = sub.effectivePlan !== effectivePlan ||
+            sub.effectiveStatus !== effectiveStatus ||
+            sub.directPlan !== directPlan ||
+            sub.directStatus !== directStatus ||
+            sub.entitlementSource !== entitlementSource;
+        if (!needsBackfill) {
+            continue;
+        }
+        updatedStores += 1;
+        if (!dryRun) {
+            await db.collection("users").doc(doc.id).set(buildSubscriptionUpdates({
+                restaurantId: doc.id,
+                effectivePlan,
+                effectiveStatus,
+                directPlan,
+                directStatus,
+                entitlementSource,
+                expiresAt,
+            }), { merge: true });
+        }
+    }
+    for (const [ownerUid, storeIds] of ownerToStores.entries()) {
+        const businessStores = storeIds.filter((storeId) => {
+            const snap = storeSnapshots.get(storeId);
+            return getStoredEffectivePlan(snap === null || snap === void 0 ? void 0 : snap.data()) === "business";
+        });
+        if (businessStores.length === 0) {
+            continue;
+        }
+        businessOwners += 1;
+        const assignedRestaurantIds = businessStores.slice(0, BUSINESS_PLAN_MAX_RESTAURANTS);
+        const primaryRestaurantId = assignedRestaurantIds[0];
+        const expiresAt = (_f = ((getSubscriptionMap((_e = storeSnapshots.get(primaryRestaurantId)) === null || _e === void 0 ? void 0 : _e.data()).expiresAt))) === null || _f === void 0 ? void 0 : _f.toDate();
+        if (!dryRun) {
+            await ownerEntitlementRef(db, ownerUid).set(Object.assign(Object.assign({ plan: "business", status: "active", maxRestaurants: BUSINESS_PLAN_MAX_RESTAURANTS, assignedRestaurantIds,
+                primaryRestaurantId }, (expiresAt ? { expiresAt: admin.firestore.Timestamp.fromDate(expiresAt) } : {})), { migratedAt: admin.firestore.FieldValue.serverTimestamp() }), { merge: true });
+            for (const storeId of assignedRestaurantIds) {
+                const snap = storeSnapshots.get(storeId);
+                const sub = getSubscriptionMap(snap === null || snap === void 0 ? void 0 : snap.data());
+                await db.collection("users").doc(storeId).set(buildSubscriptionUpdates({
+                    restaurantId: storeId,
+                    effectivePlan: "business",
+                    effectiveStatus: normalizeSubscriptionStatus((_g = sub.effectiveStatus) !== null && _g !== void 0 ? _g : sub.status),
+                    directPlan: getStoredDirectPlan(snap === null || snap === void 0 ? void 0 : snap.data()),
+                    directStatus: getStoredDirectStatus(snap === null || snap === void 0 ? void 0 : snap.data()),
+                    entitlementSource: "owner_bundle",
+                    entitlementOwnerUid: ownerUid,
+                    entitlementId: ownerUid,
+                    expiresAt: (_h = sub.expiresAt) === null || _h === void 0 ? void 0 : _h.toDate(),
+                }), { merge: true });
+            }
+        }
+        entitlementsCreated += 1;
+    }
+    return {
+        success: true,
+        dryRun,
+        scanned,
+        storeDocs,
+        updatedStores,
+        businessOwners,
+        entitlementsCreated,
+    };
+});
+/**
+ * createRestaurant — server-side restaurant creation with business-plan cap enforcement.
+ */
+exports.createRestaurant = functions
+    .region("asia-south1")
+    .runWith({ timeoutSeconds: 30, memory: "256MB", maxInstances: 20 })
+    .https.onCall(async (data, context) => {
+    if (!context.auth) {
+        throw new functions.https.HttpsError("unauthenticated", "Login required");
+    }
+    const ownerUid = context.auth.uid;
+    const name = ((data === null || data === void 0 ? void 0 : data.name) || "").trim();
+    if (!name) {
+        throw new functions.https.HttpsError("invalid-argument", "Restaurant name is required");
+    }
+    const db = admin.firestore();
+    await assertRestaurantCreationAllowed(db, ownerUid);
+    const ownerAuth = await admin.auth().getUser(ownerUid);
+    const storeRef = db.collection("users").doc();
+    const storeId = storeRef.id;
+    const slug = ((data === null || data === void 0 ? void 0 : data.slug) || "").trim() || generateRestaurantSlug(name);
+    await storeRef.set({
+        shopName: name,
+        ownerName: ownerAuth.displayName || "",
+        email: ownerAuth.email || "",
+        phone: ownerAuth.phoneNumber || "",
+        ownerUid,
+        currency: "INR",
+        timezone: "Asia/Kolkata",
+        settings: { darkMode: false },
+        isShopSetupComplete: true,
+        subscription: {
+            plan: "free",
+            status: "active",
+            directPlan: "free",
+            directStatus: "active",
+            effectivePlan: "free",
+            effectiveStatus: "active",
+            entitlementSource: "direct",
+        },
+        limits: {
+            productsCount: 0,
+            productsLimit: SUBSCRIPTION_PLAN_LIMITS.free.products,
+            billsThisMonth: 0,
+            billsLimit: SUBSCRIPTION_PLAN_LIMITS.free.bills,
+            customersCount: 0,
+            customersLimit: SUBSCRIPTION_PLAN_LIMITS.free.customers,
+            staffCount: 0,
+            staffLimit: SUBSCRIPTION_PLAN_LIMITS.free.staff,
+            tablesCount: 0,
+            tablesLimit: SUBSCRIPTION_PLAN_LIMITS.free.tables,
+        },
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+    await db.collection(`users/${storeId}/members`).doc(ownerUid).set({
+        uid: ownerUid,
+        email: ownerAuth.email || "",
+        displayName: ownerAuth.displayName || "Owner",
+        role: "owner",
+        status: "active",
+        joinedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+    await db.doc(`users/${storeId}/counters/billing`).set({ current: 0 });
+    await db.collection(`user_hotels/${ownerUid}/hotels`).doc(storeId).set({
+        id: storeId,
+        name,
+        slug,
+        role: "owner",
+        planKey: "free",
+        status: "active",
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+    if (await ownerHasBusinessPlan(db, ownerUid)) {
+        try {
+            await assignRestaurantsToBusinessEntitlement(db, ownerUid, [storeId]);
+        }
+        catch (error) {
+            console.warn(`createRestaurant: could not auto-assign ${storeId} to business`, error);
+        }
+    }
+    return {
+        success: true,
+        hotel: {
+            id: storeId,
+            name,
+            slug,
+            role: "owner",
+            planKey: "free",
+            status: "active",
+        },
+    };
+});
+/**
  * updateRestaurantSubscription — centralized non-payment subscription actions.
  */
 exports.updateRestaurantSubscription = functions
     .region("asia-south1")
     .runWith({ timeoutSeconds: 30, memory: "256MB", maxInstances: 20 })
     .https.onCall(async (data, context) => {
+    var _a, _b, _c;
     if (!context.auth) {
         throw new functions.https.HttpsError("unauthenticated", "Login required");
     }
@@ -3617,22 +4224,103 @@ exports.updateRestaurantSubscription = functions
     const restaurantId = resolveRestaurantId(data.restaurantId, userId);
     const db = admin.firestore();
     await assertRestaurantOwnership(db, userId, restaurantId);
+    const ownerUid = await getRestaurantOwnerUid(db, restaurantId);
+    const storeDoc = await db.collection("users").doc(restaurantId).get();
+    const storeData = storeDoc.data();
+    const effectivePlan = getStoredEffectivePlan(storeData);
+    const entitlementSource = getStoredEntitlementSource(storeData);
+    if (action === "listBusinessRestaurants") {
+        const entSnap = await ownerEntitlementRef(db, ownerUid).get();
+        const ent = entSnap.exists ? entSnap.data() : undefined;
+        const assignedRestaurantIds = ent == null
+            ? []
+            : await getNormalizedBusinessAssignedRestaurantIds(db, ownerUid, Array.isArray(ent.assignedRestaurantIds) ? ent.assignedRestaurantIds : []);
+        if (ent != null) {
+            await ownerEntitlementRef(db, ownerUid).set({ assignedRestaurantIds }, { merge: true });
+        }
+        return {
+            success: true,
+            ownerUid,
+            assignedRestaurantIds,
+            maxRestaurants: (_a = ent === null || ent === void 0 ? void 0 : ent.maxRestaurants) !== null && _a !== void 0 ? _a : BUSINESS_PLAN_MAX_RESTAURANTS,
+            primaryRestaurantId: (_b = ent === null || ent === void 0 ? void 0 : ent.primaryRestaurantId) !== null && _b !== void 0 ? _b : null,
+            status: (_c = ent === null || ent === void 0 ? void 0 : ent.status) !== null && _c !== void 0 ? _c : "inactive",
+        };
+    }
+    if (action === "assignBusinessRestaurants") {
+        const restaurantIds = Array.isArray(data.restaurantIds)
+            ? data.restaurantIds.filter((id) => typeof id === "string" && id.trim().length > 0)
+            : [];
+        if (restaurantIds.length === 0) {
+            throw new functions.https.HttpsError("invalid-argument", "restaurantIds are required");
+        }
+        for (const id of restaurantIds) {
+            await assertRestaurantOwnership(db, userId, id);
+            const targetOwnerUid = await getRestaurantOwnerUid(db, id);
+            if (targetOwnerUid !== ownerUid) {
+                throw new functions.https.HttpsError("permission-denied", "Restaurant owner mismatch");
+            }
+        }
+        const assignedRestaurantIds = await assignRestaurantsToBusinessEntitlement(db, ownerUid, restaurantIds);
+        return { success: true, ownerUid, assignedRestaurantIds, maxRestaurants: BUSINESS_PLAN_MAX_RESTAURANTS };
+    }
+    if (action === "removeBusinessRestaurant") {
+        const targetRestaurantId = resolveRestaurantId(data.targetRestaurantId, restaurantId);
+        await assertRestaurantOwnership(db, userId, targetRestaurantId);
+        const assignedRestaurantIds = await removeRestaurantFromBusinessEntitlement(db, ownerUid, targetRestaurantId);
+        return { success: true, ownerUid, assignedRestaurantIds, maxRestaurants: BUSINESS_PLAN_MAX_RESTAURANTS };
+    }
     if (action === "cancel") {
-        await db.collection("users").doc(restaurantId).set({
-            "subscription.status": "cancelled",
-        }, { merge: true });
+        if (effectivePlan === "business" && entitlementSource === "owner_bundle") {
+            await setBusinessEntitlementStatus(db, ownerUid, "cancelled");
+            return { success: true, restaurantId, action, ownerUid };
+        }
+        await applyDirectPlanToRestaurantDoc(db, {
+            restaurantId,
+            plan: getStoredDirectPlan(storeData),
+            status: "cancelled",
+        });
         return { success: true, restaurantId, action };
     }
     if (action === "resume") {
-        await db.collection("users").doc(restaurantId).set({
-            "subscription.status": "active",
-        }, { merge: true });
+        if (effectivePlan === "business" && entitlementSource === "owner_bundle") {
+            await setBusinessEntitlementStatus(db, ownerUid, "active");
+            return { success: true, restaurantId, action, ownerUid };
+        }
+        await applyDirectPlanToRestaurantDoc(db, {
+            restaurantId,
+            plan: getStoredDirectPlan(storeData),
+            status: "active",
+        });
         return { success: true, restaurantId, action };
     }
     if (action === "changePlan") {
         const plan = data.plan;
         if (!plan || (plan !== "free" && !isPaidPlan(plan))) {
             throw new functions.https.HttpsError("invalid-argument", "Valid plan is required for changePlan");
+        }
+        const cycle = isValidCycle(data.cycle || "")
+            ? data.cycle
+            : "monthly";
+        if (plan === "business") {
+            const expiresAt = computeExpiryDate(cycle);
+            const assignedRestaurantIds = await activateBusinessEntitlement(db, {
+                ownerUid,
+                restaurantId,
+                cycle,
+                expiresAt,
+            });
+            return { success: true, restaurantId, action, plan, cycle, assignedRestaurantIds, ownerUid };
+        }
+        if (effectivePlan === "business" && entitlementSource === "owner_bundle") {
+            const keepRestaurantId = resolveRestaurantId(data.keepRestaurantId, restaurantId);
+            const coveredRestaurantIds = await downgradeBusinessEntitlementToSingleStorePlan(db, {
+                ownerUid,
+                keepRestaurantId,
+                plan,
+                cycle,
+            });
+            return { success: true, restaurantId, action, plan, cycle, keepRestaurantId, coveredRestaurantIds };
         }
         if (plan === "free") {
             await applyPlanToRestaurantDoc(db, {
@@ -3642,9 +4330,6 @@ exports.updateRestaurantSubscription = functions
             });
             return { success: true, restaurantId, action, plan };
         }
-        const cycle = isValidCycle(data.cycle || "")
-            ? data.cycle
-            : "monthly";
         await applyPlanToRestaurantDoc(db, {
             restaurantId,
             plan,

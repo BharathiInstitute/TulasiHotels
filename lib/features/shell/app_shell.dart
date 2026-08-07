@@ -21,6 +21,7 @@ import 'package:tulasihotels/features/shell/web_shell.dart';
 import 'package:tulasihotels/features/hotels/providers/hotel_provider.dart';
 import 'package:tulasihotels/features/subscription/models/plan_config.dart';
 import 'package:tulasihotels/features/subscription/providers/subscription_provider.dart';
+import 'package:tulasihotels/features/subscription/services/plan_navigation_service.dart';
 import 'package:tulasihotels/l10n/app_localizations.dart';
 import 'package:tulasihotels/models/user_model.dart';
 import 'package:tulasihotels/router/app_router.dart';
@@ -580,7 +581,7 @@ class _AppShellState extends ConsumerState<AppShell> {
                               borderRadius: BorderRadius.circular(6),
                               onTap: () {
                                 Navigator.pop(context);
-                                context.go(AppRoutes.subscription);
+                                PlanNavigationService.goToSubscription(context);
                               },
                               child: Padding(
                                 padding: const EdgeInsets.all(2),
@@ -1190,7 +1191,7 @@ class _AppShellState extends ConsumerState<AppShell> {
                           ),
                           InkWell(
                             borderRadius: BorderRadius.circular(6),
-                            onTap: () => context.go(AppRoutes.subscription),
+                            onTap: () => PlanNavigationService.goToSubscription(context),
                             child: Padding(
                               padding: const EdgeInsets.all(4),
                               child: Icon(

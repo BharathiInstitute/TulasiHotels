@@ -27,6 +27,7 @@ class HotelInfo {
   final String slug;
   final String role; // owner, manager, cashier, etc.
   final String? customRoleName; // free-text label when role == 'custom'
+  final String planKey; // free, starter, pro, business
   final HotelStatus status;
   final DateTime createdAt;
 
@@ -36,6 +37,7 @@ class HotelInfo {
     required this.slug,
     required this.role,
     this.customRoleName,
+    this.planKey = 'free',
     this.status = HotelStatus.active,
     required this.createdAt,
   });
@@ -59,6 +61,7 @@ class HotelInfo {
       slug: (data['slug'] as String?) ?? '',
       role: (data['role'] as String?) ?? 'owner',
       customRoleName: data['customRoleName'] as String?,
+      planKey: (data['planKey'] as String?) ?? 'free',
       status: HotelStatus.fromString((data['status'] as String?) ?? 'active'),
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
     );
@@ -70,6 +73,7 @@ class HotelInfo {
       'slug': slug,
       'role': role,
       if (customRoleName != null) 'customRoleName': customRoleName,
+      'planKey': planKey,
       'status': status.name,
       'createdAt': Timestamp.fromDate(createdAt),
     };

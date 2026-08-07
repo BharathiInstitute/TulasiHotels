@@ -22,9 +22,8 @@ final subscriptionPlanProvider = StreamProvider<String>((ref) {
         .snapshots()
         .map((doc) {
           final data = doc.data();
-          final sub = data?['subscription'] as Map<String, dynamic>?;
-          final plan = sub?['plan'] as String?;
-          if (plan != null && plan.isNotEmpty) return plan;
+          final plan = _readPlanKey(data);
+          if (plan != null) return plan;
           return _inferPlanFromLimits(data);
         });
   }
@@ -36,9 +35,8 @@ final subscriptionPlanProvider = StreamProvider<String>((ref) {
       .snapshots()
       .map((doc) {
         final data = doc.data();
-        final sub = data?['subscription'] as Map<String, dynamic>?;
-        final plan = sub?['plan'] as String?;
-        if (plan != null && plan.isNotEmpty) return plan;
+        final plan = _readPlanKey(data);
+        if (plan != null) return plan;
         return _inferPlanFromLimits(data);
       });
 });
@@ -54,12 +52,20 @@ final hotelSubscriptionPlanProvider = StreamProvider.family<String, String>((
       .snapshots()
       .map((doc) {
         final data = doc.data();
-        final sub = data?['subscription'] as Map<String, dynamic>?;
-        final plan = sub?['plan'] as String?;
-        if (plan != null && plan.isNotEmpty) return plan;
+        final plan = _readPlanKey(data);
+        if (plan != null) return plan;
         return _inferPlanFromLimits(data);
       });
 });
+
+String? _readPlanKey(Map<String, dynamic>? data) {
+  final sub = data?['subscription'] as Map<String, dynamic>?;
+  final effective = (sub?['effectivePlan'] as String?)?.trim();
+  if (effective != null && effective.isNotEmpty) return effective;
+  final legacy = (sub?['plan'] as String?)?.trim();
+  if (legacy != null && legacy.isNotEmpty) return legacy;
+  return null;
+}
 
 int _asInt(dynamic value) {
   if (value is int) return value;

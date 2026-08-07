@@ -12,6 +12,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tulasihotels/core/services/active_store_manager.dart';
 import 'package:tulasihotels/core/services/cloud_function_helper.dart';
 import 'package:tulasihotels/core/services/user_metrics_service.dart';
+import 'package:tulasihotels/features/hotels/models/hotel_info.dart';
 import 'package:tulasihotels/features/hotels/providers/hotel_provider.dart';
 import 'package:tulasihotels/features/subscription/models/plan_config.dart';
 import 'package:tulasihotels/features/subscription/providers/subscription_provider.dart';
@@ -116,8 +117,8 @@ class _ManageSubscriptionPanelState
         final sub = data['subscription'] as Map<String, dynamic>?;
         final limitsMap = data['limits'] as Map<String, dynamic>?;
         setState(() {
-          _currentPlan = (sub?['plan'] as String?) ?? 'free';
-          _status = (sub?['status'] as String?) ?? 'active';
+          _currentPlan = _planFromSubscription(sub);
+          _status = _statusFromSubscription(sub);
           _expiresAt = (sub?['expiresAt'] as Timestamp?)?.toDate();
           _limits = UserLimits.fromMap(limitsMap);
           _userPhone ??=
@@ -876,6 +877,16 @@ class _ManageSubscriptionPanelState
   }
 
   Future<void> _handleDowngrade(String planKey, String planName) async {
+    String? keepRestaurantId;
+    if (_currentPlan == 'business' && planKey != 'free') {
+      keepRestaurantId = await _pickDowngradeRestaurant();
+      if (keepRestaurantId == null || keepRestaurantId.isEmpty) {
+        return;
+      }
+    }
+
+    if (!mounted) return;
+
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -903,7 +914,10 @@ class _ManageSubscriptionPanelState
 
     if (confirmed == true) {
       final service = SubscriptionService();
-      final success = await service.changePlan(planKey);
+      final success = await service.changePlan(
+        planKey,
+        keepRestaurantId: keepRestaurantId,
+      );
       if (mounted) {
         if (success) {
           setState(() {
@@ -928,6 +942,77 @@ class _ManageSubscriptionPanelState
         }
       }
     }
+  }
+
+  Future<String?> _pickDowngradeRestaurant() async {
+    final hotels =
+        await CloudFunctionHelper.call('updateRestaurantSubscription', {
+              'action': 'listBusinessRestaurants',
+              'restaurantId':
+                  ActiveStoreManager.storeId ?? FirebaseAuth.instance.currentUser?.uid,
+            }).then<List<String>>(
+              (value) =>
+                  (value['assignedRestaurantIds'] as List<dynamic>? ?? const [])
+                      .whereType<String>()
+                      .toList(),
+            ).catchError((_) => const <String>[]);
+    final allHotels = ref.read(hotelsStreamProvider).valueOrNull ?? const <HotelInfo>[];
+    final ownerHotels = allHotels
+        .where((hotel) => hotel.isOwner && hotels.contains(hotel.id))
+        .toList();
+    if (ownerHotels.isEmpty) {
+      return ActiveStoreManager.storeId ?? FirebaseAuth.instance.currentUser?.uid;
+    }
+
+    if (!mounted) return null;
+
+    var selectedId = ActiveStoreManager.storeId ?? ownerHotels.first.id;
+    return showDialog<String>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setModalState) => AlertDialog(
+          title: const Text('Choose Pro Restaurant'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Only one restaurant can keep the paid plan after leaving Business.',
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
+                initialValue: selectedId,
+                items: ownerHotels
+                    .map(
+                      (hotel) => DropdownMenuItem<String>(
+                        value: hotel.id,
+                        child: Text(hotel.name),
+                      ),
+                    )
+                    .toList(),
+                onChanged: (value) {
+                  if (value == null) return;
+                  setModalState(() => selectedId = value);
+                },
+                decoration: const InputDecoration(
+                  labelText: 'Restaurant to keep on paid plan',
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, selectedId),
+              child: const Text('Continue'),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   /// Show item selection modal if user has more items than the new plan allows.
@@ -1010,5 +1095,21 @@ class _ManageSubscriptionPanelState
       default:
         return Colors.grey;
     }
+  }
+
+  String _planFromSubscription(Map<String, dynamic>? sub) {
+    final effective = (sub?['effectivePlan'] as String?)?.trim();
+    if (effective != null && effective.isNotEmpty) return effective;
+    return ((sub?['plan'] as String?)?.trim().isNotEmpty ?? false)
+        ? (sub!['plan'] as String)
+        : 'free';
+  }
+
+  String _statusFromSubscription(Map<String, dynamic>? sub) {
+    final effective = (sub?['effectiveStatus'] as String?)?.trim();
+    if (effective != null && effective.isNotEmpty) return effective;
+    return ((sub?['status'] as String?)?.trim().isNotEmpty ?? false)
+        ? (sub!['status'] as String)
+        : 'active';
   }
 }

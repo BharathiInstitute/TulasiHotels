@@ -90,20 +90,14 @@ class PlanEnforcementService {
   /// Get the store's current [PlanConfig] from Firestore.
   static Future<PlanConfig> getCurrentPlanConfig() async {
     try {
-      final doc = await _readStoreDoc(source: Source.server)
+      final doc = await _readStoreDoc()
           .timeout(const Duration(seconds: 5));
-      final planKey =
-          (doc?.data()?['subscription'] as Map<String, dynamic>?)?['plan']
-              as String? ??
-          'free';
+      final planKey = _subscriptionPlanKey(doc?.data());
       return PlanConfig.fromKey(planKey);
     } catch (_) {
       try {
         final cached = await _readStoreDoc(source: Source.cache);
-        final planKey =
-            (cached?.data()?['subscription'] as Map<String, dynamic>?)?['plan']
-                as String? ??
-            'free';
+        final planKey = _subscriptionPlanKey(cached?.data());
         return PlanConfig.fromKey(planKey);
       } catch (_) {
         return PlanConfig.free;
@@ -114,7 +108,7 @@ class PlanEnforcementService {
   /// Get the store's current [UserLimits] from Firestore.
   static Future<UserLimits> getCurrentLimits() async {
     try {
-      final doc = await _readStoreDoc(source: Source.server)
+      final doc = await _readStoreDoc()
           .timeout(const Duration(seconds: 5));
       return UserLimits.fromMap(
         doc?.data()?['limits'] as Map<String, dynamic>?,
@@ -165,7 +159,7 @@ class PlanEnforcementService {
       }
     }
 
-    final planKey = (subscriptionData?['plan'] as String?) ?? 'free';
+    final planKey = _subscriptionPlanKey({'subscription': subscriptionData});
     final config = PlanConfig.fromKey(planKey);
     final limits = UserLimits.fromMap(limitsData);
 
@@ -323,6 +317,7 @@ class PlanEnforcementService {
       'limits.activeProductIds': FieldValue.delete(),
       'limits.activeTableIds': FieldValue.delete(),
       'subscription.plan': planKey,
+      'subscription.effectivePlan': planKey,
     });
   }
 
@@ -338,10 +333,7 @@ class PlanEnforcementService {
     final userDoc = await db.collection('users').doc(resolvedStoreId).get();
     final currentLimits = userDoc.data()?['limits'] as Map<String, dynamic>? ?? {};
 
-    final currentPlan =
-      (userDoc.data()?['subscription'] as Map<String, dynamic>?)?['plan']
-        as String? ??
-      'free';
+    final currentPlan = _subscriptionPlanKey(userDoc.data());
 
     final base = 'users/$resolvedStoreId';
     final results = await Future.wait([
@@ -453,5 +445,14 @@ class PlanEnforcementService {
       case PlanFeature.multiLocation:
         return 'Multi-location management';
     }
+  }
+
+  static String _subscriptionPlanKey(Map<String, dynamic>? data) {
+    final sub = data?['subscription'] as Map<String, dynamic>?;
+    final effective = (sub?['effectivePlan'] as String?)?.trim();
+    if (effective != null && effective.isNotEmpty) return effective;
+    final legacy = (sub?['plan'] as String?)?.trim();
+    if (legacy != null && legacy.isNotEmpty) return legacy;
+    return 'free';
   }
 }

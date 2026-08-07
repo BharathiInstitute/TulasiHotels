@@ -346,7 +346,7 @@ class _WebCartSectionState extends ConsumerState<_WebCartSection> {
               duration: const Duration(seconds: 5),
               action: SnackBarAction(
                 label: 'Upgrade',
-                onPressed: () => context.push(AppRoutes.subscription),
+                onPressed: () => PlanNavigationService.pushToSubscription(context),
               ),
             ),
           );
@@ -488,7 +488,7 @@ class _WebCartSectionState extends ConsumerState<_WebCartSection> {
                 ? SnackBarAction(
                     label: 'Upgrade',
                     textColor: Colors.white,
-                    onPressed: () => context.push(AppRoutes.subscription),
+                    onPressed: () => PlanNavigationService.pushToSubscription(context),
                   )
                 : null,
           ),

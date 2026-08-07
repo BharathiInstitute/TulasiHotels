@@ -13,18 +13,15 @@ import 'package:tulasihotels/core/services/active_store_manager.dart';
 import 'package:tulasihotels/core/services/cloud_function_helper.dart';
 import 'package:tulasihotels/core/services/razorpay_service.dart';
 import 'package:tulasihotels/core/services/user_metrics_service.dart';
+import 'package:tulasihotels/features/subscription/models/plan_config.dart';
 
 /// Pricing map for subscription plans
 class SubscriptionPricing {
-  static const Map<String, Map<String, double>> prices = {
-    'free': {'monthly': 0, 'annual': 0},
-    'starter': {'monthly': 10, 'annual': 96},
-    'pro': {'monthly': 20, 'annual': 204},
-    'business': {'monthly': 30, 'annual': 300},
-  };
-
   static double getPrice(String plan, String cycle) {
-    return prices[plan]?[cycle] ?? 0;
+    final config = PlanConfig.fromKey(plan);
+    return cycle == 'annual'
+        ? config.annualPriceInr.toDouble()
+        : config.monthlyPriceInr.toDouble();
   }
 }
 
@@ -169,7 +166,11 @@ class SubscriptionService {
   }
 
   /// Downgrade to a lower plan immediately.
-  Future<bool> changePlan(String newPlan) async {
+  Future<bool> changePlan(
+    String newPlan, {
+    String? keepRestaurantId,
+    String cycle = 'monthly',
+  }) async {
     final restaurantId = _activeRestaurantId;
     if (restaurantId == null || restaurantId.isEmpty) return false;
 
@@ -178,9 +179,46 @@ class SubscriptionService {
         'action': 'changePlan',
         'restaurantId': restaurantId,
         'plan': newPlan,
+        'cycle': cycle,
+        if (keepRestaurantId != null && keepRestaurantId.isNotEmpty)
+          'keepRestaurantId': keepRestaurantId,
       });
       return true;
     } catch (e) {
+      return false;
+    }
+  }
+
+  Future<bool> assignBusinessRestaurants(List<String> restaurantIds) async {
+    final restaurantId = _activeRestaurantId;
+    if (restaurantId == null || restaurantId.isEmpty) return false;
+    if (restaurantIds.isEmpty) return false;
+
+    try {
+      await CloudFunctionHelper.call('updateRestaurantSubscription', {
+        'action': 'assignBusinessRestaurants',
+        'restaurantId': restaurantId,
+        'restaurantIds': restaurantIds,
+      });
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<bool> removeBusinessRestaurant(String targetRestaurantId) async {
+    final restaurantId = _activeRestaurantId;
+    if (restaurantId == null || restaurantId.isEmpty) return false;
+    if (targetRestaurantId.isEmpty) return false;
+
+    try {
+      await CloudFunctionHelper.call('updateRestaurantSubscription', {
+        'action': 'removeBusinessRestaurant',
+        'restaurantId': restaurantId,
+        'targetRestaurantId': targetRestaurantId,
+      });
+      return true;
+    } catch (_) {
       return false;
     }
   }

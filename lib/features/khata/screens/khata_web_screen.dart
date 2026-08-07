@@ -19,6 +19,7 @@ import 'package:tulasihotels/l10n/app_localizations.dart';
 import 'package:tulasihotels/models/customer_model.dart';
 import 'package:tulasihotels/models/transaction_model.dart';
 import 'package:tulasihotels/features/subscription/services/plan_enforcement_service.dart';
+import 'package:tulasihotels/features/subscription/services/plan_navigation_service.dart';
 import 'package:tulasihotels/features/subscription/models/plan_config.dart';
 import 'package:tulasihotels/core/services/user_metrics_service.dart';
 import 'package:tulasihotels/features/permissions/permission_center.dart';
@@ -585,7 +586,7 @@ class _KhataWebScreenState extends ConsumerState<KhataWebScreen> {
             action: SnackBarAction(
               label: 'Upgrade',
               textColor: Colors.white,
-              onPressed: () => context.push(AppRoutes.subscription),
+              onPressed: () => PlanNavigationService.pushToSubscription(context),
             ),
           ),
         );

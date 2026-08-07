@@ -18,6 +18,17 @@ enum PlanFeature {
   multiLocation,
 }
 
+/// Shared plan tier enum used by app and super-admin surfaces.
+enum PlanTier { free, starter, pro, business }
+
+extension PlanTierX on PlanTier {
+  PlanConfig get config => PlanConfig.fromKey(name);
+  String get displayName => config.name;
+  int get monthlyPriceInr => config.monthlyPriceInr;
+  int get annualPriceInr => config.annualPriceInr;
+  int get maxRestaurants => PlanConfig.maxRestaurantsForKey(name);
+}
+
 /// Immutable configuration for a single subscription plan.
 class PlanConfig {
   /// Machine key used in Firestore (`free`, `starter`, `pro`, `business`).
@@ -150,6 +161,60 @@ class PlanConfig {
 
   /// Ordered list of all plans (for UI iteration).
   static const List<PlanConfig> allPlans = [free, starter, pro, business];
+
+  /// Ordered list of all shared plan tiers.
+  static const List<PlanTier> allTiers = [
+    PlanTier.free,
+    PlanTier.starter,
+    PlanTier.pro,
+    PlanTier.business,
+  ];
+
+  /// Shared UI label for a plan key.
+  static String labelForKey(String key) => fromKey(key).name;
+
+  /// Shared monthly price for a plan key in INR.
+  static int monthlyPriceForKey(String key) => fromKey(key).monthlyPriceInr;
+
+  /// Shared annual price for a plan key in INR.
+  static int annualPriceForKey(String key) => fromKey(key).annualPriceInr;
+
+  /// Maximum number of restaurants allowed for a plan key.
+  /// Free, Starter, and Pro are single-store plans; Business allows 3.
+  static int maxRestaurantsForKey(String key) {
+    return key == 'business' ? 3 : 1;
+  }
+
+  /// Whether a plan key allows multiple restaurants.
+  static bool allowsMultipleRestaurants(String key) => key == 'business';
+
+  /// Monthly subscription price in INR.
+  int get monthlyPriceInr {
+    switch (key) {
+      case 'starter':
+        return 199;
+      case 'pro':
+        return 299;
+      case 'business':
+        return 999;
+      default:
+        return 0;
+    }
+  }
+
+  /// Annual subscription price in INR.
+  int get annualPriceInr {
+    switch (key) {
+      case 'starter':
+        return 1990;
+      case 'pro':
+        return 2390;
+      case 'business':
+        return 7990;
+      default:
+        return 0;
+    }
+  }
 
   /// Human-readable feature list for the subscription screen.
   List<String> get featureDescriptions {

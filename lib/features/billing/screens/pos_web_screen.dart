@@ -21,7 +21,6 @@ import 'package:tulasihotels/models/product_model.dart';
 import 'package:tulasihotels/shared/widgets/loading_states.dart';
 import 'package:tulasihotels/core/services/offline_storage_service.dart';
 import 'package:tulasihotels/core/services/user_metrics_service.dart';
-import 'package:go_router/go_router.dart';
 import 'package:tulasihotels/router/app_router.dart';
 import 'package:tulasihotels/features/reports/providers/reports_provider.dart';
 import 'package:tulasihotels/features/billing/providers/billing_provider.dart';
@@ -32,6 +31,7 @@ import 'package:tulasihotels/features/notifications/services/notification_firest
 import 'package:tulasihotels/features/notifications/models/notification_model.dart';
 import 'package:tulasihotels/core/services/payment_link_service.dart';
 import 'package:tulasihotels/shared/widgets/web_safe_image.dart';
+import 'package:tulasihotels/features/subscription/services/plan_navigation_service.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:tulasihotels/features/coupons/providers/coupon_provider.dart';
 import 'package:tulasihotels/features/coupons/services/coupon_service.dart';

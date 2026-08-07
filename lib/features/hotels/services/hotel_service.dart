@@ -1,10 +1,13 @@
 /// Hotel service — manages multi-hotel creation and lookup for a user
 library;
 
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:tulasihotels/core/services/active_store_manager.dart';
+import 'package:tulasihotels/core/services/cloud_function_helper.dart';
 import 'package:tulasihotels/features/hotels/models/hotel_info.dart';
 import 'package:tulasihotels/features/subscription/models/plan_config.dart';
 
@@ -33,6 +36,7 @@ class HotelService {
     return _hotelsRef.orderBy('createdAt').snapshots().asyncMap((
       snapshot,
     ) async {
+      await _syncOwnerBusinessBundle(userId);
       final hotels = snapshot.docs
           .map((doc) => HotelInfo.fromFirestore(doc))
           .toList();
@@ -45,6 +49,7 @@ class HotelService {
     final userId = _userId;
     if (userId == null) return const <HotelInfo>[];
 
+    await _syncOwnerBusinessBundle(userId);
     final snapshot = await _hotelsRef.orderBy('createdAt').get();
     final hotels = snapshot.docs
         .map((doc) => HotelInfo.fromFirestore(doc))
@@ -59,11 +64,54 @@ class HotelService {
     List<HotelInfo> hotels,
     String userId,
   ) async {
+    final ownerHotels = hotels.where((hotel) => hotel.isOwner).toList();
+    final ownerHotelIds = ownerHotels.map((hotel) => hotel.id).toList();
+    var normalizedBusinessHotelIds = <String>{};
+    if (ownerHotelIds.isNotEmpty) {
+      try {
+        final entitlementDoc = await _firestore
+            .collection('owner_entitlements')
+            .doc(userId)
+            .get();
+        final entitlement = entitlementDoc.data();
+        final isActiveBusiness =
+            (entitlement?['plan'] as String?) == PlanConfig.business.key &&
+            (entitlement?['status'] as String?) != 'expired';
+        if (isActiveBusiness) {
+          final seeded = (entitlement?['assignedRestaurantIds'] as List<dynamic>? ?? const [])
+              .whereType<String>()
+              .where(ownerHotelIds.contains)
+              .toList();
+          final normalized = <String>[];
+          for (final id in seeded) {
+            if (!normalized.contains(id)) {
+              normalized.add(id);
+            }
+            if (normalized.length >= 3) break;
+          }
+          for (final hotel in hotels.where((hotel) => hotel.isOwner)) {
+            if (normalized.contains(hotel.id)) continue;
+            normalized.add(hotel.id);
+            if (normalized.length >= 3) break;
+          }
+          normalizedBusinessHotelIds = normalized.toSet();
+        } else {
+          normalizedBusinessHotelIds =
+              await _inferBusinessHotelsFromOwnedStores(userId, ownerHotels);
+        }
+      } catch (_) {
+        normalizedBusinessHotelIds =
+            await _inferBusinessHotelsFromOwnedStores(userId, ownerHotels);
+      }
+    }
+
     return Future.wait(
       hotels.map((hotel) async {
         var name = hotel.name;
         var role = hotel.role;
         var customRoleName = hotel.customRoleName;
+        var planKey = hotel.planKey;
+        var status = hotel.status;
 
         // Keep displayed hotel name synced with users/{hotelId}.shopName.
         try {
@@ -74,6 +122,23 @@ class HotelService {
           final liveName = (storeDoc.data()?['shopName'] as String?)?.trim();
           if (liveName != null && liveName.isNotEmpty) {
             name = liveName;
+          }
+
+          final sub = storeDoc.data()?['subscription'] as Map<String, dynamic>?;
+          final livePlanKey =
+              (sub?['effectivePlan'] as String?)?.trim() ??
+              (sub?['plan'] as String?)?.trim();
+          if (livePlanKey != null && livePlanKey.isNotEmpty) {
+            planKey = PlanConfig.fromKey(livePlanKey).key;
+          }
+
+          if (normalizedBusinessHotelIds.isNotEmpty && hotel.isOwner) {
+            if (normalizedBusinessHotelIds.contains(hotel.id)) {
+              planKey = PlanConfig.business.key;
+              status = HotelStatus.active;
+            } else {
+              status = HotelStatus.suspended;
+            }
           }
         } catch (_) {
           // Ignore read failures and fall back to cached mapping value.
@@ -103,7 +168,9 @@ class HotelService {
 
         if (name == hotel.name &&
             role == hotel.role &&
-            customRoleName == hotel.customRoleName) {
+            customRoleName == hotel.customRoleName &&
+            planKey == hotel.planKey &&
+            status == hotel.status) {
           return hotel;
         }
 
@@ -113,7 +180,8 @@ class HotelService {
           slug: hotel.slug,
           role: role,
           customRoleName: customRoleName,
-          status: hotel.status,
+          planKey: planKey,
+          status: status,
           createdAt: hotel.createdAt,
         );
       }),
@@ -152,6 +220,7 @@ class HotelService {
           });
         }
       }
+      await _syncOwnerBusinessBundle(userId);
       return;
     }
 
@@ -184,6 +253,7 @@ class HotelService {
     // Also recover any additional hotels this user owns (where ownerUid==userId)
     // This fixes hotels that were incorrectly pruned by a previous bug.
     await recoverOwnedHotels();
+    await _syncOwnerBusinessBundle(userId);
   }
 
   /// Scans Firestore for stores owned by this user (ownerUid == userId) and
@@ -226,6 +296,200 @@ class HotelService {
     }
   }
 
+  static Future<void> _syncOwnerBusinessBundle(String ownerUid) async {
+    try {
+      final entitlementRef = _firestore.collection('owner_entitlements').doc(ownerUid);
+      final entitlementDoc = await entitlementRef.get();
+      final entitlement = entitlementDoc.data();
+
+      final defaultStore = await _firestore.collection('users').doc(ownerUid).get();
+      final ownedStores = await _firestore
+          .collection('users')
+          .where('ownerUid', isEqualTo: ownerUid)
+          .get();
+
+      final storeDocs = <DocumentSnapshot<Map<String, dynamic>>>[
+        if (defaultStore.exists) defaultStore,
+        ...ownedStores.docs.where((doc) => doc.id != ownerUid),
+      ];
+      if (storeDocs.isEmpty) return;
+
+      storeDocs.sort((a, b) {
+        final aAt = (a.data()?['createdAt'] as Timestamp?)?.millisecondsSinceEpoch ?? 0;
+        final bAt = (b.data()?['createdAt'] as Timestamp?)?.millisecondsSinceEpoch ?? 0;
+        return aAt.compareTo(bAt);
+      });
+
+      final entitlementPlan = (entitlement?['plan'] as String?)?.trim() ?? '';
+      final entitlementStatus =
+          (entitlement?['status'] as String?)?.trim() ?? 'inactive';
+      final hasActiveBusinessEntitlement =
+          entitlementPlan == PlanConfig.business.key &&
+          entitlementStatus != 'expired';
+        final defaultStoreSub = defaultStore.data()?['subscription'] as Map<String, dynamic>?;
+        final defaultStorePlan =
+          ((defaultStoreSub?['effectivePlan'] as String?) ??
+              (defaultStoreSub?['plan'] as String?) ??
+              'free')
+            .trim();
+        final defaultStoreStatus =
+          ((defaultStoreSub?['effectiveStatus'] as String?) ??
+              (defaultStoreSub?['status'] as String?) ??
+              'active')
+            .trim();
+        final defaultStoreHasBusiness =
+          defaultStore.exists &&
+          defaultStoreStatus != 'expired' &&
+          defaultStorePlan == PlanConfig.business.key;
+
+      final businessDocs = storeDocs.where((doc) {
+        final sub = doc.data()?['subscription'] as Map<String, dynamic>?;
+        final status = ((sub?['effectiveStatus'] as String?) ??
+                (sub?['status'] as String?) ??
+                'active')
+            .trim();
+        final plan = ((sub?['effectivePlan'] as String?) ??
+                (sub?['plan'] as String?) ??
+                'free')
+            .trim();
+        return status != 'expired' && plan == PlanConfig.business.key;
+      }).toList();
+
+      if (!hasActiveBusinessEntitlement && !defaultStoreHasBusiness && businessDocs.isEmpty) {
+        return;
+      }
+
+      final seededAssignedIds =
+          (entitlement?['assignedRestaurantIds'] as List<dynamic>? ?? const [])
+              .whereType<String>()
+              .where((id) => storeDocs.any((doc) => doc.id == id))
+              .toList();
+
+      final prioritized = <DocumentSnapshot<Map<String, dynamic>>>[
+        if (defaultStoreHasBusiness)
+          ...storeDocs.where((doc) => doc.id == ownerUid),
+        ...seededAssignedIds
+            .map(
+              (id) => storeDocs.firstWhere(
+                (doc) => doc.id == id,
+              ),
+            )
+            ,
+        ...businessDocs.where(
+          (doc) =>
+              !seededAssignedIds.contains(doc.id) &&
+              (!defaultStoreHasBusiness || doc.id != ownerUid),
+        ),
+        ...storeDocs.where(
+          (doc) =>
+              (!defaultStoreHasBusiness || doc.id != ownerUid) &&
+              !seededAssignedIds.contains(doc.id) &&
+              !businessDocs.any((b) => b.id == doc.id),
+        ),
+      ];
+
+      final assignedIds = prioritized.take(3).map((doc) => doc.id).toList();
+      await entitlementRef.set({
+        'plan': PlanConfig.business.key,
+        'status': 'active',
+        'maxRestaurants': 3,
+        'assignedRestaurantIds': assignedIds,
+        'primaryRestaurantId': assignedIds.first,
+        'syncedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+
+      for (final doc in storeDocs) {
+        final sub = doc.data()?['subscription'] as Map<String, dynamic>? ?? {};
+        final directPlan = ((sub['directPlan'] as String?) ??
+                (sub['effectivePlan'] as String?) ??
+                (sub['plan'] as String?) ??
+                PlanConfig.free.key)
+            .trim();
+        final directStatus = ((sub['directStatus'] as String?) ??
+                (sub['effectiveStatus'] as String?) ??
+                (sub['status'] as String?) ??
+                'active')
+            .trim();
+
+        if (assignedIds.contains(doc.id)) {
+          await _firestore.collection('users').doc(doc.id).set({
+            'subscription.plan': PlanConfig.business.key,
+            'subscription.status': 'active',
+            'subscription.directPlan': directPlan == PlanConfig.business.key
+                ? PlanConfig.free.key
+                : directPlan,
+            'subscription.directStatus': directStatus,
+            'subscription.effectivePlan': PlanConfig.business.key,
+            'subscription.effectiveStatus': 'active',
+            'subscription.entitlementSource': 'owner_bundle',
+            'subscription.entitlementOwnerUid': ownerUid,
+            'subscription.entitlementId': ownerUid,
+            'limits.billsLimit': PlanConfig.business.billsLimitFirestore,
+            'limits.productsLimit': PlanConfig.business.productsLimitFirestore,
+            'limits.customersLimit': PlanConfig.business.customersLimitFirestore,
+            'limits.staffLimit': PlanConfig.business.staffLimitFirestore,
+            'limits.tablesLimit': PlanConfig.business.tablesLimitFirestore,
+          }, SetOptions(merge: true));
+        } else {
+          await _firestore.collection('users').doc(doc.id).set({
+            'subscription.plan': directPlan == PlanConfig.business.key
+                ? PlanConfig.free.key
+                : directPlan,
+            'subscription.status': directStatus,
+            'subscription.directPlan': directPlan == PlanConfig.business.key
+                ? PlanConfig.free.key
+                : directPlan,
+            'subscription.directStatus': directStatus,
+            'subscription.effectivePlan': directPlan == PlanConfig.business.key
+                ? PlanConfig.free.key
+                : directPlan,
+            'subscription.effectiveStatus': directStatus,
+            'subscription.entitlementSource': 'direct',
+            'subscription.entitlementOwnerUid': FieldValue.delete(),
+            'subscription.entitlementId': FieldValue.delete(),
+            'limits.billsLimit': PlanConfig.fromKey(
+              directPlan == PlanConfig.business.key
+                  ? PlanConfig.free.key
+                  : directPlan,
+            ).billsLimitFirestore,
+            'limits.productsLimit': PlanConfig.fromKey(
+              directPlan == PlanConfig.business.key
+                  ? PlanConfig.free.key
+                  : directPlan,
+            ).productsLimitFirestore,
+            'limits.customersLimit': PlanConfig.fromKey(
+              directPlan == PlanConfig.business.key
+                  ? PlanConfig.free.key
+                  : directPlan,
+            ).customersLimitFirestore,
+            'limits.staffLimit': PlanConfig.fromKey(
+              directPlan == PlanConfig.business.key
+                  ? PlanConfig.free.key
+                  : directPlan,
+            ).staffLimitFirestore,
+            'limits.tablesLimit': PlanConfig.fromKey(
+              directPlan == PlanConfig.business.key
+                  ? PlanConfig.free.key
+                  : directPlan,
+            ).tablesLimitFirestore,
+          }, SetOptions(merge: true));
+        }
+      }
+    } catch (e) {
+      debugPrint('⚠️ _syncOwnerBusinessBundle error: $e');
+    }
+  }
+
+  /// Set active/suspended status for an owned hotel — updates the user_hotels index (stream source).
+  static Future<void> setHotelStatus(String hotelId, String status) async {
+    final userId = _userId;
+    if (userId == null) return;
+    await _firestore
+        .collection('user_hotels/$userId/hotels')
+        .doc(hotelId)
+        .update({'status': status});
+  }
+
   /// Create a new hotel
   static Future<HotelInfo> createHotel({
     required String name,
@@ -233,63 +497,67 @@ class HotelService {
   }) async {
     final userId = _userId;
     if (userId == null) throw StateError('No authenticated user');
-
-    // Create a new store document in users/ collection
-    final storeRef = _firestore.collection('users').doc();
-    final storeId = storeRef.id;
-    final user = _auth.currentUser!;
-
-    // Create the store document with minimal data
-    await storeRef.set({
-      'shopName': name,
-      'ownerName': user.displayName ?? '',
-      'email': user.email ?? '',
-      'phone': '',
-      'ownerUid': userId,
-      'currency': 'INR',
-      'timezone': 'Asia/Kolkata',
-      'settings': {'darkMode': false},
-      'isShopSetupComplete': true,
-      'limits': {
-        'productsCount': 0,
-        'productsLimit': PlanConfig.free.productsLimitFirestore,
-        'billsThisMonth': 0,
-        'billsLimit': PlanConfig.free.billsLimitFirestore,
-        'customersCount': 0,
-        'customersLimit': PlanConfig.free.customersLimitFirestore,
-        'staffCount': 0,
-        'staffLimit': PlanConfig.free.staffLimitFirestore,
-        'tablesCount': 0,
-        'tablesLimit': PlanConfig.free.tablesLimitFirestore,
-      },
-      'createdAt': FieldValue.serverTimestamp(),
+    final result = await CloudFunctionHelper.call('createRestaurant', {
+      'name': name,
+      if (slug != null && slug.isNotEmpty) 'slug': slug,
     });
+    final hotelMap = result['hotel'] as Map<String, dynamic>?;
+    if (hotelMap == null) {
+      throw StateError('Failed to create restaurant');
+    }
 
-    // Register the owner as a member of the new store
-    await _firestore.collection('users/$storeId/members').doc(userId).set({
-      'email': user.email ?? '',
-      'displayName': user.displayName ?? 'Owner',
-      'role': 'owner',
-      'status': 'active',
-      'joinedAt': FieldValue.serverTimestamp(),
-    });
-
-    // Initialize billing counter for the new store
-    await _firestore.doc('users/$storeId/counters/billing').set({'current': 0});
-
-    // Add to user's hotel list
-    final hotelSlug = slug ?? _generateSlug(name);
     final hotel = HotelInfo(
-      id: storeId,
-      name: name,
-      slug: hotelSlug,
-      role: 'owner',
+      id: (hotelMap['id'] as String?) ?? '',
+      name: (hotelMap['name'] as String?) ?? name,
+      slug: (hotelMap['slug'] as String?) ?? (slug ?? _generateSlug(name)),
+      role: (hotelMap['role'] as String?) ?? 'owner',
+      planKey: (hotelMap['planKey'] as String?) ?? PlanConfig.free.key,
+      status: HotelStatus.fromString(
+        (hotelMap['status'] as String?) ?? HotelStatus.active.name,
+      ),
       createdAt: DateTime.now(),
     );
-    await _hotelsRef.doc(storeId).set(hotel.toFirestore());
-
-    debugPrint('Created new hotel: $name (id=$storeId)');
+    debugPrint('Created new hotel via backend: ${hotel.name} (id=${hotel.id})');
     return hotel;
+  }
+
+  static Future<Set<String>> _inferBusinessHotelsFromOwnedStores(
+    String ownerUid,
+    List<HotelInfo> ownerHotels,
+  ) async {
+    final normalized = <String>[];
+
+    for (final hotel in ownerHotels) {
+      try {
+        final storeDoc = await _firestore.collection('users').doc(hotel.id).get();
+        final sub = storeDoc.data()?['subscription'] as Map<String, dynamic>?;
+        final status = (sub?['effectiveStatus'] as String?)?.trim() ??
+            (sub?['status'] as String?)?.trim() ??
+            'active';
+        final plan = (sub?['effectivePlan'] as String?)?.trim() ??
+            (sub?['plan'] as String?)?.trim() ??
+            'free';
+        if (status != 'expired' && plan == PlanConfig.business.key) {
+          normalized.add(hotel.id);
+        }
+      } catch (_) {}
+      if (normalized.length >= 3) {
+        return normalized.toSet();
+      }
+    }
+
+    if (normalized.isEmpty) {
+      return <String>{};
+    }
+
+    for (final hotel in ownerHotels) {
+      if (normalized.contains(hotel.id)) continue;
+      normalized.add(hotel.id);
+      if (normalized.length >= 3) {
+        break;
+      }
+    }
+    return normalized.toSet();
   }
 
   /// Update hotel name
@@ -309,7 +577,8 @@ class HotelService {
       final data = doc.data()!;
       final sub = data['subscription'] as Map<String, dynamic>? ?? {};
       final limits = data['limits'] as Map<String, dynamic>? ?? {};
-      final plan = (sub['plan'] as String?) ?? 'free';
+        final plan =
+          (sub['effectivePlan'] as String?) ?? (sub['plan'] as String?) ?? 'free';
       final tablesDefault = plan == 'business'
           ? 999999
           : plan == 'pro'

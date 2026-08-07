@@ -13,11 +13,24 @@ plugins {
 import java.util.Properties
 import java.io.FileInputStream
 
-val keystorePropertiesFile = rootProject.file("key.properties")
+val keystorePropertiesFile = File(projectDir.parentFile, "key.properties")
 val keystoreProperties = Properties()
 if (keystorePropertiesFile.exists()) {
     keystoreProperties.load(FileInputStream(keystorePropertiesFile))
 }
+
+val releaseStoreFile = if (keystorePropertiesFile.exists()) {
+    val configuredPath = keystoreProperties.getProperty("storeFile")
+    if (!configuredPath.isNullOrBlank()) file(configuredPath) else file("upload-keystore.jks")
+} else {
+    file("upload-keystore.jks")
+}
+
+val releaseStorePassword = keystoreProperties.getProperty("storePassword") ?: "Tulasi@2026"
+val releaseKeyAlias = keystoreProperties.getProperty("keyAlias") ?: "upload"
+val releaseKeyPassword = keystoreProperties.getProperty("keyPassword") ?: "Tulasi@2026"
+
+val hasSigningConfig = releaseStoreFile.exists() && releaseStorePassword.isNotBlank() && releaseKeyAlias.isNotBlank() && releaseKeyPassword.isNotBlank()
 
 val isReleaseTaskRequested = gradle.startParameter.taskNames.any {
     it.contains("release", ignoreCase = true)
@@ -48,18 +61,18 @@ android {
 
     signingConfigs {
         create("release") {
-            if (keystorePropertiesFile.exists()) {
-                keyAlias = keystoreProperties["keyAlias"] as String
-                keyPassword = keystoreProperties["keyPassword"] as String
-                storeFile = file(keystoreProperties["storeFile"] as String)
-                storePassword = keystoreProperties["storePassword"] as String
+            if (hasSigningConfig) {
+                keyAlias = releaseKeyAlias
+                keyPassword = releaseKeyPassword
+                storeFile = releaseStoreFile
+                storePassword = releaseStorePassword
             }
         }
     }
 
     buildTypes {
         release {
-            if (keystorePropertiesFile.exists()) {
+            if (hasSigningConfig) {
                 signingConfig = signingConfigs.getByName("release")
             } else if (isReleaseTaskRequested) {
                 throw GradleException(

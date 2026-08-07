@@ -4,6 +4,7 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:tulasihotels/features/subscription/models/plan_config.dart';
 import 'package:tulasihotels/features/super_admin/models/admin_user_model.dart';
 import 'package:tulasihotels/features/super_admin/providers/super_admin_provider.dart';
 import 'package:tulasihotels/features/super_admin/screens/admin_shell_screen.dart';
@@ -165,21 +166,21 @@ class SubscriptionsScreen extends ConsumerWidget {
   Widget _buildPlanBreakdownCard(AdminStats stats) {
     final plans = [
       {
-        'name': 'Free',
+        'name': PlanConfig.labelForKey('free'),
         'count': stats.freeUsers,
         'price': 0,
         'color': Colors.grey,
       },
       {
-        'name': 'Pro',
+        'name': PlanConfig.labelForKey('pro'),
         'count': stats.proUsers,
-        'price': 299,
+        'price': PlanConfig.monthlyPriceForKey('pro'),
         'color': Colors.blue,
       },
       {
-        'name': 'Business',
+        'name': PlanConfig.labelForKey('business'),
         'count': stats.businessUsers,
-        'price': 999,
+        'price': PlanConfig.monthlyPriceForKey('business'),
         'color': Colors.purple,
       },
     ];
@@ -378,7 +379,7 @@ class SubscriptionsScreen extends ConsumerWidget {
               children: [
                 _buildRevenueInfo(
                   'Pro Users',
-                  '${stats.proUsers} \u{00D7} \u{20B9}299',
+                  '${stats.proUsers} \u{00D7} \u{20B9}${PlanConfig.monthlyPriceForKey('pro')}',
                 ),
                 Container(
                   width: 1,
@@ -388,7 +389,7 @@ class SubscriptionsScreen extends ConsumerWidget {
                 ),
                 _buildRevenueInfo(
                   'Business Users',
-                  '${stats.businessUsers} \u{00D7} \u{20B9}999',
+                  '${stats.businessUsers} \u{00D7} \u{20B9}${PlanConfig.monthlyPriceForKey('business')}',
                 ),
               ],
             ),
@@ -610,12 +611,10 @@ class SubscriptionsScreen extends ConsumerWidget {
                     ),
                     const SizedBox(height: 8),
                     SegmentedButton<SubscriptionPlan>(
-                      segments: SubscriptionPlan.values.map((p) {
+                      segments: adminPlanCatalog.map((p) {
                         return ButtonSegment(
                           value: p,
-                          label: Text(
-                            p.name[0].toUpperCase() + p.name.substring(1),
-                          ),
+                          label: Text(p.displayName),
                         );
                       }).toList(),
                       selected: {selectedPlan},

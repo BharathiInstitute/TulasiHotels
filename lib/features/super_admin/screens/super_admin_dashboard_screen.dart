@@ -10,6 +10,7 @@ import 'package:tulasihotels/features/super_admin/services/admin_firestore_servi
 import 'package:tulasihotels/features/super_admin/screens/admin_shell_screen.dart';
 import 'package:tulasihotels/core/theme/responsive_helper.dart';
 import 'package:tulasihotels/features/notifications/services/notification_firestore_service.dart';
+import 'package:tulasihotels/features/subscription/models/plan_config.dart';
 
 class SuperAdminDashboardScreen extends ConsumerWidget {
   const SuperAdminDashboardScreen({super.key});
@@ -307,16 +308,21 @@ class SuperAdminDashboardScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 16),
             _buildPlanRow(
-              'Free',
+              PlanConfig.labelForKey('free'),
               stats.freeUsers,
               stats.totalUsers,
               Colors.grey,
             ),
             const SizedBox(height: 12),
-            _buildPlanRow('Pro', stats.proUsers, stats.totalUsers, Colors.blue),
+            _buildPlanRow(
+              PlanConfig.labelForKey('pro'),
+              stats.proUsers,
+              stats.totalUsers,
+              Colors.blue,
+            ),
             const SizedBox(height: 12),
             _buildPlanRow(
-              'Business',
+              PlanConfig.labelForKey('business'),
               stats.businessUsers,
               stats.totalUsers,
               Colors.purple,

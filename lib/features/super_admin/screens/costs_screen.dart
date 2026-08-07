@@ -3,6 +3,7 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:tulasihotels/features/subscription/models/plan_config.dart';
 import 'package:tulasihotels/features/super_admin/providers/super_admin_provider.dart';
 import 'package:tulasihotels/features/super_admin/screens/admin_shell_screen.dart';
 
@@ -153,18 +154,18 @@ class CostsScreen extends ConsumerWidget {
             const SizedBox(width: 8),
             Expanded(
               child: _planCard(
-                'Pro',
+                PlanConfig.labelForKey('pro'),
                 stats.proUsers as int,
-                '\u{20B9}299/mo',
+                '\u{20B9}${PlanConfig.monthlyPriceForKey('pro')}/mo',
                 Colors.blue,
               ),
             ),
             const SizedBox(width: 8),
             Expanded(
               child: _planCard(
-                'Business',
+                PlanConfig.labelForKey('business'),
                 stats.businessUsers as int,
-                '\u{20B9}999/mo',
+                '\u{20B9}${PlanConfig.monthlyPriceForKey('business')}/mo',
                 Colors.purple,
               ),
             ),

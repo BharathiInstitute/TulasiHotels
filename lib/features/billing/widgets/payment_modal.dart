@@ -13,7 +13,6 @@ import 'package:tulasihotels/features/billing/services/bill_share_service.dart';
 import 'package:tulasihotels/core/services/offline_storage_service.dart';
 import 'package:tulasihotels/core/services/user_metrics_service.dart';
 import 'package:tulasihotels/core/services/print_helper.dart';
-import 'package:go_router/go_router.dart';
 import 'package:tulasihotels/router/app_router.dart';
 import 'package:tulasihotels/core/utils/formatters.dart';
 import 'package:tulasihotels/features/auth/providers/auth_provider.dart';
@@ -22,6 +21,7 @@ import 'package:tulasihotels/features/permissions/permission_center.dart';
 import 'package:tulasihotels/features/permissions/providers/route_permission_provider.dart';
 import 'package:tulasihotels/features/staff/models/permission_config.dart';
 import 'package:tulasihotels/features/settings/providers/settings_provider.dart';
+import 'package:tulasihotels/features/subscription/services/plan_navigation_service.dart';
 
 import 'package:tulasihotels/features/khata/providers/khata_provider.dart';
 import 'package:tulasihotels/features/khata/widgets/add_customer_modal.dart';
@@ -179,7 +179,7 @@ class _PaymentModalState extends ConsumerState<PaymentModal> {
               duration: const Duration(seconds: 5),
               action: SnackBarAction(
                 label: 'Upgrade',
-                onPressed: () => context.push(AppRoutes.subscription),
+                onPressed: () => PlanNavigationService.pushToSubscription(context),
               ),
             ),
           );
@@ -303,7 +303,7 @@ class _PaymentModalState extends ConsumerState<PaymentModal> {
                 ? SnackBarAction(
                     label: 'Upgrade',
                     textColor: Colors.white,
-                    onPressed: () => context.push(AppRoutes.subscription),
+                    onPressed: () => PlanNavigationService.pushToSubscription(context),
                   )
                 : null,
           ),

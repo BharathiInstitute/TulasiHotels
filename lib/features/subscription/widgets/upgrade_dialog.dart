@@ -2,8 +2,8 @@
 library;
 
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import 'package:tulasihotels/features/subscription/services/plan_enforcement_service.dart';
+import 'package:tulasihotels/features/subscription/services/plan_navigation_service.dart';
 
 /// Shows an upgrade-required dialog. Returns `true` if user chose to upgrade.
 Future<bool> showUpgradeDialog(
@@ -30,7 +30,7 @@ Future<bool> showUpgradeDialog(
   );
 
   if (confirmed == true && context.mounted) {
-    await context.push('/subscription');
+    await PlanNavigationService.pushToSubscription(context);
   }
   return confirmed == true;
 }
@@ -78,7 +78,7 @@ class UpgradeRequiredScreen extends StatelessWidget {
               ),
               const SizedBox(height: 24),
               FilledButton.icon(
-                onPressed: () => context.push('/subscription'),
+                onPressed: () => PlanNavigationService.goToSubscription(context),
                 icon: const Icon(Icons.upgrade),
                 label: const Text('View Plans'),
               ),

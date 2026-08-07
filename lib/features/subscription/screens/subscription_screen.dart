@@ -13,6 +13,7 @@ import 'package:tulasihotels/features/permissions/widgets/permission_denied_view
 import 'package:tulasihotels/router/app_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:tulasihotels/core/services/cloud_function_helper.dart';
+import 'package:tulasihotels/features/hotels/models/hotel_info.dart';
 import 'package:tulasihotels/features/hotels/providers/hotel_provider.dart';
 import 'package:tulasihotels/features/subscription/providers/subscription_provider.dart';
 import 'package:tulasihotels/features/subscription/services/subscription_service.dart';
@@ -72,8 +73,8 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
     final sub = doc.data()?['subscription'] as Map<String, dynamic>?;
     if (sub != null && mounted) {
       setState(() {
-        _currentPlan = (sub['plan'] as String?) ?? 'free';
-        _subscriptionStatus = (sub['status'] as String?) ?? 'active';
+        _currentPlan = _planFromSubscription(sub);
+        _subscriptionStatus = _statusFromSubscription(sub);
         _expiresAt = (sub['expiresAt'] as Timestamp?)?.toDate();
       });
     }
@@ -101,7 +102,7 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
     // Keep status/expiry in sync when plan is changed from any platform.
     final metaAsync = ref.watch(_activeSubscriptionMetaProvider);
     metaAsync.whenData((sub) {
-      final nextStatus = (sub?['status'] as String?) ?? 'active';
+      final nextStatus = _statusFromSubscription(sub);
       final nextExpiresAt = (sub?['expiresAt'] as Timestamp?)?.toDate();
       final changedStatus = nextStatus != _subscriptionStatus;
       final changedExpiry =
@@ -241,6 +242,7 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
     required Color color,
   }) {
     final isCurrent = _currentPlan == planKey;
+    final isDowngrade = _isDowngrade(planKey);
     final price = _isAnnual ? annualPrice : monthlyPrice;
     final period = planKey == 'free'
         ? 'forever'
@@ -313,23 +315,35 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
             if (!isCurrent && planKey != 'free')
               SizedBox(
                 width: double.infinity,
-                child: FilledButton.icon(
-                  onPressed: _isLoading || !canUpdate
-                      ? null
-                      : () => _handleUpgrade(planKey),
-                  style: FilledButton.styleFrom(backgroundColor: color),
-                  icon: const Icon(Icons.upgrade, size: 18),
-                  label: _isLoading
-                      ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
-                        )
-                      : Text('Upgrade to $name'),
-                ),
+                child: isDowngrade
+                    ? OutlinedButton.icon(
+                        onPressed: _isLoading || !canUpdate
+                            ? null
+                            : () => _handleDowngrade(planKey, name),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: color,
+                          side: BorderSide(color: color),
+                        ),
+                        icon: const Icon(Icons.arrow_downward_rounded, size: 18),
+                        label: Text('Downgrade to $name'),
+                      )
+                    : FilledButton.icon(
+                        onPressed: _isLoading || !canUpdate
+                            ? null
+                            : () => _handleUpgrade(planKey),
+                        style: FilledButton.styleFrom(backgroundColor: color),
+                        icon: const Icon(Icons.upgrade, size: 18),
+                        label: _isLoading
+                            ? const SizedBox(
+                                height: 20,
+                                width: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : Text('Upgrade to $name'),
+                      ),
               ),
           ],
         ),
@@ -493,6 +507,117 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
     );
   }
 
+  bool _isDowngrade(String targetPlanKey) {
+    const order = ['free', 'starter', 'pro', 'business'];
+    final currentIndex = order.indexOf(_currentPlan);
+    final targetIndex = order.indexOf(targetPlanKey);
+    return targetIndex >= 0 && currentIndex >= 0 && targetIndex < currentIndex;
+  }
+
+  Future<void> _handleDowngrade(String planKey, String planName) async {
+    String? keepRestaurantId;
+    if (_currentPlan == 'business' && planKey != 'free') {
+      keepRestaurantId = await _pickDowngradeRestaurant();
+      if (keepRestaurantId == null || keepRestaurantId.isEmpty) {
+        return;
+      }
+    }
+
+    if (!mounted) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Downgrade to $planName?'),
+        content: Text(
+          _currentPlan == 'business' && planKey != 'free'
+              ? 'Only the selected restaurant will keep the paid plan after leaving Business coverage.'
+              : 'Some features and limits will be reduced immediately.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Downgrade'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    setState(() => _isLoading = true);
+    final success = await SubscriptionService().changePlan(
+      planKey,
+      keepRestaurantId: keepRestaurantId,
+      cycle: _isAnnual ? 'annual' : 'monthly',
+    );
+
+    if (!mounted) return;
+    setState(() => _isLoading = false);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          success
+              ? 'Plan changed to $planName.'
+              : 'Failed to downgrade. Please try again.',
+        ),
+      ),
+    );
+    if (success) {
+      unawaited(_loadCurrentSubscription());
+    }
+  }
+
+  Future<String?> _pickDowngradeRestaurant() async {
+    final hotels = ref.read(hotelsStreamProvider).valueOrNull ?? const <HotelInfo>[];
+    final ownerHotels = hotels.where((hotel) => hotel.isOwner && hotel.planKey == 'business').toList();
+    if (ownerHotels.isEmpty) {
+      return ActiveStoreManager.storeId ?? FirebaseAuth.instance.currentUser?.uid;
+    }
+
+    var selectedId = ActiveStoreManager.storeId ?? ownerHotels.first.id;
+    return showDialog<String>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setModalState) => AlertDialog(
+          title: const Text('Choose Pro Restaurant'),
+          content: DropdownButtonFormField<String>(
+            initialValue: selectedId,
+            items: ownerHotels
+                .map(
+                  (hotel) => DropdownMenuItem<String>(
+                    value: hotel.id,
+                    child: Text(hotel.name),
+                  ),
+                )
+                .toList(),
+            onChanged: (value) {
+              if (value == null) return;
+              setModalState(() => selectedId = value);
+            },
+            decoration: const InputDecoration(
+              labelText: 'Restaurant to keep on paid plan',
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, selectedId),
+              child: const Text('Continue'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   static Color _planColor(String key) {
     switch (key) {
       case 'starter':
@@ -504,5 +629,21 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
       default:
         return Colors.grey;
     }
+  }
+
+  String _planFromSubscription(Map<String, dynamic>? sub) {
+    final effective = (sub?['effectivePlan'] as String?)?.trim();
+    if (effective != null && effective.isNotEmpty) return effective;
+    return ((sub?['plan'] as String?)?.trim().isNotEmpty ?? false)
+        ? (sub!['plan'] as String)
+        : 'free';
+  }
+
+  String _statusFromSubscription(Map<String, dynamic>? sub) {
+    final effective = (sub?['effectiveStatus'] as String?)?.trim();
+    if (effective != null && effective.isNotEmpty) return effective;
+    return ((sub?['status'] as String?)?.trim().isNotEmpty ?? false)
+        ? (sub!['status'] as String)
+        : 'active';
   }
 }

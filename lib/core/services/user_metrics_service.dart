@@ -242,6 +242,11 @@ class UserMetricsService {
       await _firestore.collection('users').doc(userId).update({
         'subscription.status': SubscriptionStatus.expired.name,
         'subscription.plan': SubscriptionPlan.free.name,
+        'subscription.directStatus': SubscriptionStatus.expired.name,
+        'subscription.directPlan': SubscriptionPlan.free.name,
+        'subscription.effectiveStatus': SubscriptionStatus.expired.name,
+        'subscription.effectivePlan': SubscriptionPlan.free.name,
+        'subscription.entitlementSource': 'direct',
         'limits.billsLimit': freeLimits.billsLimitFirestore,
         'limits.productsLimit': freeLimits.productsLimitFirestore,
         'limits.customersLimit': freeLimits.customersLimitFirestore,

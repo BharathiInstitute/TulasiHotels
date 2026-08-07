@@ -3,9 +3,16 @@
 library;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:tulasihotels/features/subscription/models/plan_config.dart';
 
-/// Subscription plan types
-enum SubscriptionPlan { free, starter, pro, business }
+typedef SubscriptionPlan = PlanTier;
+
+final List<SubscriptionPlan> adminPlanCatalog = [
+  SubscriptionPlan.free,
+  SubscriptionPlan.starter,
+  SubscriptionPlan.pro,
+  SubscriptionPlan.business,
+];
 
 /// Subscription status
 enum SubscriptionStatus { active, trial, expired, cancelled }
@@ -53,30 +60,12 @@ class UserSubscription {
 
   /// Get plan display name
   String get planDisplayName {
-    switch (plan) {
-      case SubscriptionPlan.free:
-        return 'Free';
-      case SubscriptionPlan.starter:
-        return 'Starter';
-      case SubscriptionPlan.pro:
-        return 'Pro';
-      case SubscriptionPlan.business:
-        return 'Business';
-    }
+    return plan.displayName;
   }
 
   /// Get plan price (monthly, INR) — must match AppConstants pricing
   int get planPrice {
-    switch (plan) {
-      case SubscriptionPlan.free:
-        return 0;
-      case SubscriptionPlan.starter:
-        return 199;
-      case SubscriptionPlan.pro:
-        return 299;
-      case SubscriptionPlan.business:
-        return 999;
-    }
+    return plan.monthlyPriceInr;
   }
 
   /// Get bills limit for plan
@@ -184,6 +173,9 @@ class AdminUser {
   final UserSubscription subscription;
   final UserLimits limits;
   final UserActivity activity;
+  final String storeStatus; // 'active' | 'suspended' | 'archived'
+
+  bool get isStoreActive => storeStatus == 'active';
 
   const AdminUser({
     required this.id,
@@ -197,6 +189,7 @@ class AdminUser {
     this.subscription = const UserSubscription(),
     this.limits = const UserLimits(),
     this.activity = const UserActivity(),
+    this.storeStatus = 'active',
   });
 
   factory AdminUser.fromFirestore(DocumentSnapshot doc) {
@@ -215,6 +208,7 @@ class AdminUser {
       ),
       limits: UserLimits.fromMap(data['limits'] as Map<String, dynamic>?),
       activity: UserActivity.fromMap(data['activity'] as Map<String, dynamic>?),
+      storeStatus: data['status'] as String? ?? 'active',
     );
   }
 

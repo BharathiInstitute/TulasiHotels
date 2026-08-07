@@ -14,6 +14,9 @@ import 'package:tulasihotels/features/hotels/models/hotel_info.dart';
 import 'package:tulasihotels/features/hotels/providers/hotel_provider.dart';
 import 'package:tulasihotels/features/hotels/services/hotel_service.dart';
 import 'package:tulasihotels/features/permissions/permission_center.dart';
+import 'package:tulasihotels/features/subscription/models/plan_config.dart';
+import 'package:tulasihotels/features/subscription/providers/subscription_provider.dart';
+import 'package:tulasihotels/features/subscription/services/plan_navigation_service.dart';
 import 'package:tulasihotels/core/services/active_store_manager.dart';
 import 'package:tulasihotels/core/services/offline_storage_service.dart';
 
@@ -36,10 +39,6 @@ class _HotelSelectorScreenState extends ConsumerState<HotelSelectorScreen> {
 
   Future<void> _ensureDefaultHotel() async {
     try {
-      // Team members (staff) have shopName == '' in auth state.
-      // Only run ensureDefaultHotel / recoverOwnedHotels for real owners —
-      // otherwise a ghost users/{uid} doc would trigger auto-creation of a
-      // fake "Owner" hotel entry for the staff member.
       final authUser = ref.read(authNotifierProvider).user;
       final isOwner = (authUser?.shopName ?? '').isNotEmpty;
 
@@ -47,13 +46,49 @@ class _HotelSelectorScreenState extends ConsumerState<HotelSelectorScreen> {
         await HotelService.ensureDefaultHotel();
         await HotelService.recoverOwnedHotels();
       }
-      // Always resolve pending invites and prune for everyone
       await HotelService.resolvePendingInvites();
       await HotelService.pruneInvalidHotels();
+
+      // Auto-suspend extra stores that exceed the plan limit on every app open.
+      if (isOwner) {
+        final hotels = await HotelService.hotelsStream().first;
+        await _enforcePlanLimits(hotels);
+      }
     } catch (e) {
       debugPrint('⚠️ ensureDefaultHotel error: $e');
     }
     if (mounted) setState(() => _initialized = true);
+  }
+
+  static const _planRank = {'business': 4, 'pro': 3, 'starter': 2, 'free': 1};
+
+  static String _effectivePlanKey(List<HotelInfo> owned) {
+    if (owned.isEmpty) return 'free';
+    return owned.map((h) => h.planKey).reduce(
+      (a, b) => (_planRank[a] ?? 0) >= (_planRank[b] ?? 0) ? a : b,
+    );
+  }
+
+  static int _planActiveLimit(String planKey) => planKey == 'business' ? 3 : 1;
+
+  // Suspends owned stores beyond the plan limit, keeping the last-used one active.
+  Future<void> _enforcePlanLimits(List<HotelInfo> hotels) async {
+    final owned = hotels.where((h) => h.isOwner).toList();
+    final planKey = _effectivePlanKey(owned);
+    final limit = _planActiveLimit(planKey);
+    final active = owned.where((h) => h.status == HotelStatus.active).toList();
+    if (active.length <= limit) return;
+
+    final lastId = OfflineStorageService.prefs?.getString('last_hotel_id');
+    active.sort((a, b) {
+      if (a.id == lastId) return -1;
+      if (b.id == lastId) return 1;
+      return b.createdAt.compareTo(a.createdAt);
+    });
+    for (int i = limit; i < active.length; i++) {
+      await HotelService.setHotelStatus(active[i].id, 'suspended');
+      debugPrint('🔒 Auto-suspended "${active[i].name}" (plan=$planKey limit=$limit)');
+    }
   }
 
   @override
@@ -226,6 +261,10 @@ class _HotelSelectorScreenState extends ConsumerState<HotelSelectorScreen> {
                           );
                         }
 
+                        final ownedHotels = hotels.where((h) => h.isOwner).toList();
+                        final effectivePlanKey = _effectivePlanKey(ownedHotels);
+                        final planLimit = _planActiveLimit(effectivePlanKey);
+
                         return ListView.separated(
                           padding: const EdgeInsets.symmetric(horizontal: 20),
                           itemCount: hotels.length,
@@ -234,7 +273,23 @@ class _HotelSelectorScreenState extends ConsumerState<HotelSelectorScreen> {
                             final hotel = hotels[index];
                             return _HotelCard(
                               hotel: hotel,
+                              allOwnedHotels: ownedHotels,
+                              activeOwnedCount: ownedHotels
+                                  .where((h) => h.status == HotelStatus.active)
+                                  .length,
                               onOpen: () => _openHotel(context, hotel),
+                              onToggleStatus: hotel.isOwner
+                                  ? () => _toggleHotelStatus(
+                                      context,
+                                      hotel,
+                                      ownedHotels,
+                                      planLimit,
+                                    )
+                                  : null,
+                              onActivate: hotel.isOwner &&
+                                      hotel.status != HotelStatus.active
+                                  ? () => _activateHotel(context, hotel, ownedHotels, planLimit)
+                                  : null,
                             );
                           },
                         );
@@ -247,7 +302,100 @@ class _HotelSelectorScreenState extends ConsumerState<HotelSelectorScreen> {
     );
   }
 
+  Future<void> _activateHotel(
+    BuildContext context,
+    HotelInfo hotel,
+    List<HotelInfo> ownedHotels,
+    int limit,
+  ) async {
+    final activeOwned =
+        ownedHotels.where((h) => h.status == HotelStatus.active).toList();
+
+    if (activeOwned.length < limit) {
+      await HotelService.setHotelStatus(hotel.id, 'active');
+      return;
+    }
+
+    if (!context.mounted) return;
+    final planKey = _effectivePlanKey(ownedHotels);
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Row(children: [
+          Icon(Icons.swap_horiz, color: Colors.orange),
+          SizedBox(width: 8),
+          Text('Switch Active Store'),
+        ]),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '${planKey.toUpperCase()} plan allows only $limit active store(s).\n'
+              'Choose a store to deactivate so "${hotel.name.isNotEmpty ? hotel.name : 'this store'}" can be activated:',
+              style: const TextStyle(fontSize: 13),
+            ),
+            const SizedBox(height: 12),
+            ...activeOwned.map((h) => ListTile(
+                  dense: true,
+                  leading: const Icon(Icons.store_rounded, size: 20),
+                  title: Text(h.name.isNotEmpty ? h.name : 'Unknown Shop'),
+                  subtitle: const Text('Currently active — tap to swap'),
+                  onTap: () async {
+                    Navigator.pop(ctx);
+                    await HotelService.setHotelStatus(h.id, 'suspended');
+                    await HotelService.setHotelStatus(hotel.id, 'active');
+                  },
+                )),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _toggleHotelStatus(
+    BuildContext context,
+    HotelInfo hotel,
+    List<HotelInfo> ownedHotels,
+    int limit,
+  ) async {
+    try {
+      if (hotel.status == HotelStatus.active) {
+        await HotelService.setHotelStatus(hotel.id, 'suspended');
+        return;
+      }
+      await _activateHotel(context, hotel, ownedHotels, limit);
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to update status: $e')),
+      );
+    }
+  }
+
   Future<void> _showCreateHotelDialog(BuildContext context) async {
+    // Check plan cap before showing the name input dialog
+    final plan = ref.read(planConfigProvider);
+    final hotels = ref.read(hotelsStreamProvider).valueOrNull ?? [];
+    final ownedCount = hotels.where((h) => h.isOwner).length;
+    final maxRestaurants = plan.key == 'business' ? 3 : 1;
+
+    if (ownedCount >= maxRestaurants) {
+      if (context.mounted) {
+        final message = plan.key == 'business'
+            ? 'Business plan allows only 3 restaurants'
+            : 'Free, Starter, and Pro plans allow only 1 restaurant. Upgrade to Business plan to add more.';
+        await _showCreateHotelErrorDialog(context, Exception(message));
+      }
+      return;
+    }
+
     final nameController = TextEditingController();
     final result = await showDialog<bool>(
       context: context,
@@ -287,13 +435,73 @@ class _HotelSelectorScreenState extends ConsumerState<HotelSelectorScreen> {
         }
       } catch (e) {
         if (context.mounted) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text('Error: $e')));
+          await _showCreateHotelErrorDialog(context, e);
         }
       }
     }
     nameController.dispose();
+  }
+
+  String _extractReadableError(Object error) {
+    final raw = error.toString().trim();
+    final bracketIndex = raw.lastIndexOf(']');
+    if (bracketIndex != -1 && bracketIndex + 1 < raw.length) {
+      return raw.substring(bracketIndex + 1).trim();
+    }
+    if (raw.startsWith('Exception:')) {
+      return raw.replaceFirst('Exception:', '').trim();
+    }
+    return raw;
+  }
+
+  Future<void> _showCreateHotelErrorDialog(
+    BuildContext context,
+    Object error,
+  ) async {
+    final message = _extractReadableError(error);
+    final lower = message.toLowerCase();
+    final isRestaurantCapError =
+        lower.contains('business plan allows only 3 restaurants') ||
+        lower.contains('allow only 1 restaurant');
+    final isBusinessCapError =
+        lower.contains('business plan allows only 3 restaurants');
+    final ctaLabel = isBusinessCapError
+        ? 'View Plan Usage'
+        : 'Upgrade Plan';
+
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Unable to Create Restaurant'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(message.isEmpty ? 'Something went wrong. Please try again.' : message),
+            if (isRestaurantCapError) ...[
+              const SizedBox(height: 14),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: () {
+                    Navigator.of(ctx).pop();
+                    PlanNavigationService.pushToSubscription(context);
+                  },
+                  icon: const Icon(Icons.upgrade),
+                  label: Text(ctaLabel),
+                ),
+              ),
+            ],
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
   }
 
   void _openHotel(BuildContext context, HotelInfo hotel) {
@@ -355,11 +563,22 @@ class _HotelSelectorScreenState extends ConsumerState<HotelSelectorScreen> {
 // Hotel card
 // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-class _HotelCard extends StatelessWidget {
+class _HotelCard extends ConsumerWidget {
   final HotelInfo hotel;
+  final List<HotelInfo> allOwnedHotels;
+  final int activeOwnedCount;
   final VoidCallback onOpen;
+  final VoidCallback? onToggleStatus;
+  final VoidCallback? onActivate;
 
-  const _HotelCard({required this.hotel, required this.onOpen});
+  const _HotelCard({
+    required this.hotel,
+    required this.allOwnedHotels,
+    required this.activeOwnedCount,
+    required this.onOpen,
+    this.onToggleStatus,
+    this.onActivate,
+  });
 
   Color _roleColor(String role) {
     switch (role.toLowerCase()) {
@@ -379,10 +598,21 @@ class _HotelCard extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final roleColor = _roleColor(hotel.role);
     final roleLabel = hotel.roleLabel;
+    final planAsync = ref.watch(hotelSubscriptionPlanProvider(hotel.id));
+    final livePlanLabel = planAsync.when(
+      data: (planKey) => PlanConfig.fromKey(planKey).name,
+      loading: () => PlanConfig.fromKey(hotel.planKey).name,
+      error: (_, _) => PlanConfig.fromKey(hotel.planKey).name,
+    );
+    final ownerPlanLabel = ref.watch(planConfigProvider).name;
+    final planLabel =
+        livePlanLabel == 'Free' && ownerPlanLabel != 'Free'
+            ? ownerPlanLabel
+            : livePlanLabel;
 
     return Card(
       elevation: 0,
@@ -429,7 +659,9 @@ class _HotelCard extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 6),
-                  Row(
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 6,
                     children: [
                       // Role badge — prominent
                       Container(
@@ -466,14 +698,17 @@ class _HotelCard extends StatelessWidget {
                           ],
                         ),
                       ),
-                      const SizedBox(width: 8),
-                      // Status badge
-                      if (hotel.status != HotelStatus.active)
-                        _Badge(
-                          icon: Icons.warning_amber_rounded,
-                          iconSize: 12,
-                          iconColor: Colors.orange,
-                          label: hotel.status.displayName.toLowerCase(),
+                      _Badge(
+                        icon: Icons.workspace_premium_rounded,
+                        iconSize: 12,
+                        iconColor: theme.colorScheme.primary,
+                        label: 'Plan: $planLabel',
+                      ),
+                      // Active / Inactive chip — owner can tap to toggle status.
+                      if (hotel.isOwner)
+                        _StatusChip(
+                          active: hotel.status == HotelStatus.active,
+                          onTap: onToggleStatus,
                         ),
                     ],
                   ),
@@ -481,9 +716,79 @@ class _HotelCard extends StatelessWidget {
               ),
             ),
 
-            // Open button
-            FilledButton.tonal(onPressed: onOpen, child: const Text('Open')),
+            // Action buttons
+            if (hotel.status == HotelStatus.active)
+              FilledButton.tonal(
+                onPressed: onOpen,
+                child: const Text('Open'),
+              )
+            else if (hotel.isOwner && onActivate != null)
+              OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.orange.shade700,
+                  side: BorderSide(color: Colors.orange.shade400),
+                ),
+                icon: const Icon(Icons.swap_horiz, size: 16),
+                label: const Text('Set Active'),
+                onPressed: onActivate,
+              )
+            else
+              const FilledButton.tonal(
+                onPressed: null,
+                child: Text('Disabled'),
+              ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+// Matches the Active/Locked chip style used in the super admin panel.
+class _StatusChip extends StatelessWidget {
+  final bool active;
+  final VoidCallback? onTap;
+
+  const _StatusChip({required this.active, this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final color = active ? Colors.green : Colors.red.shade500;
+    return Tooltip(
+      message: onTap == null
+          ? (active ? 'Active' : 'Inactive')
+          : (active ? 'Click to deactivate' : 'Click to activate'),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+          decoration: BoxDecoration(
+            color: active
+                ? Colors.green.withValues(alpha: 0.1)
+                : Colors.red.withValues(alpha: 0.06),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: color),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                active ? Icons.check_circle_outline : Icons.remove_circle_outline,
+                size: 12,
+                color: color,
+              ),
+              const SizedBox(width: 4),
+              Text(
+                active ? 'Active' : 'Inactive',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: color,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

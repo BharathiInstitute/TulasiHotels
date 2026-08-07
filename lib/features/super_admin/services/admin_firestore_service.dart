@@ -4,6 +4,7 @@ library;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
+import 'package:tulasihotels/features/subscription/models/plan_config.dart';
 import 'package:tulasihotels/features/super_admin/models/admin_user_model.dart';
 import 'package:tulasihotels/features/support/models/support_ticket.dart';
 
@@ -280,16 +281,22 @@ class AdminFirestoreService {
         total++;
         final data = doc.data();
         final sub = data['subscription'] as Map<String, dynamic>? ?? {};
-        final plan = (sub['plan'] as String?) ?? 'free';
-        final status = (sub['status'] as String?) ?? '';
+        final plan = ((sub['effectivePlan'] as String?) ??
+            (sub['plan'] as String?) ??
+            'free')
+          .trim();
+        final status = ((sub['effectiveStatus'] as String?) ??
+            (sub['status'] as String?) ??
+            '')
+          .trim();
 
         switch (plan) {
           case 'pro':
             pro++;
-            if (status == 'active') mrr += 299;
+            if (status == 'active') mrr += PlanConfig.monthlyPriceForKey('pro');
           case 'business':
             business++;
-            if (status == 'active') mrr += 999;
+            if (status == 'active') mrr += PlanConfig.monthlyPriceForKey('business');
           default:
             free++;
         }
@@ -394,7 +401,21 @@ class AdminFirestoreService {
       final oldSub = userDoc.data()?['subscription'] as Map<String, dynamic>?;
 
       await _firestore.collection('users').doc(userId).update({
-        'subscription': subscription.toMap(),
+        'subscription.plan': subscription.plan.name,
+        'subscription.status': subscription.status.name,
+        'subscription.directPlan': subscription.plan.name,
+        'subscription.directStatus': subscription.status.name,
+        'subscription.effectivePlan': subscription.plan.name,
+        'subscription.effectiveStatus': subscription.status.name,
+        'subscription.entitlementSource': 'direct',
+        'subscription.startedAt': subscription.startedAt != null
+          ? Timestamp.fromDate(subscription.startedAt!)
+          : null,
+        'subscription.expiresAt': subscription.expiresAt != null
+          ? Timestamp.fromDate(subscription.expiresAt!)
+          : null,
+        'subscription.razorpaySubscriptionId':
+          subscription.razorpaySubscriptionId,
         'limits.billsLimit': subscription.billsLimit,
       });
 
@@ -405,7 +426,7 @@ class AdminFirestoreService {
             .doc(userId)
             .collection('subscription_audit')
             .add({
-              'oldPlan': oldSub?['plan'] ?? 'unknown',
+              'oldPlan': oldSub?['effectivePlan'] ?? oldSub?['plan'] ?? 'unknown',
               'newPlan': subscription.plan.name,
               'oldBillsLimit': oldSub?['billsLimit'],
               'newBillsLimit': subscription.billsLimit,
@@ -433,6 +454,64 @@ class AdminFirestoreService {
       return true;
     } catch (e) {
       debugPrint('❌ AdminFirestore: Failed to reset user limits: $e');
+      return false;
+    }
+  }
+
+  /// Update subscription for ALL stores belonging to the given email.
+  static Future<int> updateSubscriptionByEmail(
+    String email,
+    UserSubscription subscription,
+  ) async {
+    int updated = 0;
+    try {
+      final snap = await _firestore
+          .collection('users')
+          .where('email', isEqualTo: email)
+          .get();
+      for (final doc in snap.docs) {
+        final ok = await updateUserSubscription(doc.id, subscription);
+        if (ok) updated++;
+      }
+    } catch (e) {
+      debugPrint('❌ AdminFirestore: Failed to bulk-update subscription: $e');
+    }
+    return updated;
+  }
+
+  /// Reset monthly limits for ALL stores belonging to the given email.
+  static Future<int> resetLimitsByEmail(String email) async {
+    int updated = 0;
+    try {
+      final snap = await _firestore
+          .collection('users')
+          .where('email', isEqualTo: email)
+          .get();
+      for (final doc in snap.docs) {
+        final ok = await resetUserLimits(doc.id);
+        if (ok) updated++;
+      }
+    } catch (e) {
+      debugPrint('❌ AdminFirestore: Failed to bulk-reset limits: $e');
+    }
+    return updated;
+  }
+
+  /// Set active/suspended status for a single store (admin action).
+  static Future<bool> setStoreStatus(String storeId, String status) async {
+    try {
+      final storeDoc = await _firestore.collection('users').doc(storeId).get();
+      final ownerUid = storeDoc.data()?['ownerUid'] as String?;
+      await _firestore.collection('users').doc(storeId).update({'status': status});
+      if (ownerUid != null) {
+        await _firestore
+            .collection('user_hotels/$ownerUid/hotels')
+            .doc(storeId)
+            .update({'status': status});
+      }
+      return true;
+    } catch (e) {
+      debugPrint('❌ AdminFirestore: Failed to set store status: $e');
       return false;
     }
   }

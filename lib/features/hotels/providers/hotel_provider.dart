@@ -46,7 +46,12 @@ final currentHotelProvider = Provider<HotelInfo?>((ref) {
   return hotelsAsync.whenOrNull(
     data: (hotels) {
       final match = hotels.where((h) => h.id == hotelId);
-      if (match.isNotEmpty) return match.first;
+      if (match.isNotEmpty) {
+        final currentHotel = match.first;
+        if (currentHotel.status == HotelStatus.active) {
+          return currentHotel;
+        }
+      }
 
       // Stale selected hotel ID (e.g., membership removed). Clear it so
       // downstream providers don't keep querying unauthorized paths.

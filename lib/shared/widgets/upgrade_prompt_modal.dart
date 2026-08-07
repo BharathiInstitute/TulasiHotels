@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
+import 'package:tulasihotels/features/subscription/services/plan_navigation_service.dart';
 
 /// Trigger reasons for showing the upgrade prompt.
 enum UpgradeTrigger { productLimit, billLimit, customerLimit, featureGated }
@@ -51,7 +51,7 @@ class UpgradePromptModal {
           FilledButton(
             onPressed: () {
               Navigator.of(context).pop();
-              context.push('/subscription');
+              PlanNavigationService.goToSubscription(context);
             },
             child: const Text('View Plans'),
           ),
