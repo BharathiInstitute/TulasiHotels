@@ -403,16 +403,19 @@ const getOwnedRestaurantIdsForCreationCap = async (db, ownerUid) => {
             }
             ownedRestaurantIds.add(storeDoc.id);
         }
-        if (ownedRestaurantIds.size > 0) {
-            return Array.from(ownedRestaurantIds);
-        }
+        // user_hotels is the source of truth. Return immediately (even if empty)
+        // so a new user's empty profile doc is never counted as a restaurant.
+        return Array.from(ownedRestaurantIds);
     }
     catch (error) {
         console.warn(`getOwnedRestaurantIdsForCreationCap fallback for ${ownerUid}`, error);
     }
-    // Fallback for legacy users missing user_hotels mappings.
+    // Fallback: only reached when the user_hotels query itself failed (e.g., permission error).
+    // Avoids counting a plain registration profile doc as an existing restaurant.
     const ownedDocs = await getOwnedRestaurantDocs(db, ownerUid);
-    return ownedDocs.map((doc) => doc.id);
+    return ownedDocs
+        .filter((doc) => { var _a; return (((_a = doc.data()) === null || _a === void 0 ? void 0 : _a.shopName) || "").trim().length > 0; })
+        .map((doc) => doc.id);
 };
 const ownerHasBusinessPlan = async (db, ownerUid) => {
     const entSnap = await ownerEntitlementRef(db, ownerUid).get();

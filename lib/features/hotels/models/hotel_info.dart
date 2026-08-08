@@ -13,10 +13,18 @@ enum HotelStatus {
   const HotelStatus(this.displayName);
 
   static HotelStatus fromString(String value) {
-    return HotelStatus.values.firstWhere(
-      (e) => e.name == value,
-      orElse: () => HotelStatus.active,
-    );
+    switch (value.trim().toLowerCase()) {
+      case 'active':
+        return HotelStatus.active;
+      case 'suspended':
+      case 'inactive':
+      case 'locked':
+        return HotelStatus.suspended;
+      case 'archived':
+        return HotelStatus.archived;
+      default:
+        return HotelStatus.active;
+    }
   }
 }
 

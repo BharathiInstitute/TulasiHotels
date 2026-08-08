@@ -213,7 +213,7 @@ class _OrderCard extends StatelessWidget {
                   ),
                   const Spacer(),
                   Text(
-                    '?${order.total.toStringAsFixed(0)}',
+                    '₹${order.total.toStringAsFixed(0)}',
                     style: theme.textTheme.titleSmall?.copyWith(
                       fontWeight: FontWeight.bold,
                       color: theme.primaryColor,

@@ -232,7 +232,7 @@ class _ExpenseRow extends StatelessWidget {
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: const Text(
-                    '?? Expense',
+                    'Expense',
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w500,

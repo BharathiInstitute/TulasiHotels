@@ -16,7 +16,7 @@ import 'package:tulasihotels/core/services/privacy_consent_service.dart';
 import 'package:tulasihotels/core/services/user_metrics_service.dart';
 import 'package:tulasihotels/features/auth/providers/auth_provider.dart';
 import 'package:tulasihotels/features/referral/services/referral_service.dart';
-import 'package:tulasihotels/features/subscription/services/plan_navigation_service.dart';
+import 'package:tulasihotels/core/services/subscription_navigation_service.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -270,11 +270,11 @@ class _AccountSettingsScreenState extends ConsumerState<AccountSettingsScreen> {
                   ),
                   trailing: _subscription.plan == SubscriptionPlan.free
                       ? FilledButton(
-                          onPressed: () => PlanNavigationService.pushToSubscription(context),
+                          onPressed: () => SubscriptionNavigationService.navigateToSubscription(context),
                           child: const Text('Upgrade'),
                         )
                       : TextButton(
-                          onPressed: () => PlanNavigationService.pushToSubscription(context),
+                          onPressed: () => SubscriptionNavigationService.navigateToSubscription(context),
                           child: const Text('Manage'),
                         ),
                 ),

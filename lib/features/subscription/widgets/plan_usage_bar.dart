@@ -8,7 +8,7 @@ import 'package:tulasihotels/core/services/user_metrics_service.dart';
 import 'package:tulasihotels/features/subscription/models/plan_config.dart';
 import 'package:tulasihotels/features/subscription/providers/subscription_provider.dart';
 import 'package:tulasihotels/features/subscription/providers/usage_limits_provider.dart';
-import 'package:tulasihotels/features/subscription/services/plan_navigation_service.dart';
+import 'package:tulasihotels/core/services/subscription_navigation_service.dart';
 
 /// Shows a slim usage bar for a single resource type.
 /// Hides itself completely when under 50% usage (non-intrusive).
@@ -67,7 +67,7 @@ class PlanUsageBar extends ConsumerWidget {
                     ),
                     if (isAtLimit)
                       GestureDetector(
-                        onTap: () => PlanNavigationService.goToSubscription(context),
+                        onTap: () => SubscriptionNavigationService.replaceWithSubscription(context),
                         child: Text(
                           'Upgrade →',
                           style: theme.textTheme.bodySmall?.copyWith(

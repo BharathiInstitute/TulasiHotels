@@ -501,13 +501,31 @@ class AdminFirestoreService {
   static Future<bool> setStoreStatus(String storeId, String status) async {
     try {
       final storeDoc = await _firestore.collection('users').doc(storeId).get();
-      final ownerUid = storeDoc.data()?['ownerUid'] as String?;
-      await _firestore.collection('users').doc(storeId).update({'status': status});
-      if (ownerUid != null) {
+      final ownerUid =
+          ((storeDoc.data()?['ownerUid'] as String?)?.trim().isNotEmpty ??
+              false)
+          ? (storeDoc.data()?['ownerUid'] as String).trim()
+          : storeId;
+
+      final batch = _firestore.batch();
+      batch.set(
+        _firestore.collection('users').doc(storeId),
+        {'status': status},
+        SetOptions(merge: true),
+      );
+      batch.set(
+        _firestore.collection('user_hotels/$ownerUid/hotels').doc(storeId),
+        {'status': status},
+        SetOptions(merge: true),
+      );
+
+      await batch.commit();
+
+      if (ownerUid != storeId) {
         await _firestore
-            .collection('user_hotels/$ownerUid/hotels')
+            .collection('user_hotels/$storeId/hotels')
             .doc(storeId)
-            .update({'status': status});
+            .set({'status': status}, SetOptions(merge: true));
       }
       return true;
     } catch (e) {

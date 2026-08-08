@@ -301,7 +301,7 @@ class PaymentLinkService {
     String? customerName,
     bool isShort = false,
   }) {
-    final amountStr = '?${amount.toStringAsFixed(0)}';
+    final amountStr = '₹${amount.toStringAsFixed(0)}';
     final shop = (shopName != null && shopName.isNotEmpty) ? shopName : 'Hotel';
 
     // Check if this is a Razorpay link

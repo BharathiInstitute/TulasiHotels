@@ -303,6 +303,7 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
           'isShopSetupComplete': false,
           'emailVerified': true,
           'phoneVerified': false,
+          'ownerUid': user.uid,
           'authProvider': 'google',
           'appType': 'hotels',
           'createdAt': FieldValue.serverTimestamp(),
@@ -407,7 +408,7 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
               firebaseUser: firebaseUser,
               isLoggedIn: true,
               isShopSetupComplete: true,
-              isEmailVerified: isGoogleUser || firebaseUser.emailVerified,
+              isEmailVerified: isGoogleUser || firebaseUser.emailVerified || (data['emailVerified'] as bool?) == true,
               isLoading: false,
               user: UserModel(
                 id: firebaseUser.uid,
@@ -416,9 +417,11 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
                     firebaseUser.displayName ??
                     (data['ownerName'] as String? ?? ''),
                 email: firebaseUser.email,
-                phone: '',
+                phone: data['phone'] as String? ?? '',
+                phoneVerified: (data['phoneVerified'] as bool?) == true,
+                phoneVerifiedAt: (data['phoneVerifiedAt'] as Timestamp?)?.toDate(),
                 settings: const UserSettings(),
-                createdAt: DateTime.now(),
+                createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
               ),
             );
             _refreshSettingsProviders();
@@ -1315,6 +1318,8 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
     required String password,
     required String name,
     bool emailVerified = false,
+    String phone = '',
+    bool phoneVerified = false,
   }) async {
     try {
       state = state.copyWith(isLoading: true);
@@ -1326,6 +1331,8 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
           password: password,
           name: name,
           emailVerified: emailVerified,
+          phone: phone,
+          phoneVerified: phoneVerified,
         );
       }
 
@@ -1349,12 +1356,14 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
           }
         }
 
-        // Create Firestore doc
+        // Create Firestore doc — include phone+verified so _loadUserProfile never reads stale false
         await _createUserFirestoreDoc(
           uid: user.uid,
           email: email,
           name: name,
           emailVerified: emailVerified,
+          phone: phone,
+          phoneVerified: phoneVerified,
         );
 
         // Load user profile so isLoading becomes false and router can navigate.
@@ -1400,15 +1409,20 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
     required String email,
     required String name,
     required bool emailVerified,
+    String phone = '',
+    bool phoneVerified = false,
   }) async {
     await _firestore.collection('users').doc(uid).set({
       'email': email.trim().toLowerCase(),
       'ownerName': name.trim(),
-      'phone': '',
+      'phone': phone,
       'photoUrl': '',
       'isShopSetupComplete': false,
       'emailVerified': emailVerified,
-      'phoneVerified': false,
+      'phoneVerified': phoneVerified,
+      if (phoneVerified && phone.isNotEmpty)
+        'phoneVerifiedAt': FieldValue.serverTimestamp(),
+      'ownerUid': uid,
       'authProvider': 'email',
       'createdAt': FieldValue.serverTimestamp(),
       'subscription': {
@@ -1424,6 +1438,8 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
     required String password,
     required String name,
     required bool emailVerified,
+    String phone = '',
+    bool phoneVerified = false,
   }) async {
     try {
       final apiKey = DefaultFirebaseOptions.currentPlatform.apiKey;
@@ -1491,6 +1507,8 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
             email: email,
             name: name,
             emailVerified: emailVerified,
+            phone: phone,
+            phoneVerified: phoneVerified,
           );
           _authResolved = true;
           _profileLoaded = true;

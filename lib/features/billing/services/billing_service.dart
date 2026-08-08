@@ -2,9 +2,11 @@
 /// Supports demo mode with local in-memory data
 library;
 
+import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tulasihotels/core/services/demo_data_service.dart';
 import 'package:tulasihotels/core/services/offline_storage_service.dart';
+import 'package:tulasihotels/core/services/user_metrics_service.dart';
 import 'package:tulasihotels/core/utils/id_generator.dart';
 import 'package:tulasihotels/features/auth/providers/auth_provider.dart';
 import 'package:tulasihotels/features/permissions/services/module_mutation_guard.dart';
@@ -113,6 +115,9 @@ class BillingService {
       );
     }
 
+    // Track user activity for last active timestamp
+    unawaited(UserMetricsService.trackActivity());
+
     return bill;
   }
 
@@ -173,6 +178,9 @@ class BillingService {
       await OfflineStorageService.saveBillLocally(bill);
     }
 
+    // Track user activity for last active timestamp
+    unawaited(UserMetricsService.trackActivity());
+
     return bill;
   }
 
@@ -224,6 +232,9 @@ class BillingService {
       await OfflineStorageService.saveBillLocally(bill);
       bills.add(bill);
     }
+
+    // Track user activity for last active timestamp
+    unawaited(UserMetricsService.trackActivity());
 
     return bills;
   }

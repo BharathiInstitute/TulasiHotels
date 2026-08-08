@@ -209,7 +209,7 @@ class OrderDetailScreen extends ConsumerWidget {
                           ),
                         ),
                         Text(
-                          '?${order.total.toStringAsFixed(2)}',
+                          '₹${order.total.toStringAsFixed(2)}',
                           style: theme.textTheme.headlineSmall?.copyWith(
                             fontWeight: FontWeight.bold,
                             color: theme.primaryColor,
@@ -454,7 +454,7 @@ class _OrderItemCard extends ConsumerWidget {
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('?${item.total.toStringAsFixed(0)} • KOT #${item.kotNumber}'),
+            Text('₹${item.total.toStringAsFixed(0)} • KOT #${item.kotNumber}'),
             if (item.itemNotes != null)
               Text(
                 item.itemNotes!,

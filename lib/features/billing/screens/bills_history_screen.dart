@@ -457,11 +457,11 @@ class BillsHistoryScreen extends ConsumerWidget {
         child: DropdownButton<RecordType>(
           value: filter.recordType,
           items: const [
-            DropdownMenuItem(value: RecordType.all, child: Text('?? All')),
-            DropdownMenuItem(value: RecordType.bills, child: Text('?? Bills')),
+            DropdownMenuItem(value: RecordType.all, child: Text('All')),
+            DropdownMenuItem(value: RecordType.bills, child: Text('Bills')),
             DropdownMenuItem(
               value: RecordType.expenses,
-              child: Text('?? Expenses'),
+              child: Text('Expenses'),
             ),
           ],
           onChanged: (value) {
@@ -569,7 +569,7 @@ class BillsHistoryScreen extends ConsumerWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
-              leading: const Text('??', style: TextStyle(fontSize: 20)),
+              leading: const Icon(Icons.inbox_outlined, size: 20),
               title: const Text('All Records'),
               selected: filter.recordType == RecordType.all,
               onTap: () {
@@ -581,7 +581,7 @@ class BillsHistoryScreen extends ConsumerWidget {
               },
             ),
             ListTile(
-              leading: const Text('??', style: TextStyle(fontSize: 20)),
+              leading: const Icon(Icons.receipt_long_outlined, size: 20),
               title: const Text('Bills Only'),
               selected: filter.recordType == RecordType.bills,
               onTap: () {
@@ -593,7 +593,7 @@ class BillsHistoryScreen extends ConsumerWidget {
               },
             ),
             ListTile(
-              leading: const Text('??', style: TextStyle(fontSize: 20)),
+              leading: const Icon(Icons.money_off_outlined, size: 20),
               title: const Text('Expenses Only'),
               selected: filter.recordType == RecordType.expenses,
               onTap: () {

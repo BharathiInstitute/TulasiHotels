@@ -16,7 +16,7 @@ import 'package:tulasihotels/features/hotels/services/hotel_service.dart';
 import 'package:tulasihotels/features/permissions/permission_center.dart';
 import 'package:tulasihotels/features/subscription/models/plan_config.dart';
 import 'package:tulasihotels/features/subscription/providers/subscription_provider.dart';
-import 'package:tulasihotels/features/subscription/services/plan_navigation_service.dart';
+import 'package:tulasihotels/core/services/subscription_navigation_service.dart';
 import 'package:tulasihotels/core/services/active_store_manager.dart';
 import 'package:tulasihotels/core/services/offline_storage_service.dart';
 
@@ -485,7 +485,7 @@ class _HotelSelectorScreenState extends ConsumerState<HotelSelectorScreen> {
                 child: FilledButton.icon(
                   onPressed: () {
                     Navigator.of(ctx).pop();
-                    PlanNavigationService.pushToSubscription(context);
+                    SubscriptionNavigationService.navigateToSubscription(context);
                   },
                   icon: const Icon(Icons.upgrade),
                   label: Text(ctaLabel),

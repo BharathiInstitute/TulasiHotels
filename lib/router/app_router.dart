@@ -127,6 +127,7 @@ class AppRoutes {
   static const String settingsBilling = '/settings/billing';
   static const String themeSettings = '/settings/theme';
   static const String attendanceSettings = '/settings/attendance';
+  static const String settingsSubscription = '/settings/subscription';
   static const String subscription = '/subscription';
 
   // Hotel feature routes
@@ -991,7 +992,10 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: AppRoutes.settingsTab,
         pageBuilder: (context, state) {
           final tab = state.pathParameters['tab'] ?? 'general';
-          return NoTransitionPage(child: SettingsWebScreen(initialTab: tab));
+          final showPlans = state.uri.queryParameters['showPlans'] == 'true';
+          return NoTransitionPage(
+            child: SettingsWebScreen(initialTab: tab, showPlans: showPlans),
+          );
         },
       ),
 

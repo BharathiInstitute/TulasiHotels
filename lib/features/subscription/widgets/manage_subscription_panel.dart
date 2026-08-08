@@ -25,7 +25,12 @@ import 'package:url_launcher/url_launcher.dart';
 
 /// Full manage-subscription panel designed to be embedded in a settings tab.
 class ManageSubscriptionPanel extends ConsumerStatefulWidget {
-  const ManageSubscriptionPanel({super.key});
+  final bool showPlans;
+  
+  const ManageSubscriptionPanel({
+    super.key,
+    this.showPlans = false,
+  });
 
   @override
   ConsumerState<ManageSubscriptionPanel> createState() =>
@@ -53,7 +58,11 @@ class _ManageSubscriptionPanelState
     super.initState();
     final user = FirebaseAuth.instance.currentUser;
     _userEmail = user?.email;
+    // Firebase Auth phoneNumber is only set via phone-auth linking;
+    // prefer the number stored in the auth profile doc via the provider.
     _userPhone = user?.phoneNumber;
+    // If showPlans was passed from navigation, start with plans visible
+    _showPlans = widget.showPlans;
     unawaited(_subscribeToData());
     _resyncCounts();
   }
@@ -124,6 +133,25 @@ class _ManageSubscriptionPanelState
           _userPhone ??=
               (data['phone'] as String?) ?? (data['phoneNumber'] as String?);
         });
+
+        // If the store doc has no phone, read it from the auth user's profile doc
+        if (_userPhone == null || _userPhone!.trim().isEmpty) {
+          final authUid = FirebaseAuth.instance.currentUser?.uid;
+          if (authUid != null && authUid != storeId) {
+            FirebaseFirestore.instance
+                .collection('users')
+                .doc(authUid)
+                .get()
+                .then((profileDoc) {
+              final profilePhone =
+                  (profileDoc.data()?['phone'] as String?) ??
+                  (profileDoc.data()?['phoneNumber'] as String?);
+              if (profilePhone != null && profilePhone.trim().isNotEmpty && mounted) {
+                setState(() => _userPhone = profilePhone);
+              }
+            }).catchError((_) {});
+          }
+        }
       }
       _subscriptionLoaded = true;
       _limitsLoaded = true;

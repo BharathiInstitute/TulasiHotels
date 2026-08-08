@@ -73,8 +73,13 @@ final activeStoreProfileProvider = StreamProvider<UserModel?>((ref) {
 
 class SettingsWebScreen extends ConsumerStatefulWidget {
   final String initialTab;
+  final bool showPlans;
 
-  const SettingsWebScreen({super.key, this.initialTab = 'general'});
+  const SettingsWebScreen({
+    super.key,
+    this.initialTab = 'general',
+    this.showPlans = false,
+  });
 
   @override
   ConsumerState<SettingsWebScreen> createState() => _SettingsWebScreenState();
@@ -1413,7 +1418,7 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
       SettingsTab.account => _buildAccountTab(),
       SettingsTab.hardware => _buildHardwareTab(),
       SettingsTab.billing => _buildBillingTab(),
-      SettingsTab.subscription => const ManageSubscriptionPanel(),
+      SettingsTab.subscription => ManageSubscriptionPanel(showPlans: widget.showPlans),
       SettingsTab.attendance => const AttendanceSettingsBody(),
     };
 
@@ -1536,25 +1541,80 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
               _buildFieldLabel('Restaurant Name', required: true),
               _buildTextField(controller: _shopNameController),
               const SizedBox(height: 16),
-              _responsiveFields([
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildFieldLabel('Owner Name'),
-                    _buildTextField(controller: _ownerNameController),
-                  ],
-                ),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildFieldLabel('Contact Number'),
-                    _buildTextField(controller: _contactNumberController),
-                  ],
-                ),
-              ]),
+              _buildFieldLabel('Owner Name'),
+              _buildTextField(controller: _ownerNameController),
               const SizedBox(height: 16),
               _buildFieldLabel('Shop Address'),
               _buildTextField(controller: _shopAddressController, maxLines: 2),
+            ],
+          ),
+        ),
+        const SizedBox(height: 24),
+
+        // Verification Status
+        _SectionCard(
+          icon: Icons.verified_user,
+          iconColor: AppColors.success,
+          title: 'Verification Status',
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Firebase UID
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.surfaceContainerHighest.withAlpha(80),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.fingerprint,
+                      size: 16,
+                      color: Theme.of(context).colorScheme.outline,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'UID: ',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Theme.of(context).colorScheme.outline,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    Expanded(
+                      child: SelectableText(
+                        user?.id ?? '—',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontFamily: 'monospace',
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              _buildVerificationRow(
+                icon: Icons.phone_android,
+                label: 'Phone Number',
+                value: user?.phone ?? '—',
+                isVerified: user?.phoneVerified ?? false,
+                verifiedAt: user?.phoneVerifiedAt,
+              ),
+              const Divider(height: 24),
+              _buildVerificationRow(
+                icon: Icons.email_outlined,
+                label: 'Email Address',
+                value: user?.email ?? '—',
+                isVerified: user?.emailVerified ?? false,
+                onVerify: (user?.emailVerified ?? false)
+                    ? null
+                    : _showEmailVerificationDialog,
+              ),
             ],
           ),
         ),
@@ -1903,82 +1963,6 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
         ),
       ),
 
-      const SizedBox(height: 20),
-
-      // Verification Status
-      _SectionCard(
-        icon: Icons.verified_user,
-        iconColor: AppColors.success,
-        title: 'Verification Status',
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Firebase UID
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: Theme.of(
-                  context,
-                ).colorScheme.surfaceContainerHighest.withAlpha(80),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.fingerprint,
-                    size: 16,
-                    color: Theme.of(context).colorScheme.outline,
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    'UID: ',
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: Theme.of(context).colorScheme.outline,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  Expanded(
-                    child: SelectableText(
-                      user?.id ?? '—',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontFamily: 'monospace',
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-
-            // Phone verification row
-            _buildVerificationRow(
-              icon: Icons.phone_android,
-              label: 'Phone Number',
-              value: user?.phone ?? '—',
-              isVerified: user?.phoneVerified ?? false,
-              verifiedAt: user?.phoneVerifiedAt,
-              onVerify: (user?.phoneVerified ?? false)
-                  ? null
-                  : _showPhoneVerificationDialog,
-            ),
-            const Divider(height: 24),
-
-            // Email verification row
-            _buildVerificationRow(
-              icon: Icons.email_outlined,
-              label: 'Email Address',
-              value: user?.email ?? '—',
-              isVerified: user?.emailVerified ?? false,
-              onVerify: (user?.emailVerified ?? false)
-                  ? null
-                  : _showEmailVerificationDialog,
-            ),
-          ],
-        ),
-      ),
     ];
 
     // Invite Friends (Referral)

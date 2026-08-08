@@ -31,7 +31,7 @@ import 'package:tulasihotels/features/notifications/services/notification_firest
 import 'package:tulasihotels/features/notifications/models/notification_model.dart';
 import 'package:tulasihotels/core/services/payment_link_service.dart';
 import 'package:tulasihotels/shared/widgets/web_safe_image.dart';
-import 'package:tulasihotels/features/subscription/services/plan_navigation_service.dart';
+import 'package:tulasihotels/core/services/subscription_navigation_service.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:tulasihotels/features/coupons/providers/coupon_provider.dart';
 import 'package:tulasihotels/features/coupons/services/coupon_service.dart';

@@ -21,7 +21,7 @@ import 'package:tulasihotels/shared/widgets/web_safe_image.dart';
 import 'package:tulasihotels/shared/widgets/sync_badge.dart';
 import 'package:tulasihotels/shared/widgets/upgrade_prompt_modal.dart';
 import 'package:tulasihotels/features/subscription/services/plan_enforcement_service.dart';
-import 'package:tulasihotels/features/subscription/services/plan_navigation_service.dart';
+import 'package:tulasihotels/core/services/subscription_navigation_service.dart';
 import 'package:tulasihotels/features/subscription/providers/usage_limits_provider.dart';
 import 'package:tulasihotels/features/subscription/providers/subscription_provider.dart';
 import 'package:tulasihotels/features/subscription/widgets/plan_usage_bar.dart';
@@ -830,7 +830,7 @@ class _ProductsWebScreenState extends ConsumerState<ProductsWebScreen> {
             action: SnackBarAction(
               label: 'Upgrade',
               textColor: Colors.white,
-              onPressed: () => PlanNavigationService.pushToSubscription(context),
+              onPressed: () => SubscriptionNavigationService.navigateToSubscription(context),
             ),
           ),
         );

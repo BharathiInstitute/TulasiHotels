@@ -1,6 +1,7 @@
 /// Main app shell with responsive navigation
 library;
 
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -21,11 +22,12 @@ import 'package:tulasihotels/features/shell/web_shell.dart';
 import 'package:tulasihotels/features/hotels/providers/hotel_provider.dart';
 import 'package:tulasihotels/features/subscription/models/plan_config.dart';
 import 'package:tulasihotels/features/subscription/providers/subscription_provider.dart';
-import 'package:tulasihotels/features/subscription/services/plan_navigation_service.dart';
+import 'package:tulasihotels/core/services/subscription_navigation_service.dart';
 import 'package:tulasihotels/l10n/app_localizations.dart';
 import 'package:tulasihotels/models/user_model.dart';
 import 'package:tulasihotels/router/app_router.dart';
 import 'package:tulasihotels/shared/widgets/shop_logo_widget.dart';
+import 'package:tulasihotels/core/services/user_metrics_service.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class AppShell extends ConsumerStatefulWidget {
@@ -39,6 +41,7 @@ class AppShell extends ConsumerStatefulWidget {
 
 class _AppShellState extends ConsumerState<AppShell> {
   final _scaffoldKey = GlobalKey<ScaffoldState>();
+  Timer? _activityTrackingTimer;
 
   /// Bottom nav shows only these 4 popular indices + a "More" entry
   static const _bottomNavIndices = [0, 2, 5]; // Walk-in, Menu, Tables
@@ -164,6 +167,22 @@ class _AppShellState extends ConsumerState<AppShell> {
       return ownerPlanLabel;
     }
     return selectedPlanLabel;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    // Start periodic activity tracking every 5 minutes
+    _activityTrackingTimer = Timer.periodic(
+      const Duration(minutes: 5),
+      (_) => UserMetricsService.trackActivity(),
+    );
+  }
+
+  @override
+  void dispose() {
+    _activityTrackingTimer?.cancel();
+    super.dispose();
   }
 
   @override
@@ -581,7 +600,7 @@ class _AppShellState extends ConsumerState<AppShell> {
                               borderRadius: BorderRadius.circular(6),
                               onTap: () {
                                 Navigator.pop(context);
-                                PlanNavigationService.goToSubscription(context);
+                                SubscriptionNavigationService.replaceWithSubscription(context);
                               },
                               child: Padding(
                                 padding: const EdgeInsets.all(2),
@@ -1191,7 +1210,7 @@ class _AppShellState extends ConsumerState<AppShell> {
                           ),
                           InkWell(
                             borderRadius: BorderRadius.circular(6),
-                            onTap: () => PlanNavigationService.goToSubscription(context),
+                            onTap: () => SubscriptionNavigationService.replaceWithSubscription(context),
                             child: Padding(
                               padding: const EdgeInsets.all(4),
                               child: Icon(

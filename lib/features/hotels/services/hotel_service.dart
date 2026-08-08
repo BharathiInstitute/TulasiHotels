@@ -124,6 +124,11 @@ class HotelService {
             name = liveName;
           }
 
+          final liveStatus = (storeDoc.data()?['status'] as String?)?.trim();
+          if (liveStatus != null && liveStatus.isNotEmpty) {
+            status = HotelStatus.fromString(liveStatus);
+          }
+
           final sub = storeDoc.data()?['subscription'] as Map<String, dynamic>?;
           final livePlanKey =
               (sub?['effectivePlan'] as String?)?.trim() ??
@@ -135,8 +140,7 @@ class HotelService {
           if (normalizedBusinessHotelIds.isNotEmpty && hotel.isOwner) {
             if (normalizedBusinessHotelIds.contains(hotel.id)) {
               planKey = PlanConfig.business.key;
-              status = HotelStatus.active;
-            } else {
+            } else if (status == HotelStatus.active) {
               status = HotelStatus.suspended;
             }
           }
@@ -484,10 +488,35 @@ class HotelService {
   static Future<void> setHotelStatus(String hotelId, String status) async {
     final userId = _userId;
     if (userId == null) return;
-    await _firestore
-        .collection('user_hotels/$userId/hotels')
-        .doc(hotelId)
-        .update({'status': status});
+
+    final batch = _firestore.batch();
+
+    // Keep the current user's selector stream in sync immediately.
+    batch.set(
+      _firestore.collection('user_hotels/$userId/hotels').doc(hotelId),
+      {'status': status},
+      SetOptions(merge: true),
+    );
+
+    // Super admin status reads from users/{storeId}.status.
+    batch.set(
+      _firestore.collection('users').doc(hotelId),
+      {'status': status},
+      SetOptions(merge: true),
+    );
+
+    final storeDoc = await _firestore.collection('users').doc(hotelId).get();
+    final ownerUid = (storeDoc.data()?['ownerUid'] as String?)?.trim();
+    if (ownerUid != null && ownerUid.isNotEmpty && ownerUid != userId) {
+      // Mirror into the owner index too when toggled from a delegated/admin context.
+      batch.set(
+        _firestore.collection('user_hotels/$ownerUid/hotels').doc(hotelId),
+        {'status': status},
+        SetOptions(merge: true),
+      );
+    }
+
+    await batch.commit();
   }
 
   /// Create a new hotel

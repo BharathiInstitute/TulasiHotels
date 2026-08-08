@@ -108,7 +108,7 @@ class _OrderBillingScreenState extends ConsumerState<OrderBillingScreen> {
                         children: [
                           Text('Subtotal', style: theme.textTheme.titleSmall),
                           Text(
-                            '?${subtotal.toStringAsFixed(2)}',
+                            '₹${subtotal.toStringAsFixed(2)}',
                             style: theme.textTheme.titleSmall,
                           ),
                         ],

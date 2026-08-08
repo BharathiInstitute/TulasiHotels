@@ -21,7 +21,7 @@ import 'package:tulasihotels/features/permissions/permission_center.dart';
 import 'package:tulasihotels/features/permissions/providers/route_permission_provider.dart';
 import 'package:tulasihotels/features/staff/models/permission_config.dart';
 import 'package:tulasihotels/features/settings/providers/settings_provider.dart';
-import 'package:tulasihotels/features/subscription/services/plan_navigation_service.dart';
+import 'package:tulasihotels/core/services/subscription_navigation_service.dart';
 
 import 'package:tulasihotels/features/khata/providers/khata_provider.dart';
 import 'package:tulasihotels/features/khata/widgets/add_customer_modal.dart';
@@ -179,7 +179,7 @@ class _PaymentModalState extends ConsumerState<PaymentModal> {
               duration: const Duration(seconds: 5),
               action: SnackBarAction(
                 label: 'Upgrade',
-                onPressed: () => PlanNavigationService.pushToSubscription(context),
+                onPressed: () => SubscriptionNavigationService.navigateToSubscription(context),
               ),
             ),
           );
@@ -303,7 +303,7 @@ class _PaymentModalState extends ConsumerState<PaymentModal> {
                 ? SnackBarAction(
                     label: 'Upgrade',
                     textColor: Colors.white,
-                    onPressed: () => PlanNavigationService.pushToSubscription(context),
+                    onPressed: () => SubscriptionNavigationService.navigateToSubscription(context),
                   )
                 : null,
           ),

@@ -441,6 +441,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
             password: _passwordController.text,
             name: _nameController.text.trim(),
             emailVerified: true,
+            // Write phone+verified into the initial Firestore doc to avoid race
+            phone: _phoneVerified && _phoneController.text.trim().isNotEmpty
+                ? '${AppConstants.countryCode}${_phoneController.text.trim()}'
+                : '',
+            phoneVerified: _phoneVerified,
           );
 
       if (success && mounted) {

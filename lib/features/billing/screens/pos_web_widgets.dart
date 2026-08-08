@@ -346,7 +346,7 @@ class _WebCartSectionState extends ConsumerState<_WebCartSection> {
               duration: const Duration(seconds: 5),
               action: SnackBarAction(
                 label: 'Upgrade',
-                onPressed: () => PlanNavigationService.pushToSubscription(context),
+                onPressed: () => SubscriptionNavigationService.navigateToSubscription(context),
               ),
             ),
           );
@@ -488,7 +488,7 @@ class _WebCartSectionState extends ConsumerState<_WebCartSection> {
                 ? SnackBarAction(
                     label: 'Upgrade',
                     textColor: Colors.white,
-                    onPressed: () => PlanNavigationService.pushToSubscription(context),
+                    onPressed: () => SubscriptionNavigationService.navigateToSubscription(context),
                   )
                 : null,
           ),
@@ -746,7 +746,7 @@ class _WebCartSectionState extends ConsumerState<_WebCartSection> {
                                       ),
                                       trailing: customer.balance > 0
                                           ? Text(
-                                              '?${customer.balance.toStringAsFixed(0)}',
+                                              '₹${customer.balance.toStringAsFixed(0)}',
                                               style: const TextStyle(
                                                 color: Colors.red,
                                                 fontSize: 12,
