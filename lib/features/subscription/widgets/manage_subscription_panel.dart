@@ -835,7 +835,13 @@ class _ManageSubscriptionPanelState
       }
 
       final platform = kIsWeb ? 'web' : isWindows ? 'windows' : 'android';
-      final queryParams = <String, String>{'plan': planKey, 'platform': platform};
+      final queryParams = <String, String>{
+        'plan': planKey,
+        'cycle': 'monthly',
+        'platform': platform,
+        'auto': '1',
+        'ts': DateTime.now().millisecondsSinceEpoch.toString(),
+      };
       if (restaurantId != null && restaurantId.isNotEmpty) {
         queryParams['restaurantId'] = restaurantId;
       }
@@ -847,7 +853,7 @@ class _ManageSubscriptionPanelState
       final url = Uri(
         scheme: 'https',
         host: 'restaurants.tulasierp.com',
-        path: '/src/pages/pricing.html',
+        path: '/src/pages/pricing',
         queryParameters: queryParams,
       );
       await launchUrl(url, mode: LaunchMode.externalApplication);

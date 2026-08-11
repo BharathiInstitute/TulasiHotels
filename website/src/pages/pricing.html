@@ -531,8 +531,74 @@
     var pendingPlan = null;
     var isAnnual = false;
     var pendingOrder = null; // { orderId, plan, cycle } — for UPI fallback check
+    var autoCheckoutStarted = false;
+    var autoOpenParam = new URLSearchParams(window.location.search).get('auto') === '1';
     var platformParam = new URLSearchParams(window.location.search).get('platform') || 'web'; // web | windows | android
     var restaurantIdParam = '';
+
+    function isPaidPlan(plan) {
+      return plan === 'starter' || plan === 'pro' || plan === 'business';
+    }
+
+    function tryAutoStartPayment(plan) {
+      if (!isPaidPlan(plan) || autoCheckoutStarted) return;
+      autoCheckoutStarted = true;
+      pendingPlan = null;
+      closeLoginModal();
+      startPayment(plan);
+    }
+
+    function cleanPricingParams() {
+      var url = new URL(window.location.href);
+      ['plan', 'cycle', 'token', 'email', 'phone', 'name', 'auto'].forEach(function (key) {
+        url.searchParams.delete(key);
+      });
+      return url.pathname + (url.searchParams.toString() ? ('?' + url.searchParams.toString()) : '');
+    }
+
+    function showAutoStartingState(plan) {
+      if (!isPaidPlan(plan) || !autoOpenParam) return;
+      var btn = document.querySelector('[data-subscribe="' + plan + '"]');
+      if (!btn) return;
+      btn.textContent = 'Opening payment...';
+      btn.style.pointerEvents = 'none';
+      btn.style.opacity = '0.75';
+    }
+
+    function buildSuccessRedirectUrl(plan) {
+      var base = cleanPricingParams();
+      return base + (base.indexOf('?') >= 0 ? '&' : '?') +
+        'payment=success&paidPlan=' + encodeURIComponent(plan);
+    }
+
+    function showSuccessBannerFromUrl() {
+      var params = new URLSearchParams(window.location.search);
+      if (params.get('payment') !== 'success') return;
+
+      var paidPlan = params.get('paidPlan') || '';
+      var prettyPlan = paidPlan === 'starter'
+        ? 'Starter'
+        : paidPlan === 'pro'
+          ? 'Pro'
+          : paidPlan === 'business'
+            ? 'Business'
+            : 'selected';
+
+      var banner = document.createElement('div');
+      banner.style.cssText = 'position:sticky;top:0;z-index:60;background:#ecfdf5;color:#065f46;border-bottom:1px solid #a7f3d0;padding:12px 16px;text-align:center;font-weight:700;';
+      banner.textContent = 'Payment successful. ' + prettyPlan + ' plan activated.';
+      document.body.insertBefore(banner, document.body.firstChild);
+
+      setTimeout(function () {
+        banner.remove();
+      }, 6000);
+
+      // Keep URL clean after showing status once.
+      var url = new URL(window.location.href);
+      url.searchParams.delete('payment');
+      url.searchParams.delete('paidPlan');
+      window.history.replaceState({}, '', url.pathname + (url.searchParams.toString() ? ('?' + url.searchParams.toString()) : ''));
+    }
 
     // ─── Auth State ───
     auth.onAuthStateChanged(function(user) {
@@ -549,15 +615,14 @@
         }).catch(function() {});
       }
       if (user && pendingPlan) {
-        var plan = pendingPlan;
-        pendingPlan = null;
-        closeLoginModal();
-        startPayment(plan);
+        tryAutoStartPayment(pendingPlan);
       }
     });
 
     // ─── Billing Toggle ───
     document.addEventListener('DOMContentLoaded', function () {
+      showSuccessBannerFromUrl();
+
       var toggle = document.getElementById('billingToggle');
       var labels = document.querySelectorAll('.pricing-toggle-label');
 
@@ -596,11 +661,14 @@
       var plan = params.get('plan');
       var cycle = params.get('cycle');
       var token = params.get('token');
+      autoOpenParam = params.get('auto') === '1';
       restaurantIdParam = params.get('restaurantId') || '';
       paramEmail = params.get('email') || '';
       paramPhone = params.get('phone') || '';
       paramName = params.get('name') || '';
       if (paramPhone) userPhone = paramPhone;
+
+      showAutoStartingState(plan);
 
       if (token) {
         var cleanUrl = window.location.pathname + '?' +
@@ -611,14 +679,18 @@
 
       if (cycle === 'annual') { isAnnual = true; }
 
-      if (token && plan && (plan === 'starter' || plan === 'pro' || plan === 'business')) {
+      if (token && isPaidPlan(plan)) {
+        pendingPlan = plan;
         auth.signInWithCustomToken(token).then(function() {
-          pendingPlan = plan;
+          // Prevent race with auth listener by attempting start here too.
+          if (auth.currentUser && pendingPlan) {
+            tryAutoStartPayment(pendingPlan);
+          }
         }).catch(function(err) {
           console.error('Token sign-in failed:', err);
           setTimeout(function () { handleSubscribe(plan); }, 500);
         });
-      } else if (plan && (plan === 'starter' || plan === 'pro' || plan === 'business')) {
+      } else if (isPaidPlan(plan)) {
         setTimeout(function () { handleSubscribe(plan); }, 500);
       }
     })();
@@ -745,17 +817,21 @@
           window.location.href = intentUrl;
         }, 1500);
       } else if (platformParam === 'windows') {
-        document.getElementById('payment-message').textContent = 'Your subscription is now active. You can close this tab — the app has updated automatically.';
+        document.getElementById('payment-message').textContent = 'Your subscription is now active. Redirecting...';
         document.getElementById('payment-open-app').style.display = 'none';
-        document.getElementById('payment-close').style.display = 'inline-flex';
-        document.getElementById('payment-close').textContent = 'Close Tab';
-        document.getElementById('payment-close').onclick = function () { window.close(); };
-        document.getElementById('payment-overlay').style.display = 'flex';
-      } else {
-        document.getElementById('payment-message').textContent = 'Your subscription is now active. Enjoy your upgraded features!';
-        document.getElementById('payment-open-app').style.display = 'inline-flex';
         document.getElementById('payment-close').style.display = 'none';
         document.getElementById('payment-overlay').style.display = 'flex';
+        setTimeout(function () {
+          window.location.replace(buildSuccessRedirectUrl(plan));
+        }, 1200);
+      } else {
+        document.getElementById('payment-message').textContent = 'Your subscription is now active. Redirecting...';
+        document.getElementById('payment-open-app').style.display = 'none';
+        document.getElementById('payment-close').style.display = 'none';
+        document.getElementById('payment-overlay').style.display = 'flex';
+        setTimeout(function () {
+          window.location.replace(buildSuccessRedirectUrl(plan));
+        }, 1200);
       }
     }
     function showPaymentError(message) {

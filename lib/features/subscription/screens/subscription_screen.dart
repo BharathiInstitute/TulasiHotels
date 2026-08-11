@@ -410,7 +410,13 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
       setState(() => _isLoading = false);
 
       final platform = kIsWeb ? 'web' : isWindows ? 'windows' : 'android';
-      final queryParams = <String, String>{'plan': planKey, 'cycle': cycle, 'platform': platform};
+      final queryParams = <String, String>{
+        'plan': planKey,
+        'cycle': cycle,
+        'platform': platform,
+        'auto': '1',
+        'ts': DateTime.now().millisecondsSinceEpoch.toString(),
+      };
       if (restaurantId != null && restaurantId.isNotEmpty) {
         queryParams['restaurantId'] = restaurantId;
       }
@@ -421,7 +427,7 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
       final url = Uri(
         scheme: 'https',
         host: 'restaurants.tulasierp.com',
-        path: '/src/pages/pricing.html',
+        path: '/src/pages/pricing',
         queryParameters: queryParams,
       );
       await launchUrl(url, mode: LaunchMode.externalApplication);
