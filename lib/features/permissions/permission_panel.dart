@@ -115,13 +115,12 @@ class PermissionPanels {
     PermissionPanelDef(
       route: AppRoutes.settings,
       label: 'Settings Panel',
-      collections: [
-        'settings',
-        'theme_settings',
-        'attendance_settings',
-        'billing_preferences',
-        'store_profile',
-      ],
+      collections: ['general_settings', 'account_settings', 'billing_settings'],
+    ),
+    PermissionPanelDef(
+      route: AppRoutes.subscription,
+      label: 'Subscription Panel',
+      collections: ['subscription', 'plan_limits'],
     ),
     PermissionPanelDef(
       route: AppRoutes.settingsHardware,
@@ -132,11 +131,6 @@ class PermissionPanels {
         'bluetooth_printers',
         'serial_printers',
       ],
-    ),
-    PermissionPanelDef(
-      route: AppRoutes.subscription,
-      label: 'Subscription Panel',
-      collections: ['subscription', 'plan_limits', 'billing_cycles'],
     ),
   ];
 

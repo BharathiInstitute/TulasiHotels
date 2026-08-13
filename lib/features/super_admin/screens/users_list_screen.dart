@@ -1,6 +1,8 @@
 /// Users List Screen for Super Admin
 library;
 
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -345,7 +347,7 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> {
                         content: Text('Updated $count restaurant(s) to ${plan.name.toUpperCase()}'),
                         backgroundColor: Colors.green,
                       ));
-                      _load(reset: true);
+                      unawaited(_load(reset: true));
                     }
                   }
                 },
@@ -391,62 +393,67 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> {
                 Expanded(child: Text('Downgrade — Select Active Store', style: TextStyle(fontSize: 15))),
               ],
             ),
-            content: SizedBox(
-              width: 380,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: Colors.orange.shade50,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.orange.shade200),
+            content: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(context).size.height * 0.7,
+                maxWidth: 380,
+              ),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.orange.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.orange.shade200),
+                      ),
+                      child: Text(
+                        '${newPlan.name.toUpperCase()} plan allows only $keepCount active store(s). '
+                        'Choose which to keep active — the rest will be suspended and '
+                        'cannot be activated until the plan is upgraded to Business.',
+                        style: const TextStyle(fontSize: 13),
+                      ),
                     ),
-                    child: Text(
-                      '${newPlan.name.toUpperCase()} plan allows only $keepCount active store(s). '
-                      'Choose which to keep active — the rest will be suspended and '
-                      'cannot be activated until the plan is upgraded to Business.',
-                      style: const TextStyle(fontSize: 13),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  ...users.map((u) {
-                    final isSelected = selected.value.contains(u.id);
-                    final isCurrentlyActive = u.isStoreActive;
-                    return CheckboxListTile(
-                      dense: true,
-                      title: Text(u.shopName.isNotEmpty ? u.shopName : 'Unknown Shop'),
-                      subtitle: Text(u.ownerName, style: const TextStyle(fontSize: 11)),
-                      value: isSelected,
-                      enabled: isCurrentlyActive, // only active stores can be chosen
-                      secondary: isCurrentlyActive
-                          ? null
-                          : const Icon(Icons.block, size: 16, color: Colors.grey),
-                      onChanged: isCurrentlyActive
-                          ? (checked) {
-                              setDialogState(() {
-                                if (checked == true) {
-                                  if (selected.value.length < keepCount) {
-                                    selected.value = {...selected.value, u.id};
+                    const SizedBox(height: 12),
+                    ...users.map((u) {
+                      final isSelected = selected.value.contains(u.id);
+                      final isCurrentlyActive = u.isStoreActive;
+                      return CheckboxListTile(
+                        dense: true,
+                        title: Text(u.shopName.isNotEmpty ? u.shopName : 'Unknown Shop'),
+                        subtitle: Text(u.ownerName, style: const TextStyle(fontSize: 11)),
+                        value: isSelected,
+                        enabled: isCurrentlyActive, // only active stores can be chosen
+                        secondary: isCurrentlyActive
+                            ? null
+                            : const Icon(Icons.block, size: 16, color: Colors.grey),
+                        onChanged: isCurrentlyActive
+                            ? (checked) {
+                                setDialogState(() {
+                                  if (checked == true) {
+                                    if (selected.value.length < keepCount) {
+                                      selected.value = {...selected.value, u.id};
+                                    }
+                                  } else {
+                                    selected.value = {...selected.value}..remove(u.id);
                                   }
-                                } else {
-                                  selected.value = {...selected.value}..remove(u.id);
-                                }
-                              });
-                            }
-                          : null,
-                    );
-                  }),
-                ],
+                                });
+                              }
+                            : null,
+                      );
+                    }),
+                  ],
+                ),
               ),
             ),
             actions: [
               TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
               ValueListenableBuilder<Set<String>>(
                 valueListenable: selected,
-                builder: (_, sel, __) => ElevatedButton(
+                builder: (_, sel, _) => ElevatedButton(
                   onPressed: sel.length == keepCount
                       ? () async {
                           Navigator.pop(ctx);
@@ -473,11 +480,11 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> {
                               ),
                               backgroundColor: Colors.orange,
                             ));
-                            _load(reset: true);
+                            unawaited(_load(reset: true));
                           }
                         }
                       : null,
-                  child: Text('Confirm (${ sel.length}/$keepCount selected)'),
+                  child: Text('Confirm (${sel.length}/$keepCount selected)'),
                 ),
               ),
             ],
@@ -517,7 +524,7 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> {
                   content: Text('Reset limits for $count restaurant(s)'),
                   backgroundColor: Colors.orange,
                 ));
-                _load(reset: true);
+                unawaited(_load(reset: true));
               }
             },
             child: const Text('Reset All', style: TextStyle(color: Colors.white)),
@@ -674,7 +681,7 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> {
                 : () async {
                     await AdminFirestoreService.setStoreStatus(
                         user.id, isActive ? 'suspended' : 'active');
-                    _load(reset: true);
+                    await _load(reset: true);
                   },
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -751,25 +758,24 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> {
       child: SizedBox(
         width: totalW,
         child: SingleChildScrollView(
-          scrollDirection: Axis.vertical,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-            // Header row
-            Container(
-              color: Colors.grey.shade100,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              child: Row(
-                children: [
-                  SizedBox(width: nameW, child: const Text('Restaurant Name', style: TextStyle(fontWeight: FontWeight.bold))),
-                  SizedBox(width: planW, child: const Text('Plan', style: TextStyle(fontWeight: FontWeight.bold))),
-                  SizedBox(width: billsW, child: const Text('Bills', style: TextStyle(fontWeight: FontWeight.bold))),
-                  SizedBox(width: activeW, child: const Text('Last Active', style: TextStyle(fontWeight: FontWeight.bold))),
-                  SizedBox(width: statusW, child: const Text('Status', style: TextStyle(fontWeight: FontWeight.bold))),
-                  SizedBox(width: actionsW, child: const Text('Actions', style: TextStyle(fontWeight: FontWeight.bold))),
-                ],
+              // Header row
+              Container(
+                color: Colors.grey.shade100,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                child: const Row(
+                  children: [
+                    SizedBox(width: nameW, child: Text('Restaurant Name', style: TextStyle(fontWeight: FontWeight.bold))),
+                    SizedBox(width: planW, child: Text('Plan', style: TextStyle(fontWeight: FontWeight.bold))),
+                    SizedBox(width: billsW, child: Text('Bills', style: TextStyle(fontWeight: FontWeight.bold))),
+                    SizedBox(width: activeW, child: Text('Last Active', style: TextStyle(fontWeight: FontWeight.bold))),
+                    SizedBox(width: statusW, child: Text('Status', style: TextStyle(fontWeight: FontWeight.bold))),
+                    SizedBox(width: actionsW, child: Text('Actions', style: TextStyle(fontWeight: FontWeight.bold))),
+                  ],
+                ),
               ),
-            ),
             const Divider(height: 1),
             // Grouped rows
             ...emails.map((email) {
@@ -900,7 +906,7 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> {
                       if (isLocked) return; // tooltip shows reason
                       await AdminFirestoreService.setStoreStatus(
                           user.id, isActive ? 'suspended' : 'active');
-                      _load(reset: true);
+                      unawaited(_load(reset: true));
                     },
                     child: Tooltip(
                       message: () {

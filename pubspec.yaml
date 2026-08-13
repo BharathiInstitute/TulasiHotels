@@ -1,7 +1,7 @@
 name: tulasihotels
 description: "Tulasi Hotels Management System"
 publish_to: 'none'
-version: 2.0.2+11
+version: 2.0.2+12
 
 environment:
   sdk: ^3.10.4
@@ -165,7 +165,7 @@ msix_config:
   publisher_display_name: Tulasi ERP
   publisher: CN=E031B94D-44BC-474E-A0E4-80CF69D69C2D
   identity_name: 39648TulasiERP.TulasiHotels
-  msix_version: 2.0.1.0
+  msix_version: 2.0.2.0
   logo_path: assets\images\app_icon.png
   capabilities: internetClient,internetClientServer
   languages: en-us,hi-in,te-in

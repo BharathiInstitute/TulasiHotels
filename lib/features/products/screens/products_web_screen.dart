@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:tulasihotels/core/design/design_system.dart';
 import 'package:tulasihotels/router/app_router.dart';
 import 'package:tulasihotels/core/services/product_csv_service.dart';
+import 'package:tulasihotels/core/services/pending_product_image_upload_service.dart';
 import 'package:tulasihotels/core/services/user_metrics_service.dart';
 import 'package:tulasihotels/core/utils/formatters.dart';
 import 'package:tulasihotels/features/permissions/permission_center.dart';
@@ -38,6 +39,12 @@ class _ProductsWebScreenState extends ConsumerState<ProductsWebScreen> {
   int _currentPage = 0;
   static const int _pageSize = 20;
   bool _isGridView = false;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(PendingProductImageUploadService.processPendingUploads());
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -268,6 +275,71 @@ class _ProductsWebScreenState extends ConsumerState<ProductsWebScreen> {
               ),
             ),
             SizedBox(height: isMobile ? 4 : 8),
+
+            ValueListenableBuilder<PendingImageQueueStats>(
+              valueListenable: PendingProductImageUploadService.statsNotifier,
+              builder: (context, stats, _) {
+                if (stats.total == 0) {
+                  return const SizedBox.shrink();
+                }
+
+                final parts = <String>[];
+                if (stats.drafts > 0) {
+                  parts.add('${stats.drafts} draft (tap Add Product to save)');
+                }
+                if (stats.pending > 0) {
+                  parts.add('${stats.pending} pending');
+                }
+                if (stats.failed > 0) {
+                  parts.add('${stats.failed} failed');
+                }
+
+                return Container(
+                  margin: EdgeInsets.only(bottom: isMobile ? 8 : 10),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).cardColor,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: Theme.of(context).dividerColor),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        stats.failed > 0
+                            ? Icons.sync_problem
+                            : Icons.cloud_upload_outlined,
+                        size: 18,
+                        color: stats.failed > 0
+                            ? AppColors.warning
+                            : AppColors.primary,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          stats.syncing
+                              ? 'Syncing product images... (${parts.join(', ')})'
+                              : 'Image sync queue: ${parts.join(', ')}',
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ),
+                      if (stats.pending > 0 && !stats.syncing)
+                        TextButton(
+                          onPressed: _syncPendingImagesNow,
+                          child: const Text('Sync now'),
+                        ),
+                      if (stats.failed > 0)
+                        TextButton(
+                          onPressed: _retryFailedImageSync,
+                          child: const Text('Retry failed'),
+                        ),
+                    ],
+                  ),
+                );
+              },
+            ),
 
             // Main Content: Data Table Card
             Expanded(
@@ -880,6 +952,28 @@ class _ProductsWebScreenState extends ConsumerState<ProductsWebScreen> {
         );
       }
     }
+  }
+
+  Future<void> _retryFailedImageSync() async {
+    await PendingProductImageUploadService.retryFailedUploads();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Retry started for failed image uploads'),
+        backgroundColor: AppColors.success,
+      ),
+    );
+  }
+
+  Future<void> _syncPendingImagesNow() async {
+    await PendingProductImageUploadService.processPendingUploads(force: true);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Image sync started'),
+        backgroundColor: AppColors.success,
+      ),
+    );
   }
 
   Future<void> _handleImportCsv() async {

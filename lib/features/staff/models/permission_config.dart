@@ -138,7 +138,6 @@ class PermissionConfig {
       route: AppRoutes.myAttendance,
       label: 'My Attendance',
       category: staffCategory,
-      supportedActions: _fullCrudActions,
     ),
     // Inventory
     ScreenDef(
@@ -187,17 +186,18 @@ class PermissionConfig {
       route: AppRoutes.settings,
       label: 'Settings',
       category: settingsCategory,
-      supportedActions: _viewUpdateActions,
-    ),
-    ScreenDef(
-      route: AppRoutes.settingsHardware,
-      label: 'Hardware',
-      category: settingsCategory,
-      supportedActions: _viewUpdateActions,
+      supportedActions: _viewOnlyActions,
     ),
     ScreenDef(
       route: AppRoutes.subscription,
       label: 'Subscription',
+      category: settingsCategory,
+      supportedActions: _viewOnlyActions,
+    ),
+    // Settings: Hardware is the only settings panel configurable for staff.
+    ScreenDef(
+      route: AppRoutes.settingsHardware,
+      label: 'Hardware',
       category: settingsCategory,
       supportedActions: _viewUpdateActions,
     ),

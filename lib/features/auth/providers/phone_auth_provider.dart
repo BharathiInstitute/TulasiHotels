@@ -174,7 +174,6 @@ class PhoneAuthNotifier extends StateNotifier<PhoneAuthState> {
       required bool forceRecaptchaFlow,
     }) async {
       await _auth.setSettings(
-        appVerificationDisabledForTesting: false,
         forceRecaptchaFlow: forceRecaptchaFlow,
       );
 
@@ -274,7 +273,6 @@ class PhoneAuthNotifier extends StateNotifier<PhoneAuthState> {
 
     try {
       await _auth.setSettings(
-        appVerificationDisabledForTesting: false,
         forceRecaptchaFlow: preferAndroidRecaptcha,
       );
 

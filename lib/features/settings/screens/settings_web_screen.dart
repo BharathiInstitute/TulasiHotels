@@ -59,15 +59,139 @@ final activeStoreProfileProvider = StreamProvider<UserModel?>((ref) {
   if (authUser == null) return Stream.value(null);
 
   final selectedHotelId = ref.watch(currentHotelIdProvider);
-  final storeId = selectedHotelId ?? authUser.uid;
+  final fallbackStoreId = selectedHotelId ?? authUser.uid;
 
   return FirebaseFirestore.instance
       .collection('users')
-      .doc(storeId)
+      .doc(fallbackStoreId)
       .snapshots()
-      .map((doc) {
-        if (!doc.exists) return null;
-        return UserModel.fromFirestore(doc);
+      .asyncMap((storeDoc) async {
+        if (!storeDoc.exists) {
+          final fallbackUserDoc = await FirebaseFirestore.instance
+              .collection('users')
+              .doc(authUser.uid)
+              .get();
+          if (fallbackUserDoc.exists) {
+            return UserModel.fromFirestore(fallbackUserDoc);
+          }
+          return null;
+        }
+
+        final storeData = storeDoc.data() as Map<String, dynamic>;
+        final ownerUid = (storeData['ownerUid'] as String?)?.trim();
+
+        // A staff login can have no selected hotel yet. In that case the
+        // authenticated user's document may be a ghost profile, so discover
+        // the active restaurant from the staff user's hotel memberships.
+        if ((selectedHotelId == null || selectedHotelId == authUser.uid) &&
+            (ownerUid == null || ownerUid.isEmpty)) {
+          final accessibleHotels = await FirebaseFirestore.instance
+              .collection('user_hotels')
+              .doc(authUser.uid)
+              .collection('hotels')
+              .where('status', isEqualTo: 'active')
+              .limit(10)
+              .get();
+
+          for (final hotel in accessibleHotels.docs) {
+            if (hotel.id == authUser.uid) continue;
+            final restaurantDoc = await FirebaseFirestore.instance
+                .collection('users')
+                .doc(hotel.id)
+                .get();
+            if (!restaurantDoc.exists) continue;
+
+            final restaurantData = restaurantDoc.data() as Map<String, dynamic>;
+            final restaurantOwnerUid =
+                (restaurantData['ownerUid'] as String?)?.trim();
+            if (restaurantOwnerUid != null && restaurantOwnerUid.isNotEmpty) {
+              final ownerDoc = await FirebaseFirestore.instance
+                  .collection('users')
+                  .doc(restaurantOwnerUid)
+                  .get();
+              if (ownerDoc.exists) return UserModel.fromFirestore(ownerDoc);
+            }
+
+            final ownerMembers = await FirebaseFirestore.instance
+                .collection('users')
+                .doc(hotel.id)
+                .collection('members')
+                .where('role', isEqualTo: 'owner')
+                .limit(1)
+                .get();
+            if (ownerMembers.docs.isNotEmpty &&
+                ownerMembers.docs.first.data()['status'] == 'active') {
+              final memberOwnerDoc = await FirebaseFirestore.instance
+                  .collection('users')
+                  .doc(ownerMembers.docs.first.id)
+                  .get();
+              if (memberOwnerDoc.exists) {
+                return UserModel.fromFirestore(memberOwnerDoc);
+              }
+            }
+          }
+        }
+
+        if (ownerUid != null && ownerUid.isNotEmpty && ownerUid != storeDoc.id) {
+          final ownerDoc = await FirebaseFirestore.instance
+              .collection('users')
+              .doc(ownerUid)
+              .get();
+          if (ownerDoc.exists) {
+            return UserModel.fromFirestore(ownerDoc);
+          }
+        }
+
+        // Some older restaurants do not have ownerUid on the store document.
+        // Resolve the owner from the restaurant's owner member record so staff
+        // still see the verification completed during restaurant setup.
+        if (selectedHotelId != null && selectedHotelId != authUser.uid) {
+          final ownerMemberSnapshot = await FirebaseFirestore.instance
+              .collection('users')
+              .doc(selectedHotelId)
+              .collection('members')
+              .where('role', isEqualTo: 'owner')
+              .limit(1)
+              .get();
+
+              if (ownerMemberSnapshot.docs.isNotEmpty &&
+                ownerMemberSnapshot.docs.first.data()['status'] == 'active') {
+            final memberOwnerUid = ownerMemberSnapshot.docs.first.id;
+            final ownerDoc = await FirebaseFirestore.instance
+                .collection('users')
+                .doc(memberOwnerUid)
+                .get();
+            if (ownerDoc.exists) {
+              return UserModel.fromFirestore(ownerDoc);
+            }
+          }
+        }
+
+        // Staff members can land on a ghost/default doc or a stale selected hotel.
+        // Prefer the real owner restaurant profile when available instead of the
+        // staff's personal profile values.
+        if (selectedHotelId == null || selectedHotelId == authUser.uid) {
+          final ownedHotelSnapshot = await FirebaseFirestore.instance
+              .collection('user_hotels')
+              .doc(authUser.uid)
+              .collection('hotels')
+              .where('role', isEqualTo: 'owner')
+              .limit(1)
+              .get();
+
+          if (ownedHotelSnapshot.docs.isNotEmpty) {
+            final restaurantId = ownedHotelSnapshot.docs.first.id;
+            final ownerHotelDoc = await FirebaseFirestore.instance
+                .collection('users')
+                .doc(restaurantId)
+                .get();
+            if (ownerHotelDoc.exists) {
+              return UserModel.fromFirestore(ownerHotelDoc);
+            }
+          }
+        }
+
+        return UserModel.fromFirestore(storeDoc);
       });
 });
 
@@ -245,6 +369,57 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
     }
   }
 
+  String? get _safeAuthUid {
+    try {
+      return FirebaseAuth.instance.currentUser?.uid;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  bool get _isCurrentRestaurantOwner {
+    final hotel = ref.watch(currentHotelProvider);
+    if (hotel != null) return hotel.isOwner;
+
+    final selectedHotelId = ref.watch(currentHotelIdProvider);
+    final currentUser = ref.watch(currentUserProvider);
+    final authUid = _safeAuthUid;
+
+    if (selectedHotelId != null) {
+      return selectedHotelId == authUid;
+    }
+    if (currentUser != null) {
+      return true;
+    }
+    return false;
+  }
+
+  bool _isOwnerOnlyTab(SettingsTab tab) {
+    switch (tab) {
+      case SettingsTab.general:
+      case SettingsTab.account:
+      case SettingsTab.billing:
+      case SettingsTab.subscription:
+      case SettingsTab.attendance:
+        return true;
+      case SettingsTab.hardware:
+        return false;
+    }
+  }
+
+  bool _canAccessSettingsTab(SettingsTab tab) {
+    final permission = ref.watch(
+      routePermissionProvider(_permissionRouteForTab(tab)),
+    );
+    if (!permission.isResolved || !permission.canView) {
+      return false;
+    }
+    if (_isOwnerOnlyTab(tab) && !_isCurrentRestaurantOwner) {
+      return false;
+    }
+    return true;
+  }
+
   bool _showsGlobalSaveButton(SettingsTab tab) {
     switch (tab) {
       case SettingsTab.general:
@@ -259,12 +434,7 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
   }
 
   List<SettingsTab> _visibleTabs() {
-    return SettingsTab.values.where((tab) {
-      final permission = ref.watch(
-        routePermissionProvider(_permissionRouteForTab(tab)),
-      );
-      return permission.isResolved && permission.canView;
-    }).toList();
+    return SettingsTab.values.where(_canAccessSettingsTab).toList();
   }
 
   bool _isSyncing = false;
@@ -1405,6 +1575,12 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
   }
 
   Widget _buildTabContent(RoutePermissionState selectedPermission) {
+    if (_isOwnerOnlyTab(_selectedTab) && !_isCurrentRestaurantOwner) {
+      return const PermissionDeniedView(
+        message: 'Only the restaurant owner can access this settings panel.',
+      );
+    }
+
     if (!selectedPermission.canView) {
       return PermissionDeniedView(
         message: PermissionCenter.deniedViewMessage(
@@ -1450,6 +1626,11 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
     final user = ref.watch(currentUserProvider);
     final storeProfile = ref.watch(activeStoreProfileProvider).valueOrNull;
     final displayProfile = storeProfile ?? user;
+    final currentHotel = ref.watch(currentHotelProvider);
+    final authUid = _safeAuthUid;
+    final canManageVerification =
+      currentHotel?.isOwner == true || displayProfile?.id == authUid;
+    final verificationProfile = canManageVerification ? displayProfile : storeProfile;
 
     return _responsiveColumns(
       [
@@ -1586,7 +1767,7 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
                     ),
                     Expanded(
                       child: SelectableText(
-                        user?.id ?? '—',
+                        verificationProfile?.id ?? 'Loading restaurant owner...',
                         style: TextStyle(
                           fontSize: 11,
                           fontFamily: 'monospace',
@@ -1601,19 +1782,24 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
               _buildVerificationRow(
                 icon: Icons.phone_android,
                 label: 'Phone Number',
-                value: user?.phone ?? '—',
-                isVerified: user?.phoneVerified ?? false,
-                verifiedAt: user?.phoneVerifiedAt,
+                value: verificationProfile?.phone ?? 'Loading...',
+                isVerified: verificationProfile?.phoneVerified ?? false,
+                verifiedAt: verificationProfile?.phoneVerifiedAt,
+                onVerify: canManageVerification &&
+                  !(verificationProfile?.phoneVerified ?? false)
+                    ? _showPhoneVerificationDialog
+                    : null,
               ),
               const Divider(height: 24),
               _buildVerificationRow(
                 icon: Icons.email_outlined,
                 label: 'Email Address',
-                value: user?.email ?? '—',
-                isVerified: user?.emailVerified ?? false,
-                onVerify: (user?.emailVerified ?? false)
-                    ? null
-                    : _showEmailVerificationDialog,
+                value: verificationProfile?.email ?? 'Loading...',
+                isVerified: verificationProfile?.emailVerified ?? false,
+                onVerify: canManageVerification &&
+                  !(verificationProfile?.emailVerified ?? false)
+                  ? _showEmailVerificationDialog
+                  : null,
               ),
             ],
           ),
@@ -4043,7 +4229,6 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
               );
             }
 
-            // Auto-close on successful verification
             if (isVerified) {
               WidgetsBinding.instance.addPostFrameCallback((_) async {
                 final rawPhone = phoneController.text.trim();

@@ -18,10 +18,16 @@ import 'package:tulasihotels/features/subscription/models/plan_config.dart';
 /// Pricing map for subscription plans
 class SubscriptionPricing {
   static double getPrice(String plan, String cycle) {
+    final normalizedCycle = cycle.toLowerCase();
     final config = PlanConfig.fromKey(plan);
-    return cycle == 'annual'
-        ? config.annualPriceInr.toDouble()
-        : config.monthlyPriceInr.toDouble();
+
+    if (normalizedCycle == 'annual') {
+      return config.annualPriceInr.toDouble();
+    }
+    if (normalizedCycle == 'monthly') {
+      return config.monthlyPriceInr.toDouble();
+    }
+    return 0;
   }
 }
 

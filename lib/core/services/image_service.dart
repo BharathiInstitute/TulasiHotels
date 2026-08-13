@@ -2,6 +2,7 @@
 /// Automatically resizes mobile photos to save storage
 library;
 
+import 'dart:async';
 import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -10,7 +11,26 @@ import 'package:flutter/foundation.dart';
 import 'package:image/image.dart' as img;
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:tulasihotels/core/services/active_store_manager.dart';
+import 'package:tulasihotels/core/services/connectivity_service.dart';
+import 'package:tulasihotels/core/services/pending_product_image_upload_service.dart';
 import 'package:tulasihotels/core/services/user_usage_service.dart';
+
+/// Raised when an image upload is attempted while offline.
+class OfflineImageUploadException implements Exception {
+  final String message;
+  final String? pendingUploadId;
+  final Uint8List? previewBytes;
+
+  const OfflineImageUploadException(
+    this.message, {
+    this.pendingUploadId,
+    this.previewBytes,
+  });
+
+  @override
+  String toString() => message;
+}
 
 /// Image sizes for different use cases
 class ImageSizes {
@@ -93,9 +113,10 @@ class ImageService {
   /// Cross-platform product image picker: works on Web, Android, Windows
   /// Uploads to Firebase Storage under users/$uid/products/
   /// Returns the download URL string on success, null on cancel/error
-  static Future<String?> pickAndUploadProductImage() async {
+  static Future<String?> pickAndUploadProductImage({String? storeId}) async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) throw Exception('Not signed in. Please log in and try again.');
+    final resolvedStoreId = storeId ?? ActiveStoreManager.storeId ?? uid;
 
     try {
       final result = await FilePicker.platform.pickFiles(
@@ -137,6 +158,18 @@ class ImageService {
         );
       }
 
+      if (ConnectivityService.isOffline) {
+        final draftId = await PendingProductImageUploadService.createDraft(
+          imageBytes: resizedBytes,
+          storeId: resolvedStoreId,
+        );
+        throw OfflineImageUploadException(
+          'You are offline. Image saved as draft. Tap ADD PRODUCT to save the item; image will sync automatically when internet is back.',
+          pendingUploadId: draftId,
+          previewBytes: resizedBytes,
+        );
+      }
+
       // Upload to Firebase Storage with unique name
       final timestamp = DateTime.now().millisecondsSinceEpoch;
       final storageRef = FirebaseStorage.instance.ref().child(
@@ -155,6 +188,10 @@ class ImageService {
           .getDownloadURL()
           .timeout(const Duration(seconds: 10));
       return downloadUrl;
+    } on TimeoutException {
+      throw const OfflineImageUploadException(
+        'Upload timed out. Please check internet and retry image upload.',
+      );
     } on FirebaseException catch (e) {
       debugPrint('Storage error uploading product image: ${e.code} ${e.message}');
       throw Exception('Upload failed (${e.code}): ${e.message}');

@@ -3,15 +3,18 @@ library;
 
 import 'dart:async';
 
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tulasihotels/core/design/design_system.dart';
 import 'package:tulasihotels/core/services/image_service.dart';
+import 'package:tulasihotels/core/services/pending_product_image_upload_service.dart';
 import 'package:tulasihotels/core/services/barcode_scanner_service.dart';
 import 'package:tulasihotels/core/services/barcode_lookup_service.dart';
 import 'package:tulasihotels/core/utils/validators.dart';
 import 'package:tulasihotels/features/permissions/permission_center.dart';
+import 'package:tulasihotels/features/hotels/providers/hotel_provider.dart';
 import 'package:tulasihotels/features/permissions/providers/route_permission_provider.dart';
 import 'package:tulasihotels/features/products/providers/products_provider.dart';
 import 'package:tulasihotels/features/staff/models/permission_config.dart';
@@ -56,6 +59,8 @@ class _AddProductModalState extends ConsumerState<AddProductModal> {
   // ignore: unused_field
   BarcodeProduct? _lookedUpProduct;
   String? _imageUrl;
+  String? _pendingImageDraftId;
+  Uint8List? _pendingImagePreviewBytes;
 
   bool get _isEditing => widget.product != null;
 
@@ -248,7 +253,11 @@ class _AddProductModalState extends ConsumerState<AddProductModal> {
         createdAt: widget.product?.createdAt ?? DateTime.now(),
       );
 
-      final service = ref.read(productsServiceProvider);
+        final service = ref.read(productsServiceProvider);
+        final activeStoreId =
+          ref.read(currentHotelIdProvider) ??
+            FirebaseAuth.instance.currentUser?.uid;
+      String targetProductId = widget.product?.id ?? '';
       if (_isEditing) {
         await service.updateProduct(product);
       } else {
@@ -256,15 +265,32 @@ class _AddProductModalState extends ConsumerState<AddProductModal> {
         // handles offline correctly (returns allowed when offline).
         // Do NOT call getUserLimits() here — it uses a plain Firestore get()
         // that hangs indefinitely when offline, leaving the button spinning.
-        await service.addProduct(product);
+        targetProductId = await service.addProduct(product);
+      }
+
+      final pendingDraftId = _pendingImageDraftId;
+      if (pendingDraftId != null && targetProductId.isNotEmpty) {
+        await PendingProductImageUploadService.attachDraftToProduct(
+          draftId: pendingDraftId,
+          productId: targetProductId,
+          storeId: activeStoreId,
+        );
+        unawaited(PendingProductImageUploadService.processPendingUploads());
       }
 
       if (mounted) {
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(_isEditing ? 'Product updated' : 'Product added'),
-            backgroundColor: AppColors.success,
+            content: Text(
+              pendingDraftId != null
+                  ? (_isEditing
+                        ? 'Product updated. Image sync is pending until internet is available.'
+                        : 'Product added. Image sync is pending until internet is available.')
+                  : (_isEditing ? 'Product updated' : 'Product added'),
+            ),
+            backgroundColor:
+                pendingDraftId != null ? AppColors.warning : AppColors.success,
           ),
         );
       }
@@ -789,17 +815,28 @@ class _AddProductModalState extends ConsumerState<AddProductModal> {
                                                 style: TextStyle(fontSize: 12),
                                               ),
                                               onPressed: () async {
+                                                final activeStoreId =
+                                                    ref.read(currentHotelIdProvider) ??
+                                                  FirebaseAuth.instance.currentUser?.uid;
                                                 setState(() {
                                                   _imageUrl = null;
                                                   _isUploadingImage = true;
                                                 });
                                                 try {
                                                   final url =
-                                                      await ImageService.pickAndUploadProductImage();
+                                                      await ImageService.pickAndUploadProductImage(
+                                                        storeId: activeStoreId,
+                                                      );
                                                   if (url != null &&
                                                       context.mounted) {
                                                     setState(
-                                                      () => _imageUrl = url,
+                                                      () {
+                                                        _imageUrl = url;
+                                                        _pendingImageDraftId =
+                                                            null;
+                                                        _pendingImagePreviewBytes =
+                                                            null;
+                                                      },
                                                     );
                                                     ScaffoldMessenger.of(
                                                       context,
@@ -819,15 +856,30 @@ class _AddProductModalState extends ConsumerState<AddProductModal> {
                                                   }
                                                 } catch (e) {
                                                   if (context.mounted) {
+                                                    final isOfflineUpload =
+                                                        e is OfflineImageUploadException;
+                                                    if (isOfflineUpload) {
+                                                      final offlineError = e;
+                                                      setState(() {
+                                                        _pendingImageDraftId =
+                                                            offlineError.pendingUploadId;
+                                                        _pendingImagePreviewBytes =
+                                                            offlineError.previewBytes;
+                                                        _imageUrl = null;
+                                                      });
+                                                    }
                                                     ScaffoldMessenger.of(
                                                       context,
                                                     ).showSnackBar(
                                                       SnackBar(
                                                         content: Text(
-                                                          'Upload failed: ${e.toString().replaceAll('Exception: ', '')}',
+                                                          isOfflineUpload
+                                                              ? e.toString()
+                                                              : 'Upload failed: ${e.toString().replaceAll('Exception: ', '')}',
                                                         ),
-                                                        backgroundColor:
-                                                            AppColors.error,
+                                                        backgroundColor: isOfflineUpload
+                                                            ? AppColors.warning
+                                                            : AppColors.error,
                                                         duration:
                                                             const Duration(
                                                               seconds: 5,
@@ -836,7 +888,9 @@ class _AddProductModalState extends ConsumerState<AddProductModal> {
                                                     );
                                                   }
                                                   setState(
-                                                    () => _imageUrl = null,
+                                                    () {
+                                                      _imageUrl = null;
+                                                    },
                                                   );
                                                 } finally {
                                                   if (mounted) {
@@ -859,7 +913,71 @@ class _AddProductModalState extends ConsumerState<AddProductModal> {
                                   right: 4,
                                   child: IconButton.filled(
                                     onPressed: () {
-                                      setState(() => _imageUrl = null);
+                                      setState(() {
+                                        _imageUrl = null;
+                                        _pendingImageDraftId = null;
+                                        _pendingImagePreviewBytes = null;
+                                      });
+                                    },
+                                    icon: const Icon(Icons.close, size: 16),
+                                    style: IconButton.styleFrom(
+                                      backgroundColor: Colors.black54,
+                                      foregroundColor: Colors.white,
+                                      padding: const EdgeInsets.all(4),
+                                      minimumSize: const Size(28, 28),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            )
+                          : _pendingImagePreviewBytes != null
+                          ? Stack(
+                              children: [
+                                Center(
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(12),
+                                    child: SizedBox(
+                                      width: double.infinity,
+                                      height: 120,
+                                      child: Image.memory(
+                                        _pendingImagePreviewBytes!,
+                                        fit: BoxFit.contain,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                Positioned(
+                                  left: 8,
+                                  top: 8,
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 4,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: Colors.orange.shade700,
+                                      borderRadius: BorderRadius.circular(20),
+                                    ),
+                                    child: const Text(
+                                      'Pending sync',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                Positioned(
+                                  top: 4,
+                                  right: 4,
+                                  child: IconButton.filled(
+                                    onPressed: () {
+                                      setState(() {
+                                        _imageUrl = null;
+                                        _pendingImageDraftId = null;
+                                        _pendingImagePreviewBytes = null;
+                                      });
                                     },
                                     icon: const Icon(Icons.close, size: 16),
                                     style: IconButton.styleFrom(
@@ -874,12 +992,21 @@ class _AddProductModalState extends ConsumerState<AddProductModal> {
                             )
                           : InkWell(
                               onTap: () async {
+                                final activeStoreId =
+                                    ref.read(currentHotelIdProvider) ??
+                                  FirebaseAuth.instance.currentUser?.uid;
                                 setState(() => _isUploadingImage = true);
                                 try {
                                   final url =
-                                      await ImageService.pickAndUploadProductImage();
+                                      await ImageService.pickAndUploadProductImage(
+                                        storeId: activeStoreId,
+                                      );
                                   if (url != null && context.mounted) {
-                                    setState(() => _imageUrl = url);
+                                    setState(() {
+                                      _imageUrl = url;
+                                      _pendingImageDraftId = null;
+                                      _pendingImagePreviewBytes = null;
+                                    });
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       const SnackBar(
                                         content: Text('✅ Image uploaded'),
@@ -890,12 +1017,28 @@ class _AddProductModalState extends ConsumerState<AddProductModal> {
                                   // url == null means user cancelled — no message needed
                                 } catch (e) {
                                   if (context.mounted) {
+                                    final isOfflineUpload =
+                                        e is OfflineImageUploadException;
+                                    if (isOfflineUpload) {
+                                      final offlineError = e;
+                                      setState(() {
+                                        _pendingImageDraftId =
+                                            offlineError.pendingUploadId;
+                                        _pendingImagePreviewBytes =
+                                            offlineError.previewBytes;
+                                        _imageUrl = null;
+                                      });
+                                    }
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       SnackBar(
                                         content: Text(
-                                          'Upload failed: ${e.toString().replaceAll('Exception: ', '')}',
+                                          isOfflineUpload
+                                              ? e.toString()
+                                              : 'Upload failed: ${e.toString().replaceAll('Exception: ', '')}',
                                         ),
-                                        backgroundColor: AppColors.error,
+                                        backgroundColor: isOfflineUpload
+                                            ? AppColors.warning
+                                            : AppColors.error,
                                         duration: const Duration(seconds: 5),
                                       ),
                                     );

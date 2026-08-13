@@ -18,7 +18,7 @@ class SubscriptionNavigationService {
     PlanFeature? sourceFeature,
     String? analyticsSource,
   }) {
-    // TODO: Add analytics tracking here
+    // Future analytics hook for feature-based subscription navigation.
     // Analytics.trackFeatureNavigationToSubscription(
     //   feature: sourceFeature?.name,
     //   source: analyticsSource,

@@ -16,6 +16,7 @@ import 'package:tulasihotels/core/services/app_health_service.dart';
 import 'package:tulasihotels/core/services/connectivity_service.dart';
 import 'package:tulasihotels/core/services/data_retention_service.dart';
 import 'package:tulasihotels/core/services/offline_storage_service.dart';
+import 'package:tulasihotels/core/services/pending_product_image_upload_service.dart';
 import 'package:tulasihotels/core/services/payment_link_service.dart';
 import 'package:tulasihotels/core/services/sync_settings_service.dart';
 import 'package:tulasihotels/core/services/user_metrics_service.dart';
@@ -257,6 +258,10 @@ Future<void> _initializeApp() async {
         _safeInit('PrinterStorage', PrinterStorage.initialize),
         _safeInit('SyncSettings', SyncSettingsService.initialize),
         _safeInit('Connectivity', ConnectivityService.initialize),
+        _safeInit(
+          'PendingProductImageQueue',
+          PendingProductImageUploadService.initialize,
+        ),
         _safeInit('AppHealth', AppHealthService.initialize),
         _safeInit('WindowsNotification', WindowsNotificationService.init),
         _safeInit('UserMetrics', UserMetricsService.initialize),
