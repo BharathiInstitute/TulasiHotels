@@ -3,6 +3,8 @@
 # 
 # Usage: .\smart-deploy.ps1
 #        .\smart-deploy.ps1 -WebsiteOnly                  # Deploy marketing website only (no Flutter build)
+#        .\smart-deploy.ps1 -PublishExisting              # Publish current APK + EXE and static download page
+#        .\smart-deploy.ps1 -RefreshCiApps                 # Build Android + Windows in CI and download both artifacts
 #        .\smart-deploy.ps1 -Rollback                    # Rollback all platforms
 #        .\smart-deploy.ps1 -Rollback -RollbackTarget web  # Rollback web only
 #        .\smart-deploy.ps1 -DryRun                      # Preview without deploying
@@ -13,6 +15,8 @@ param(
     [switch]$DryRun,
     [switch]$SetupMonitoring,
     [switch]$WebsiteOnly,
+    [switch]$PublishExisting,
+    [switch]$RefreshCiApps,
     [string]$RollbackTarget = ""   # web, windows, android, or blank for all
 )
 
@@ -146,6 +150,152 @@ function Save-Progress {
     $script:currentState.completedSteps = $script:completedSteps
     $stateJson = $script:currentState | ConvertTo-Json -Depth 3
     [System.IO.File]::WriteAllText($statePath, $stateJson, [System.Text.UTF8Encoding]::new($false))
+}
+
+# ===========================================================
+#   --RefreshCiApps: CI build and download, no web deploy
+# ===========================================================
+if ($RefreshCiApps) {
+    if (-not (Test-CommandAvailable "gh")) { Write-Fail "GitHub CLI is required. Install and authenticate with 'gh auth login'."; exit 1 }
+
+    $branch = (git branch --show-current).Trim()
+    if ([string]::IsNullOrWhiteSpace($branch)) { $branch = "main" }
+    Write-Step "Starting Android + Windows CI build on $branch (web deployment is skipped)..."
+    gh workflow run loop2-deploy.yml --ref $branch --field target=apps
+    if ($LASTEXITCODE -ne 0) { Write-Fail "Could not start the CI workflow"; exit 1 }
+
+    $runId = (gh run list --workflow loop2-deploy.yml --branch $branch --event workflow_dispatch --limit 1 --json databaseId --jq '.[0].databaseId').Trim()
+    if ([string]::IsNullOrWhiteSpace($runId)) {
+        Write-Fail "CI workflow started, but its run ID was not available yet. Open GitHub Actions and run this command again after it appears."
+        exit 1
+    }
+
+    Write-Step "Waiting for CI run $runId..."
+    gh run watch $runId --exit-status
+    if ($LASTEXITCODE -ne 0) { Write-Fail "CI build failed. Open GitHub Actions run $runId for details."; exit 1 }
+
+    $apkOutputDir = Join-Path $root "build\app\outputs\flutter-apk"
+    $windowsOutputDir = Join-Path $root "build\installer"
+    New-Item -ItemType Directory -Path $apkOutputDir -Force | Out-Null
+    New-Item -ItemType Directory -Path $windowsOutputDir -Force | Out-Null
+    gh run download $runId --name release-apk --dir $apkOutputDir
+    if ($LASTEXITCODE -ne 0) { Write-Fail "Could not download the Android CI artifact"; exit 1 }
+    gh run download $runId --name release-windows-installer --dir $windowsOutputDir
+    if ($LASTEXITCODE -ne 0) { Write-Fail "Could not download the Windows CI artifact"; exit 1 }
+
+    Write-Ok "CI artifacts downloaded without deploying web:"
+    Write-Info "  Android: $(Join-Path $apkOutputDir 'app-release.apk')"
+    Write-Info "  Windows: $(Join-Path $windowsOutputDir 'TulasiRestaurants_Setup.exe')"
+    exit 0
+}
+
+# ===========================================================
+#   --PublishExisting: Publish current APK + EXE, no rebuild
+# ===========================================================
+if ($PublishExisting) {
+    $pubspecPath = Join-Path $root "pubspec.yaml"
+    $pubspecContent = Get-Content $pubspecPath -Raw
+    if ($pubspecContent -notmatch 'version:\s*(\d+\.\d+\.\d+)\+(\d+)') {
+        Write-Fail "Could not read version from pubspec.yaml"
+        exit 1
+    }
+
+    $releaseVersion = $matches[1]
+    $releaseBuild = [int]$matches[2]
+    $apkPath = Join-Path $root "build\app\outputs\flutter-apk\app-release.apk"
+    $exePath = Join-Path $root "build\installer\TulasiRestaurants_Setup.exe"
+    $androidVersionPath = Join-Path $root "installer\android-version.json"
+    $windowsVersionPath = Join-Path $root "installer\version.json"
+    $downloadPage = Join-Path $root "website\src\pages\download.html"
+
+    if (-not (Test-Path $apkPath)) { Write-Fail "APK not found: $apkPath"; exit 1 }
+    if (-not (Test-Path $exePath)) { Write-Fail "Windows installer not found: $exePath"; exit 1 }
+    if (-not (Test-CommandAvailable "gsutil")) { Write-Fail "gsutil is required to publish release files"; exit 1 }
+    if (-not (Test-CommandAvailable "firebase")) { Write-Fail "firebase CLI is required to publish the download page"; exit 1 }
+
+    $aaptPath = Get-ChildItem "$env:ANDROID_HOME\build-tools\*\aapt.exe" -ErrorAction SilentlyContinue |
+        Sort-Object FullName -Descending |
+        Select-Object -First 1 -ExpandProperty FullName
+    if (-not $aaptPath) { Write-Fail "Android SDK aapt.exe is required to validate the APK version"; exit 1 }
+    $apkBadging = (& $aaptPath dump badging $apkPath) -join "`n"
+    if ($apkBadging -notmatch "versionCode='(\d+)' versionName='([^']+)'" ) {
+        Write-Fail "Could not read the APK version metadata"
+        exit 1
+    }
+    $apkBuild = [int]$matches[1]
+    $apkVersion = $matches[2]
+    if ($apkVersion -ne $releaseVersion -or $apkBuild -ne $releaseBuild) {
+        Write-Fail "APK is v$apkVersion+$apkBuild, but pubspec.yaml is v$releaseVersion+$releaseBuild. Build or download the matching CI artifact before publishing."
+        exit 1
+    }
+
+    $apkName = "TulasiRestaurants_v$releaseVersion.apk"
+    $exeName = "TulasiRestaurants_Setup_v$releaseVersion.exe"
+    $apkDownloadUrl = "https://firebasestorage.googleapis.com/v0/b/login1-aa21c.firebasestorage.app/o/downloads%2Fandroid%2F$apkName`?alt=media"
+    $exeDownloadUrl = "https://firebasestorage.googleapis.com/v0/b/login1-aa21c.firebasestorage.app/o/downloads%2Fwindows%2F$exeName`?alt=media"
+    $androidStoragePath = "gs://login1-aa21c.firebasestorage.app/downloads/android"
+    $windowsStoragePath = "gs://login1-aa21c.firebasestorage.app/downloads/windows"
+    $changelog = "Bug fixes and improvements"
+
+    Write-Step "Publishing existing Android and Windows release v$releaseVersion+$releaseBuild..."
+
+    $androidVersionJson = @{
+        version = $releaseVersion; buildNumber = $releaseBuild; downloadUrl = $apkDownloadUrl
+        changelog = $changelog; forceUpdate = $false
+    } | ConvertTo-Json -Depth 3
+    [System.IO.File]::WriteAllText($androidVersionPath, $androidVersionJson, [System.Text.UTF8Encoding]::new($false))
+
+    $windowsVersionJson = @{
+        version = $releaseVersion; buildNumber = $releaseBuild; exeDownloadUrl = $exeDownloadUrl
+        storeUrl = "https://apps.microsoft.com/detail/tulasi-stores"; changelog = $changelog; forceUpdate = $false
+    } | ConvertTo-Json -Depth 3
+    [System.IO.File]::WriteAllText($windowsVersionPath, $windowsVersionJson, [System.Text.UTF8Encoding]::new($false))
+
+    $pageContent = Get-Content $downloadPage -Raw
+    $pageContent = $pageContent -replace '(id="android-apk-btn"[^>]*href=")[^"]*(")', "`${1}$apkDownloadUrl`${2}"
+    $pageContent = $pageContent -replace 'download="TulasiRestaurants(?:_v[\d.]+)?\.apk"', "download=`"$apkName`""
+    $pageContent = $pageContent -replace '(<strong>Version:</strong> v)\d+\.\d+\.\d+ \(Build \d+\)', "`${1}$releaseVersion (Build $releaseBuild)"
+    $pageContent = $pageContent -replace '(id="windows-exe-btn"[^>]*href=")[^"]*(")', "`${1}$exeDownloadUrl`${2}"
+    $pageContent = $pageContent -replace 'download="TulasiRestaurants_Setup(?:_v[\d.]+)?\.exe"', "download=`"$exeName`""
+    [System.IO.File]::WriteAllText($downloadPage, $pageContent, [System.Text.UTF8Encoding]::new($false))
+
+    $ErrorActionPreference = "Continue"
+    gsutil -h "Cache-Control:no-cache,max-age=0" cp $androidVersionPath "$androidStoragePath/version.json"
+    gsutil -h "Content-Type:application/vnd.android.package-archive" -h "Cache-Control:no-cache,max-age=0" cp $apkPath "$androidStoragePath/TulasiRestaurants.apk"
+    gsutil -h "Content-Type:application/vnd.android.package-archive" -h "Cache-Control:no-cache,max-age=0" cp $apkPath "$androidStoragePath/$apkName"
+    gsutil -h "Cache-Control:no-cache,max-age=0" cp $windowsVersionPath "$windowsStoragePath/version.json"
+    gsutil -h "Content-Type:application/octet-stream" -h "Cache-Control:no-cache,max-age=0" cp $exePath "$windowsStoragePath/TulasiRestaurants_Setup.exe"
+    gsutil -h "Content-Type:application/octet-stream" -h "Cache-Control:no-cache,max-age=0" cp $exePath "$windowsStoragePath/$exeName"
+    $uploadExit = $LASTEXITCODE
+    $ErrorActionPreference = "Stop"
+    if ($uploadExit -ne 0) { Write-Fail "Firebase Storage upload failed"; exit 1 }
+
+    Write-Step "Deploying the updated download page without rebuilding Flutter web..."
+    $distDir = Join-Path $root "dist"
+    $websiteDir = Join-Path $root "website"
+    $appDir = Join-Path $distDir "app"
+    $appBackup = $null
+    if (Test-Path $appDir) {
+        $appBackup = Join-Path $root "deploy-backups\app_temp_$((Get-Date -Format 'yyyyMMdd_HHmmss'))"
+        New-Item -ItemType Directory -Path $appBackup -Force | Out-Null
+        Copy-Item -Path "$appDir\*" -Destination $appBackup -Recurse -Force
+    }
+    if (Test-Path $distDir) { Remove-Item $distDir -Recurse -Force }
+    New-Item -ItemType Directory -Path $distDir -Force | Out-Null
+    Copy-Item -Path "$websiteDir\*" -Destination $distDir -Recurse -Force
+    if ($appBackup) {
+        New-Item -ItemType Directory -Path $appDir -Force | Out-Null
+        Copy-Item -Path "$appBackup\*" -Destination $appDir -Recurse -Force
+        Remove-Item $appBackup -Recurse -Force
+    }
+    $ErrorActionPreference = "Continue"
+    firebase deploy --only hosting
+    $hostingExit = $LASTEXITCODE
+    $ErrorActionPreference = "Stop"
+    if ($hostingExit -ne 0) { Write-Fail "Firebase Hosting deploy failed"; exit 1 }
+
+    Write-Ok "Published Android and Windows v$releaseVersion+$releaseBuild without rebuilding Flutter web"
+    exit 0
 }
 
 # ===========================================================
@@ -1250,6 +1400,7 @@ WScript.Quit 0
             $pageContent = Get-Content $downloadPage -Raw
             $pageContent = $pageContent -replace '(id="android-apk-btn"[^>]*href=")[^"]*(")', "`${1}$apkDownloadUrl`${2}"
             $pageContent = $pageContent -replace 'download="TulasiRestaurants(?:_v[\d.]+)?\.apk"', "download=`"$apkStorageName`""
+            $pageContent = $pageContent -replace '(<strong>Version:</strong> v)\d+\.\d+\.\d+ \(Build \d+\)', "`${1}$newVersion (Build $newBuild)"
             [System.IO.File]::WriteAllText($downloadPage, $pageContent, [System.Text.UTF8Encoding]::new($false))
         }
         Write-Ok "Android release prepared; the final push triggers GitHub Actions to sign and upload it"

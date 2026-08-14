@@ -1,16 +1,10 @@
 # ────────────────────────────────────────────────────────
 # Loop 2 — Continuous Deployment Pipeline
-# Deploys to Firebase Hosting (web) and builds release APK
-# Triggered on pushes to main branch only (after CI passes)
+# Deploys selected release targets on explicit manual dispatch.
 # ────────────────────────────────────────────────────────
 name: "Loop 2 — Deploy"
 
 on:
-  push:
-    branches: [main]
-    paths-ignore:
-      - "**.md"
-      - "docs/**"
   workflow_dispatch:
     inputs:
       target:
@@ -20,6 +14,8 @@ on:
         options:
           - web
           - android
+          - windows
+          - apps
           - both
         default: both
       android_changelog:
@@ -43,7 +39,7 @@ jobs:
   deploy-web:
     name: "Deploy Web → Firebase Hosting"
     runs-on: ubuntu-latest
-    if: ${{ github.event_name == 'push' || github.event.inputs.target == 'web' || github.event.inputs.target == 'both' }}
+    if: ${{ github.event.inputs.target == 'web' || github.event.inputs.target == 'both' }}
     timeout-minutes: 20
     permissions:
       contents: read
@@ -74,7 +70,7 @@ jobs:
   build-release-apk:
     name: "Build Release APK"
     runs-on: ubuntu-latest
-    if: ${{ github.event_name == 'push' || github.event.inputs.target == 'android' || github.event.inputs.target == 'both' }}
+    if: ${{ github.event.inputs.target == 'android' || github.event.inputs.target == 'apps' || github.event.inputs.target == 'both' }}
     timeout-minutes: 30
     permissions:
       contents: write
@@ -199,11 +195,87 @@ jobs:
       #     track: internal
       #     status: completed
 
+  # ─── Build Windows installer ───
+  build-windows-installer:
+    name: "Build Windows Installer"
+    runs-on: windows-latest
+    if: ${{ github.event.inputs.target == 'windows' || github.event.inputs.target == 'apps' }}
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build Windows release
+        run: flutter build windows --release --dart-define=RAZORPAY_KEY_ID=${{ secrets.RAZORPAY_KEY_ID }}
+
+      - name: Install Inno Setup
+        shell: pwsh
+        run: choco install innosetup --no-progress --yes
+
+      - name: Create Windows installer
+        shell: pwsh
+        run: |
+          $version = (Select-String -Path pubspec.yaml -Pattern '^version:\s*([^+]+)\+' | Select-Object -First 1).Matches.Groups[1].Value
+          (Get-Content installer\windows\TulasiRestaurants_Installer.iss -Raw) -replace '#define MyAppVersion "[\d.]+"', "#define MyAppVersion `"$version`"" | Set-Content installer\windows\TulasiRestaurants_Installer.iss -NoNewline
+          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" installer\windows\TulasiRestaurants_Installer.iss
+
+      - name: Create Windows update metadata
+        shell: pwsh
+        run: |
+          $match = Select-String -Path pubspec.yaml -Pattern '^version:\s*([^+]+)\+(\d+)' | Select-Object -First 1
+          $version = $match.Matches.Groups[1].Value
+          $buildNumber = [int]$match.Matches.Groups[2].Value
+          $installerName = "TulasiRestaurants_Setup_v$version.exe"
+          $downloadUrl = "https://firebasestorage.googleapis.com/v0/b/login1-aa21c.firebasestorage.app/o/downloads%2Fwindows%2F$installerName`?alt=media"
+          [ordered]@{
+            version = $version
+            buildNumber = $buildNumber
+            exeDownloadUrl = $downloadUrl
+            storeUrl = 'https://apps.microsoft.com/detail/tulasi-stores'
+            changelog = 'Bug fixes and improvements'
+            forceUpdate = $false
+          } | ConvertTo-Json | Set-Content installer\version.json -NoNewline
+          "WINDOWS_INSTALLER_NAME=$installerName" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: Authenticate for Firebase Storage
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+
+      - name: Set up Google Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Upload Windows installer and version metadata
+        shell: pwsh
+        run: |
+          $storagePath = 'gs://login1-aa21c.firebasestorage.app/downloads/windows'
+          $installerPath = 'build\installer\TulasiRestaurants_Setup.exe'
+          gsutil -h 'Cache-Control:no-cache,max-age=0' cp installer\version.json "$storagePath/version.json"
+          gsutil -h 'Content-Type:application/octet-stream' -h 'Cache-Control:no-cache,max-age=0' cp $installerPath "$storagePath/TulasiRestaurants_Setup.exe"
+          gsutil -h 'Content-Type:application/octet-stream' -h 'Cache-Control:no-cache,max-age=0' cp $installerPath "$storagePath/$env:WINDOWS_INSTALLER_NAME"
+
+      - name: Upload Windows installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-windows-installer
+          path: build/installer/TulasiRestaurants_Setup.exe
+          retention-days: 30
+
   # ─── Deploy Cloud Functions ───
   deploy-functions:
     name: "Deploy Cloud Functions"
     runs-on: ubuntu-latest
-    if: ${{ github.event_name == 'push' || github.event.inputs.target == 'both' }}
+    if: ${{ github.event.inputs.target == 'both' }}
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
@@ -254,7 +326,7 @@ jobs:
   deploy-rules:
     name: "Deploy Firestore Rules"
     runs-on: ubuntu-latest
-    if: ${{ github.event_name == 'push' || github.event.inputs.target == 'both' }}
+    if: ${{ github.event.inputs.target == 'both' }}
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
