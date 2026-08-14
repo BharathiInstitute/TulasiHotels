@@ -39,7 +39,7 @@ jobs:
   deploy-web:
     name: "Deploy Web → Firebase Hosting"
     runs-on: ubuntu-latest
-    if: ${{ github.event.inputs.target == 'web' || github.event.inputs.target == 'both' }}
+    if: ${{ inputs.target == 'web' || inputs.target == 'both' }}
     timeout-minutes: 20
     permissions:
       contents: read
@@ -70,7 +70,7 @@ jobs:
   build-release-apk:
     name: "Build Release APK"
     runs-on: ubuntu-latest
-    if: ${{ github.event.inputs.target == 'android' || github.event.inputs.target == 'apps' || github.event.inputs.target == 'both' }}
+    if: ${{ inputs.target == 'android' || inputs.target == 'apps' || inputs.target == 'both' }}
     timeout-minutes: 30
     permissions:
       contents: write
@@ -199,7 +199,7 @@ jobs:
   build-windows-installer:
     name: "Build Windows Installer"
     runs-on: windows-latest
-    if: ${{ github.event.inputs.target == 'windows' || github.event.inputs.target == 'apps' }}
+    if: ${{ inputs.target == 'windows' || inputs.target == 'apps' }}
     timeout-minutes: 30
     permissions:
       contents: read
@@ -275,7 +275,7 @@ jobs:
   deploy-functions:
     name: "Deploy Cloud Functions"
     runs-on: ubuntu-latest
-    if: ${{ github.event.inputs.target == 'both' }}
+    if: ${{ inputs.target == 'both' }}
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
@@ -326,7 +326,7 @@ jobs:
   deploy-rules:
     name: "Deploy Firestore Rules"
     runs-on: ubuntu-latest
-    if: ${{ github.event.inputs.target == 'both' }}
+    if: ${{ inputs.target == 'both' }}
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4

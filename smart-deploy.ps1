@@ -5,6 +5,7 @@
 #        .\smart-deploy.ps1 -WebsiteOnly                  # Deploy marketing website only (no Flutter build)
 #        .\smart-deploy.ps1 -PublishExisting              # Publish current APK + EXE and static download page
 #        .\smart-deploy.ps1 -RefreshCiApps                 # Build Android + Windows in CI and download both artifacts
+#        .\smart-deploy.ps1 -RefreshCiAndroid              # Build Android in CI and download the APK
 #        .\smart-deploy.ps1 -Rollback                    # Rollback all platforms
 #        .\smart-deploy.ps1 -Rollback -RollbackTarget web  # Rollback web only
 #        .\smart-deploy.ps1 -DryRun                      # Preview without deploying
@@ -17,6 +18,7 @@ param(
     [switch]$WebsiteOnly,
     [switch]$PublishExisting,
     [switch]$RefreshCiApps,
+    [switch]$RefreshCiAndroid,
     [string]$RollbackTarget = ""   # web, windows, android, or blank for all
 )
 
@@ -155,13 +157,15 @@ function Save-Progress {
 # ===========================================================
 #   --RefreshCiApps: CI build and download, no web deploy
 # ===========================================================
-if ($RefreshCiApps) {
+if ($RefreshCiApps -or $RefreshCiAndroid) {
     if (-not (Test-CommandAvailable "gh")) { Write-Fail "GitHub CLI is required. Install and authenticate with 'gh auth login'."; exit 1 }
 
     $branch = (git branch --show-current).Trim()
     if ([string]::IsNullOrWhiteSpace($branch)) { $branch = "main" }
-    Write-Step "Starting Android + Windows CI build on $branch (web deployment is skipped)..."
-    gh workflow run loop2-deploy.yml --ref $branch --field target=apps
+    $ciTarget = if ($RefreshCiAndroid) { "android" } else { "apps" }
+    $artifactLabel = if ($RefreshCiAndroid) { "Android" } else { "Android + Windows" }
+    Write-Step "Starting $artifactLabel CI build on $branch (web deployment is skipped)..."
+    gh workflow run loop2-deploy.yml --ref $branch --raw-field "target=$ciTarget"
     if ($LASTEXITCODE -ne 0) { Write-Fail "Could not start the CI workflow"; exit 1 }
 
     $runId = (gh run list --workflow loop2-deploy.yml --branch $branch --event workflow_dispatch --limit 1 --json databaseId --jq '.[0].databaseId').Trim()
@@ -180,12 +184,14 @@ if ($RefreshCiApps) {
     New-Item -ItemType Directory -Path $windowsOutputDir -Force | Out-Null
     gh run download $runId --name release-apk --dir $apkOutputDir
     if ($LASTEXITCODE -ne 0) { Write-Fail "Could not download the Android CI artifact"; exit 1 }
-    gh run download $runId --name release-windows-installer --dir $windowsOutputDir
-    if ($LASTEXITCODE -ne 0) { Write-Fail "Could not download the Windows CI artifact"; exit 1 }
+    if (-not $RefreshCiAndroid) {
+        gh run download $runId --name release-windows-installer --dir $windowsOutputDir
+        if ($LASTEXITCODE -ne 0) { Write-Fail "Could not download the Windows CI artifact"; exit 1 }
+    }
 
-    Write-Ok "CI artifacts downloaded without deploying web:"
+    Write-Ok "$artifactLabel CI artifacts downloaded without deploying web:"
     Write-Info "  Android: $(Join-Path $apkOutputDir 'app-release.apk')"
-    Write-Info "  Windows: $(Join-Path $windowsOutputDir 'TulasiRestaurants_Setup.exe')"
+    if (-not $RefreshCiAndroid) { Write-Info "  Windows: $(Join-Path $windowsOutputDir 'TulasiRestaurants_Setup.exe')" }
     exit 0
 }
 
