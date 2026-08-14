@@ -113,11 +113,6 @@ class PermissionPanels {
       collections: ['events', 'compliance_logs'],
     ),
     PermissionPanelDef(
-      route: AppRoutes.settings,
-      label: 'Settings Panel',
-      collections: ['general_settings', 'account_settings', 'billing_settings'],
-    ),
-    PermissionPanelDef(
       route: AppRoutes.subscription,
       label: 'Subscription Panel',
       collections: ['subscription', 'plan_limits'],

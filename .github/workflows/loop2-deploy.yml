@@ -22,6 +22,16 @@ on:
           - android
           - both
         default: both
+      android_changelog:
+        description: "Android release notes stored in version.json"
+        required: false
+        type: string
+        default: "Bug fixes and improvements"
+      android_force_update:
+        description: "Mark this Android release as mandatory"
+        required: false
+        type: boolean
+        default: false
 
 # Cancel in-progress runs for the same branch
 concurrency:
@@ -93,6 +103,7 @@ jobs:
           [ -n "${{ secrets.KEY_PASSWORD }}" ] || (echo "Missing GitHub secret: KEY_PASSWORD" && exit 1)
           [ -n "${{ secrets.KEY_ALIAS }}" ] || (echo "Missing GitHub secret: KEY_ALIAS" && exit 1)
           [ -n "${{ secrets.EXPECTED_UPLOAD_SHA1 }}" ] || (echo "Missing GitHub secret: EXPECTED_UPLOAD_SHA1" && exit 1)
+          [ -n "${{ secrets.FIREBASE_SERVICE_ACCOUNT }}" ] || (echo "Missing GitHub secret: FIREBASE_SERVICE_ACCOUNT" && exit 1)
 
       - name: Decode keystore
         run: echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > android/app/release.jks
@@ -120,6 +131,48 @@ jobs:
           echo "AAB SHA1: $ACTUAL_SHA1"
           echo "Expected: $EXPECTED_SHA1"
           [ "$ACTUAL_SHA1" = "$EXPECTED_SHA1" ] || (echo "AAB signing SHA1 mismatch" && exit 1)
+
+      - name: Create Android update metadata
+        env:
+          ANDROID_CHANGELOG: ${{ github.event.inputs.android_changelog || 'Bug fixes and improvements' }}
+          ANDROID_FORCE_UPDATE: ${{ github.event.inputs.android_force_update || 'false' }}
+        run: |
+          APP_VERSION=$(sed -nE 's/^version:[[:space:]]*([^+]+)\+[0-9]+.*/\1/p' pubspec.yaml | head -n 1)
+          BUILD_NUMBER=$(sed -nE 's/^version:[[:space:]]*[^+]+\+([0-9]+).*/\1/p' pubspec.yaml | head -n 1)
+          test -n "$APP_VERSION" && test -n "$BUILD_NUMBER"
+          APK_NAME="TulasiRestaurants_v${APP_VERSION}.apk"
+          DOWNLOAD_URL="https://firebasestorage.googleapis.com/v0/b/login1-aa21c.firebasestorage.app/o/downloads%2Fandroid%2F${APK_NAME}?alt=media"
+          if [ "${{ github.event_name }}" != "workflow_dispatch" ] && [ -f installer/android-version.json ] && [ "$(jq -r '.version // empty' installer/android-version.json)" = "$APP_VERSION" ]; then
+            ANDROID_CHANGELOG=$(jq -r '.changelog // "Bug fixes and improvements"' installer/android-version.json)
+            ANDROID_FORCE_UPDATE=$(jq -r '.forceUpdate // false' installer/android-version.json)
+          fi
+          jq -n \
+            --arg version "$APP_VERSION" \
+            --argjson buildNumber "$BUILD_NUMBER" \
+            --arg downloadUrl "$DOWNLOAD_URL" \
+            --arg changelog "$ANDROID_CHANGELOG" \
+            --argjson forceUpdate "$ANDROID_FORCE_UPDATE" \
+            '{version: $version, buildNumber: $buildNumber, downloadUrl: $downloadUrl, changelog: $changelog, forceUpdate: $forceUpdate}' \
+            > installer/android-version.json
+          {
+            echo "ANDROID_APK_NAME=$APK_NAME"
+            echo "ANDROID_VERSION=$APP_VERSION"
+          } >> "$GITHUB_ENV"
+
+      - name: Authenticate for Firebase Storage
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+
+      - name: Set up Google Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Upload APK and version metadata to Firebase Storage
+        run: |
+          STORAGE_PATH="gs://login1-aa21c.firebasestorage.app/downloads/android"
+          gsutil -h "Cache-Control:no-cache,max-age=0" cp installer/android-version.json "$STORAGE_PATH/version.json"
+          gsutil -h "Content-Type:application/vnd.android.package-archive" -h "Cache-Control:no-cache,max-age=0" cp build/app/outputs/flutter-apk/app-release.apk "$STORAGE_PATH/TulasiRestaurants.apk"
+          gsutil -h "Content-Type:application/vnd.android.package-archive" -h "Cache-Control:no-cache,max-age=0" cp build/app/outputs/flutter-apk/app-release.apk "$STORAGE_PATH/$ANDROID_APK_NAME"
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4

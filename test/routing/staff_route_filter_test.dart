@@ -64,13 +64,16 @@ void main() {
       expect(routes, isNot(contains(AppRoutes.kitchen)));
     });
 
-    test('manager sees all catalog routes', () {
+    test('manager sees business catalog routes but not owner settings', () {
       final manager = _roleStaff(StaffRole.manager, pin: '0000');
       final routes = _visibleRoutes(manager);
 
       for (final screen in PermissionConfig.allScreens) {
+        if (screen.route == AppRoutes.settings) continue;
         expect(routes, contains(screen.route));
       }
+      expect(routes, isNot(contains(AppRoutes.settings)));
+      expect(routes, contains(AppRoutes.settingsHardware));
     });
   });
 

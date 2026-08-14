@@ -26,9 +26,9 @@ val releaseStoreFile = if (keystorePropertiesFile.exists()) {
     file("upload-keystore.jks")
 }
 
-val releaseStorePassword = keystoreProperties.getProperty("storePassword") ?: "Tulasi@2026"
-val releaseKeyAlias = keystoreProperties.getProperty("keyAlias") ?: "upload"
-val releaseKeyPassword = keystoreProperties.getProperty("keyPassword") ?: "Tulasi@2026"
+val releaseStorePassword = keystoreProperties.getProperty("storePassword") ?: ""
+val releaseKeyAlias = keystoreProperties.getProperty("keyAlias") ?: ""
+val releaseKeyPassword = keystoreProperties.getProperty("keyPassword") ?: ""
 
 val hasSigningConfig = releaseStoreFile.exists() && releaseStorePassword.isNotBlank() && releaseKeyAlias.isNotBlank() && releaseKeyPassword.isNotBlank()
 

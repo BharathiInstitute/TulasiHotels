@@ -61,8 +61,16 @@ class ModuleMutationGuard {
       throw const ModulePermissionDenied('You must be signed in.');
     }
 
-    // When a staff session is active, enforce staff/member permissions.
-    final isOwner = staff == null && storeId == user.uid;
+    // A store can have its own document ID, so owners are identified by either
+    // the legacy document-ID convention or the store's ownerUid field.
+    var isOwner = staff == null && storeId == user.uid;
+    if (!isOwner && staff == null) {
+      final storeDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(storeId)
+          .get();
+      isOwner = storeDoc.data()?['ownerUid'] == user.uid;
+    }
 
     StoreMember? member;
     if (!isOwner && staff == null) {

@@ -56,7 +56,7 @@ void main() {
       );
     });
 
-    test('legacy accountant member gets settings view fallback only', () {
+    test('general settings are reserved for the owner', () {
       final member = StoreMember(
         uid: 'member-1',
         email: 'accountant@example.com',
@@ -72,7 +72,7 @@ void main() {
           isOwner: false,
           member: member,
         ),
-        isTrue,
+        isFalse,
       );
       expect(
         PermissionCenter.hasAction(
@@ -91,6 +91,22 @@ void main() {
         ),
         isFalse,
       );
+    });
+
+    test('only subscription and hardware remain assignable in settings', () {
+      final settingsPanels = PermissionPanels.all
+          .where(
+            (panel) =>
+                PermissionPanels.panelCategoryForRoute(panel.route) ==
+                PermissionConfig.settingsCategory,
+          )
+          .map((panel) => panel.route)
+          .toSet();
+
+      expect(settingsPanels, {
+        AppRoutes.subscription,
+        AppRoutes.settingsHardware,
+      });
     });
   });
 }

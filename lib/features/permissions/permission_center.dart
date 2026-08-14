@@ -152,6 +152,9 @@ class PermissionCenter {
     if (_isAlwaysViewableUtilityRoute(route)) {
       return true;
     }
+    if (PermissionPanels.resolvePanelRoute(route) == AppRoutes.settings) {
+      return isOwner;
+    }
     if (staff != null) {
       final actions = _staffActionsForRoute(staff, route);
       return actions.contains(PermissionAction.view.key);
@@ -169,6 +172,9 @@ class PermissionCenter {
     StaffModel? staff,
     StoreMember? member,
   }) {
+    if (PermissionPanels.resolvePanelRoute(route) == AppRoutes.settings) {
+      return isOwner;
+    }
     if (staff != null) {
       final actions = _staffActionsForRoute(staff, route);
       return actions.contains(action.key);

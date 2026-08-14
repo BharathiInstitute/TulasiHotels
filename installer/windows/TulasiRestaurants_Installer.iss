@@ -2,7 +2,7 @@
 ; Produces a single installer EXE
 
 #define MyAppName "Tulasi Restaurants"
-#define MyAppVersion "2.0.0"
+#define MyAppVersion "2.0.2"
 #define MyAppPublisher "Bharathi Institute"
 #define MyAppURL "https://restaurants.tulasierp.com"
 #define MyAppExeName "tulasihotels.exe"

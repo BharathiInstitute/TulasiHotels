@@ -57,6 +57,17 @@ Set in: GitHub Ã¢â€ â€™ Repository Settings Ã¢â€ â€™ Secre
 | Secret | Description |
 |--------|-------------|
 | `RAZORPAY_KEY_ID` | Razorpay API key for CI builds |
+| `KEYSTORE_BASE64` | Base64-encoded Android upload keystore (`.jks`) |
+| `KEYSTORE_PASSWORD` | Android upload keystore password |
+| `KEY_PASSWORD` | Android signing key password |
+| `KEY_ALIAS` | Android signing key alias |
+| `EXPECTED_UPLOAD_SHA1` | Expected SHA-1 fingerprint of the Android upload key |
+| `FIREBASE_SERVICE_ACCOUNT` | Firebase project service-account JSON with write access to `downloads/android/` in Storage |
+
+`FIREBASE_SERVICE_ACCOUNT` is used only by the Android release job to upload
+`TulasiRestaurants.apk`, the versioned APK, and `downloads/android/version.json`.
+The service account needs a Storage write role, such as `Storage Object Admin`,
+on the `login1-aa21c` Firebase project's Storage bucket.
 
 ## Firebase Projects
 

@@ -114,19 +114,36 @@ void main() {
       );
     });
 
-    test('manager has full catalog access and CRUD on products', () {
+    test('manager has business catalog access and CRUD on products', () {
       final manager = _roleStaff(StaffRole.manager);
 
-      for (final s in PermissionConfig.allScreens) {
+      for (final screen in PermissionConfig.allScreens) {
+        if (screen.route == AppRoutes.settings) continue;
         expect(
           PermissionCenter.canView(
-            route: s.route,
+            route: screen.route,
             isOwner: false,
             staff: manager,
           ),
           isTrue,
         );
       }
+      expect(
+        PermissionCenter.canView(
+          route: AppRoutes.settings,
+          isOwner: false,
+          staff: manager,
+        ),
+        isFalse,
+      );
+      expect(
+        PermissionCenter.canView(
+          route: AppRoutes.settingsHardware,
+          isOwner: false,
+          staff: manager,
+        ),
+        isTrue,
+      );
 
       expect(
         PermissionCenter.hasAction(

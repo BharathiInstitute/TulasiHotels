@@ -48,10 +48,11 @@ void main() {
       );
     });
 
-    test('manager can view all catalog screens', () {
+    test('manager can view business catalog screens but not owner settings', () {
       final manager = _roleStaff(StaffRole.manager);
 
       for (final screen in PermissionConfig.allScreens) {
+        if (screen.route == AppRoutes.settings) continue;
         expect(
           PermissionCenter.canView(
             route: screen.route,
@@ -62,6 +63,22 @@ void main() {
           reason: 'Manager should view ${screen.route}',
         );
       }
+      expect(
+        PermissionCenter.canView(
+          route: AppRoutes.settings,
+          isOwner: false,
+          staff: manager,
+        ),
+        isFalse,
+      );
+      expect(
+        PermissionCenter.canView(
+          route: AppRoutes.settingsHardware,
+          isOwner: false,
+          staff: manager,
+        ),
+        isTrue,
+      );
     });
 
     test('child route resolution supports dynamic order paths', () {

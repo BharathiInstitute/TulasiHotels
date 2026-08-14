@@ -787,7 +787,7 @@ if (-not $resumed) {
         Write-Host "    > Backup current deployment" -ForegroundColor Gray
         if ($deployWeb) { Write-Host "    > Build Web & Host + health check" -ForegroundColor Gray }
         if ($deployWindows) { Write-Host "    > Build EXE + upload to Storage" -ForegroundColor Gray }
-        if ($deployAndroid) { Write-Host "    > Build APK + update version.json + upload to Storage" -ForegroundColor Gray }
+        if ($deployAndroid) { Write-Host "    > Push version changes; GitHub Actions builds, signs, and uploads the APK" -ForegroundColor Gray }
         Write-Host "    > Git commit + tag + push" -ForegroundColor Gray
     }
     Write-Host ""
@@ -862,7 +862,7 @@ if ($DryRun) {
     if ($deployWebsiteOnly) { Write-Info "Would copy website/ to dist/ + deploy to Firebase Hosting + health check" }
     if ($deployWeb) { Write-Info "Would build Flutter web + copy website + deploy to Firebase Hosting + health check" }
     if ($deployWindows) { Write-Info "Would build Windows + create $winChoiceLabel + upload to Storage" }
-    if ($deployAndroid) { Write-Info "Would build Android APK + upload to Storage" }
+    if ($deployAndroid) { Write-Info "Would push version changes; GitHub Actions would build and upload Android" }
     if (-not $skipBuild -and -not $deployWebsiteOnly) { Write-Info "Would git commit + tag v$newVersion+$newBuild + push" }
     if ($forceMinVersion) { Write-Info "Would set Remote Config: min_app_version = $forceMinVersion" }
     if ($announcementMsg) { Write-Info "Would set Remote Config: announcement = $announcementMsg" }
@@ -893,7 +893,7 @@ try {
     if (-not $skipBuild -and -not $deployWebsiteOnly -and -not $failed -and -not (Test-StepDone "tests")) {
         Write-Step "Running tests..."
         $ErrorActionPreference = "Continue"
-        flutter test --reporter compact
+        flutter test --concurrency=1 --reporter compact
         $testExit = $LASTEXITCODE
         $ErrorActionPreference = "Stop"
         if ($testExit -ne 0) {
@@ -1028,10 +1028,13 @@ try {
             # ========== INNO SETUP EXE INSTALLER (for Web Download -- 85-90% coverage) ==========
             if ($buildExe) {
                 Write-Step "Creating Inno Setup EXE installer (for web download)..."
-                $issPath = Join-Path $root "installer\TulasiRestaurants_Setup.iss"
+                $issPath = Join-Path $root "installer\windows\TulasiRestaurants_Installer.iss"
                 $isccPath = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+                $installerOutputDir = Join-Path $root "build\installer"
 
                 if ((Test-Path $issPath) -and (Test-Path $isccPath)) {
+                    New-Item -ItemType Directory -Path $installerOutputDir -Force | Out-Null
+
                     # Update version in .iss file
                     $issContent = Get-Content $issPath -Raw
                     $issContent = $issContent -replace '#define MyAppVersion "[\d.]+"', "#define MyAppVersion `"$newVersion`""
@@ -1054,7 +1057,7 @@ try {
                         }
                     }
                     else {
-                        $exeFile = Join-Path $root "installer\Output\TulasiRestaurants_Setup.exe"
+                        $exeFile = Join-Path $root "build\installer\TulasiRestaurants_Setup.exe"
                         if (Test-Path $exeFile) {
                             $exeSize = "{0:N1} MB" -f ((Get-Item $exeFile).Length / 1MB)
                             Write-Ok "EXE installer created ($exeSize)"
@@ -1227,152 +1230,34 @@ WScript.Quit 0
         Write-Info "SKIP: Windows already built + uploaded"
     }
 
-    # --- Build and Deploy: Android --- [RUNS BEFORE Web so download.html has APK link before web deploy]
+    # --- Prepare Android release for GitHub Actions ---
     if (-not $failed -and $deployAndroid -and -not (Test-StepDone "android")) {
-        Write-Step "Building Android APK..."
-        $ErrorActionPreference = "Continue"
-        flutter build apk --release
-        $apkExit = $LASTEXITCODE
-        $ErrorActionPreference = "Stop"
-        if ($apkExit -ne 0) {
-            Write-Fail "Android build failed!"
-            $failed = $true
+        Write-Step "Preparing Android release for GitHub Actions..."
+        $androidVersionPath = Join-Path $root "installer\android-version.json"
+        $apkStorageName = "TulasiRestaurants_v$newVersion.apk"
+        $apkDownloadUrl = "https://firebasestorage.googleapis.com/v0/b/login1-aa21c.firebasestorage.app/o/downloads%2Fandroid%2F$apkStorageName`?alt=media"
+        $versionJson = @{
+            version     = $newVersion
+            buildNumber = [int]$newBuild
+            downloadUrl = $apkDownloadUrl
+            changelog   = $changelog
+            forceUpdate = ($updateType -eq 3)
+        } | ConvertTo-Json -Depth 3
+        [System.IO.File]::WriteAllText($androidVersionPath, $versionJson, [System.Text.UTF8Encoding]::new($false))
+
+        $downloadPage = Join-Path $root "website\src\pages\download.html"
+        if (Test-Path $downloadPage) {
+            $pageContent = Get-Content $downloadPage -Raw
+            $pageContent = $pageContent -replace '(id="android-apk-btn"[^>]*href=")[^"]*(")', "`${1}$apkDownloadUrl`${2}"
+            $pageContent = $pageContent -replace 'download="TulasiRestaurants(?:_v[\d.]+)?\.apk"', "download=`"$apkStorageName`""
+            [System.IO.File]::WriteAllText($downloadPage, $pageContent, [System.Text.UTF8Encoding]::new($false))
         }
-        else {
-            $apkPath = Join-Path $root "build\app\outputs\flutter-apk\app-release.apk"
-            $apkSize = if (Test-Path $apkPath) { "{0:N1} MB" -f ((Get-Item $apkPath).Length / 1MB) } else { "unknown" }
-            Write-Ok "APK built ($apkSize)"
-            Write-DeployLog "ANDROID BUILT | $apkSize"
-
-            # Update android-version.json
-            $androidVersionPath = Join-Path $root "installer\android-version.json"
-            $apkStorageName = "TulasiRestaurants.apk"
-            $apkStorageNameWeb = "TulasiRestaurants_v$newVersion.apk"
-            $apkDownloadUrl = "https://firebasestorage.googleapis.com/v0/b/login1-aa21c.firebasestorage.app/o/downloads%2Fandroid%2F$apkStorageNameWeb`?alt=media"
-            $apkDownloadUrlWeb = "https://firebasestorage.googleapis.com/v0/b/login1-aa21c.firebasestorage.app/o/downloads%2Fandroid%2F$apkStorageNameWeb`?alt=media"
-
-            $versionJson = @{
-                version     = $newVersion
-                buildNumber = [int]$newBuild
-                downloadUrl = $apkDownloadUrl
-                changelog   = $changelog
-                forceUpdate = ($updateType -eq 3)
-            } | ConvertTo-Json -Depth 3
-            [System.IO.File]::WriteAllText($androidVersionPath, $versionJson, [System.Text.UTF8Encoding]::new($false))
-            Write-Ok "android-version.json updated to v$newVersion"
-
-            # Auto-update website download page with new APK version
-            $downloadPage = Join-Path $root "website\src\pages\download.html"
-            if (Test-Path $downloadPage) {
-                Write-Step "Updating website download page (Android)..."
-                $pageContent = Get-Content $downloadPage -Raw
-
-                # Keep direct APK button pointing to latest stable APK URL
-                $pageContent = $pageContent -replace '(id="android-apk-btn"[^>]*href=")[^"]*(")', "`${1}$apkDownloadUrlWeb`${2}"
-
-                # Keep download attribute versioned so browser download notifications show vX.Y.Z filename
-                $pageContent = $pageContent -replace 'download="TulasiRestaurants(?:_v[\d.]+)?\.apk"', "download=`"TulasiRestaurants_v$newVersion.apk`""
-
-                # Update APK file size display only (URL is now fixed/stable)
-                if (Test-Path $apkPath) {
-                    $apkSizeMB = [math]::Round((Get-Item $apkPath).Length / 1MB)
-                    $pageContent = $pageContent -replace '(<span>~)\d+ MB(</span>\s*\n\s*<span>v[\d.]+</span>\s*\n\s*</div>\s*\n\s*<a href="https://firebasestorage[^"]*android)', "`${1}$apkSizeMB MB`${2}"
-                }
-
-                [System.IO.File]::WriteAllText($downloadPage, $pageContent, [System.Text.UTF8Encoding]::new($false))
-                Write-Ok "download.html updated with Android v$newVersion"
-                Write-DeployLog "WEBSITE | download.html Android updated to v$newVersion"
-            }
-
-            # Upload APK to Firebase Storage
-            $gsutilExists = Get-Command gsutil -ErrorAction SilentlyContinue
-            if ($gsutilExists) {
-                $storagePath = "gs://login1-aa21c.firebasestorage.app/downloads/android/"
-
-                # Upload version.json + APK (overwrite single fixed filename)
-                Write-Step "Uploading APK + version.json to Firebase Storage..."
-                gsutil cp $androidVersionPath "${storagePath}version.json"
-                gsutil setmeta -h "Cache-Control:no-cache,max-age=0" "${storagePath}version.json"
-
-                if (Test-Path $apkPath) {
-                    gsutil cp $apkPath "${storagePath}$apkStorageName"
-                    gsutil setmeta -h "Content-Type:application/vnd.android.package-archive" -h "Cache-Control:no-cache,max-age=0" "${storagePath}$apkStorageName"
-                    gsutil cp $apkPath "${storagePath}$apkStorageNameWeb"
-                    gsutil setmeta -h "Content-Type:application/vnd.android.package-archive" -h "Cache-Control:no-cache,max-age=0" "${storagePath}$apkStorageNameWeb"
-                    Write-Ok "APK uploaded: $apkStorageName"
-                }
-
-                $ErrorActionPreference = "Stop"
-                Write-Ok "Android uploaded to Firebase Storage"
-                Write-DeployLog "FIREBASE UPLOAD | Android APK + version.json"
-            }
-            else {
-                Write-Warn "gsutil not found - upload APK manually:"
-                Write-Info "  Firebase Console > Storage > updates/android/"
-                Write-Info "  Upload: version.json + $apkStorageName"
-            }
-
-            # --- Build AAB for Play Store Closed Testing ---
-            Write-Step "Building Android App Bundle (AAB) for Play Store..."
-            $ErrorActionPreference = "Continue"
-            flutter build appbundle --release
-            $aabExit = $LASTEXITCODE
-            $ErrorActionPreference = "Stop"
-            $aabPath = Join-Path $root "build\app\outputs\bundle\release\app-release.aab"
-            if ($aabExit -eq 0 -and (Test-Path $aabPath)) {
-                $aabSize = "{0:N1} MB" -f ((Get-Item $aabPath).Length / 1MB)
-                Write-Ok "AAB built ($aabSize)"
-                Write-DeployLog "ANDROID AAB BUILT | $aabSize"
-
-                # Copy AAB to easy-to-find location
-                $aabDest = Join-Path $root "build\PlayStore-v$newVersion.aab"
-                Copy-Item $aabPath $aabDest -Force
-                Write-Ok "AAB copied to: $aabDest"
-
-                # Open Play Console and file explorer
-                Write-Host ""
-                Write-Host "  ========================================================" -ForegroundColor Magenta
-                Write-Host "  PLAY STORE UPLOAD - Upload AAB to Closed Testing" -ForegroundColor Magenta
-                Write-Host "  ========================================================" -ForegroundColor Magenta
-                Write-Host "  AAB file: $aabDest" -ForegroundColor Yellow
-                Write-Host "  Size: $aabSize" -ForegroundColor Gray
-                Write-Host ""
-                Write-Host "  Opening Play Console and file location..." -ForegroundColor Gray
-
-                # Open file explorer with AAB selected
-                Start-Process explorer.exe "/select,`"$aabDest`""
-
-                # Open Play Console closed testing page
-                Start-Process "https://play.google.com/console/developers/app/tracks/closed-testing"
-
-                Write-Host ""
-                Write-Host "  Steps:" -ForegroundColor Cyan
-                Write-Host "    1. Click 'Create new release' in Play Console" -ForegroundColor White
-                Write-Host "    2. Drag the AAB file from the opened folder" -ForegroundColor White
-                Write-Host "    3. Add release notes: $($changelog.Substring(0, [Math]::Min(50, $changelog.Length)))..." -ForegroundColor White
-                Write-Host "    4. Click Save > Review > Roll out" -ForegroundColor White
-                Write-Host ""
-
-                $uploaded = Read-Host "  Press ENTER after uploading to Play Console (or 's' to skip)"
-                if ($uploaded -ne 's') {
-                    Write-Ok "Play Store closed testing release done!"
-                    Write-DeployLog "PLAY STORE | AAB v$newVersion uploaded to closed testing"
-                }
-                else {
-                    Write-Warn "Skipped Play Store upload -- remember to upload manually!"
-                    Write-DeployLog "PLAY STORE | AAB v$newVersion built but upload skipped"
-                }
-            }
-            else {
-                Write-Warn "AAB build failed -- APK was uploaded to Firebase Storage, but Play Store upload skipped"
-                Write-DeployLog "ANDROID AAB FAILED | APK upload OK, AAB failed"
-            }
-
-            Complete-Step "android"
-        }
+        Write-Ok "Android release prepared; the final push triggers GitHub Actions to sign and upload it"
+        Write-DeployLog "ANDROID CI QUEUED | v$newVersion+$newBuild"
+        Complete-Step "android"
     }
     elseif (Test-StepDone "android") {
-        Write-Info "SKIP: Android already built + uploaded"
+        Write-Info "SKIP: Android release already prepared for GitHub Actions"
     }
 
     # --- Deploy Website Only (no Flutter build) ---
