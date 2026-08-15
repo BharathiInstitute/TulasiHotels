@@ -116,6 +116,7 @@ class PermissionConfig {
       route: AppRoutes.kitchen,
       label: 'Kitchen Display',
       category: ordersCategory,
+      supportedActions: _viewUpdateActions,
     ),
     ScreenDef(
       route: AppRoutes.tables,
@@ -138,6 +139,8 @@ class PermissionConfig {
       route: AppRoutes.myAttendance,
       label: 'My Attendance',
       category: staffCategory,
+      // Only self clock-in/out (create) + viewing own history are enforced.
+      supportedActions: _viewCreateActions,
     ),
     // Inventory
     ScreenDef(
@@ -288,6 +291,7 @@ class PermissionConfig {
       AppRoutes.productDetail,
       AppRoutes.combos,
       AppRoutes.dailySpecials,
+      AppRoutes.ingredients,
     ],
     AppRoutes.khata: [AppRoutes.customerDetail],
     AppRoutes.staff: [

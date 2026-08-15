@@ -94,20 +94,20 @@ class _ReservationsScreenState extends ConsumerState<ReservationsScreen>
                     onAction: _handleAction,
                   ),
           ),
-          // ── Upcoming tab (tomorrow onward, next 7 days) ────────────────
+          // ── Upcoming tab (tomorrow onward) ─────────────────────────────
           upcomingAsync.when(
             loading: () => const Center(child: CircularProgressIndicator()),
             error: (e, _) => Center(child: Text('Error: $e')),
             data: (all) {
               // Exclude today — show only tomorrow+
               final today = DateTime.now();
-              final endOfToday = DateTime(
+              final startOfTomorrow = DateTime(
                 today.year,
                 today.month,
                 today.day,
               ).add(const Duration(days: 1));
               final upcoming = all
-                  .where((r) => r.dateTime.isAfter(endOfToday))
+                  .where((r) => !r.dateTime.isBefore(startOfTomorrow))
                   .toList();
               return upcoming.isEmpty
                   ? const Center(child: Text('No upcoming reservations'))

@@ -12,6 +12,7 @@ import 'package:tulasihotels/features/auth/providers/auth_provider.dart';
 import 'package:tulasihotels/features/staff/providers/staff_provider.dart';
 import 'package:tulasihotels/features/admin/providers/current_member_provider.dart';
 import 'package:tulasihotels/features/permissions/permission_center.dart';
+import 'package:tulasihotels/features/permissions/providers/route_permission_provider.dart';
 import 'package:tulasihotels/features/staff/widgets/staff_clock_widget.dart';
 import 'package:tulasihotels/shared/widgets/logout_dialog.dart';
 import 'package:tulasihotels/shared/widgets/offline_banner.dart';
@@ -167,6 +168,20 @@ class _AppShellState extends ConsumerState<AppShell> {
       return ownerPlanLabel;
     }
     return selectedPlanLabel;
+  }
+
+  /// General/Account/Billing settings tabs are owner-only, so staff must land
+  /// on the first settings tab they actually have permission to view instead
+  /// of hitting a permission-denied screen on /settings/general.
+  String _defaultSettingsPath(bool isOwner) {
+    if (isOwner) return '/settings/general';
+    if (ref.read(routePermissionProvider(AppRoutes.settingsHardware)).canView) {
+      return '/settings/hardware';
+    }
+    if (ref.read(routePermissionProvider(AppRoutes.subscription)).canView) {
+      return '/settings/subscription';
+    }
+    return '/settings/hardware';
   }
 
   @override
@@ -496,6 +511,16 @@ class _AppShellState extends ConsumerState<AppShell> {
                   ..._buildMoreFeaturesSections(context, ref),
 
                   const Divider(height: 1),
+                  // My Profile
+                  _DrawerNavItem(
+                    icon: Icons.person_outline,
+                    label: 'My Profile',
+                    isSelected: false,
+                    onTap: () {
+                      Navigator.pop(context);
+                      context.go(AppRoutes.myProfile);
+                    },
+                  ),
                   // Notifications
                   _DrawerNavItem(
                     icon: Icons.notifications_outlined,
@@ -537,7 +562,7 @@ class _AppShellState extends ConsumerState<AppShell> {
                     isSelected: selectedIndex == 10,
                     onTap: () {
                       Navigator.pop(context);
-                      context.go('/settings/general');
+                      context.go(_defaultSettingsPath(_isCurrentUserOwner()));
                     },
                   ),
                 ],
@@ -548,7 +573,7 @@ class _AppShellState extends ConsumerState<AppShell> {
             GestureDetector(
               onTap: () {
                 Navigator.pop(context);
-                context.go('/settings/general');
+                context.go(_defaultSettingsPath(_isCurrentUserOwner()));
               },
               child: Container(
                 padding: const EdgeInsets.all(12),

@@ -14,6 +14,7 @@ import 'package:tulasihotels/features/staff/providers/staff_provider.dart';
 import 'package:tulasihotels/features/admin/providers/current_member_provider.dart';
 import 'package:tulasihotels/features/hotels/providers/hotel_provider.dart';
 import 'package:tulasihotels/features/permissions/permission_center.dart';
+import 'package:tulasihotels/features/permissions/providers/route_permission_provider.dart';
 import 'package:tulasihotels/features/subscription/models/plan_config.dart';
 import 'package:tulasihotels/features/subscription/providers/subscription_provider.dart';
 import 'package:tulasihotels/core/services/subscription_navigation_service.dart';
@@ -215,6 +216,16 @@ class _WebSidebar extends ConsumerWidget {
               : AppConstants.defaultShopName);
     // Identify if we are in settings (since it might be outside standard index)
     final isSettings = currentPath.startsWith(AppRoutes.settings);
+    // General/Account/Billing tabs are owner-only; staff should land on the
+    // first settings tab they actually have permission to view instead of
+    // hitting a permission-denied screen on /settings/general.
+    final settingsPath = isOwner
+        ? '/settings/general'
+        : ref.watch(routePermissionProvider(AppRoutes.settingsHardware)).canView
+        ? '/settings/hardware'
+        : ref.watch(routePermissionProvider(AppRoutes.subscription)).canView
+        ? '/settings/subscription'
+        : '/settings/hardware';
     final userToggle = ref.watch(sidebarCollapsedProvider);
     final autoCollapsed = MediaQuery.of(context).size.width < 800;
     final isCollapsed = userToggle ?? autoCollapsed;
@@ -701,7 +712,7 @@ class _WebSidebar extends ConsumerWidget {
 
           // User Profile Card (Bottom of Sidebar) - Navigates to Settings
           GestureDetector(
-            onTap: () => context.go('/settings/general'),
+            onTap: () => context.go(settingsPath),
             child: isCollapsed
                 ? Tooltip(
                     message: 'Settings',

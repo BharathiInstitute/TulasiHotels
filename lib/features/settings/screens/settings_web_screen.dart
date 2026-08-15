@@ -399,10 +399,13 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
       case SettingsTab.general:
       case SettingsTab.account:
       case SettingsTab.billing:
-      case SettingsTab.subscription:
       case SettingsTab.attendance:
         return true;
+      // Hardware and Subscription are staff-configurable via the permission
+      // system, so access is governed by the granted view permission instead
+      // of a hardcoded owner-only check.
       case SettingsTab.hardware:
+      case SettingsTab.subscription:
         return false;
     }
   }

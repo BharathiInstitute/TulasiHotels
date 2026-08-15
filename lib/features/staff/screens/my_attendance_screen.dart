@@ -174,9 +174,13 @@ class _MyAttendanceBodyState extends ConsumerState<_MyAttendanceBody> {
 
           const SizedBox(height: 12),
 
-          Row(
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            alignment: WrapAlignment.spaceBetween,
             children: [
-              Expanded(
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 120),
                 child: _SummaryChip(
                   icon: Icons.calendar_today,
                   label: 'Days',
@@ -184,8 +188,8 @@ class _MyAttendanceBodyState extends ConsumerState<_MyAttendanceBody> {
                   color: Colors.green,
                 ),
               ),
-              const SizedBox(width: 8),
-              Expanded(
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 150),
                 child: _SummaryChip(
                   icon: Icons.schedule,
                   label: 'Hours',
@@ -193,8 +197,8 @@ class _MyAttendanceBodyState extends ConsumerState<_MyAttendanceBody> {
                   color: Colors.blue,
                 ),
               ),
-              const SizedBox(width: 8),
-              Expanded(
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 150),
                 child: _SummaryChip(
                   icon: Icons.receipt_long,
                   label: 'Records',
@@ -202,40 +206,48 @@ class _MyAttendanceBodyState extends ConsumerState<_MyAttendanceBody> {
                   color: Colors.orange,
                 ),
               ),
-              const Spacer(),
-              GestureDetector(
-                onTap: () async {
-                  final now = DateTime.now();
-                  final picked = await showCustomDateRangePicker(
-                    context: context,
-                    firstDate: DateTime(2024),
-                    lastDate: DateTime(now.year, now.month + 1, 0),
-                    initialRange: range,
-                  );
-                  if (picked != null) {
-                    ref.read(_myAttendanceRangeProvider.notifier).state =
-                        picked;
-                  }
-                },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    border: Border.all(color: cs.outlineVariant),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.date_range, size: 14, color: cs.primary),
-                      const SizedBox(width: 4),
-                      Text(
-                        '${_fmt(range.start)} - ${_fmt(range.end)}',
-                        style: TextStyle(fontSize: 11, color: cs.onSurface),
-                      ),
-                    ],
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 170),
+                child: GestureDetector(
+                  onTap: () async {
+                    final now = DateTime.now();
+                    final picked = await showCustomDateRangePicker(
+                      context: context,
+                      firstDate: DateTime(2024),
+                      lastDate: DateTime(now.year, now.month + 1, 0),
+                      initialRange: range,
+                    );
+                    if (picked != null) {
+                      ref.read(_myAttendanceRangeProvider.notifier).state =
+                          picked;
+                    }
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: cs.outlineVariant),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.date_range, size: 14, color: cs.primary),
+                        const SizedBox(width: 4),
+                        Flexible(
+                          child: Text(
+                            '${_fmt(range.start)} - ${_fmt(range.end)}',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: cs.onSurface,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -599,36 +611,47 @@ class _DayRecord extends StatelessWidget {
           ...records.map(
             (r) => Padding(
               padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
-              child: Row(
+              child: Wrap(
+                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: 6,
+                runSpacing: 6,
                 children: [
-                  Icon(Icons.login, size: 14, color: Colors.green[700]),
-                  const SizedBox(width: 6),
-                  Text(
-                    _fmtTime(r.clockIn),
-                    style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                    ),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.login, size: 14, color: Colors.green[700]),
+                      const SizedBox(width: 6),
+                      Text(
+                        _fmtTime(r.clockIn),
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
                   ),
                   if (r.clockOut != null) ...[
-                    const SizedBox(width: 8),
-                    Icon(
-                      Icons.arrow_forward,
-                      size: 12,
-                      color: cs.onSurfaceVariant,
-                    ),
-                    const SizedBox(width: 8),
-                    Icon(Icons.logout, size: 14, color: Colors.red[700]),
-                    const SizedBox(width: 6),
-                    Text(
-                      _fmtTime(r.clockOut!),
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                      ),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.arrow_forward,
+                          size: 12,
+                          color: cs.onSurfaceVariant,
+                        ),
+                        const SizedBox(width: 6),
+                        Icon(Icons.logout, size: 14, color: Colors.red[700]),
+                        const SizedBox(width: 6),
+                        Text(
+                          _fmtTime(r.clockOut!),
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
                     ),
                   ] else ...[
-                    const SizedBox(width: 8),
                     Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 8,
@@ -648,7 +671,6 @@ class _DayRecord extends StatelessWidget {
                       ),
                     ),
                   ],
-                  const Spacer(),
                   if (r.clockOut != null)
                     Text(
                       r.workedDurationLabel,

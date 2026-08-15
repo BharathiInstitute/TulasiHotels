@@ -3,12 +3,14 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:tulasihotels/features/auth/providers/auth_provider.dart';
 import 'package:tulasihotels/features/staff/providers/attendance_provider.dart';
 import 'package:tulasihotels/features/staff/providers/staff_provider.dart';
 import 'package:tulasihotels/features/staff/services/attendance_service.dart';
 import 'package:tulasihotels/models/attendance_model.dart';
 import 'package:tulasihotels/models/staff_model.dart';
+import 'package:tulasihotels/router/app_router.dart';
 import 'package:tulasihotels/shared/widgets/custom_date_range_picker.dart';
 
 class AttendanceScreen extends ConsumerWidget {
@@ -183,6 +185,17 @@ class _AttendanceBodyState extends ConsumerState<_AttendanceBody> {
           child: ListView(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
             children: [
+              Align(
+                alignment: Alignment.centerLeft,
+                child: FilledButton.icon(
+                  onPressed: () => context.go(AppRoutes.myProfile),
+                  icon: const Icon(Icons.person_outline),
+                  label: const Text('My Profile'),
+                ),
+              ),
+
+              const SizedBox(height: 12),
+
               // ── User clock card ──────────────────────────────────
               _UserClockCard(
                 userName: userName,
@@ -208,59 +221,77 @@ class _AttendanceBodyState extends ConsumerState<_AttendanceBody> {
               const SizedBox(height: 12),
 
               // ── Month summary chips + date range picker ──────────
-              Row(
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                alignment: WrapAlignment.spaceBetween,
                 children: [
-                  _SummaryChip(
-                    icon: Icons.calendar_today,
-                    label: 'Days',
-                    value: '$presentDays',
-                    color: Colors.green,
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 120),
+                    child: _SummaryChip(
+                      icon: Icons.calendar_today,
+                      label: 'Days',
+                      value: '$presentDays',
+                      color: Colors.green,
+                    ),
                   ),
-                  const SizedBox(width: 8),
-                  _SummaryChip(
-                    icon: Icons.schedule,
-                    label: 'Hours',
-                    value: totalHours.toStringAsFixed(1),
-                    color: Colors.blue,
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 150),
+                    child: _SummaryChip(
+                      icon: Icons.schedule,
+                      label: 'Hours',
+                      value: totalHours.toStringAsFixed(1),
+                      color: Colors.blue,
+                    ),
                   ),
-                  const SizedBox(width: 8),
-                  _SummaryChip(
-                    icon: Icons.receipt_long,
-                    label: 'Records',
-                    value: '${records.length}',
-                    color: Colors.orange,
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 150),
+                    child: _SummaryChip(
+                      icon: Icons.receipt_long,
+                      label: 'Records',
+                      value: '${records.length}',
+                      color: Colors.orange,
+                    ),
                   ),
-                  const Spacer(),
-                  GestureDetector(
-                    onTap: () async {
-                      final now = DateTime.now();
-                      final picked = await showCustomDateRangePicker(
-                        context: context,
-                        firstDate: DateTime(2024),
-                        lastDate: DateTime(now.year, now.month + 1, 0),
-                        initialRange: _range,
-                      );
-                      if (picked != null) setState(() => _range = picked);
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: cs.outlineVariant),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.date_range, size: 14, color: cs.primary),
-                          const SizedBox(width: 4),
-                          Text(
-                            '${_fmt(_range.start)} – ${_fmt(_range.end)}',
-                            style: TextStyle(fontSize: 11, color: cs.onSurface),
-                          ),
-                        ],
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 150),
+                    child: GestureDetector(
+                      onTap: () async {
+                        final now = DateTime.now();
+                        final picked = await showCustomDateRangePicker(
+                          context: context,
+                          firstDate: DateTime(2024),
+                          lastDate: DateTime(now.year, now.month + 1, 0),
+                          initialRange: _range,
+                        );
+                        if (picked != null) setState(() => _range = picked);
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: cs.outlineVariant),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.date_range, size: 14, color: cs.primary),
+                            const SizedBox(width: 4),
+                            Flexible(
+                              child: Text(
+                                '${_fmt(_range.start)} – ${_fmt(_range.end)}',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: cs.onSurface,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),

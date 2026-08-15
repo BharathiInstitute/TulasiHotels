@@ -8,6 +8,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:tulasihotels/features/admin/models/store_member.dart';
 import 'package:tulasihotels/features/admin/providers/current_member_provider.dart';
 import 'package:tulasihotels/features/auth/providers/auth_provider.dart';
 import 'package:tulasihotels/features/hotels/models/hotel_info.dart';
@@ -30,6 +31,7 @@ class HotelSelectorScreen extends ConsumerStatefulWidget {
 
 class _HotelSelectorScreenState extends ConsumerState<HotelSelectorScreen> {
   bool _initialized = false;
+  String? _openingHotelId;
 
   @override
   void initState() {
@@ -277,7 +279,10 @@ class _HotelSelectorScreenState extends ConsumerState<HotelSelectorScreen> {
                               activeOwnedCount: ownedHotels
                                   .where((h) => h.status == HotelStatus.active)
                                   .length,
-                              onOpen: () => _openHotel(context, hotel),
+                              isOpening: _openingHotelId == hotel.id,
+                              onOpen: _openingHotelId != null
+                                  ? null
+                                  : () => _openHotel(context, hotel),
                               onToggleStatus: hotel.isOwner
                                   ? () => _toggleHotelStatus(
                                       context,
@@ -504,26 +509,65 @@ class _HotelSelectorScreenState extends ConsumerState<HotelSelectorScreen> {
     );
   }
 
-  void _openHotel(BuildContext context, HotelInfo hotel) {
-    // Set the current hotel and persist for page refresh
-    ref.read(currentHotelIdProvider.notifier).state = hotel.id;
-    ActiveStoreManager.setActiveStore(hotel.id);
-    OfflineStorageService.prefs?.setString('last_hotel_id', hotel.id);
+  Future<void> _openHotel(BuildContext context, HotelInfo hotel) async {
+    if (_openingHotelId != null) return;
+    setState(() => _openingHotelId = hotel.id);
 
-    // Pre-warm Firestore offline cache in the background so products,
-    // customers, and menu items are available when the device goes offline.
-    _prewarmOfflineCache(hotel.id);
-    unawaited(_syncPlanLimits(hotel.id));
+    try {
+      // Set the current hotel and persist for page refresh
+      ref.read(currentHotelIdProvider.notifier).state = hotel.id;
+      ActiveStoreManager.setActiveStore(hotel.id);
+      unawaited(OfflineStorageService.prefs?.setString('last_hotel_id', hotel.id) ??
+          Future.value());
 
-    // Determine starting route based on member permissions.
-    // Read the member doc synchronously (may be null on first load — router
-    // redirect will correct the route once the stream resolves).
-    final member = ref.read(currentMemberProvider).valueOrNull;
-    final home = PermissionCenter.homeRoute(
-      isOwner: hotel.isOwner,
-      member: member,
-    );
-    context.go(home);
+      // Pre-warm Firestore offline cache in the background so products,
+      // customers, and menu items are available when the device goes offline.
+      _prewarmOfflineCache(hotel.id);
+      unawaited(_syncPlanLimits(hotel.id));
+
+      // Non-owners must have their member doc loaded before navigating —
+      // otherwise homeRoute falls back to /billing and the router bounces
+      // straight back to this screen, making "Open" look frozen.
+      StoreMember? member;
+      if (!hotel.isOwner) {
+        member = await _resolveMember();
+        if (!mounted) return;
+        if (member == null) {
+          ref.read(currentHotelIdProvider.notifier).state = null;
+          ActiveStoreManager.clear();
+          if (!context.mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Could not load your access for this restaurant. Please try again.',
+              ),
+            ),
+          );
+          return;
+        }
+      }
+
+      if (!context.mounted) return;
+      final home = PermissionCenter.homeRoute(
+        isOwner: hotel.isOwner,
+        member: member,
+      );
+      context.go(home);
+    } finally {
+      if (mounted) setState(() => _openingHotelId = null);
+    }
+  }
+
+  /// Waits for the member doc of the newly selected store to arrive.
+  Future<StoreMember?> _resolveMember() async {
+    try {
+      return await ref
+          .read(currentMemberProvider.future)
+          .timeout(const Duration(seconds: 10));
+    } catch (e) {
+      debugPrint('⚠️ _resolveMember failed: $e');
+      return null;
+    }
   }
 
   /// Ensures Firestore limits (tablesLimit, staffLimit, etc.) match the
@@ -567,7 +611,8 @@ class _HotelCard extends ConsumerWidget {
   final HotelInfo hotel;
   final List<HotelInfo> allOwnedHotels;
   final int activeOwnedCount;
-  final VoidCallback onOpen;
+  final bool isOpening;
+  final VoidCallback? onOpen;
   final VoidCallback? onToggleStatus;
   final VoidCallback? onActivate;
 
@@ -576,6 +621,7 @@ class _HotelCard extends ConsumerWidget {
     required this.allOwnedHotels,
     required this.activeOwnedCount,
     required this.onOpen,
+    this.isOpening = false,
     this.onToggleStatus,
     this.onActivate,
   });
@@ -719,8 +765,14 @@ class _HotelCard extends ConsumerWidget {
             // Action buttons
             if (hotel.status == HotelStatus.active)
               FilledButton.tonal(
-                onPressed: onOpen,
-                child: const Text('Open'),
+                onPressed: isOpening ? null : onOpen,
+                child: isOpening
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Text('Open'),
               )
             else if (hotel.isOwner && onActivate != null)
               OutlinedButton.icon(

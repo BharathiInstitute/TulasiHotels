@@ -573,10 +573,23 @@ service cloud.firestore {
       // INGREDIENTS (sub-collection for inventory)
       // ===================
       match /ingredients/{ingredientId} {
-        allow read: if isAuthenticated() && (canModuleAction(userId, '/ingredients', 'view') || isAdmin());
-        allow create: if isAuthenticated() && canModuleAction(userId, '/ingredients', 'create') && isReasonableSize();
-        allow update: if isAuthenticated() && canModuleAction(userId, '/ingredients', 'update') && isReasonableSize();
-        allow delete: if isAuthenticated() && canModuleAction(userId, '/ingredients', 'delete');
+        allow read: if isAuthenticated() && (
+          canModuleAction(userId, '/ingredients', 'view') ||
+          canModuleAction(userId, '/products', 'view') ||
+          isAdmin()
+        );
+        allow create: if isAuthenticated() && (
+          canModuleAction(userId, '/ingredients', 'create') ||
+          canModuleAction(userId, '/products', 'create')
+        ) && isReasonableSize();
+        allow update: if isAuthenticated() && (
+          canModuleAction(userId, '/ingredients', 'update') ||
+          canModuleAction(userId, '/products', 'update')
+        ) && isReasonableSize();
+        allow delete: if isAuthenticated() && (
+          canModuleAction(userId, '/ingredients', 'delete') ||
+          canModuleAction(userId, '/products', 'delete')
+        );
       }
 
       // ===================

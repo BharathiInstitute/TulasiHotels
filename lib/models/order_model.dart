@@ -4,14 +4,14 @@ library;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:tulasihotels/models/bill_model.dart';
 
-/// Order status lifecycle: placed ? preparing ? ready ? served ? billed ? cancelled
+/// Order status lifecycle: placed → preparing → ready → served → billed → cancelled
 enum OrderStatus {
-  placed('Placed', '??'),
-  preparing('Preparing', '??'),
-  ready('Ready', '?'),
-  served('Served', '???'),
-  billed('Billed', '??'),
-  cancelled('Cancelled', '?');
+  placed('Placed', '📝'),
+  preparing('Preparing', '👨‍🍳'),
+  ready('Ready', '✅'),
+  served('Served', '🍽️'),
+  billed('Billed', '🧾'),
+  cancelled('Cancelled', '❌');
 
   final String displayName;
   final String emoji;

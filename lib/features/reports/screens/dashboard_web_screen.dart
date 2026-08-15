@@ -1053,6 +1053,14 @@ class _QuickAccessSection extends ConsumerWidget {
         _QuickItem('Vendors', Icons.local_shipping, AppRoutes.vendors),
         _QuickItem('Wastage', Icons.delete_sweep, AppRoutes.wastage),
       ]),
+      const _QuickGroup('Menu', Icons.restaurant_menu, [
+        _QuickItem('Combos', Icons.lunch_dining, AppRoutes.combos),
+        _QuickItem(
+          'Daily Specials',
+          Icons.auto_awesome,
+          AppRoutes.dailySpecials,
+        ),
+      ]),
       const _QuickGroup('Hospitality', Icons.hotel, [
         _QuickItem('Reservations', Icons.event_seat, AppRoutes.reservations),
         _QuickItem('Coupons', Icons.local_offer, AppRoutes.coupons),

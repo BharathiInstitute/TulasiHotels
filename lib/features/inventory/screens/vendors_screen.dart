@@ -3,6 +3,7 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:tulasihotels/core/constants/app_constants.dart';
 import 'package:tulasihotels/core/utils/id_generator.dart';
 import 'package:tulasihotels/features/inventory/providers/inventory_provider.dart';
 import 'package:tulasihotels/features/inventory/services/vendor_service.dart';
@@ -82,14 +83,14 @@ class VendorsScreen extends ConsumerWidget {
                     style: const TextStyle(fontWeight: FontWeight.w600),
                   ),
                   subtitle: Text(
-                    '${vendor.phone ?? "No phone"} â€¢ ${vendor.supplyItems.isNotEmpty ? vendor.supplyItems.join(", ") : "General"}',
+                    '${vendor.phone ?? "No phone"} | ${vendor.supplyItems.isNotEmpty ? vendor.supplyItems.join(", ") : "General"}',
                   ),
                   trailing: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
                       Text(
-                        '₹${vendor.balance.abs().toStringAsFixed(0)}',
+                        '${AppConstants.currencySymbol}${vendor.balance.abs().toStringAsFixed(0)}',
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           color: balanceColor,
@@ -345,7 +346,7 @@ class _VendorDetailSheetState extends State<_VendorDetailSheet>
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Text(
-                      '₹${vendor.balance.abs().toStringAsFixed(0)}',
+                      '${AppConstants.currencySymbol}${vendor.balance.abs().toStringAsFixed(0)}',
                       style: TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
@@ -452,10 +453,10 @@ class _VendorDetailSheetState extends State<_VendorDetailSheet>
               controller: amountCtrl,
               keyboardType:
                   const TextInputType.numberWithOptions(decimal: true),
-              decoration: const InputDecoration(
-                labelText: 'Amount (₹)',
+              decoration: InputDecoration(
+                labelText: 'Amount (${AppConstants.currencySymbol})',
                 border: OutlineInputBorder(),
-                prefixText: '₹ ',
+                prefixText: '${AppConstants.currencySymbol} ',
               ),
               autofocus: true,
             ),
@@ -489,7 +490,7 @@ class _VendorDetailSheetState extends State<_VendorDetailSheet>
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     content: Text(
-                        'Purchase of ₹${amount.toStringAsFixed(0)} recorded'),
+                        'Purchase of ${AppConstants.currencySymbol}${amount.toStringAsFixed(0)} recorded'),
                   ),
                 );
               }
@@ -535,10 +536,10 @@ class _VendorDetailSheetState extends State<_VendorDetailSheet>
               controller: amountCtrl,
               keyboardType:
                   const TextInputType.numberWithOptions(decimal: true),
-              decoration: const InputDecoration(
-                labelText: 'Amount (₹)',
+              decoration: InputDecoration(
+                labelText: 'Amount (${AppConstants.currencySymbol})',
                 border: OutlineInputBorder(),
-                prefixText: '₹ ',
+                prefixText: '${AppConstants.currencySymbol} ',
               ),
               autofocus: true,
             ),
@@ -571,7 +572,7 @@ class _VendorDetailSheetState extends State<_VendorDetailSheet>
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     content: Text(
-                        'Payment of ₹${amount.toStringAsFixed(0)} recorded'),
+                        'Payment of ${AppConstants.currencySymbol}${amount.toStringAsFixed(0)} recorded'),
                   ),
                 );
               }
@@ -639,10 +640,10 @@ class _PaymentHistoryTab extends StatelessWidget {
                 style: const TextStyle(fontWeight: FontWeight.w600),
               ),
               subtitle: Text(
-                '${_formatDate(date)}${note != null ? ' â€¢ $note' : ''}',
+                '${_formatDate(date)}${note != null ? ' | $note' : ''}',
               ),
               trailing: Text(
-                '${isPurchase ? '+' : '-'}₹${amount.toStringAsFixed(0)}',
+                '${isPurchase ? '+' : '-'}${AppConstants.currencySymbol}${amount.toStringAsFixed(0)}',
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
                   color: isPurchase ? Colors.orange : Colors.green,
@@ -693,9 +694,9 @@ class _PurchasesTab extends StatelessWidget {
             final date = e['createdAt'] as DateTime? ?? DateTime.now();
             return ListTile(
               leading: const Icon(Icons.shopping_cart_outlined),
-              title: Text('₹${amount.toStringAsFixed(0)}'),
+              title: Text('${AppConstants.currencySymbol}${amount.toStringAsFixed(0)}'),
               subtitle: Text(
-                  '${date.day}/${date.month}/${date.year}${note != null ? ' â€¢ $note' : ''}'),
+                  '${date.day}/${date.month}/${date.year}${note != null ? ' | $note' : ''}'),
             );
           },
         );

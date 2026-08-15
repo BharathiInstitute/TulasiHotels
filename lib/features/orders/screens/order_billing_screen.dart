@@ -95,7 +95,7 @@ class _OrderBillingScreenState extends ConsumerState<OrderBillingScreen> {
                               )
                             : null,
                         trailing: Text(
-                          '${item.quantity} × ?${item.price.toStringAsFixed(0)} = ?${item.total.toStringAsFixed(0)}',
+                          '${item.quantity} × ₹${item.price.toStringAsFixed(0)} = ₹${item.total.toStringAsFixed(0)}',
                           style: theme.textTheme.bodyMedium,
                         ),
                       ),
@@ -346,7 +346,7 @@ class _OrderBillingScreenState extends ConsumerState<OrderBillingScreen> {
                 label: Text(
                   _isProcessing
                       ? 'Processing...'
-                      : 'Generate Bill — ?${total.toStringAsFixed(0)}',
+                      : 'Generate Bill — ₹${total.toStringAsFixed(0)}',
                 ),
                 style: FilledButton.styleFrom(
                   minimumSize: const Size(double.infinity, 56),
@@ -654,7 +654,7 @@ class _SummaryRow extends StatelessWidget {
         children: [
           Text(label, style: style),
           Text(
-            '${amount < 0 ? '-' : ''}?${amount.abs().toStringAsFixed(2)}',
+            '${amount < 0 ? '-' : ''}₹${amount.abs().toStringAsFixed(2)}',
             style: style,
           ),
         ],

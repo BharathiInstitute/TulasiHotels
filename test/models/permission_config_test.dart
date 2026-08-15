@@ -95,7 +95,7 @@ void main() {
     test('partial modules expose only supported actions', () {
       expect(
         PermissionConfig.screenForRoute(AppRoutes.kitchen)?.supportedActionKeys,
-        ['view', 'create', 'update', 'delete'],
+        ['view', 'update'],
       );
       expect(
         PermissionConfig.screenForRoute(AppRoutes.wastage)?.supportedActionKeys,

@@ -141,9 +141,9 @@ class OrderService {
           tableId,
           TableStatus.occupied,
           currentOrderId: id,
-        );
+        ).timeout(const Duration(seconds: 5));
       } catch (e) {
-        debugPrint('⚠️ updateTableStatus failed (order still saved): $e');
+        debugPrint('⚠️ updateTableStatus failed/timed out (order still saved): $e');
       }
     }
 
@@ -172,7 +172,9 @@ class OrderService {
       currentKotNumber: nextKot,
     );
 
-    await _ordersRef.doc(orderId).update(updatedOrder.toFirestore());
+    await _commitWithOfflineFallback(
+      _ordersRef.doc(orderId).update(updatedOrder.toFirestore()),
+    );
     debugPrint('âœ… Added ${newItems.length} items to order #${order.orderNumber} (KOT #$nextKot)');
     return updatedOrder;
   }

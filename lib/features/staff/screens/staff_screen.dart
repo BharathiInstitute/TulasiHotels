@@ -280,8 +280,38 @@ class MyProfileScreen extends ConsumerWidget {
     }
 
     return Scaffold(
-      appBar: AppBar(title: const Text('My Profile')),
+      appBar: AppBar(
+        leading: const _ProfileBackButton(),
+        title: const Text('My Profile'),
+      ),
       body: const Center(child: Text('Profile not available')),
+    );
+  }
+}
+
+/// My Profile is reached via `context.go` inside the shell, so there is no
+/// Navigator stack to pop — fall back to the user's attendance screen.
+class _ProfileBackButton extends ConsumerWidget {
+  const _ProfileBackButton();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return IconButton(
+      icon: const Icon(Icons.arrow_back),
+      tooltip: MaterialLocalizations.of(context).backButtonTooltip,
+      onPressed: () {
+        if (context.canPop()) {
+          context.pop();
+          return;
+        }
+        final isStaff = ref.read(loggedInStaffProvider) != null;
+        final isOwner = ref.read(currentHotelProvider)?.isOwner ?? false;
+        context.go(
+          (isStaff || !isOwner)
+              ? AppRoutes.myAttendance
+              : AppRoutes.attendance,
+        );
+      },
     );
   }
 }
@@ -821,7 +851,10 @@ class _StaffProfileViewState extends State<_StaffProfileView> {
     final colorScheme = theme.colorScheme;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('My Profile')),
+      appBar: AppBar(
+        leading: const _ProfileBackButton(),
+        title: const Text('My Profile'),
+      ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
         child: Column(
@@ -1098,7 +1131,10 @@ class _MemberProfileViewState extends State<_MemberProfileView> {
     final colorScheme = theme.colorScheme;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('My Profile')),
+      appBar: AppBar(
+        leading: const _ProfileBackButton(),
+        title: const Text('My Profile'),
+      ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
         child: Column(

@@ -11,7 +11,7 @@ final todayReservationsProvider =
   return ReservationService.todayReservationsStream();
 });
 
-/// Stream upcoming reservations (next 7 days)
+/// Stream upcoming reservations (next 90 days)
 final upcomingReservationsProvider =
     StreamProvider.autoDispose<List<ReservationModel>>((ref) {
   return ReservationService.upcomingReservationsStream();

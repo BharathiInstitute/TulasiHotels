@@ -39,14 +39,21 @@ class ReservationService {
         );
   }
 
-  /// Stream upcoming reservations (next 7 days)
-  static Stream<List<ReservationModel>> upcomingReservationsStream() {
+  /// Stream upcoming reservations. Window matches the 90-day booking horizon
+  /// offered by the new-reservation date picker.
+  static Stream<List<ReservationModel>> upcomingReservationsStream({
+    int daysAhead = 90,
+  }) {
     final now = DateTime.now();
-    final weekLater = now.add(const Duration(days: 7));
+    final startOfToday = DateTime(now.year, now.month, now.day);
+    final horizon = startOfToday.add(Duration(days: daysAhead + 1));
 
     return _reservationsRef
-        .where('dateTime', isGreaterThanOrEqualTo: Timestamp.fromDate(now))
-        .where('dateTime', isLessThan: Timestamp.fromDate(weekLater))
+        .where(
+          'dateTime',
+          isGreaterThanOrEqualTo: Timestamp.fromDate(startOfToday),
+        )
+        .where('dateTime', isLessThan: Timestamp.fromDate(horizon))
         .snapshots()
         .map(
           (snapshot) =>

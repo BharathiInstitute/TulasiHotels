@@ -6,10 +6,10 @@ import 'package:tulasihotels/features/permissions/models/permission_mode.dart';
 
 /// Staff roles
 enum StaffRole {
-  waiter('Waiter', '?????'),
-  chef('Chef', '?????'),
-  manager('Manager', '??'),
-  cashier('Cashier', '??');
+  waiter('Waiter', '🧑‍🍽️'),
+  chef('Chef', '👨‍🍳'),
+  manager('Manager', '👔'),
+  cashier('Cashier', '💰');
 
   final String displayName;
   final String emoji;

@@ -1,6 +1,7 @@
 /// Ingredients management screen
 library;
 
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tulasihotels/core/utils/id_generator.dart';
@@ -50,7 +51,20 @@ class IngredientsScreen extends ConsumerWidget {
       ),
       body: ingredientsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('Error: $e')),
+        error: (e, _) {
+          if (e is FirebaseException && e.code == 'permission-denied') {
+            return PermissionDeniedView(
+              message: PermissionCenter.deniedViewMessage(AppRoutes.ingredients),
+            );
+          }
+          return Center(
+            child: Text(
+              e is FirebaseException
+                  ? e.message ?? 'Unable to load ingredients.'
+                  : 'Error: $e',
+            ),
+          );
+        },
         data: (ingredients) {
           if (ingredients.isEmpty) {
             return const Center(child: Text('No ingredients yet'));
