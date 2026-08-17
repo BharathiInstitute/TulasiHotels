@@ -1752,6 +1752,7 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
       final data = <String, dynamic>{
         'shopName': shopName,
         'ownerName': ownerName,
+        'ownerUid': user.uid,
         'address': address,
         'gstNumber': gstNumber,
         'isShopSetupComplete': true,
@@ -1785,21 +1786,16 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
         if (hotelDoc.exists) {
           await hotelRef.update({'name': shopName, 'slug': slug});
         } else {
-          // Only create if user has NO hotels at all (prevent duplicate)
-          final anyHotels = await _firestore
-              .collection('user_hotels/${user.uid}/hotels')
-              .limit(1)
-              .get();
-          if (anyHotels.docs.isEmpty) {
-            await hotelRef.set({
-              'id': user.uid,
-              'name': shopName,
-              'slug': slug,
-              'role': 'owner',
-              'status': 'active',
-              'createdAt': FieldValue.serverTimestamp(),
-            });
-          }
+          // Always link the owner store, even when other restaurants already
+          // exist in this user's access list.
+          await hotelRef.set({
+            'id': user.uid,
+            'name': shopName,
+            'slug': slug,
+            'role': 'owner',
+            'status': 'active',
+            'createdAt': FieldValue.serverTimestamp(),
+          });
         }
       } catch (_) {}
 

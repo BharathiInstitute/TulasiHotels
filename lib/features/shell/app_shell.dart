@@ -159,15 +159,11 @@ class _AppShellState extends ConsumerState<AppShell> {
     if (hotelId == null) return ownerPlanLabel;
 
     final planAsync = ref.watch(hotelSubscriptionPlanProvider(hotelId));
-    final selectedPlanLabel = planAsync.when(
+    return planAsync.when(
       data: (planKey) => PlanConfig.fromKey(planKey).name,
-      loading: () => 'Free',
-      error: (_, _) => 'Free',
+      loading: () => 'Loading',
+      error: (_, _) => 'Unavailable',
     );
-    if (selectedPlanLabel == 'Free' && ownerPlanLabel != 'Free') {
-      return ownerPlanLabel;
-    }
-    return selectedPlanLabel;
   }
 
   /// General/Account/Billing settings tabs are owner-only, so staff must land
@@ -511,16 +507,6 @@ class _AppShellState extends ConsumerState<AppShell> {
                   ..._buildMoreFeaturesSections(context, ref),
 
                   const Divider(height: 1),
-                  // My Profile
-                  _DrawerNavItem(
-                    icon: Icons.person_outline,
-                    label: 'My Profile',
-                    isSelected: false,
-                    onTap: () {
-                      Navigator.pop(context);
-                      context.go(AppRoutes.myProfile);
-                    },
-                  ),
                   // Notifications
                   _DrawerNavItem(
                     icon: Icons.notifications_outlined,

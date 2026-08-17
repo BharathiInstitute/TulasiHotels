@@ -36,6 +36,12 @@ const List<PermissionAction> _viewUpdateActions = [
   PermissionAction.update,
 ];
 
+const List<PermissionAction> _viewCreateUpdateActions = [
+  PermissionAction.view,
+  PermissionAction.create,
+  PermissionAction.update,
+];
+
 /// A screen that can be permission-controlled
 class ScreenDef {
   final String route;
@@ -116,7 +122,7 @@ class PermissionConfig {
       route: AppRoutes.kitchen,
       label: 'Kitchen Display',
       category: ordersCategory,
-      supportedActions: _viewUpdateActions,
+      supportedActions: _viewCreateUpdateActions,
     ),
     ScreenDef(
       route: AppRoutes.tables,
@@ -355,7 +361,28 @@ class PermissionConfig {
 
     for (final entry in _childRoutes.entries) {
       if (entry.value.contains(route)) return entry.key;
+      for (final child in entry.value) {
+        if (_matchesRouteTemplate(child, route)) return entry.key;
+      }
     }
     return route;
+  }
+
+  /// Match a concrete path (e.g. `/customer/abc123`) against a route template
+  /// that contains path params (e.g. `/customer/:id`).
+  static bool _matchesRouteTemplate(String template, String route) {
+    if (!template.contains(':')) return false;
+    final templateParts = template.split('/');
+    final routeParts = route.split('/');
+    if (templateParts.length != routeParts.length) return false;
+    for (var i = 0; i < templateParts.length; i++) {
+      final part = templateParts[i];
+      if (part.startsWith(':')) {
+        if (routeParts[i].isEmpty) return false;
+        continue;
+      }
+      if (part != routeParts[i]) return false;
+    }
+    return true;
   }
 }

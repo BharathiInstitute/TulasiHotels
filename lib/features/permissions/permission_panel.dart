@@ -195,7 +195,9 @@ class PermissionPanels {
       if (tab == 'subscription') return AppRoutes.subscription;
       return AppRoutes.settings;
     }
-    return _routeToPanel[route] ?? route;
+    return _routeToPanel[route] ??
+        _routeToPanel[PermissionConfig.resolvePermissionRoute(route)] ??
+        PermissionConfig.resolvePermissionRoute(route);
   }
 
   static PermissionPanelDef? panelForRoute(String route) {

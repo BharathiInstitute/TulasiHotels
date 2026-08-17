@@ -20,5 +20,6 @@ final staffShiftsProvider =
 final shiftWeekStartProvider =
     StateProvider<DateTime>((ref) {
   final now = DateTime.now();
-  return now.subtract(Duration(days: now.weekday - 1)); // Monday
+  final today = DateTime(now.year, now.month, now.day);
+  return today.subtract(Duration(days: today.weekday - 1)); // Monday
 });

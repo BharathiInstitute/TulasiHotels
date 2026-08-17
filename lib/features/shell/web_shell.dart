@@ -200,13 +200,10 @@ class _WebSidebar extends ConsumerWidget {
         : ref.watch(hotelSubscriptionPlanProvider(hotelId));
     final selectedPlanLabel = planAsync.when(
       data: (planKey) => PlanConfig.fromKey(planKey).name,
-      loading: () => 'Free',
-      error: (_, _) => 'Free',
+      loading: () => 'Loading',
+      error: (_, _) => 'Unavailable',
     );
-    final ownerPlanLabel = ref.watch(planConfigProvider).name;
-    final planLabel = selectedPlanLabel == 'Free' && ownerPlanLabel != 'Free'
-        ? ownerPlanLabel
-        : selectedPlanLabel;
+    final planLabel = selectedPlanLabel;
 
     final navItems = _resolvedNavItems();
     final displayShopName = (currentHotel?.name ?? '').trim().isNotEmpty

@@ -41,13 +41,13 @@ class _HotelSelectorScreenState extends ConsumerState<HotelSelectorScreen> {
 
   Future<void> _ensureDefaultHotel() async {
     try {
+      // Repair the user's hotel index before deciding whether they are an owner.
+      // An empty index otherwise prevents recovery from ever running.
+      await HotelService.ensureDefaultHotel();
+      await HotelService.recoverOwnedHotels();
+
       final authUser = ref.read(authNotifierProvider).user;
       final isOwner = (authUser?.shopName ?? '').isNotEmpty;
-
-      if (isOwner) {
-        await HotelService.ensureDefaultHotel();
-        await HotelService.recoverOwnedHotels();
-      }
       await HotelService.resolvePendingInvites();
       await HotelService.pruneInvalidHotels();
 

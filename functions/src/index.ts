@@ -1201,7 +1201,7 @@ export const sendRegistrationOTP = functions
             const htmlContent = `
                 <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 480px; margin: 0 auto; padding: 32px; background: #f8faf8; border-radius: 12px;">
                     <div style="text-align: center; margin-bottom: 24px;">
-                        <h2 style="color: #059669; margin: 0;">Tulasi Hotels</h2>
+                        <h2 style="color: #059669; margin: 0;">Tulasi Restaurants</h2>
                         <p style="color: #6b7280; font-size: 14px; margin-top: 4px;">Email Verification</p>
                     </div>
                     <div style="background: white; border-radius: 8px; padding: 24px; text-align: center; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
@@ -1217,7 +1217,7 @@ export const sendRegistrationOTP = functions
 
             await sendBrevoEmail(
                 email,
-                "Your Verification Code - Tulasi Hotels",
+                "Your Verification Code - Tulasi Restaurants",
                 htmlContent,
             );
 
