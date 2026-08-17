@@ -65,7 +65,7 @@ void main() {
         ],
       );
 
-      final hardwareRow = _panelRow('Hardware Panel');
+      final hardwareRow = _panelRow('Hardware');
       await tester.ensureVisible(hardwareRow);
       await tester.tap(
         find.descendant(of: hardwareRow, matching: find.text('Update')).first,
@@ -91,7 +91,7 @@ void main() {
         ],
       );
 
-      final billingRow = _panelRow('Billing Panel');
+      final billingRow = _panelRow('Walk-in');
       await tester.ensureVisible(billingRow);
       await tester.tap(
         find.descendant(of: billingRow, matching: find.text('Delete')).first,

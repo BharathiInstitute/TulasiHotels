@@ -136,7 +136,7 @@ jobs:
           APP_VERSION=$(sed -nE 's/^version:[[:space:]]*([^+]+)\+[0-9]+.*/\1/p' pubspec.yaml | head -n 1)
           BUILD_NUMBER=$(sed -nE 's/^version:[[:space:]]*[^+]+\+([0-9]+).*/\1/p' pubspec.yaml | head -n 1)
           test -n "$APP_VERSION" && test -n "$BUILD_NUMBER"
-          APK_NAME="TulasiRestaurants_v${APP_VERSION}.apk"
+          APK_NAME="TulasiRestaurants_v${APP_VERSION}+${BUILD_NUMBER}.apk"
           DOWNLOAD_URL="https://firebasestorage.googleapis.com/v0/b/login1-aa21c.firebasestorage.app/o/downloads%2Fandroid%2F${APK_NAME}?alt=media"
           if [ "${{ github.event_name }}" != "workflow_dispatch" ] && [ -f installer/android-version.json ] && [ "$(jq -r '.version // empty' installer/android-version.json)" = "$APP_VERSION" ]; then
             ANDROID_CHANGELOG=$(jq -r '.changelog // "Bug fixes and improvements"' installer/android-version.json)
@@ -235,7 +235,7 @@ jobs:
           $match = Select-String -Path pubspec.yaml -Pattern '^version:\s*([^+]+)\+(\d+)' | Select-Object -First 1
           $version = $match.Matches.Groups[1].Value
           $buildNumber = [int]$match.Matches.Groups[2].Value
-          $installerName = "TulasiRestaurants_Setup_v$version.exe"
+          $installerName = "TulasiRestaurants_Setup_v$version+$buildNumber.exe"
           $downloadUrl = "https://firebasestorage.googleapis.com/v0/b/login1-aa21c.firebasestorage.app/o/downloads%2Fwindows%2F$installerName`?alt=media"
           [ordered]@{
             version = $version

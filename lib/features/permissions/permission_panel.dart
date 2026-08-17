@@ -28,22 +28,22 @@ class PermissionPanels {
   static const List<PermissionPanelDef> all = [
     PermissionPanelDef(
       route: AppRoutes.billing,
-      label: 'Billing Panel',
+      label: 'Walk-in',
       collections: ['bills', 'bill_items', 'payments', 'split_bills'],
     ),
     PermissionPanelDef(
       route: AppRoutes.khata,
-      label: 'Khata Panel',
+      label: 'Khata',
       collections: ['customers', 'khata_ledger', 'customer_balances'],
     ),
     PermissionPanelDef(
       route: AppRoutes.products,
-      label: 'Products Panel',
+      label: 'Products',
       collections: ['products', 'menu_items', 'combos', 'daily_specials'],
     ),
     PermissionPanelDef(
       route: AppRoutes.dashboard,
-      label: 'Dashboard Panel',
+      label: 'Dashboard',
       collections: [
         'dashboard_metrics',
         'sales_summary',
@@ -54,72 +54,72 @@ class PermissionPanels {
     ),
     PermissionPanelDef(
       route: AppRoutes.bills,
-      label: 'Bills Panel',
+      label: 'Bills',
       collections: ['bills', 'bill_items'],
     ),
     PermissionPanelDef(
       route: AppRoutes.tables,
-      label: 'Tables Panel',
+      label: 'Tables',
       collections: ['tables', 'table_layout'],
     ),
     PermissionPanelDef(
       route: AppRoutes.kitchen,
-      label: 'Kitchen Panel',
+      label: 'Kitchen',
       collections: ['kitchen_queue', 'kds_status'],
     ),
     PermissionPanelDef(
       route: AppRoutes.staff,
-      label: 'Staff Panel',
+      label: 'Staff',
       collections: ['staff', 'roles', 'attendance_records'],
     ),
     PermissionPanelDef(
       route: AppRoutes.myAttendance,
-      label: 'My Attendance Panel',
+      label: 'My Attendance',
       collections: ['attendance_records'],
     ),
     PermissionPanelDef(
       route: AppRoutes.vendors,
-      label: 'Vendors Panel',
+      label: 'Vendors',
       collections: ['vendors', 'purchase_orders'],
     ),
     PermissionPanelDef(
       route: AppRoutes.wastage,
-      label: 'Wastage Panel',
+      label: 'Wastage',
       collections: ['wastage_entries'],
     ),
     PermissionPanelDef(
       route: AppRoutes.reservations,
-      label: 'Reservations Panel',
+      label: 'Reservations',
       collections: ['reservations', 'tables'],
     ),
     PermissionPanelDef(
       route: AppRoutes.coupons,
-      label: 'Coupons Panel',
+      label: 'Coupons',
       collections: ['coupons', 'coupon_usage'],
     ),
     PermissionPanelDef(
       route: AppRoutes.feedback,
-      label: 'Feedback Panel',
+      label: 'Feedback',
       collections: ['feedback', 'feedback_analytics'],
     ),
     PermissionPanelDef(
       route: AppRoutes.advancedReports,
-      label: 'Reports Panel',
+      label: 'Advanced Reports',
       collections: ['reports', 'analytics_exports'],
     ),
     PermissionPanelDef(
       route: AppRoutes.events,
-      label: 'Events Panel',
+      label: 'Events',
       collections: ['events', 'compliance_logs'],
     ),
     PermissionPanelDef(
       route: AppRoutes.subscription,
-      label: 'Subscription Panel',
+      label: 'Subscription',
       collections: ['subscription', 'plan_limits'],
     ),
     PermissionPanelDef(
       route: AppRoutes.settingsHardware,
-      label: 'Hardware Panel',
+      label: 'Hardware',
       collections: [
         'printer_settings',
         'hardware_devices',

@@ -116,7 +116,7 @@ void main() {
       );
 
       expect(
-        find.text('You do not have permission to view Hardware Panel.'),
+        find.text('You do not have permission to view Hardware.'),
         findsOneWidget,
       );
     });

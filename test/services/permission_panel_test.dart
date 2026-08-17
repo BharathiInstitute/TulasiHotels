@@ -45,7 +45,7 @@ void main() {
     test('panel label resolves from alias route', () {
       expect(
         PermissionPanels.panelLabelForRoute(AppRoutes.combos),
-        'Products Panel',
+        'Products',
       );
     });
 
