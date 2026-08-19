@@ -1136,6 +1136,83 @@ export const razorpayWebhook = functions
                     break;
                 }
 
+                // ─── One-time subscription purchase (website pricing page) ───
+                // Safety net: activates the plan when the browser never reached
+                // verifyPayment (UPI app switch, tab closed, network drop).
+                case "order.paid":
+                case "payment.captured": {
+                    const paymentEntity = event.payload.payment?.entity as {
+                        id?: string;
+                        order_id?: string;
+                        status?: string;
+                        notes?: Record<string, string>;
+                    } | undefined;
+                    const orderEntity = event.payload.order?.entity as {
+                        id?: string;
+                        notes?: Record<string, string>;
+                    } | undefined;
+
+                    const paymentId = paymentEntity?.id;
+                    const orderId = orderEntity?.id || paymentEntity?.order_id;
+                    if (!paymentId || !orderId) break;
+
+                    const notes = { ...(paymentEntity?.notes || {}), ...(orderEntity?.notes || {}) };
+                    const plan = notes.plan;
+                    const cycle = notes.cycle;
+                    const notesUserId = notes.userId || notes.uid;
+                    if (!isPaidPlan(plan) || !isValidCycle(cycle) || !notesUserId) {
+                        console.log(`${event.event}: not a subscription order (${orderId}) — skipping`);
+                        break;
+                    }
+
+                    const db = admin.firestore();
+                    const targetRestaurantId = resolveRestaurantId(notes.restaurantId, notesUserId);
+
+                    const activation = await markPaymentActivation(db, paymentId, {
+                        userId: notesUserId,
+                        restaurantId: targetRestaurantId,
+                        plan,
+                        cycle,
+                    });
+                    if (activation.alreadyProcessed) {
+                        console.log(`${event.event}: payment ${paymentId} already activated`);
+                        break;
+                    }
+
+                    const webhookExpiresAt = computeExpiryDate(cycle);
+                    if (plan === "business") {
+                        await activateBusinessEntitlement(db, {
+                            ownerUid: await getRestaurantOwnerUid(db, targetRestaurantId),
+                            restaurantId: targetRestaurantId,
+                            cycle,
+                            expiresAt: webhookExpiresAt,
+                            razorpayOrderId: orderId,
+                            razorpayPaymentId: paymentId,
+                        });
+                    } else {
+                        await applyPlanToRestaurantDoc(db, {
+                            restaurantId: targetRestaurantId,
+                            plan,
+                            status: "active",
+                            expiresAt: webhookExpiresAt,
+                            razorpayOrderId: orderId,
+                            razorpayPaymentId: paymentId,
+                        });
+                    }
+
+                    await db.collection("users").doc(notesUserId)
+                        .collection("notifications").add({
+                            title: `Welcome to ${getPlanDisplayName(plan)} Plan! 🎉`,
+                            body: `Your ${getPlanDisplayName(plan)} plan is now active. Enjoy your upgraded features!`,
+                            type: "subscription",
+                            read: false,
+                            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+                        });
+
+                    console.log(`✅ ${event.event}: activated ${plan}/${cycle} for restaurant ${targetRestaurantId} (payment ${paymentId})`);
+                    break;
+                }
+
                 default:
                     console.log("Unhandled webhook event:", event.event);
             }

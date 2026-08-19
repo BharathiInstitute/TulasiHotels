@@ -886,7 +886,7 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
       // 3. Set login URL in state — UI shows embedded WebView (no browser needed)
       // Custom domains may not resolve on some networks/devices.
       // Use Firebase Hosting canonical domain for reliable desktop auth.
-      const webAppUrl = 'https://login1-aa21c.web.app/desktop-login';
+      const webAppUrl = 'https://restaurants.tulasierp.com/desktop-login';
       final fullUrl = '$webAppUrl?code=$linkCode';
 
       state = state.copyWith(

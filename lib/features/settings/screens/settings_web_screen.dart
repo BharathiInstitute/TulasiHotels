@@ -4145,7 +4145,7 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
 
                 final uri = Uri(
                   scheme: 'https',
-                  host: 'login1-aa21c.web.app',
+                  host: 'restaurants.tulasierp.com',
                   path: '/src/pages/verify-phone.html',
                   queryParameters: query,
                 );

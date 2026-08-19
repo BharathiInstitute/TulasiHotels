@@ -1067,11 +1067,6 @@ class _QuickAccessSection extends ConsumerWidget {
         _QuickItem('Events', Icons.celebration, AppRoutes.events),
         _QuickItem('Feedback', Icons.feedback, AppRoutes.feedbackDashboard),
       ]),
-      const _QuickGroup('Compliance', Icons.verified, [
-        _QuickItem('Equipment', Icons.build, AppRoutes.equipment),
-        _QuickItem('Licenses', Icons.badge, AppRoutes.licenses),
-        _QuickItem('Complaints', Icons.report_problem, AppRoutes.complaints),
-      ]),
     ];
 
     return Container(

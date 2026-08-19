@@ -81,29 +81,6 @@ class CustomerDetailScreen extends ConsumerWidget {
                     : null,
                 tooltip: 'Edit Details',
               ),
-              if (khataPermissions.canDelete)
-                PopupMenuButton<String>(
-                  onSelected: (value) {
-                    if (value == 'delete') {
-                      _showDeleteConfirmation(context, ref, customer);
-                    }
-                  },
-                  itemBuilder: (context) => [
-                    const PopupMenuItem(
-                      value: 'delete',
-                      child: Row(
-                        children: [
-                          Icon(Icons.delete, color: AppColors.error),
-                          SizedBox(width: 8),
-                          Text(
-                            'Delete Customer',
-                            style: TextStyle(color: AppColors.error),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
             ],
           ),
           body: Center(
@@ -153,15 +130,45 @@ class CustomerDetailScreen extends ConsumerWidget {
                                         crossAxisAlignment:
                                             CrossAxisAlignment.start,
                                         children: [
-                                          Text(
-                                            customer.name,
-                                            style: const TextStyle(
-                                              fontSize: 16,
-                                              fontWeight: FontWeight.bold,
-                                              color: Colors.white,
-                                            ),
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
+                                          Row(
+                                            children: [
+                                              Expanded(
+                                                child: Text(
+                                                  customer.name,
+                                                  style: const TextStyle(
+                                                    fontSize: 16,
+                                                    fontWeight: FontWeight.bold,
+                                                    color: Colors.white,
+                                                  ),
+                                                  maxLines: 1,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                ),
+                                              ),
+                                              if (khataPermissions.canDelete)
+                                                IconButton(
+                                                  onPressed: () =>
+                                                      _showDeleteConfirmation(
+                                                        context,
+                                                        ref,
+                                                        customer,
+                                                      ),
+                                                  icon: const Icon(
+                                                    Icons.delete_outline,
+                                                    color: Colors.white,
+                                                  ),
+                                                  iconSize: 20,
+                                                  visualDensity:
+                                                      VisualDensity.compact,
+                                                  padding: EdgeInsets.zero,
+                                                  constraints:
+                                                      const BoxConstraints(
+                                                        minWidth: 32,
+                                                        minHeight: 32,
+                                                      ),
+                                                  tooltip: 'Delete Customer',
+                                                ),
+                                            ],
                                           ),
                                           GestureDetector(
                                             onTap: () => launchUrl(

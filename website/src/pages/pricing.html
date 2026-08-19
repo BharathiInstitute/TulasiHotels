@@ -1036,15 +1036,11 @@
         if (result.data.success) {
           showPaymentSuccess(order.plan);
         } else {
-          closePaymentOverlay();
-          // Payment not yet detected — might still be processing
-          if (result.data.status === 'attempted' || result.data.status === 'created') {
-            showPaymentError('Payment not yet received. If you have paid, it will activate within 5 minutes via our webhook.');
-          }
+          showPaymentError('Payment not yet received. If money was debited, your plan activates automatically within 5 minutes — reopen the app to check.');
         }
       } catch (err) {
         console.error('Check payment status error:', err);
-        closePaymentOverlay();
+        showPaymentError('We could not confirm the payment right now. If money was debited, your plan activates automatically within 5 minutes.');
       }
     }
   </script>

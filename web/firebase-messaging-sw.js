@@ -6,7 +6,7 @@ importScripts("https://www.gstatic.com/firebasejs/10.7.0/firebase-messaging-comp
 
 firebase.initializeApp({
     apiKey: "AIzaSyBPk0ATdBY6g_cGEJerP1m2RSEICWe7Qpc",
-    authDomain: "login1-aa21c.firebaseapp.com",
+    authDomain: "restaurants.tulasierp.com",
     projectId: "login1-aa21c",
     storageBucket: "login1-aa21c.firebasestorage.app",
     messagingSenderId: "883551466761",

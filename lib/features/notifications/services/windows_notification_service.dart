@@ -9,6 +9,7 @@ import 'dart:io' show Platform;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tulasihotels/core/utils/windows_firestore_helper.dart';
 
 class WindowsNotificationService {
@@ -16,6 +17,7 @@ class WindowsNotificationService {
   static final _firestore = FirebaseFirestore.instance;
   static StreamSubscription<QuerySnapshot>? _subscription;
   static bool _initialized = false;
+  static final Set<String> _shownKeys = {};
 
   /// Initialize the local notifications plugin for Windows.
   static Future<void> init() async {
@@ -69,8 +71,9 @@ class WindowsNotificationService {
               if (change.type == DocumentChangeType.added) {
                 final data = change.doc.data();
                 if (data != null) {
-                  _showNotification(
-                    id: change.doc.id.hashCode,
+                  _showOnce(
+                    userId: userId,
+                    documentId: change.doc.id,
                     title: (data['title'] as String?) ?? 'Notification',
                     body: (data['body'] as String?) ?? '',
                   );
@@ -83,6 +86,32 @@ class WindowsNotificationService {
         );
 
     debugPrint('🔔 Windows notification listener started for $userId');
+  }
+
+  static Future<void> _showOnce({
+    required String userId,
+    required String documentId,
+    required String title,
+    required String body,
+  }) async {
+    final key = 'windows_notification_shown_${userId}_$documentId';
+    if (_shownKeys.contains(key)) return;
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (prefs.getBool(key) == true) return;
+      _shownKeys.add(key);
+      await prefs.setBool(key, true);
+    } catch (_) {
+      // In-memory deduplication still prevents repeats during this session.
+      if (!_shownKeys.add(key)) return;
+    }
+
+    await _showNotification(
+      id: documentId.hashCode,
+      title: title,
+      body: body,
+    );
   }
 
   /// Stop listening for notifications (call on logout).

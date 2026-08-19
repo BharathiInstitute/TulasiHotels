@@ -62,11 +62,19 @@ service cloud.firestore {
     function hasModuleAction(userId, route, action) {
       let member = get(/databases/$(database)/documents/users/$(userId)/members/$(request.auth.uid)).data;
       return isMember(userId)
-        && 'permissions' in member
-        && member.permissions is map
-        && member.permissions.keys().hasAny([route])
-        && member.permissions[route] is list
-        && member.permissions[route].hasAny([action]);
+        && (
+          ('permissions' in member
+            && member.permissions is map
+            && member.permissions.keys().hasAny([route])
+            && member.permissions[route] is list
+            && member.permissions[route].hasAny([action]))
+          ||
+          ('customPermissions' in member
+            && member.customPermissions is map
+            && member.customPermissions.keys().hasAny([route])
+            && member.customPermissions[route] is list
+            && member.customPermissions[route].hasAny([action]))
+        );
     }
 
     function canModuleAction(userId, route, action) {
@@ -628,14 +636,22 @@ service cloud.firestore {
       // WASTAGE (sub-collection)
       // ===================
       match /wastage/{wastageId} {
-        allow read: if isAuthenticated() && (canModuleAction(userId, '/wastage', 'view') || isAdmin());
+        // Reversal is a guarded update that must first read the active record
+        // inside a transaction. Update permission therefore includes reading
+        // the record being reversed; it does not grant list access to other
+        // wastage records in the UI.
+        allow read: if isAuthenticated() && (
+          canModuleAction(userId, '/wastage', 'view') ||
+          canModuleAction(userId, '/wastage', 'update') ||
+          isAdmin()
+        );
         allow create: if isAuthenticated() && canModuleAction(userId, '/wastage', 'create') && isReasonableSize();
         allow update: if isAuthenticated()
           && canModuleAction(userId, '/wastage', 'update')
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
             'status', 'reversedAt', 'reversedBy', 'reversalReason'
           ])
-          && resource.data.status != 'reversed'
+          && (!('status' in resource.data) || resource.data.status != 'reversed')
           && request.resource.data.status == 'reversed';
         allow delete: if false;
       }

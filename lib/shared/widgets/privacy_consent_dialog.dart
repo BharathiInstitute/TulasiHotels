@@ -18,11 +18,37 @@ class PrivacyConsentDialog {
       'https://restaurants.tulasierp.com/privacy';
   static const String _termsUrl = 'https://restaurants.tulasierp.com/terms';
   static const String _prefsKey = 'privacy_consent_version';
+  static final Map<String, Future<void>> _inFlight = {};
 
   /// Shows the consent dialog if the user hasn't accepted the current version.
   /// [uid] — Firebase user ID
   /// [consentVersion] — version already stored on the user doc (null = never consented)
   static Future<void> showIfRequired(
+    BuildContext context, {
+    required String uid,
+    required String? consentVersion,
+  }) async {
+    final existing = _inFlight[uid];
+    if (existing != null) {
+      await existing;
+      return;
+    }
+    // Store the Future so route rebuilds share one dialog operation.
+    // ignore: unawaited_futures
+    final Future<void> pending = _showIfRequired(
+      context,
+      uid: uid,
+      consentVersion: consentVersion,
+    );
+    _inFlight[uid] = pending;
+    try {
+      await pending;
+    } finally {
+      if (identical(_inFlight[uid], pending)) _inFlight.remove(uid);
+    }
+  }
+
+  static Future<void> _showIfRequired(
     BuildContext context, {
     required String uid,
     required String? consentVersion,

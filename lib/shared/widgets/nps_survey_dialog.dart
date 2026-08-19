@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tulasihotels/core/services/error_logging_service.dart';
 
 /// Dialog that shows an NPS (Net Promoter Score) survey to eligible users.
 class NpsSurveyDialog {
+  static const _shownKey = 'nps_survey_shown';
+  static final Map<String, Future<void>> _inFlight = {};
   /// Shows the NPS survey dialog if the user is eligible.
   ///
   /// Eligibility criteria:
@@ -14,12 +17,41 @@ class NpsSurveyDialog {
     required String uid,
     required DateTime? accountCreatedAt,
   }) async {
+    final existing = _inFlight[uid];
+    if (existing != null) {
+      await existing;
+      return;
+    }
+    // Store the Future so route rebuilds share one survey operation.
+    // ignore: unawaited_futures
+    final Future<void> pending = _showIfEligible(
+      context,
+      uid: uid,
+      accountCreatedAt: accountCreatedAt,
+    );
+    _inFlight[uid] = pending;
+    try {
+      await pending;
+    } finally {
+      if (identical(_inFlight[uid], pending)) _inFlight.remove(uid);
+    }
+  }
+
+  static Future<void> _showIfEligible(
+    BuildContext context, {
+    required String uid,
+    required DateTime? accountCreatedAt,
+  }) async {
     if (accountCreatedAt == null) return;
 
     // Don't show if account is less than 7 days old
-    // TESTING: set to 0 to bypass age check (change back to 7 for production)
     final accountAge = DateTime.now().difference(accountCreatedAt);
-    if (accountAge.inDays < 0) return;
+    if (accountAge.inDays < 7) return;
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (prefs.getBool('${_shownKey}_$uid') == true) return;
+    } catch (_) {}
 
     // Check if user has already completed a recent survey
     try {
@@ -31,6 +63,7 @@ class NpsSurveyDialog {
           .get();
 
       if (surveyDoc.exists) {
+        if (surveyDoc.data()?['shownAt'] != null) return;
         final lastSurvey = surveyDoc.data()?['lastCompletedAt'] as Timestamp?;
         if (lastSurvey != null) {
           final daysSinceLast = DateTime.now()
@@ -49,6 +82,24 @@ class NpsSurveyDialog {
       ).ignore();
       return; // Don't show survey if we can't check eligibility
     }
+
+    // Reserve the survey before displaying it so Skip and route rebuilds do
+    // not cause the same survey to appear repeatedly.
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('${_shownKey}_$uid', true);
+    } catch (_) {}
+    try {
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .collection('surveys')
+          .doc('nps')
+          .set(
+            {'shownAt': FieldValue.serverTimestamp()},
+            SetOptions(merge: true),
+          );
+    } catch (_) {}
 
     if (!context.mounted) return;
 
