@@ -116,7 +116,7 @@ export const sendFeedbackRequest = functions
         const feedbackUrl = `https://tulasihotels.web.app/rate/${uid}?billId=${billId}`;
 
         // Fetch hotel name
-        let hotelName = "Tulasi Hotels";
+        let hotelName = "Tulasi Restaurants";
         try {
             const userDoc = await admin.firestore().doc(`users/${uid}`).get();
             hotelName = userDoc.data()?.shopName || hotelName;
@@ -147,7 +147,7 @@ export const sendReservationReminder = functions
 
         for (const userDoc of usersSnapshot.docs) {
             const uid = userDoc.id;
-            const shopName = userDoc.data().shopName || "Tulasi Hotels";
+            const shopName = userDoc.data().shopName || "Tulasi Restaurants";
 
             const reservationsSnapshot = await admin.firestore()
                 .collection(`users/${uid}/reservations`)

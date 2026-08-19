@@ -47,14 +47,14 @@ class ReferralService {
   /// On web, copies to clipboard instead (Web Share API is unreliable).
   static Future<bool> share(String code) async {
     final text =
-        'Try Tulasi Hotels for your shop! Use my referral code $code to sign up: https://restaurants.tulasierp.com/refer?code=$code';
+        'Try Tulasi Restaurants for your shop! Use my referral code $code to sign up: https://restaurants.tulasierp.com/refer?code=$code';
 
     if (kIsWeb) {
       await Clipboard.setData(ClipboardData(text: text));
       return true; // Caller should show "Copied" feedback
     }
 
-    await Share.share(text, subject: 'Try Tulasi Hotels - Referral Code: $code');
+    await Share.share(text, subject: 'Try Tulasi Restaurants - Referral Code: $code');
     return false; // Native share sheet shown, no extra feedback needed
   }
 

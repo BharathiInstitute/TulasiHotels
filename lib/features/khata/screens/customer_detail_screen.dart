@@ -880,6 +880,8 @@ class CustomerDetailScreen extends ConsumerWidget {
                     .read(khataServiceProvider)
                     .deleteCustomer(customer.id);
 
+                if (!context.mounted) return;
+
                 ref.invalidate(customersProvider);
 
                 navigator.pop(); // Go back to list
@@ -890,6 +892,7 @@ class CustomerDetailScreen extends ConsumerWidget {
                   ),
                 );
               } catch (e) {
+                if (!context.mounted) return;
                 scaffoldMessenger.showSnackBar(
                   SnackBar(
                     content: Text('Failed to delete customer: $e'),

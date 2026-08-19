@@ -255,7 +255,7 @@ class PrivacyConsentService {
         'exportedAt': DateTime.now().toIso8601String(),
         'userId': uid,
         'email': _auth.currentUser?.email,
-        'appVersion': 'Tulasi Hotels',
+        'appVersion': 'Tulasi Restaurants',
       };
 
       // Convert timestamps to ISO strings for portability

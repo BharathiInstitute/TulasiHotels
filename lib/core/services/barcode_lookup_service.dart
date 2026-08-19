@@ -97,7 +97,7 @@ class BarcodeLookupService {
             Uri.parse(url),
             headers: {
               'User-Agent':
-                  'Tulasi Hotels/1.0 (contact@restaurants.tulasierp.com)',
+                  'Tulasi Restaurants/1.0 (contact@restaurants.tulasierp.com)',
             },
           )
           .timeout(const Duration(seconds: 10));

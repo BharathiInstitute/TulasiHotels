@@ -190,8 +190,10 @@ class AdminShellScreen extends ConsumerWidget {
               children: _navItems.map((item) {
                 final route = item['route'] as String;
                 final isActive = currentPath == route;
-                return ListTile(
-                  leading: Icon(
+                return Material(
+                  color: Colors.transparent,
+                  child: ListTile(
+                    leading: Icon(
                     item['icon'] as IconData,
                     color: isActive ? Colors.deepPurple : Colors.grey.shade600,
                     size: 22,
@@ -212,10 +214,11 @@ class AdminShellScreen extends ConsumerWidget {
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  onTap: () {
-                    Navigator.of(context).pop(); // close drawer
-                    context.go(route);
-                  },
+                    onTap: () {
+                      Navigator.of(context).pop(); // close drawer
+                      context.go(route);
+                    },
+                  ),
                 );
               }).toList(),
             ),
@@ -254,7 +257,9 @@ class AdminShellScreen extends ConsumerWidget {
   ) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
-      child: ListTile(
+      child: Material(
+        color: Colors.transparent,
+        child: ListTile(
         dense: true,
         leading: Icon(
           icon,
@@ -272,7 +277,8 @@ class AdminShellScreen extends ConsumerWidget {
         selected: isActive,
         selectedTileColor: Colors.deepPurple.withValues(alpha: 0.08),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        onTap: () => context.go(route),
+          onTap: () => context.go(route),
+        ),
       ),
     );
   }

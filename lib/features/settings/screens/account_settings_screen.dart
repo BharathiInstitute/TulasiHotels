@@ -669,7 +669,7 @@ class _AccountSettingsScreenState extends ConsumerState<AccountSettingsScreen> {
       Navigator.of(context).pop(); // dismiss loading
 
       // Share as file
-      await Share.share(jsonData, subject: 'Tulasi Hotels Data Export');
+      await Share.share(jsonData, subject: 'Tulasi Restaurants Data Export');
     } catch (e) {
       if (!mounted) return;
       Navigator.of(context).pop();

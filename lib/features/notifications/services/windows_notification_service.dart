@@ -23,8 +23,8 @@ class WindowsNotificationService {
     if (kIsWeb || !Platform.isWindows) return;
 
     const windowsSettings = WindowsInitializationSettings(
-      appName: 'Tulasi Hotels',
-      appUserModelId: 'Tulasi Hotels.App',
+      appName: 'Tulasi Restaurants',
+      appUserModelId: 'Tulasi Restaurants.App',
       guid: 'e031b94d-44bc-474e-a0e4-80cf69d69c2d',
     );
 

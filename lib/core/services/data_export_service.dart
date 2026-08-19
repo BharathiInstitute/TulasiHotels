@@ -308,8 +308,8 @@ class DataExportService {
       directory = await getApplicationDocumentsDirectory();
     }
 
-    // Create Tulasi Hotels subfolder
-    final exportDir = Directory('${directory.path}/Tulasi Hotels_Exports');
+    // Create Tulasi Restaurants subfolder
+    final exportDir = Directory('${directory.path}/Tulasi Restaurants_Exports');
     if (!exportDir.existsSync()) {
       exportDir.createSync(recursive: true);
     }

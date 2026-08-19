@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:tulasihotels/features/admin/models/store_member.dart';
 import 'package:tulasihotels/features/admin/models/store_role.dart';
 import 'package:tulasihotels/features/admin/providers/members_provider.dart';
+import 'package:tulasihotels/features/permissions/permission_panel.dart';
 import 'package:tulasihotels/features/staff/models/permission_config.dart';
 import 'package:tulasihotels/router/app_router.dart';
 
@@ -93,10 +94,11 @@ class _MemberPermissionCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final perms = member.effectivePermissions;
-    final totalScreens = PermissionConfig.allScreens.length;
-    final accessibleScreens = perms.entries
-        .where((e) => e.value.contains(PermissionAction.view.key))
-        .length;
+    final overviewRoutes = PermissionPanels.all.map((panel) => panel.route).toSet();
+    final totalScreens = overviewRoutes.length;
+    final accessibleScreens = overviewRoutes
+      .where((route) => perms[route]?.contains(PermissionAction.view.key) ?? false)
+      .length;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 8),

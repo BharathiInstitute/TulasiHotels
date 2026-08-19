@@ -105,18 +105,20 @@ class _NotificationTile extends StatelessWidget {
           notification.id,
         );
       },
-      child: ListTile(
-        onTap: () {
-          // Mark as read on tap
-          if (!notification.read) {
-            NotificationFirestoreService.markAsRead(userId, notification.id);
-          }
-          _showNotificationPopup(context);
-        },
-        tileColor: notification.read
-            ? null
-            : Colors.blue.withValues(alpha: 0.04),
-        leading: CircleAvatar(
+      child: Material(
+        color: Colors.transparent,
+        child: ListTile(
+          onTap: () {
+            // Mark as read on tap
+            if (!notification.read) {
+              NotificationFirestoreService.markAsRead(userId, notification.id);
+            }
+            _showNotificationPopup(context);
+          },
+          tileColor: notification.read
+              ? null
+              : Colors.blue.withValues(alpha: 0.04),
+          leading: CircleAvatar(
           backgroundColor: _getTypeColor(
             notification.type,
           ).withValues(alpha: 0.15),
@@ -150,16 +152,17 @@ class _NotificationTile extends StatelessWidget {
             ),
           ],
         ),
-        trailing: notification.read
-            ? null
-            : Container(
-                width: 8,
-                height: 8,
-                decoration: const BoxDecoration(
-                  color: Colors.blue,
-                  shape: BoxShape.circle,
+          trailing: notification.read
+              ? null
+              : Container(
+                  width: 8,
+                  height: 8,
+                  decoration: const BoxDecoration(
+                    color: Colors.blue,
+                    shape: BoxShape.circle,
+                  ),
                 ),
-              ),
+        ),
       ),
     );
   }

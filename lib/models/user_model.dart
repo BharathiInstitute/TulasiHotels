@@ -1,4 +1,4 @@
-/// User/Shop model for Tulasi Hotels app
+/// User/Shop model for Tulasi Restaurants app
 library;
 
 import 'package:cloud_firestore/cloud_firestore.dart';

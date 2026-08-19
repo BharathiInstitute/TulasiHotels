@@ -31,14 +31,14 @@ const List<PermissionAction> _viewCreateActions = [
   PermissionAction.create,
 ];
 
-const List<PermissionAction> _viewUpdateActions = [
-  PermissionAction.view,
-  PermissionAction.update,
-];
-
 const List<PermissionAction> _viewCreateUpdateActions = [
   PermissionAction.view,
   PermissionAction.create,
+  PermissionAction.update,
+];
+
+const List<PermissionAction> _viewUpdateActions = [
+  PermissionAction.view,
   PermissionAction.update,
 ];
 
@@ -122,7 +122,7 @@ class PermissionConfig {
       route: AppRoutes.kitchen,
       label: 'Kitchen Display',
       category: ordersCategory,
-      supportedActions: _viewCreateUpdateActions,
+      supportedActions: _viewUpdateActions,
     ),
     ScreenDef(
       route: AppRoutes.tables,
@@ -158,7 +158,7 @@ class PermissionConfig {
       route: AppRoutes.wastage,
       label: 'Wastage',
       category: inventoryCategory,
-      supportedActions: _viewCreateActions,
+      supportedActions: _viewCreateUpdateActions,
     ),
     // Hospitality
     ScreenDef(

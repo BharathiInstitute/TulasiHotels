@@ -56,6 +56,7 @@ const crypto = __importStar(require("crypto"));
 admin.initializeApp();
 // ─── Email Config (Brevo) ───
 // Uses Brevo HTTP API v3 for transactional emails (more reliable than SMTP)
+const PRODUCT_NAME = "Tulasi Restaurants";
 const sendBrevoEmail = async (to, subject, htmlContent) => {
     const apiKey = (process.env.BREVO_API_KEY || "").trim();
     const senderEmail = (process.env.BREVO_EMAIL || "support@restaurants.tulasierp.com").trim();
@@ -67,7 +68,7 @@ const sendBrevoEmail = async (to, subject, htmlContent) => {
             "content-type": "application/json",
         },
         body: JSON.stringify({
-            sender: { name: "Tulasi Restaurants", email: senderEmail },
+            sender: { name: PRODUCT_NAME, email: senderEmail },
             to: [{ email: to }],
             subject: subject,
             htmlContent: htmlContent,
@@ -918,7 +919,7 @@ exports.sendRegistrationOTP = functions
         const htmlContent = `
                 <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 480px; margin: 0 auto; padding: 32px; background: #f8faf8; border-radius: 12px;">
                     <div style="text-align: center; margin-bottom: 24px;">
-                        <h2 style="color: #059669; margin: 0;">Tulasi Restaurants</h2>
+                        <h2 style="color: #059669; margin: 0;">${PRODUCT_NAME}</h2>
                         <p style="color: #6b7280; font-size: 14px; margin-top: 4px;">Email Verification</p>
                     </div>
                     <div style="background: white; border-radius: 8px; padding: 24px; text-align: center; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
@@ -931,7 +932,7 @@ exports.sendRegistrationOTP = functions
                     <p style="color: #9ca3af; font-size: 12px; text-align: center; margin-top: 16px;">If you didn't request this, please ignore this email.</p>
                 </div>
             `;
-        await sendBrevoEmail(email, "Your Verification Code - Tulasi Restaurants", htmlContent);
+        await sendBrevoEmail(email, `Your Verification Code - ${PRODUCT_NAME}`, htmlContent);
         console.log(`📧 Registration OTP sent to ${email}`);
         return { success: true };
     }
@@ -1286,7 +1287,7 @@ exports.onNewUserSignup = functions
         .doc(userId)
         .collection("notifications")
         .add({
-        title: "Welcome to Tulasi Hotels! 🎉",
+        title: "Welcome to Tulasi Restaurants! 🎉",
         body: `Hi ${ownerName}, your shop "${shopName}" is all set up. Start adding products and making sales!`,
         type: "system",
         targetType: "user",
@@ -1774,7 +1775,7 @@ exports.checkChurnedUsers = functions
     const messages = {
         7: {
             title: "आपकी दुकान का इंतजार है! 🏪",
-            body: "7 दिनों से कोई bill नहीं बनाया। Tulasi Hotels पर वापस आएं और अपना कारोबार बढ़ाएं।",
+            body: "7 दिनों से कोई bill नहीं बनाया। Tulasi Restaurants पर वापस आएं और अपना कारोबार बढ़ाएं।",
         },
         14: {
             title: "वापस आएं — 30 दिन Pro plan मुफ्त 🎁",
@@ -1782,7 +1783,7 @@ exports.checkChurnedUsers = functions
         },
         30: {
             title: "We miss you, shopkeeper! 🙏",
-            body: "आपकी दुकान 30 दिनों से बंद है Tulasi Hotels पर। क्या कोई दिक्कत है? हम मदद करने के लिए यहाँ हैं।",
+            body: "आपकी दुकान 30 दिनों से बंद है Tulasi Restaurants पर। क्या कोई दिक्कत है? हम मदद करने के लिए यहाँ हैं।",
         },
     };
     console.log("👋 Checking for churned users...");

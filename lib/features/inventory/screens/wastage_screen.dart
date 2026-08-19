@@ -85,12 +85,25 @@ class _WastageScreenState extends ConsumerState<WastageScreen> {
                   subtitle: Text(
                     '${w.reason.displayName} • ${w.quantity} ${w.unit.name} • ${w.date.day}/${w.date.month}/${w.date.year}',
                   ),
-                  trailing: Text(
-                    '₹${w.estimatedCost.toStringAsFixed(0)}',
-                    style: TextStyle(
-                      color: Colors.red.shade700,
-                      fontWeight: FontWeight.bold,
-                    ),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        '₹${w.estimatedCost.toStringAsFixed(0)}',
+                        style: TextStyle(
+                          color: Colors.red.shade700,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      if (wastagePermissions.canUpdate &&
+                          w.status == WastageStatus.active)
+                        IconButton(
+                          tooltip: 'Reverse wastage',
+                          icon: const Icon(Icons.undo),
+                          color: Colors.red.shade700,
+                          onPressed: () => _confirmReverseWastage(context, w),
+                        ),
+                    ],
                   ),
                 ),
               );
@@ -99,6 +112,50 @@ class _WastageScreenState extends ConsumerState<WastageScreen> {
         },
       ),
     );
+  }
+
+  Future<void> _confirmReverseWastage(
+    BuildContext context,
+    WastageModel wastage,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Reverse wastage record?'),
+        content: Text(
+          'Restore ${wastage.quantity} ${wastage.unit.shortName} of '
+          '${wastage.ingredientName} to stock?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(dialogContext).colorScheme.error,
+            ),
+            child: const Text('Reverse'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    try {
+      await WastageService.reverseWastage(wastage.id);
+      if (!mounted) return;
+      ScaffoldMessenger.of(this.context).showSnackBar(
+        const SnackBar(content: Text('Wastage reversed and stock restored')),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(this.context).showSnackBar(
+        SnackBar(content: Text('Failed to reverse wastage: $error')),
+      );
+    }
   }
 
   void _showWastageForm() {

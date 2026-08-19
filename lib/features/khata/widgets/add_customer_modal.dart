@@ -93,14 +93,13 @@ class _AddCustomerModalState extends ConsumerState<AddCustomerModal> {
           (c) => c.phone == phone && c.id != (widget.customer?.id ?? ''),
         );
         if (duplicate) {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('A guest with this phone number already exists'),
-                backgroundColor: AppColors.warning,
-              ),
-            );
-          }
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('A guest with this phone number already exists'),
+              backgroundColor: AppColors.warning,
+            ),
+          );
           setState(() => _isLoading = false);
           return;
         }

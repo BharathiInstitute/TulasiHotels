@@ -341,7 +341,7 @@ class WindowsUpdateService {
     int silentAttempts = 0,
   }) async {
     final dir = await _updateDir();
-    final installerPath = '${dir.path}\\Tulasi Hotels_Update.exe';
+    final installerPath = '${dir.path}\\Tulasi Restaurants_Update.exe';
     final installerFile = File(installerPath);
 
     debugPrint('⬇️ Downloading update v${info.version} in background...');

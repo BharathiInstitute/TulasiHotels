@@ -1,4 +1,4 @@
-/// Accessibility helper utilities for Tulasi Hotels.
+/// Accessibility helper utilities for Tulasi Restaurants.
 ///
 /// Provides semantic wrappers and label helpers
 /// for screen reader and TalkBack/VoiceOver support.

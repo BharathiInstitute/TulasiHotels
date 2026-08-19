@@ -1,4 +1,4 @@
-// Custom service worker for Tulasi Hotels PWA
+// Custom service worker for Tulasi Restaurants PWA
 // Combines Firebase Cloud Messaging with offline-first caching strategy.
 //
 // This service worker is registered alongside Flutter's flutter_service_worker.js.

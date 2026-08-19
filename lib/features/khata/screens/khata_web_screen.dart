@@ -959,14 +959,35 @@ class _CustomerDetailPanelState extends ConsumerState<_CustomerDetailPanel> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  customer.name,
-                  style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.bold,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        customer.name,
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    if (khataPermissions.canDelete)
+                      IconButton(
+                        onPressed: () =>
+                            _showDeleteConfirmation(context, ref, customer),
+                        icon: const Icon(Icons.delete_outline),
+                        color: AppColors.error,
+                        iconSize: 20,
+                        visualDensity: VisualDensity.compact,
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(
+                          minWidth: 32,
+                          minHeight: 32,
+                        ),
+                        tooltip: 'Delete Customer',
+                      ),
+                  ],
                 ),
                 Text(
                   '${AppConstants.countryCode} ${Formatters.phoneShort(customer.phone)}',
@@ -998,30 +1019,6 @@ class _CustomerDetailPanelState extends ConsumerState<_CustomerDetailPanel> {
             icon: const Icon(Icons.edit),
             tooltip: 'Edit Details',
           ),
-          // Delete menu
-          if (khataPermissions.canDelete)
-            PopupMenuButton<String>(
-              onSelected: (value) {
-                if (value == 'delete') {
-                  _showDeleteConfirmation(context, ref, customer);
-                }
-              },
-              itemBuilder: (context) => [
-                const PopupMenuItem(
-                  value: 'delete',
-                  child: Row(
-                    children: [
-                      Icon(Icons.delete, color: AppColors.error),
-                      SizedBox(width: 8),
-                      Text(
-                        'Delete Customer',
-                        style: TextStyle(color: AppColors.error),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
         ],
       ),
     );
@@ -1116,6 +1113,7 @@ class _CustomerDetailPanelState extends ConsumerState<_CustomerDetailPanel> {
                   ),
                 );
               } catch (e) {
+                if (!mounted) return;
                 scaffoldMessenger.showSnackBar(
                   SnackBar(
                     content: Text('Failed to delete customer: $e'),

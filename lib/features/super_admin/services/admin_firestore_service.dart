@@ -701,7 +701,11 @@ class AdminFirestoreService {
 
       return emails;
     } catch (e) {
-      debugPrint('❌ AdminFirestore: Failed to get admin emails: $e');
+      if (e is FirebaseException && e.code == 'permission-denied') {
+        debugPrint('⏭️ AdminFirestore: Admin email lookup skipped for non-admin user');
+      } else {
+        debugPrint('❌ AdminFirestore: Failed to get admin emails: $e');
+      }
       return [primaryOwnerEmail];
     }
   }

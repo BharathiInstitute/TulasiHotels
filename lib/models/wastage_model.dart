@@ -25,6 +25,11 @@ enum WastageReason {
   }
 }
 
+enum WastageStatus {
+  active,
+  reversed,
+}
+
 class WastageModel {
   final String id;
   final String ingredientId;
@@ -37,6 +42,10 @@ class WastageModel {
   final DateTime date;
   final String? loggedBy;
   final DateTime createdAt;
+  final WastageStatus status;
+  final DateTime? reversedAt;
+  final String? reversedBy;
+  final String? reversalReason;
 
   const WastageModel({
     required this.id,
@@ -50,6 +59,10 @@ class WastageModel {
     required this.date,
     this.loggedBy,
     required this.createdAt,
+    this.status = WastageStatus.active,
+    this.reversedAt,
+    this.reversedBy,
+    this.reversalReason,
   });
 
   factory WastageModel.fromFirestore(DocumentSnapshot doc) {
@@ -68,6 +81,13 @@ class WastageModel {
       date: (data['date'] as Timestamp?)?.toDate() ?? DateTime.now(),
       loggedBy: data['loggedBy'] as String?,
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      status: WastageStatus.values.firstWhere(
+        (value) => value.name == data['status'],
+        orElse: () => WastageStatus.active,
+      ),
+      reversedAt: (data['reversedAt'] as Timestamp?)?.toDate(),
+      reversedBy: data['reversedBy'] as String?,
+      reversalReason: data['reversalReason'] as String?,
     );
   }
 
@@ -83,6 +103,10 @@ class WastageModel {
       'date': Timestamp.fromDate(date),
       'loggedBy': loggedBy,
       'createdAt': Timestamp.fromDate(createdAt),
+      'status': status.name,
+      'reversedAt': reversedAt == null ? null : Timestamp.fromDate(reversedAt!),
+      'reversedBy': reversedBy,
+      'reversalReason': reversalReason,
     };
   }
 
@@ -96,6 +120,10 @@ class WastageModel {
     double? estimatedCost,
     DateTime? date,
     String? loggedBy,
+    WastageStatus? status,
+    DateTime? reversedAt,
+    String? reversedBy,
+    String? reversalReason,
   }) {
     return WastageModel(
       id: id,
@@ -109,6 +137,10 @@ class WastageModel {
       date: date ?? this.date,
       loggedBy: loggedBy ?? this.loggedBy,
       createdAt: createdAt,
+      status: status ?? this.status,
+      reversedAt: reversedAt ?? this.reversedAt,
+      reversedBy: reversedBy ?? this.reversedBy,
+      reversalReason: reversalReason ?? this.reversalReason,
     );
   }
 }

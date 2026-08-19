@@ -1300,8 +1300,10 @@ class _DrawerNavItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListTile(
-      leading: Icon(
+    return Material(
+      color: Colors.transparent,
+      child: ListTile(
+        leading: Icon(
         icon,
         color: isSelected
             ? AppColors.primary
@@ -1320,7 +1322,8 @@ class _DrawerNavItem extends StatelessWidget {
       selectedTileColor: OpacityColors.primary10,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-      onTap: onTap,
+        onTap: onTap,
+      ),
     );
   }
 }

@@ -1,4 +1,4 @@
-# Flutter ProGuard Rules for Tulasi Hotels
+# Flutter ProGuard Rules for Tulasi Restaurants
 # ───────────────────────────────────────
 
 # Keep Flutter engine

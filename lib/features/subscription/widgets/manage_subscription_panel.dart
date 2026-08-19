@@ -308,32 +308,6 @@ class _ManageSubscriptionPanelState
                         : 'Active',
                     style: TextStyle(color: cs.onSurfaceVariant, fontSize: 14),
                   ),
-                  if (_userEmail != null) ...[  
-                    const SizedBox(height: 6),
-                    Row(
-                      children: [
-                        Icon(Icons.email_outlined, size: 13, color: cs.onSurfaceVariant),
-                        const SizedBox(width: 4),
-                        Text(
-                          _userEmail!,
-                          style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12),
-                        ),
-                      ],
-                    ),
-                  ],
-                  if (_userPhone != null) ...[  
-                    const SizedBox(height: 2),
-                    Row(
-                      children: [
-                        Icon(Icons.phone_outlined, size: 13, color: cs.onSurfaceVariant),
-                        const SizedBox(width: 4),
-                        Text(
-                          _userPhone!,
-                          style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12),
-                        ),
-                      ],
-                    ),
-                  ],
                 ],
               ),
             ),

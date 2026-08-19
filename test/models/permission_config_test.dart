@@ -95,11 +95,11 @@ void main() {
     test('partial modules expose only supported actions', () {
       expect(
         PermissionConfig.screenForRoute(AppRoutes.kitchen)?.supportedActionKeys,
-        ['view', 'create', 'update'],
+        ['view', 'update'],
       );
       expect(
         PermissionConfig.screenForRoute(AppRoutes.wastage)?.supportedActionKeys,
-        ['view', 'create'],
+        ['view', 'create', 'update'],
       );
     });
   });
@@ -215,7 +215,7 @@ void main() {
       });
 
       expect(normalized[AppRoutes.dashboard], ['view']);
-      expect(normalized[AppRoutes.kitchen], ['view', 'create', 'update']);
+      expect(normalized[AppRoutes.kitchen], ['view', 'update']);
     });
 
     test('preserves unknown routes', () {

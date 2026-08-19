@@ -30,6 +30,7 @@ class _TablesScreenState extends ConsumerState<TablesScreen> {
   @override
   Widget build(BuildContext context) {
     final tablesAsync = ref.watch(filteredTablesProvider);
+    final tables = tablesAsync.valueOrNull ?? const <TableModel>[];
     final floors = ref.watch(availableFloorsProvider);
     final selectedFloor = ref.watch(selectedFloorProvider);
     final statusSummary = ref.watch(tableStatusSummaryProvider);
@@ -77,6 +78,33 @@ class _TablesScreenState extends ConsumerState<TablesScreen> {
                 onChanged: (value) =>
                     ref.read(selectedFloorProvider.notifier).state = value,
               ),
+            ),
+          if (tables.isNotEmpty &&
+              (tablePermissions.canUpdate || tablePermissions.canDelete))
+            PopupMenuButton<_TableAction>(
+              tooltip: 'Table actions',
+              icon: const Icon(Icons.more_vert),
+              onSelected: (action) => _chooseTableForAction(tables, action),
+              itemBuilder: (context) => [
+                if (tablePermissions.canUpdate)
+                  const PopupMenuItem(
+                    value: _TableAction.edit,
+                    child: ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: Icon(Icons.edit_outlined),
+                      title: Text('Edit table'),
+                    ),
+                  ),
+                if (tablePermissions.canDelete)
+                  const PopupMenuItem(
+                    value: _TableAction.delete,
+                    child: ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: Icon(Icons.delete_outline),
+                      title: Text('Delete table'),
+                    ),
+                  ),
+              ],
             ),
           IconButton(
             icon: Icon(atTableLimit ? Icons.lock_outline : Icons.add),
@@ -139,7 +167,128 @@ class _TablesScreenState extends ConsumerState<TablesScreen> {
       builder: (context) => const AddTableDialog(),
     );
   }
+
+  Future<void> _chooseTableForAction(
+    List<TableModel> tables,
+    _TableAction action,
+  ) async {
+    final table = await showDialog<TableModel>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(action == _TableAction.edit ? 'Edit table' : 'Delete table'),
+        content: SizedBox(
+          width: 360,
+          child: ListView.separated(
+            shrinkWrap: true,
+            itemCount: tables.length,
+            separatorBuilder: (_, _) => const Divider(height: 1),
+            itemBuilder: (context, index) {
+              final table = tables[index];
+              final canDelete = table.status == TableStatus.available;
+              return ListTile(
+                leading: Icon(
+                  action == _TableAction.edit
+                      ? Icons.table_restaurant_outlined
+                      : Icons.delete_outline,
+                  color: action == _TableAction.delete && canDelete
+                      ? Theme.of(context).colorScheme.error
+                      : null,
+                ),
+                title: Text(table.displayName),
+                subtitle: Text(
+                  action == _TableAction.delete && !canDelete
+                      ? 'Only available tables can be deleted'
+                      : 'Capacity ${table.capacity}',
+                ),
+                enabled: action != _TableAction.delete || canDelete,
+                onTap: () => Navigator.pop(dialogContext, table),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+
+    if (!mounted || table == null) return;
+    if (action == _TableAction.edit) {
+      await _showEditDialog(table);
+    } else {
+      await _confirmDelete(table);
+    }
+  }
+
+  Future<void> _showEditDialog(TableModel table) async {
+    final permissions = ref.read(routePermissionProvider(AppRoutes.tables));
+    if (!permissions.canUpdate) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            PermissionCenter.deniedActionMessage(
+              AppRoutes.tables,
+              PermissionAction.update,
+            ),
+          ),
+        ),
+      );
+      return;
+    }
+
+    await showDialog(
+      context: context,
+      builder: (context) => AddTableDialog(editTable: table),
+    );
+  }
+
+  Future<void> _confirmDelete(TableModel table) async {
+    final permissions = ref.read(routePermissionProvider(AppRoutes.tables));
+    if (!permissions.canDelete) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            PermissionCenter.deniedActionMessage(
+              AppRoutes.tables,
+              PermissionAction.delete,
+            ),
+          ),
+        ),
+      );
+      return;
+    }
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Delete table?'),
+        content: Text('Delete ${table.displayName}? This cannot be undone.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+    try {
+      await TableService.deleteTable(table.id);
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to delete ${table.displayName}: $error'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
 }
+
+enum _TableAction { edit, delete }
 
 /// Status summary bar showing table counts by status
 class _StatusBar extends StatelessWidget {
@@ -272,8 +421,7 @@ class _TableCard extends ConsumerWidget {
     final color = _statusColor(table.status);
     final tablePermissions = ref.watch(routePermissionProvider(AppRoutes.tables));
     final canUpdateTables = tablePermissions.canUpdate;
-    final canDeleteTables = tablePermissions.canDelete;
-    final canOpenOptions = canUpdateTables || canDeleteTables;
+    final canOpenOptions = canUpdateTables;
 
     return Card(
       elevation: 2,
@@ -291,46 +439,52 @@ class _TableCard extends ConsumerWidget {
             color: color.withValues(alpha: 0.08),
           ),
           padding: const EdgeInsets.all(12),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
+          child: Stack(
             children: [
-              // Table number
-              Text(
-                table.displayName,
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 4),
+              Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    // Table number
+                    Text(
+                      table.displayName,
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 4),
 
-              // Capacity
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.people, size: 14, color: theme.hintColor),
-                  const SizedBox(width: 4),
-                  Text(
-                    '${table.capacity}',
-                    style: theme.textTheme.bodySmall,
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
+                    // Capacity
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.people, size: 14, color: theme.hintColor),
+                        const SizedBox(width: 4),
+                        Text(
+                          '${table.capacity}',
+                          style: theme.textTheme.bodySmall,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
 
-              // Status badge
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  table.status.displayName,
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: color,
-                    fontWeight: FontWeight.w600,
-                  ),
+                    // Status badge
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: color.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        table.status.displayName,
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: color,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -394,7 +548,6 @@ class _TableCard extends ConsumerWidget {
   void _showTableOptions(BuildContext context, WidgetRef ref) {
     final tablePermissions = ref.read(routePermissionProvider(AppRoutes.tables));
     final canUpdateTables = tablePermissions.canUpdate;
-    final canDeleteTables = tablePermissions.canDelete;
 
     showModalBottomSheet(
       context: context,
@@ -402,15 +555,6 @@ class _TableCard extends ConsumerWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (canUpdateTables)
-              ListTile(
-                leading: const Icon(Icons.edit),
-                title: const Text('Edit Table'),
-                onTap: () {
-                  Navigator.pop(context);
-                  _showEditDialog(context, ref);
-                },
-              ),
             if (canUpdateTables && table.status == TableStatus.available)
               ListTile(
                 leading: const Icon(Icons.event_seat),
@@ -444,78 +588,8 @@ class _TableCard extends ConsumerWidget {
                   _showAssignServerDialog(context);
                 },
               ),
-            if (canDeleteTables && table.status == TableStatus.available)
-              ListTile(
-                leading: const Icon(Icons.delete, color: Colors.red),
-                title: const Text('Delete Table',
-                    style: TextStyle(color: Colors.red)),
-                onTap: () {
-                  Navigator.pop(context);
-                  _confirmDelete(context, ref);
-                },
-              ),
           ],
         ),
-      ),
-    );
-  }
-
-  void _showEditDialog(BuildContext context, WidgetRef ref) {
-    final permissions = ref.read(routePermissionProvider(AppRoutes.tables));
-    if (!permissions.canUpdate) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            PermissionCenter.deniedActionMessage(
-              AppRoutes.tables,
-              PermissionAction.update,
-            ),
-          ),
-        ),
-      );
-      return;
-    }
-
-    showDialog(
-      context: context,
-      builder: (context) => AddTableDialog(editTable: table),
-    );
-  }
-
-  void _confirmDelete(BuildContext context, WidgetRef ref) {
-    final permissions = ref.read(routePermissionProvider(AppRoutes.tables));
-    if (!permissions.canDelete) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            PermissionCenter.deniedActionMessage(
-              AppRoutes.tables,
-              PermissionAction.delete,
-            ),
-          ),
-        ),
-      );
-      return;
-    }
-
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Delete Table?'),
-        content: Text('Delete ${table.displayName}? This cannot be undone.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              TableService.deleteTable(table.id);
-            },
-            child: const Text('Delete', style: TextStyle(color: Colors.red)),
-          ),
-        ],
       ),
     );
   }

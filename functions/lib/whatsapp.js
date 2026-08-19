@@ -139,7 +139,7 @@ exports.sendFeedbackRequest = functions
     const billId = context.params.billId;
     const feedbackUrl = `https://tulasihotels.web.app/rate/${uid}?billId=${billId}`;
     // Fetch hotel name
-    let hotelName = "Tulasi Hotels";
+    let hotelName = "Tulasi Restaurants";
     try {
         const userDoc = await admin.firestore().doc(`users/${uid}`).get();
         hotelName = ((_a = userDoc.data()) === null || _a === void 0 ? void 0 : _a.shopName) || hotelName;
@@ -167,7 +167,7 @@ exports.sendReservationReminder = functions
     const usersSnapshot = await admin.firestore().collection("users").get();
     for (const userDoc of usersSnapshot.docs) {
         const uid = userDoc.id;
-        const shopName = userDoc.data().shopName || "Tulasi Hotels";
+        const shopName = userDoc.data().shopName || "Tulasi Restaurants";
         const reservationsSnapshot = await admin.firestore()
             .collection(`users/${uid}/reservations`)
             .where("status", "==", "confirmed")

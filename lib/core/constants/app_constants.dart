@@ -1,4 +1,4 @@
-/// App-wide constants for Tulasi Hotels retail billing app
+/// App-wide constants for Tulasi Restaurants retail billing app
 library;
 
 class AppConstants {

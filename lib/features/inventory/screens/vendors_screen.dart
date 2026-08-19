@@ -70,6 +70,7 @@ class VendorsScreen extends ConsumerWidget {
                     context,
                     vendor,
                     canUpdate: vendorPermissions.canUpdate,
+                    canDelete: vendorPermissions.canDelete,
                   ),
                   leading: CircleAvatar(
                     child: Text(
@@ -250,6 +251,7 @@ class VendorsScreen extends ConsumerWidget {
     BuildContext context,
     VendorModel vendor, {
     required bool canUpdate,
+    required bool canDelete,
   }) {
     showModalBottomSheet(
       context: context,
@@ -257,6 +259,7 @@ class VendorsScreen extends ConsumerWidget {
       builder: (ctx) => _VendorDetailSheet(
         vendor: vendor,
         canUpdate: canUpdate,
+        canDelete: canDelete,
       ),
     );
   }
@@ -267,8 +270,13 @@ class VendorsScreen extends ConsumerWidget {
 class _VendorDetailSheet extends StatefulWidget {
   final VendorModel vendor;
   final bool canUpdate;
+  final bool canDelete;
 
-  const _VendorDetailSheet({required this.vendor, required this.canUpdate});
+  const _VendorDetailSheet({
+    required this.vendor,
+    required this.canUpdate,
+    required this.canDelete,
+  });
 
   @override
   State<_VendorDetailSheet> createState() => _VendorDetailSheetState();
@@ -335,6 +343,13 @@ class _VendorDetailSheetState extends State<_VendorDetailSheet>
                         style: Theme.of(context).textTheme.titleLarge,
                       ),
                       if (vendor.phone != null)
+                    if (widget.canDelete)
+                      IconButton(
+                        tooltip: 'Delete vendor',
+                        icon: const Icon(Icons.delete_outline),
+                        color: Theme.of(context).colorScheme.error,
+                        onPressed: () => _confirmDelete(context, vendor),
+                      ),
                         Text(
                           vendor.phone!,
                           style: TextStyle(color: Colors.grey.shade600),
@@ -417,6 +432,47 @@ class _VendorDetailSheetState extends State<_VendorDetailSheet>
         ],
       ),
     );
+  }
+
+  Future<void> _confirmDelete(BuildContext context, VendorModel vendor) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Delete vendor?'),
+        content: Text(
+          'Delete ${vendor.name}? This will also remove the vendor record.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(dialogContext).colorScheme.error,
+            ),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    try {
+      await VendorService.deleteVendor(vendor.id);
+      if (!mounted) return;
+      Navigator.of(this.context).pop();
+      ScaffoldMessenger.of(this.context).showSnackBar(
+        SnackBar(content: Text('${vendor.name} deleted')),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(this.context).showSnackBar(
+        SnackBar(content: Text('Failed to delete vendor: $error')),
+      );
+    }
   }
 
   void _showRecordPurchase(BuildContext context, VendorModel vendor) {

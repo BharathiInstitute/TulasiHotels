@@ -584,7 +584,11 @@ service cloud.firestore {
         ) && isReasonableSize();
         allow update: if isAuthenticated() && (
           canModuleAction(userId, '/ingredients', 'update') ||
-          canModuleAction(userId, '/products', 'update')
+          canModuleAction(userId, '/products', 'update') ||
+          (canModuleAction(userId, '/wastage', 'update')
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+              'currentStock', 'updatedAt'
+            ]))
         ) && isReasonableSize();
         allow delete: if isAuthenticated() && (
           canModuleAction(userId, '/ingredients', 'delete') ||
@@ -626,8 +630,14 @@ service cloud.firestore {
       match /wastage/{wastageId} {
         allow read: if isAuthenticated() && (canModuleAction(userId, '/wastage', 'view') || isAdmin());
         allow create: if isAuthenticated() && canModuleAction(userId, '/wastage', 'create') && isReasonableSize();
-        allow update: if false; // Wastage logs are immutable
-        allow delete: if isAuthenticated() && canModuleAction(userId, '/wastage', 'delete');
+        allow update: if isAuthenticated()
+          && canModuleAction(userId, '/wastage', 'update')
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'status', 'reversedAt', 'reversedBy', 'reversalReason'
+          ])
+          && resource.data.status != 'reversed'
+          && request.resource.data.status == 'reversed';
+        allow delete: if false;
       }
 
       // ===================

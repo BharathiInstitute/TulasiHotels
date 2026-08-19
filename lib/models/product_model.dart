@@ -1,4 +1,4 @@
-/// Product model for Tulasi Hotels app
+/// Product model for Tulasi Restaurants app
 library;
 
 import 'package:cloud_firestore/cloud_firestore.dart';

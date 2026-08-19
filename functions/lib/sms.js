@@ -114,7 +114,7 @@ exports.sendOrderReadySMS = functions
     await sendSMS(after.customerPhone, "order_ready_pickup", // MSG91 flow ID — configure in MSG91 dashboard
     {
         orderNumber: String(after.orderNumber || ""),
-        shopName: after.shopName || "Tulasi Hotels",
+        shopName: after.shopName || "Tulasi Restaurants",
     });
 });
 //# sourceMappingURL=sms.js.map

@@ -103,7 +103,7 @@ class WebShell extends ConsumerWidget {
   }
 }
 
-class _WebSidebar extends ConsumerWidget {
+class _WebSidebar extends ConsumerStatefulWidget {
   final int selectedIndex;
   final List<int> visibleIndices;
   final Function(int) onItemTapped;
@@ -115,6 +115,19 @@ class _WebSidebar extends ConsumerWidget {
     required this.onItemTapped,
     required this.currentPath,
   });
+
+  @override
+  ConsumerState<_WebSidebar> createState() => _WebSidebarState();
+}
+
+class _WebSidebarState extends ConsumerState<_WebSidebar> {
+  final _scrollController = ScrollController();
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
 
   static const Map<int, (IconData, String)> _navItems = {
     0: (Icons.point_of_sale_outlined, 'Walk-in'),
@@ -178,7 +191,7 @@ class _WebSidebar extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final user = ref.watch(currentUserProvider);
     final currentHotel = ref.watch(currentHotelProvider);
     final hotelId = ref.watch(currentHotelIdProvider);
@@ -212,7 +225,7 @@ class _WebSidebar extends ConsumerWidget {
               ? user!.shopName
               : AppConstants.defaultShopName);
     // Identify if we are in settings (since it might be outside standard index)
-    final isSettings = currentPath.startsWith(AppRoutes.settings);
+    final isSettings = widget.currentPath.startsWith(AppRoutes.settings);
     // General/Account/Billing tabs are owner-only; staff should land on the
     // first settings tab they actually have permission to view instead of
     // hitting a permission-denied screen on /settings/general.
@@ -282,18 +295,20 @@ class _WebSidebar extends ConsumerWidget {
           // Navigation Links
           Expanded(
             child: Scrollbar(
+              controller: _scrollController,
               child: ListView(
-                primary: true,
+                controller: _scrollController,
+                primary: false,
                 padding: EdgeInsets.symmetric(horizontal: isCollapsed ? 8 : 16),
                 children: [
-                  for (final idx in visibleIndices)
+                  for (final idx in widget.visibleIndices)
                     if (navItems[idx] case final item?)
                       _SidebarItem(
                         icon: item.$1,
                         label: item.$2,
-                        isSelected: selectedIndex == idx,
+                        isSelected: widget.selectedIndex == idx,
                         isCollapsed: isCollapsed,
-                        onTap: () => onItemTapped(idx),
+                        onTap: () => widget.onItemTapped(idx),
                       ),
 
                   // More features — direct route links (permission-filtered)
@@ -331,7 +346,7 @@ class _WebSidebar extends ConsumerWidget {
                             icon: icon,
                             label: label,
                             route: route,
-                            currentPath: currentPath,
+                            currentPath: widget.currentPath,
                             isCollapsed: isCollapsed,
                           );
                         }
@@ -419,7 +434,7 @@ class _WebSidebar extends ConsumerWidget {
                           unreadNotificationCountProvider,
                         );
                         final count = unreadAsync.valueOrNull ?? 0;
-                        final isNotificationsRoute = currentPath.startsWith(
+                        final isNotificationsRoute = widget.currentPath.startsWith(
                           AppRoutes.notifications,
                         );
                         return Container(
@@ -522,7 +537,7 @@ class _WebSidebar extends ConsumerWidget {
                   _SidebarItem(
                     icon: Icons.support_agent,
                     label: 'Help & Support',
-                    isSelected: currentPath.startsWith(AppRoutes.support),
+                    isSelected: widget.currentPath.startsWith(AppRoutes.support),
                     isCollapsed: isCollapsed,
                     onTap: () => GoRouter.of(context).go(AppRoutes.support),
                   ),
@@ -586,7 +601,7 @@ class _WebSidebar extends ConsumerWidget {
                             _SidebarItem(
                               icon: Icons.group_outlined,
                               label: 'Users',
-                              isSelected: currentPath.startsWith(
+                              isSelected: widget.currentPath.startsWith(
                                 AppRoutes.members,
                               ),
                               isCollapsed: isCollapsed,
@@ -597,7 +612,7 @@ class _WebSidebar extends ConsumerWidget {
                             _SidebarItem(
                               icon: Icons.admin_panel_settings_outlined,
                               label: 'Permissions',
-                              isSelected: currentPath.startsWith(
+                              isSelected: widget.currentPath.startsWith(
                                 AppRoutes.permissionsOverview,
                               ),
                               isCollapsed: isCollapsed,

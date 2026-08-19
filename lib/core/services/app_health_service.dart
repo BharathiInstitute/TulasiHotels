@@ -92,7 +92,8 @@ class AppHealthService {
   static Future<void> _logStartupMetrics(Duration startupTime) async {
     try {
       // Skip logging if user is not authenticated (Firestore rules require auth)
-      if (_auth.currentUser == null) {
+      final user = _auth.currentUser;
+      if (user == null) {
         if (kDebugMode) {
           debugPrint('⏭️ Skipping health metrics - user not authenticated');
         }
@@ -105,7 +106,7 @@ class AppHealthService {
         appVersion: appVersion,
         timestamp: DateTime.now(),
         isOnline: true,
-        userId: _auth.currentUser?.uid,
+        userId: user.uid,
       );
 
       await _firestore.collection('app_health').add(metrics.toFirestore());
@@ -115,7 +116,11 @@ class AppHealthService {
       }
     } catch (e) {
       if (kDebugMode) {
-        debugPrint('❌ Failed to log health metrics: $e');
+        if (e is FirebaseException && e.code == 'permission-denied') {
+          debugPrint('⏭️ Skipping health metrics - Firestore denied the write');
+        } else {
+          debugPrint('❌ Failed to log health metrics: $e');
+        }
       }
     }
   }

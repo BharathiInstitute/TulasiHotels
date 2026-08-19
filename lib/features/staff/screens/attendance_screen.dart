@@ -36,6 +36,7 @@ class _AttendanceBody extends ConsumerStatefulWidget {
 
 class _AttendanceBodyState extends ConsumerState<_AttendanceBody> {
   late DateTimeRange _range;
+  final _scrollController = ScrollController();
 
   @override
   void initState() {
@@ -45,6 +46,12 @@ class _AttendanceBodyState extends ConsumerState<_AttendanceBody> {
       start: DateTime(now.year, now.month),
       end: DateTime(now.year, now.month + 1, 0),
     );
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
   }
 
   @override
@@ -181,8 +188,10 @@ class _AttendanceBodyState extends ConsumerState<_AttendanceBody> {
             .length;
 
         return Scrollbar(
+          controller: _scrollController,
           thumbVisibility: true,
           child: ListView(
+            controller: _scrollController,
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
             children: [
               Align(
