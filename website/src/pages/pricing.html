@@ -1019,11 +1019,12 @@
       startPaymentPolling(orderId, plan, cycle, rzp);
     }
 
-    function startPaymentPolling(orderId, plan, cycle, rzpInstance) {
+    function startPaymentPolling(orderId, plan, cycle, rzpInstance, maxAttempts) {
       var pollCount = 0;
+      var limit = maxAttempts || 60; // default: 5 minutes (60 * 5s)
       paymentPollInterval = setInterval(async function () {
         pollCount++;
-        if (pollCount > 60) { // Stop after 5 minutes (60 * 5s)
+        if (pollCount > limit) {
           stopPaymentPolling();
           return;
         }
@@ -1038,7 +1039,7 @@
           if (result.data.success) {
             stopPaymentPolling();
             clearPendingOrder();
-            try { rzpInstance.close(); } catch(e) {}
+            try { rzpInstance && rzpInstance.close(); } catch(e) {}
             showPaymentSuccess(plan);
           }
         } catch (err) {
@@ -1074,14 +1075,16 @@
     }
 
     // ─── UPI Fallback: Check if payment completed after modal dismiss ───
+    // The modal often closes while the user is still completing payment on a
+    // separate device (e.g. scanning a UPI QR with their phone), so this keeps
+    // polling instead of giving up after a single check.
     async function checkPendingPayment() {
       if (!pendingOrder) return;
       var order = pendingOrder;
-      clearPendingOrder();
 
-      showPaymentOverlay('Checking payment status...', 'Verifying if your UPI payment was received.');
+      showPaymentOverlay('Waiting for payment confirmation...', 'This can take a minute if you paid via UPI on another device. Keep this tab open.');
 
-      // Wait a moment for Razorpay to process
+      // Wait a moment for Razorpay to process, then do an immediate check.
       await new Promise(function(r) { setTimeout(r, 3000); });
 
       try {
@@ -1093,14 +1096,19 @@
           restaurantId: restaurantIdParam || (currentUser ? currentUser.uid : ''),
         });
         if (result.data.success) {
+          clearPendingOrder();
           showPaymentSuccess(order.plan);
-        } else {
-          showPaymentError('Payment not yet received. If money was debited, your plan activates automatically within 5 minutes — reopen the app to check.');
+          return;
         }
       } catch (err) {
         console.error('Check payment status error:', err);
-        showPaymentError('We could not confirm the payment right now. If money was debited, your plan activates automatically within 5 minutes.');
       }
+
+      // Not paid yet — resume background polling for a few more minutes
+      // instead of declaring failure; the tab's visibilitychange/focus
+      // listeners and this poll will catch it whenever it actually settles.
+      showPaymentError('Still waiting for payment confirmation. If money was debited, this page will update automatically — you can also reopen the app to check.');
+      startPaymentPolling(order.orderId, order.plan, order.cycle, null, 60);
     }
   </script>
 </body>
