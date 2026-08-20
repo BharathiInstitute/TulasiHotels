@@ -531,7 +531,54 @@
     var pendingPlan = null;
     var isAnnual = false;
     var pendingOrder = null; // { orderId, plan, cycle } — for UPI fallback check
+    var PENDING_ORDER_KEY = 'th_pending_order';
     var autoCheckoutStarted = false;
+
+    function savePendingOrder(order) {
+      pendingOrder = order;
+      try { localStorage.setItem(PENDING_ORDER_KEY, JSON.stringify(order)); } catch (e) {}
+    }
+
+    function clearPendingOrder() {
+      pendingOrder = null;
+      try { localStorage.removeItem(PENDING_ORDER_KEY); } catch (e) {}
+    }
+
+    function loadPendingOrder() {
+      try {
+        var raw = localStorage.getItem(PENDING_ORDER_KEY);
+        return raw ? JSON.parse(raw) : null;
+      } catch (e) { return null; }
+    }
+
+    // Re-check a possibly-missed payment when the tab regains focus — covers the
+    // case where the user switched to a UPI app and the polling interval was
+    // paused/missed while the tab was backgrounded.
+    async function recheckOrderIfPending() {
+      var order = pendingOrder || loadPendingOrder();
+      if (!order || !currentUser) return;
+      try {
+        var checkFn = functions.httpsCallable('checkOrderStatus');
+        var result = await checkFn({
+          orderId: order.orderId,
+          plan: order.plan,
+          cycle: order.cycle,
+          restaurantId: restaurantIdParam || currentUser.uid,
+        });
+        if (result.data.success) {
+          stopPaymentPolling();
+          clearPendingOrder();
+          showPaymentSuccess(order.plan);
+        }
+      } catch (e) {
+        // Silently ignore — regular polling/checkPendingPayment will retry.
+      }
+    }
+
+    document.addEventListener('visibilitychange', function () {
+      if (document.visibilityState === 'visible') recheckOrderIfPending();
+    });
+    window.addEventListener('focus', recheckOrderIfPending);
     var autoOpenParam = new URLSearchParams(window.location.search).get('auto') === '1';
     var platformParam = new URLSearchParams(window.location.search).get('platform') || 'web'; // web | windows | android
     var restaurantIdParam = '';
@@ -622,6 +669,18 @@
     // ─── Billing Toggle ───
     document.addEventListener('DOMContentLoaded', function () {
       showSuccessBannerFromUrl();
+
+      // A pending order may be left over from a previous page load (e.g. tab
+      // was closed/backgrounded mid-UPI-payment) — re-check it once signed in.
+      if (loadPendingOrder()) {
+        pendingOrder = loadPendingOrder();
+        var unsub = auth.onAuthStateChanged(function (user) {
+          if (user) {
+            recheckOrderIfPending();
+            unsub();
+          }
+        });
+      }
 
       var toggle = document.getElementById('billingToggle');
       var labels = document.querySelectorAll('.pricing-toggle-label');
@@ -891,7 +950,7 @@
 
     function openRazorpayCheckout(orderId, amount, plan, cycle) {
       var isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-      pendingOrder = { orderId: orderId, plan: plan, cycle: cycle };
+      savePendingOrder({ orderId: orderId, plan: plan, cycle: cycle });
 
       // Razorpay requires a valid 10-digit phone to skip contact screen
       var phone = userPhone || paramPhone || (currentUser && currentUser.phoneNumber) || '';
@@ -930,7 +989,7 @@
         },
         handler: function (response) {
           stopPaymentPolling();
-          pendingOrder = null;
+          clearPendingOrder();
           verifyAndActivate(plan, cycle, response.razorpay_payment_id, response.razorpay_order_id, response.razorpay_signature);
         },
       };
@@ -950,7 +1009,7 @@
       var rzp = new Razorpay(options);
       rzp.on('payment.failed', function (response) {
         stopPaymentPolling();
-        pendingOrder = null;
+        clearPendingOrder();
         console.error('Payment failed:', response.error);
         showPaymentError(response.error.description || 'Payment failed. Please try again.');
       });
@@ -978,7 +1037,7 @@
           });
           if (result.data.success) {
             stopPaymentPolling();
-            pendingOrder = null;
+            clearPendingOrder();
             try { rzpInstance.close(); } catch(e) {}
             showPaymentSuccess(plan);
           }
@@ -1018,7 +1077,7 @@
     async function checkPendingPayment() {
       if (!pendingOrder) return;
       var order = pendingOrder;
-      pendingOrder = null;
+      clearPendingOrder();
 
       showPaymentOverlay('Checking payment status...', 'Verifying if your UPI payment was received.');
 
