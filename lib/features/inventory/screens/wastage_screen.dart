@@ -26,6 +26,7 @@ class _WastageScreenState extends ConsumerState<WastageScreen> {
   final _costCtrl = TextEditingController();
   final _notesCtrl = TextEditingController();
   WastageReason _reason = WastageReason.expired;
+  bool _isSubmitting = false;
 
   @override
   void dispose() {
@@ -179,6 +180,7 @@ class _WastageScreenState extends ConsumerState<WastageScreen> {
     _costCtrl.clear();
     _notesCtrl.clear();
     _reason = WastageReason.expired;
+    _isSubmitting = false;
 
     showModalBottomSheet(
       context: context,
@@ -258,8 +260,10 @@ class _WastageScreenState extends ConsumerState<WastageScreen> {
               SizedBox(
                 width: double.infinity,
                 child: FilledButton(
-                  onPressed: () => _submitWastage(ctx),
-                  child: const Text('Log Wastage'),
+                  onPressed: _isSubmitting
+                      ? null
+                      : () => _submitWastage(ctx, setSheetState),
+                  child: Text(_isSubmitting ? 'Logging...' : 'Log Wastage'),
                 ),
               ),
             ],
@@ -269,7 +273,8 @@ class _WastageScreenState extends ConsumerState<WastageScreen> {
     );
   }
 
-  Future<void> _submitWastage(BuildContext ctx) async {
+  Future<void> _submitWastage(BuildContext ctx, StateSetter setSheetState) async {
+    if (_isSubmitting) return;
     final permissions = ref.read(routePermissionProvider(AppRoutes.wastage));
     if (!permissions.canCreate) {
       ScaffoldMessenger.of(ctx).showSnackBar(
@@ -294,6 +299,8 @@ class _WastageScreenState extends ConsumerState<WastageScreen> {
       );
       return;
     }
+
+    setSheetState(() => _isSubmitting = true);
 
     final wastage = WastageModel(
       id: generateSafeId('wastage'),
@@ -320,6 +327,10 @@ class _WastageScreenState extends ConsumerState<WastageScreen> {
         ScaffoldMessenger.of(
           ctx,
         ).showSnackBar(SnackBar(content: Text('Failed to log wastage: $e')));
+      }
+    } finally {
+      if (ctx.mounted) {
+        setSheetState(() => _isSubmitting = false);
       }
     }
   }

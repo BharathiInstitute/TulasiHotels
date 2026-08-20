@@ -1,6 +1,7 @@
 ﻿/// Reservation management service
 library;
 
+import 'dart:async';
 import 'package:tulasihotels/core/services/active_store_manager.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
@@ -16,6 +17,16 @@ class ReservationService {
 
   static CollectionReference<Map<String, dynamic>> get _reservationsRef =>
       _firestore.collection('$_basePath/reservations');
+
+  /// Firestore writes should not block UX in offline/flaky networks.
+  /// If the write doesn't resolve quickly, we assume it is queued locally.
+  static Future<void> _commitWithOfflineFallback(Future<void> write) async {
+    try {
+      await write.timeout(const Duration(seconds: 8));
+    } on TimeoutException {
+      debugPrint('⚠️ Reservation write timed out; treating as queued local write');
+    }
+  }
 
   /// Stream today's reservations
   static Stream<List<ReservationModel>> todayReservationsStream() {
@@ -77,7 +88,9 @@ class ReservationService {
         ),
       );
     }
-    await _reservationsRef.doc(reservation.id).set(reservation.toFirestore());
+    await _commitWithOfflineFallback(
+      _reservationsRef.doc(reservation.id).set(reservation.toFirestore()),
+    );
     debugPrint(
       'Created reservation for ${reservation.guestName} at ${reservation.dateTime}',
     );

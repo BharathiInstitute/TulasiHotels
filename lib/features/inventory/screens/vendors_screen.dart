@@ -138,6 +138,7 @@ class VendorsScreen extends ConsumerWidget {
     final phoneCtrl = TextEditingController();
     final supplyCtrl = TextEditingController();
     final supplyItems = <String>[];
+    var isSubmitting = false;
 
     showModalBottomSheet(
       context: context,
@@ -220,21 +221,30 @@ class VendorsScreen extends ConsumerWidget {
                   ],
                   const SizedBox(height: 16),
                   FilledButton(
-                    onPressed: () async {
-                      if (nameCtrl.text.trim().isEmpty) return;
-                      final vendor = VendorModel(
-                        id: generateSafeId('vendor'),
-                        name: nameCtrl.text.trim(),
-                        phone: phoneCtrl.text.trim().isEmpty
-                            ? null
-                            : phoneCtrl.text.trim(),
-                        supplyItems: List.from(supplyItems),
-                        createdAt: DateTime.now(),
-                      );
-                      await VendorService.createVendor(vendor);
-                      if (ctx.mounted) Navigator.of(ctx).pop();
-                    },
-                    child: const Text('Add Vendor'),
+                    onPressed: isSubmitting
+                        ? null
+                        : () async {
+                            if (nameCtrl.text.trim().isEmpty) return;
+                            setState(() => isSubmitting = true);
+                            final vendor = VendorModel(
+                              id: generateSafeId('vendor'),
+                              name: nameCtrl.text.trim(),
+                              phone: phoneCtrl.text.trim().isEmpty
+                                  ? null
+                                  : phoneCtrl.text.trim(),
+                              supplyItems: List.from(supplyItems),
+                              createdAt: DateTime.now(),
+                            );
+                            try {
+                              await VendorService.createVendor(vendor);
+                              if (ctx.mounted) Navigator.of(ctx).pop();
+                            } finally {
+                              if (ctx.mounted) {
+                                setState(() => isSubmitting = false);
+                              }
+                            }
+                          },
+                    child: Text(isSubmitting ? 'Adding...' : 'Add Vendor'),
                   ),
                 ],
               ),

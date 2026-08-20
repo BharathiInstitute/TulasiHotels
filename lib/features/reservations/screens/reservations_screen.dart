@@ -163,6 +163,7 @@ class _ReservationsScreenState extends ConsumerState<ReservationsScreen>
     final partySizeCtrl = TextEditingController(text: '2');
     var selectedDate = DateTime.now();
     var selectedTime = TimeOfDay.now();
+    var isSubmitting = false;
 
     showModalBottomSheet(
       context: context,
@@ -254,29 +255,43 @@ class _ReservationsScreenState extends ConsumerState<ReservationsScreen>
                   ),
                   const SizedBox(height: 16),
                   FilledButton(
-                    onPressed: () {
-                      if (nameCtrl.text.isEmpty || phoneCtrl.text.isEmpty) {
-                        return;
-                      }
-                      final dateTime = DateTime(
-                        selectedDate.year,
-                        selectedDate.month,
-                        selectedDate.day,
-                        selectedTime.hour,
-                        selectedTime.minute,
-                      );
-                      final reservation = ReservationModel(
-                        id: generateSafeId('res'),
-                        guestName: nameCtrl.text.trim(),
-                        phone: phoneCtrl.text.trim(),
-                        partySize: int.tryParse(partySizeCtrl.text) ?? 2,
-                        dateTime: dateTime,
-                        createdAt: DateTime.now(),
-                      );
-                      ReservationService.createReservation(reservation, permissions);
-                      Navigator.of(context).pop();
-                    },
-                    child: const Text('Create Reservation'),
+                    onPressed: isSubmitting
+                        ? null
+                        : () async {
+                            if (nameCtrl.text.isEmpty || phoneCtrl.text.isEmpty) {
+                              return;
+                            }
+                            setModalState(() => isSubmitting = true);
+                            final dateTime = DateTime(
+                              selectedDate.year,
+                              selectedDate.month,
+                              selectedDate.day,
+                              selectedTime.hour,
+                              selectedTime.minute,
+                            );
+                            final reservation = ReservationModel(
+                              id: generateSafeId('res'),
+                              guestName: nameCtrl.text.trim(),
+                              phone: phoneCtrl.text.trim(),
+                              partySize: int.tryParse(partySizeCtrl.text) ?? 2,
+                              dateTime: dateTime,
+                              createdAt: DateTime.now(),
+                            );
+                            try {
+                              await ReservationService.createReservation(
+                                reservation,
+                                permissions,
+                              );
+                              if (context.mounted) Navigator.of(context).pop();
+                            } finally {
+                              if (context.mounted) {
+                                setModalState(() => isSubmitting = false);
+                              }
+                            }
+                          },
+                    child: Text(
+                      isSubmitting ? 'Creating...' : 'Create Reservation',
+                    ),
                   ),
                   const SizedBox(height: 16),
                 ],

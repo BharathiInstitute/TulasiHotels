@@ -1,8 +1,10 @@
 ﻿/// Customer feedback management service
 library;
 
+import 'dart:async';
 import 'package:tulasihotels/core/services/active_store_manager.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import 'package:tulasihotels/models/feedback_model.dart';
 
 class FeedbackService {
@@ -12,6 +14,16 @@ class FeedbackService {
 
   static CollectionReference<Map<String, dynamic>> get _feedbackRef =>
       _firestore.collection('$_basePath/feedback');
+
+  /// Firestore writes should not block UX in offline/flaky networks.
+  /// If the write doesn't resolve quickly, we assume it is queued locally.
+  static Future<void> _commitWithOfflineFallback(Future<void> write) async {
+    try {
+      await write.timeout(const Duration(seconds: 8));
+    } on TimeoutException {
+      debugPrint('⚠️ Feedback write timed out; treating as queued local write');
+    }
+  }
 
   /// Stream recent feedback
   static Stream<List<FeedbackModel>> recentFeedbackStream() {
@@ -28,16 +40,20 @@ class FeedbackService {
 
   /// Submit feedback (from customer-facing web or tablet)
   static Future<void> submitFeedback(FeedbackModel feedback) async {
-    await _feedbackRef.doc(feedback.id).set(feedback.toFirestore());
+    await _commitWithOfflineFallback(
+      _feedbackRef.doc(feedback.id).set(feedback.toFirestore()),
+    );
   }
 
   /// Submit feedback for a specific hotel (public â€” no auth needed)
   static Future<void> submitPublicFeedback(
       String hotelUid, FeedbackModel feedback) async {
-    await _firestore
-        .collection('users/$hotelUid/feedback')
-        .doc(feedback.id)
-        .set(feedback.toFirestore());
+    await _commitWithOfflineFallback(
+      _firestore
+          .collection('users/$hotelUid/feedback')
+          .doc(feedback.id)
+          .set(feedback.toFirestore()),
+    );
   }
 
   /// Get average ratings

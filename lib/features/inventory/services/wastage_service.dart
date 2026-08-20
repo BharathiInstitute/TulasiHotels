@@ -1,9 +1,11 @@
 ﻿/// Wastage logging service
 library;
 
+import 'dart:async';
 import 'package:tulasihotels/core/services/active_store_manager.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:tulasihotels/features/permissions/services/module_mutation_guard.dart';
 import 'package:tulasihotels/features/staff/models/permission_config.dart';
 import 'package:tulasihotels/models/wastage_model.dart';
@@ -16,6 +18,16 @@ class WastageService {
 
   static CollectionReference<Map<String, dynamic>> get _wastageRef =>
       _firestore.collection('$_basePath/wastage');
+
+  /// Firestore writes should not block UX in offline/flaky networks.
+  /// If the write doesn't resolve quickly, we assume it is queued locally.
+  static Future<void> _commitWithOfflineFallback(Future<void> write) async {
+    try {
+      await write.timeout(const Duration(seconds: 8));
+    } on TimeoutException {
+      debugPrint('⚠️ Wastage write timed out; treating as queued local write');
+    }
+  }
 
   /// Stream recent wastage logs
   static Stream<List<WastageModel>> recentWastageStream() {
@@ -66,7 +78,7 @@ class WastageService {
       });
     }
 
-    await batch.commit();
+    await _commitWithOfflineFallback(batch.commit());
   }
 
   /// Reverse a wastage log and restore linked ingredient stock atomically.

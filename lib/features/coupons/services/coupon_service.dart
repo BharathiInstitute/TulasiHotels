@@ -1,8 +1,10 @@
 ﻿/// Coupon and discount management service
 library;
 
+import 'dart:async';
 import 'package:tulasihotels/core/services/active_store_manager.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import 'package:tulasihotels/features/permissions/services/module_mutation_guard.dart';
 import 'package:tulasihotels/features/staff/models/permission_config.dart';
 import 'package:tulasihotels/models/coupon_model.dart';
@@ -15,6 +17,16 @@ class CouponService {
 
   static CollectionReference<Map<String, dynamic>> get _couponsRef =>
       _firestore.collection('$_basePath/coupons');
+
+  /// Firestore writes should not block UX in offline/flaky networks.
+  /// If the write doesn't resolve quickly, we assume it is queued locally.
+  static Future<void> _commitWithOfflineFallback(Future<void> write) async {
+    try {
+      await write.timeout(const Duration(seconds: 8));
+    } on TimeoutException {
+      debugPrint('⚠️ Coupon write timed out; treating as queued local write');
+    }
+  }
 
   /// Stream all active coupons
   static Stream<List<CouponModel>> activeCouponsStream() {
@@ -83,7 +95,9 @@ class CouponService {
       AppRoutes.coupons,
       PermissionAction.create,
     );
-    await _couponsRef.doc(coupon.id).set(coupon.toFirestore());
+    await _commitWithOfflineFallback(
+      _couponsRef.doc(coupon.id).set(coupon.toFirestore()),
+    );
   }
 
   /// Update a coupon
@@ -92,7 +106,9 @@ class CouponService {
       AppRoutes.coupons,
       PermissionAction.update,
     );
-    await _couponsRef.doc(coupon.id).update(coupon.toFirestore());
+    await _commitWithOfflineFallback(
+      _couponsRef.doc(coupon.id).update(coupon.toFirestore()),
+    );
   }
 
   /// Toggle coupon active state

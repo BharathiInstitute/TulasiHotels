@@ -355,7 +355,9 @@ const applyDirectPlanToRestaurantDoc = async (
         razorpayPaymentId: options.razorpayPaymentId,
         razorpaySubscriptionId: options.razorpaySubscriptionId,
     });
-    await db.collection("users").doc(options.restaurantId).set(updates, { merge: true });
+    // .update() (not .set/merge) is required so dotted keys like "subscription.plan"
+    // resolve to nested field paths instead of literal top-level field names.
+    await db.collection("users").doc(options.restaurantId).update(updates);
 };
 
 const applyOwnerBundlePlanToRestaurantDoc = async (
@@ -383,7 +385,9 @@ const applyOwnerBundlePlanToRestaurantDoc = async (
         entitlementId: options.entitlementId,
         expiresAt: options.expiresAt,
     });
-    await db.collection("users").doc(options.restaurantId).set(updates, { merge: true });
+    // .update() (not .set/merge) is required so dotted keys like "subscription.plan"
+    // resolve to nested field paths instead of literal top-level field names.
+    await db.collection("users").doc(options.restaurantId).update(updates);
 };
 
 const restoreRestaurantToDirectPlan = async (
@@ -752,24 +756,28 @@ const applyPlanToRestaurantDoc = async (
     await applyDirectPlanToRestaurantDoc(db, options);
 };
 
-const markPaymentActivation = async (
+/**
+ * Applies a subscription payment exactly once, marking it processed only
+ * after `apply()` succeeds — a failed plan write is no longer stuck as
+ * "already processed" with the plan never actually written.
+ */
+const activatePaymentIdempotent = async (
     db: FirebaseFirestore.Firestore,
     paymentId: string,
-    payload: { userId: string; restaurantId: string; plan: SubscriptionPlanKey; cycle: SubscriptionCycle }
-): Promise<{ alreadyProcessed: boolean; existing?: FirebaseFirestore.DocumentData }> => {
+    payload: { userId: string; restaurantId: string; plan: SubscriptionPlanKey; cycle: SubscriptionCycle },
+    apply: () => Promise<void>
+): Promise<{ alreadyProcessed: boolean }> => {
     const ref = db.collection("subscription_payment_activations").doc(paymentId);
-    return db.runTransaction(async (tx) => {
-        const snap = await tx.get(ref);
-        if (snap.exists) {
-            return { alreadyProcessed: true, existing: snap.data() };
-        }
-
-        tx.set(ref, {
-            ...payload,
-            processedAt: admin.firestore.FieldValue.serverTimestamp(),
-        });
-        return { alreadyProcessed: false };
+    const snap = await ref.get();
+    if (snap.exists) {
+        return { alreadyProcessed: true };
+    }
+    await apply();
+    await ref.set({
+        ...payload,
+        processedAt: admin.firestore.FieldValue.serverTimestamp(),
     });
+    return { alreadyProcessed: false };
 };
 
 /**
@@ -1168,36 +1176,36 @@ export const razorpayWebhook = functions
                     const db = admin.firestore();
                     const targetRestaurantId = resolveRestaurantId(notes.restaurantId, notesUserId);
 
-                    const activation = await markPaymentActivation(db, paymentId, {
-                        userId: notesUserId,
-                        restaurantId: targetRestaurantId,
-                        plan,
-                        cycle,
-                    });
+                    const webhookExpiresAt = computeExpiryDate(cycle);
+                    const activation = await activatePaymentIdempotent(
+                        db,
+                        paymentId,
+                        { userId: notesUserId, restaurantId: targetRestaurantId, plan, cycle },
+                        async () => {
+                            if (plan === "business") {
+                                await activateBusinessEntitlement(db, {
+                                    ownerUid: await getRestaurantOwnerUid(db, targetRestaurantId),
+                                    restaurantId: targetRestaurantId,
+                                    cycle,
+                                    expiresAt: webhookExpiresAt,
+                                    razorpayOrderId: orderId,
+                                    razorpayPaymentId: paymentId,
+                                });
+                            } else {
+                                await applyPlanToRestaurantDoc(db, {
+                                    restaurantId: targetRestaurantId,
+                                    plan,
+                                    status: "active",
+                                    expiresAt: webhookExpiresAt,
+                                    razorpayOrderId: orderId,
+                                    razorpayPaymentId: paymentId,
+                                });
+                            }
+                        }
+                    );
                     if (activation.alreadyProcessed) {
                         console.log(`${event.event}: payment ${paymentId} already activated`);
                         break;
-                    }
-
-                    const webhookExpiresAt = computeExpiryDate(cycle);
-                    if (plan === "business") {
-                        await activateBusinessEntitlement(db, {
-                            ownerUid: await getRestaurantOwnerUid(db, targetRestaurantId),
-                            restaurantId: targetRestaurantId,
-                            cycle,
-                            expiresAt: webhookExpiresAt,
-                            razorpayOrderId: orderId,
-                            razorpayPaymentId: paymentId,
-                        });
-                    } else {
-                        await applyPlanToRestaurantDoc(db, {
-                            restaurantId: targetRestaurantId,
-                            plan,
-                            status: "active",
-                            expiresAt: webhookExpiresAt,
-                            razorpayOrderId: orderId,
-                            razorpayPaymentId: paymentId,
-                        });
                     }
 
                     await db.collection("users").doc(notesUserId)
@@ -2017,12 +2025,38 @@ export const activateSubscription = functions
             throw new functions.https.HttpsError("internal", "Could not verify payment");
         }
 
-        const activation = await markPaymentActivation(db, razorpayPaymentId, {
-            userId,
-            restaurantId,
-            plan,
-            cycle,
-        });
+        const expiresAt = computeExpiryDate(cycle);
+        const limits = getPlanLimits(plan);
+        const ownerUid = await getRestaurantOwnerUid(db, restaurantId);
+
+        const activation = await activatePaymentIdempotent(
+            db,
+            razorpayPaymentId,
+            { userId, restaurantId, plan, cycle },
+            async () => {
+                if (plan === "business") {
+                    await activateBusinessEntitlement(db, {
+                        ownerUid,
+                        restaurantId,
+                        cycle,
+                        expiresAt,
+                        razorpayOrderId,
+                        razorpayPaymentId,
+                        razorpaySubscriptionId,
+                    });
+                } else {
+                    await applyPlanToRestaurantDoc(db, {
+                        restaurantId,
+                        plan,
+                        status: "active",
+                        expiresAt,
+                        razorpayOrderId,
+                        razorpayPaymentId,
+                        razorpaySubscriptionId,
+                    });
+                }
+            }
+        );
 
         if (activation.alreadyProcessed) {
             return {
@@ -2032,32 +2066,6 @@ export const activateSubscription = functions
                 restaurantId,
                 message: "Payment already processed",
             };
-        }
-
-        const expiresAt = computeExpiryDate(cycle);
-        const limits = getPlanLimits(plan);
-        const ownerUid = await getRestaurantOwnerUid(db, restaurantId);
-
-        if (plan === "business") {
-            await activateBusinessEntitlement(db, {
-                ownerUid,
-                restaurantId,
-                cycle,
-                expiresAt,
-                razorpayOrderId,
-                razorpayPaymentId,
-                razorpaySubscriptionId,
-            });
-        } else {
-            await applyPlanToRestaurantDoc(db, {
-                restaurantId,
-                plan,
-                status: "active",
-                expiresAt,
-                razorpayOrderId,
-                razorpayPaymentId,
-                razorpaySubscriptionId,
-            });
         }
 
         // Store subscription→user mapping for webhook lookups
@@ -4641,26 +4649,26 @@ export const checkOrderStatus = functions
             return { success: false, status: "payment_not_captured" };
         }
 
-        const activation = await markPaymentActivation(db, capturedPayment.id, {
-            userId,
-            restaurantId,
-            plan,
-            cycle,
-        });
+        const activation = await activatePaymentIdempotent(
+            db,
+            capturedPayment.id,
+            { userId, restaurantId, plan, cycle },
+            async () => {
+                const expiresAt = computeExpiryDate(cycle);
+                await applyPlanToRestaurantDoc(db, {
+                    restaurantId,
+                    plan,
+                    status: "active",
+                    expiresAt,
+                    razorpayOrderId: orderId,
+                    razorpayPaymentId: capturedPayment.id,
+                });
+            }
+        );
 
         if (activation.alreadyProcessed) {
             return { success: true, paymentId: capturedPayment.id, restaurantId, message: "Payment already processed" };
         }
-
-        const expiresAt = computeExpiryDate(cycle);
-        await applyPlanToRestaurantDoc(db, {
-            restaurantId,
-            plan,
-            status: "active",
-            expiresAt,
-            razorpayOrderId: orderId,
-            razorpayPaymentId: capturedPayment.id,
-        });
 
         return { success: true, paymentId: capturedPayment.id, restaurantId };
     });
@@ -4729,34 +4737,32 @@ export const verifyPayment = functions
 
         const expiresAt = computeExpiryDate(cycle);
         const ownerUid = await getRestaurantOwnerUid(db, restaurantId);
-        const activation = await markPaymentActivation(db, razorpayPaymentId, {
-            userId,
-            restaurantId,
-            plan,
-            cycle,
-        });
-
-        if (!activation.alreadyProcessed) {
-            if (plan === "business") {
-                await activateBusinessEntitlement(db, {
-                    ownerUid,
-                    restaurantId,
-                    cycle,
-                    expiresAt,
-                    razorpayOrderId,
-                    razorpayPaymentId,
-                });
-            } else {
-                await applyPlanToRestaurantDoc(db, {
-                    restaurantId,
-                    plan,
-                    status: "active",
-                    expiresAt,
-                    razorpayOrderId,
-                    razorpayPaymentId,
-                });
+        await activatePaymentIdempotent(
+            db,
+            razorpayPaymentId,
+            { userId, restaurantId, plan, cycle },
+            async () => {
+                if (plan === "business") {
+                    await activateBusinessEntitlement(db, {
+                        ownerUid,
+                        restaurantId,
+                        cycle,
+                        expiresAt,
+                        razorpayOrderId,
+                        razorpayPaymentId,
+                    });
+                } else {
+                    await applyPlanToRestaurantDoc(db, {
+                        restaurantId,
+                        plan,
+                        status: "active",
+                        expiresAt,
+                        razorpayOrderId,
+                        razorpayPaymentId,
+                    });
+                }
             }
-        }
+        );
 
         // Welcome notification
         const planName = getPlanDisplayName(plan);
@@ -4825,7 +4831,7 @@ export const cleanupLeakedRestaurantPlans = functions
                 directStatus: "active",
                 entitlementSource: "direct",
             });
-            batch.set(db.collection("users").doc(restaurantId), updates, { merge: true });
+            batch.update(db.collection("users").doc(restaurantId), updates);
             resetCount += 1;
         }
 
@@ -4921,7 +4927,7 @@ export const migrateSubscriptionModel = functions
 
             updatedStores += 1;
             if (!dryRun) {
-                await db.collection("users").doc(doc.id).set(
+                await db.collection("users").doc(doc.id).update(
                     buildSubscriptionUpdates({
                         restaurantId: doc.id,
                         effectivePlan,
@@ -4930,8 +4936,7 @@ export const migrateSubscriptionModel = functions
                         directStatus,
                         entitlementSource,
                         expiresAt,
-                    }),
-                    { merge: true }
+                    })
                 );
             }
         }
@@ -4965,7 +4970,7 @@ export const migrateSubscriptionModel = functions
                 for (const storeId of assignedRestaurantIds) {
                     const snap = storeSnapshots.get(storeId);
                     const sub = getSubscriptionMap(snap?.data());
-                    await db.collection("users").doc(storeId).set(
+                    await db.collection("users").doc(storeId).update(
                         buildSubscriptionUpdates({
                             restaurantId: storeId,
                             effectivePlan: "business",
@@ -4976,8 +4981,7 @@ export const migrateSubscriptionModel = functions
                             entitlementOwnerUid: ownerUid,
                             entitlementId: ownerUid,
                             expiresAt: (sub.expiresAt as FirebaseFirestore.Timestamp | undefined)?.toDate(),
-                        }),
-                        { merge: true }
+                        })
                     );
                 }
             }

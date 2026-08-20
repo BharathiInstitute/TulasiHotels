@@ -282,7 +282,9 @@ const applyDirectPlanToRestaurantDoc = async (db, options) => {
         razorpayPaymentId: options.razorpayPaymentId,
         razorpaySubscriptionId: options.razorpaySubscriptionId,
     });
-    await db.collection("users").doc(options.restaurantId).set(updates, { merge: true });
+    // .update() (not .set/merge) is required so dotted keys like "subscription.plan"
+    // resolve to nested field paths instead of literal top-level field names.
+    await db.collection("users").doc(options.restaurantId).update(updates);
 };
 const applyOwnerBundlePlanToRestaurantDoc = async (db, options) => {
     const storeDoc = await db.collection("users").doc(options.restaurantId).get();
@@ -300,7 +302,9 @@ const applyOwnerBundlePlanToRestaurantDoc = async (db, options) => {
         entitlementId: options.entitlementId,
         expiresAt: options.expiresAt,
     });
-    await db.collection("users").doc(options.restaurantId).set(updates, { merge: true });
+    // .update() (not .set/merge) is required so dotted keys like "subscription.plan"
+    // resolve to nested field paths instead of literal top-level field names.
+    await db.collection("users").doc(options.restaurantId).update(updates);
 };
 const restoreRestaurantToDirectPlan = async (db, restaurantId, overridePlan, overrideStatus, expiresAt) => {
     const storeDoc = await db.collection("users").doc(restaurantId).get();
@@ -546,16 +550,20 @@ const downgradeBusinessEntitlementToSingleStorePlan = async (db, options) => {
 const applyPlanToRestaurantDoc = async (db, options) => {
     await applyDirectPlanToRestaurantDoc(db, options);
 };
-const markPaymentActivation = async (db, paymentId, payload) => {
+/**
+ * Applies a subscription payment exactly once, marking it processed only
+ * after `apply()` succeeds — a failed plan write is no longer stuck as
+ * "already processed" with the plan never actually written.
+ */
+const activatePaymentIdempotent = async (db, paymentId, payload, apply) => {
     const ref = db.collection("subscription_payment_activations").doc(paymentId);
-    return db.runTransaction(async (tx) => {
-        const snap = await tx.get(ref);
-        if (snap.exists) {
-            return { alreadyProcessed: true, existing: snap.data() };
-        }
-        tx.set(ref, Object.assign(Object.assign({}, payload), { processedAt: admin.firestore.FieldValue.serverTimestamp() }));
-        return { alreadyProcessed: false };
-    });
+    const snap = await ref.get();
+    if (snap.exists) {
+        return { alreadyProcessed: true };
+    }
+    await apply();
+    await ref.set(Object.assign(Object.assign({}, payload), { processedAt: admin.firestore.FieldValue.serverTimestamp() }));
+    return { alreadyProcessed: false };
 };
 /**
  * Create a Razorpay Payment Link
@@ -674,7 +682,7 @@ exports.razorpayWebhook = functions
     .region("asia-south1")
     .runWith({ timeoutSeconds: 30, memory: "256MB", maxInstances: 10 })
     .https.onRequest(async (req, res) => {
-    var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m;
+    var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m, _o, _p;
     if (req.method !== "POST") {
         res.status(405).send("Method not allowed");
         return;
@@ -857,6 +865,65 @@ exports.razorpayWebhook = functions
                 }
                 await cancelledSnap.ref.update({ status: "cancelled" });
                 console.log(`subscription.cancelled: marked user ${cancelledUserId}`);
+                break;
+            }
+            // ─── One-time subscription purchase (website pricing page) ───
+            // Safety net: activates the plan when the browser never reached
+            // verifyPayment (UPI app switch, tab closed, network drop).
+            case "order.paid":
+            case "payment.captured": {
+                const paymentEntity = (_o = event.payload.payment) === null || _o === void 0 ? void 0 : _o.entity;
+                const orderEntity = (_p = event.payload.order) === null || _p === void 0 ? void 0 : _p.entity;
+                const paymentId = paymentEntity === null || paymentEntity === void 0 ? void 0 : paymentEntity.id;
+                const orderId = (orderEntity === null || orderEntity === void 0 ? void 0 : orderEntity.id) || (paymentEntity === null || paymentEntity === void 0 ? void 0 : paymentEntity.order_id);
+                if (!paymentId || !orderId)
+                    break;
+                const notes = Object.assign(Object.assign({}, ((paymentEntity === null || paymentEntity === void 0 ? void 0 : paymentEntity.notes) || {})), ((orderEntity === null || orderEntity === void 0 ? void 0 : orderEntity.notes) || {}));
+                const plan = notes.plan;
+                const cycle = notes.cycle;
+                const notesUserId = notes.userId || notes.uid;
+                if (!isPaidPlan(plan) || !isValidCycle(cycle) || !notesUserId) {
+                    console.log(`${event.event}: not a subscription order (${orderId}) — skipping`);
+                    break;
+                }
+                const db = admin.firestore();
+                const targetRestaurantId = resolveRestaurantId(notes.restaurantId, notesUserId);
+                const webhookExpiresAt = computeExpiryDate(cycle);
+                const activation = await activatePaymentIdempotent(db, paymentId, { userId: notesUserId, restaurantId: targetRestaurantId, plan, cycle }, async () => {
+                    if (plan === "business") {
+                        await activateBusinessEntitlement(db, {
+                            ownerUid: await getRestaurantOwnerUid(db, targetRestaurantId),
+                            restaurantId: targetRestaurantId,
+                            cycle,
+                            expiresAt: webhookExpiresAt,
+                            razorpayOrderId: orderId,
+                            razorpayPaymentId: paymentId,
+                        });
+                    }
+                    else {
+                        await applyPlanToRestaurantDoc(db, {
+                            restaurantId: targetRestaurantId,
+                            plan,
+                            status: "active",
+                            expiresAt: webhookExpiresAt,
+                            razorpayOrderId: orderId,
+                            razorpayPaymentId: paymentId,
+                        });
+                    }
+                });
+                if (activation.alreadyProcessed) {
+                    console.log(`${event.event}: payment ${paymentId} already activated`);
+                    break;
+                }
+                await db.collection("users").doc(notesUserId)
+                    .collection("notifications").add({
+                    title: `Welcome to ${getPlanDisplayName(plan)} Plan! 🎉`,
+                    body: `Your ${getPlanDisplayName(plan)} plan is now active. Enjoy your upgraded features!`,
+                    type: "subscription",
+                    read: false,
+                    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+                });
+                console.log(`✅ ${event.event}: activated ${plan}/${cycle} for restaurant ${targetRestaurantId} (payment ${paymentId})`);
                 break;
             }
             default:
@@ -1544,11 +1611,32 @@ exports.activateSubscription = functions
         console.error("Razorpay verification error:", err);
         throw new functions.https.HttpsError("internal", "Could not verify payment");
     }
-    const activation = await markPaymentActivation(db, razorpayPaymentId, {
-        userId,
-        restaurantId,
-        plan,
-        cycle,
+    const expiresAt = computeExpiryDate(cycle);
+    const limits = getPlanLimits(plan);
+    const ownerUid = await getRestaurantOwnerUid(db, restaurantId);
+    const activation = await activatePaymentIdempotent(db, razorpayPaymentId, { userId, restaurantId, plan, cycle }, async () => {
+        if (plan === "business") {
+            await activateBusinessEntitlement(db, {
+                ownerUid,
+                restaurantId,
+                cycle,
+                expiresAt,
+                razorpayOrderId,
+                razorpayPaymentId,
+                razorpaySubscriptionId,
+            });
+        }
+        else {
+            await applyPlanToRestaurantDoc(db, {
+                restaurantId,
+                plan,
+                status: "active",
+                expiresAt,
+                razorpayOrderId,
+                razorpayPaymentId,
+                razorpaySubscriptionId,
+            });
+        }
     });
     if (activation.alreadyProcessed) {
         return {
@@ -1558,31 +1646,6 @@ exports.activateSubscription = functions
             restaurantId,
             message: "Payment already processed",
         };
-    }
-    const expiresAt = computeExpiryDate(cycle);
-    const limits = getPlanLimits(plan);
-    const ownerUid = await getRestaurantOwnerUid(db, restaurantId);
-    if (plan === "business") {
-        await activateBusinessEntitlement(db, {
-            ownerUid,
-            restaurantId,
-            cycle,
-            expiresAt,
-            razorpayOrderId,
-            razorpayPaymentId,
-            razorpaySubscriptionId,
-        });
-    }
-    else {
-        await applyPlanToRestaurantDoc(db, {
-            restaurantId,
-            plan,
-            status: "active",
-            expiresAt,
-            razorpayOrderId,
-            razorpayPaymentId,
-            razorpaySubscriptionId,
-        });
     }
     // Store subscription→user mapping for webhook lookups
     if (razorpaySubscriptionId) {
@@ -3826,24 +3889,20 @@ exports.checkOrderStatus = functions
     if (!capturedPayment) {
         return { success: false, status: "payment_not_captured" };
     }
-    const activation = await markPaymentActivation(db, capturedPayment.id, {
-        userId,
-        restaurantId,
-        plan,
-        cycle,
+    const activation = await activatePaymentIdempotent(db, capturedPayment.id, { userId, restaurantId, plan, cycle }, async () => {
+        const expiresAt = computeExpiryDate(cycle);
+        await applyPlanToRestaurantDoc(db, {
+            restaurantId,
+            plan,
+            status: "active",
+            expiresAt,
+            razorpayOrderId: orderId,
+            razorpayPaymentId: capturedPayment.id,
+        });
     });
     if (activation.alreadyProcessed) {
         return { success: true, paymentId: capturedPayment.id, restaurantId, message: "Payment already processed" };
     }
-    const expiresAt = computeExpiryDate(cycle);
-    await applyPlanToRestaurantDoc(db, {
-        restaurantId,
-        plan,
-        status: "active",
-        expiresAt,
-        razorpayOrderId: orderId,
-        razorpayPaymentId: capturedPayment.id,
-    });
     return { success: true, paymentId: capturedPayment.id, restaurantId };
 });
 /**
@@ -3896,13 +3955,7 @@ exports.verifyPayment = functions
     }
     const expiresAt = computeExpiryDate(cycle);
     const ownerUid = await getRestaurantOwnerUid(db, restaurantId);
-    const activation = await markPaymentActivation(db, razorpayPaymentId, {
-        userId,
-        restaurantId,
-        plan,
-        cycle,
-    });
-    if (!activation.alreadyProcessed) {
+    await activatePaymentIdempotent(db, razorpayPaymentId, { userId, restaurantId, plan, cycle }, async () => {
         if (plan === "business") {
             await activateBusinessEntitlement(db, {
                 ownerUid,
@@ -3923,7 +3976,7 @@ exports.verifyPayment = functions
                 razorpayPaymentId,
             });
         }
-    }
+    });
     // Welcome notification
     const planName = getPlanDisplayName(plan);
     await db.collection("users").doc(userId)
@@ -3982,7 +4035,7 @@ exports.cleanupLeakedRestaurantPlans = functions
             directStatus: "active",
             entitlementSource: "direct",
         });
-        batch.set(db.collection("users").doc(restaurantId), updates, { merge: true });
+        batch.update(db.collection("users").doc(restaurantId), updates);
         resetCount += 1;
     }
     if (resetCount > 0) {
@@ -4063,7 +4116,7 @@ exports.migrateSubscriptionModel = functions
         }
         updatedStores += 1;
         if (!dryRun) {
-            await db.collection("users").doc(doc.id).set(buildSubscriptionUpdates({
+            await db.collection("users").doc(doc.id).update(buildSubscriptionUpdates({
                 restaurantId: doc.id,
                 effectivePlan,
                 effectiveStatus,
@@ -4071,7 +4124,7 @@ exports.migrateSubscriptionModel = functions
                 directStatus,
                 entitlementSource,
                 expiresAt,
-            }), { merge: true });
+            }));
         }
     }
     for (const [ownerUid, storeIds] of ownerToStores.entries()) {
@@ -4092,7 +4145,7 @@ exports.migrateSubscriptionModel = functions
             for (const storeId of assignedRestaurantIds) {
                 const snap = storeSnapshots.get(storeId);
                 const sub = getSubscriptionMap(snap === null || snap === void 0 ? void 0 : snap.data());
-                await db.collection("users").doc(storeId).set(buildSubscriptionUpdates({
+                await db.collection("users").doc(storeId).update(buildSubscriptionUpdates({
                     restaurantId: storeId,
                     effectivePlan: "business",
                     effectiveStatus: normalizeSubscriptionStatus((_g = sub.effectiveStatus) !== null && _g !== void 0 ? _g : sub.status),
@@ -4102,7 +4155,7 @@ exports.migrateSubscriptionModel = functions
                     entitlementOwnerUid: ownerUid,
                     entitlementId: ownerUid,
                     expiresAt: (_h = sub.expiresAt) === null || _h === void 0 ? void 0 : _h.toDate(),
-                }), { merge: true });
+                }));
             }
         }
         entitlementsCreated += 1;

@@ -1,8 +1,10 @@
 ﻿/// Vendor management service
 library;
 
+import 'dart:async';
 import 'package:tulasihotels/core/services/active_store_manager.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import 'package:tulasihotels/features/permissions/services/module_mutation_guard.dart';
 import 'package:tulasihotels/features/staff/models/permission_config.dart';
 import 'package:tulasihotels/models/vendor_model.dart';
@@ -15,6 +17,16 @@ class VendorService {
 
   static CollectionReference<Map<String, dynamic>> get _vendorsRef =>
       _firestore.collection('$_basePath/vendors');
+
+  /// Firestore writes should not block UX in offline/flaky networks.
+  /// If the write doesn't resolve quickly, we assume it is queued locally.
+  static Future<void> _commitWithOfflineFallback(Future<void> write) async {
+    try {
+      await write.timeout(const Duration(seconds: 8));
+    } on TimeoutException {
+      debugPrint('⚠️ Vendor write timed out; treating as queued local write');
+    }
+  }
 
   /// Stream all vendors
   static Stream<List<VendorModel>> vendorsStream() {
@@ -51,7 +63,9 @@ class VendorService {
       AppRoutes.vendors,
       PermissionAction.create,
     );
-    await _vendorsRef.doc(vendor.id).set(vendor.toFirestore());
+    await _commitWithOfflineFallback(
+      _vendorsRef.doc(vendor.id).set(vendor.toFirestore()),
+    );
   }
 
   /// Update a vendor
@@ -60,7 +74,9 @@ class VendorService {
       AppRoutes.vendors,
       PermissionAction.update,
     );
-    await _vendorsRef.doc(vendor.id).update(vendor.toFirestore());
+    await _commitWithOfflineFallback(
+      _vendorsRef.doc(vendor.id).update(vendor.toFirestore()),
+    );
   }
 
   /// Delete a vendor

@@ -959,35 +959,14 @@ class _CustomerDetailPanelState extends ConsumerState<_CustomerDetailPanel> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        customer.name,
-                        style: const TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.bold,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    if (khataPermissions.canDelete)
-                      IconButton(
-                        onPressed: () =>
-                            _showDeleteConfirmation(context, ref, customer),
-                        icon: const Icon(Icons.delete_outline),
-                        color: AppColors.error,
-                        iconSize: 20,
-                        visualDensity: VisualDensity.compact,
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(
-                          minWidth: 32,
-                          minHeight: 32,
-                        ),
-                        tooltip: 'Delete Customer',
-                      ),
-                  ],
+                Text(
+                  customer.name,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
                 Text(
                   '${AppConstants.countryCode} ${Formatters.phoneShort(customer.phone)}',
@@ -999,6 +978,14 @@ class _CustomerDetailPanelState extends ConsumerState<_CustomerDetailPanel> {
               ],
             ),
           ),
+          // Delete button
+          if (khataPermissions.canDelete)
+            IconButton(
+              onPressed: () => _showDeleteConfirmation(context, ref, customer),
+              icon: const Icon(Icons.delete_outline),
+              color: AppColors.error,
+              tooltip: 'Delete Customer',
+            ),
           // WhatsApp button
           IconButton(
             onPressed: () => _openWhatsApp(customer),

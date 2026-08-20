@@ -190,6 +190,7 @@ class CouponsScreen extends ConsumerWidget {
     final valueCtrl =
         TextEditingController(text: existing?.value.toString() ?? '');
     var type = existing?.type ?? CouponType.percentage;
+    var isSubmitting = false;
 
     showModalBottomSheet(
       context: context,
@@ -252,40 +253,53 @@ class CouponsScreen extends ConsumerWidget {
                   ),
                   const SizedBox(height: 16),
                   FilledButton(
-                    onPressed: () {
-                      if (codeCtrl.text.isEmpty) return;
-                      if (isEditing) {
-                        final updated = CouponModel(
-                          id: existing.id,
-                          code: codeCtrl.text.trim().toUpperCase(),
-                          type: type,
-                          value: double.tryParse(valueCtrl.text) ?? 0,
-                          minOrderAmount: existing.minOrderAmount,
-                          maxDiscount: existing.maxDiscount,
-                          validFrom: existing.validFrom,
-                          validUntil: existing.validUntil,
-                          maxUses: existing.maxUses,
-                          usedCount: existing.usedCount,
-                          isActive: existing.isActive,
-                          isHappyHour: existing.isHappyHour,
-                          happyHourStart: existing.happyHourStart,
-                          happyHourEnd: existing.happyHourEnd,
-                          createdAt: existing.createdAt,
-                        );
-                        CouponService.updateCoupon(updated);
-                      } else {
-                        final coupon = CouponModel(
-                          id: generateSafeId('coupon'),
-                          code: codeCtrl.text.trim().toUpperCase(),
-                          type: type,
-                          value: double.tryParse(valueCtrl.text) ?? 0,
-                          createdAt: DateTime.now(),
-                        );
-                        CouponService.createCoupon(coupon);
-                      }
-                      Navigator.of(context).pop();
-                    },
-                    child: Text(isEditing ? 'Save Changes' : 'Create Coupon'),
+                    onPressed: isSubmitting
+                        ? null
+                        : () async {
+                            if (codeCtrl.text.isEmpty) return;
+                            setModalState(() => isSubmitting = true);
+                            try {
+                              if (isEditing) {
+                                final updated = CouponModel(
+                                  id: existing.id,
+                                  code: codeCtrl.text.trim().toUpperCase(),
+                                  type: type,
+                                  value: double.tryParse(valueCtrl.text) ?? 0,
+                                  minOrderAmount: existing.minOrderAmount,
+                                  maxDiscount: existing.maxDiscount,
+                                  validFrom: existing.validFrom,
+                                  validUntil: existing.validUntil,
+                                  maxUses: existing.maxUses,
+                                  usedCount: existing.usedCount,
+                                  isActive: existing.isActive,
+                                  isHappyHour: existing.isHappyHour,
+                                  happyHourStart: existing.happyHourStart,
+                                  happyHourEnd: existing.happyHourEnd,
+                                  createdAt: existing.createdAt,
+                                );
+                                await CouponService.updateCoupon(updated);
+                              } else {
+                                final coupon = CouponModel(
+                                  id: generateSafeId('coupon'),
+                                  code: codeCtrl.text.trim().toUpperCase(),
+                                  type: type,
+                                  value: double.tryParse(valueCtrl.text) ?? 0,
+                                  createdAt: DateTime.now(),
+                                );
+                                await CouponService.createCoupon(coupon);
+                              }
+                              if (context.mounted) Navigator.of(context).pop();
+                            } finally {
+                              if (context.mounted) {
+                                setModalState(() => isSubmitting = false);
+                              }
+                            }
+                          },
+                    child: Text(
+                      isSubmitting
+                          ? 'Saving...'
+                          : (isEditing ? 'Save Changes' : 'Create Coupon'),
+                    ),
                   ),
                   const SizedBox(height: 16),
                 ],
