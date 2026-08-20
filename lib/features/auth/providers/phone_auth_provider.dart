@@ -164,8 +164,9 @@ class PhoneAuthNotifier extends StateNotifier<PhoneAuthState> {
       return;
     }
 
-    final preferAndroidRecaptcha =
-      !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+    // Try native Play Integrity verification first; only force reCAPTCHA
+    // as a fallback on failure (see _shouldRetryWithRecaptcha below).
+    const preferAndroidRecaptcha = false;
 
     // Safety timeout — if Firebase never calls callbacks, unblock the UI
     bool callbackCalled = false;
@@ -266,8 +267,8 @@ class PhoneAuthNotifier extends StateNotifier<PhoneAuthState> {
       return;
     }
 
-    final preferAndroidRecaptcha =
-        !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+    // Match sendOtp: try native Play Integrity verification first.
+    const preferAndroidRecaptcha = false;
 
     state = state.copyWith(status: PhoneAuthStatus.sending);
 
