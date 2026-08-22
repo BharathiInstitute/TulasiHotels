@@ -7,7 +7,7 @@
 #
 # Export certificate for Play upload-key reset:
 #   keytool -export -rfc -keystore restaurants-upload-2026.jks \
-#     -alias restaurantsupload2026 -file restaurants-upload-2026.pem
+#     -alias restaurantsupload2026 -file restaurants-upload-2026-upload_certificate.pem
 
 storePassword=YOUR_STORE_PASSWORD
 keyPassword=YOUR_KEY_PASSWORD

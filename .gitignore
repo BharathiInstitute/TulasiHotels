@@ -60,6 +60,8 @@ android/key.properties
 *-service-account*.json
 *-admin-sdk*.json
 firebase-adminsdk*.json
+private-keys/
+*upload_certificate*.pem
 
 # Debug info from obfuscated builds
 build/debug-info/

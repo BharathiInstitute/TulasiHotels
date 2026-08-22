@@ -58,6 +58,14 @@
           }
         },
         {
+          "client_id": "883551466761-c71vercq6s4a1a2aa7412aol5fkgnqhc.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "in.liteapp.tulasihotels",
+            "certificate_hash": "ef6d36b5a6d259ba71a295b3e5b3dfcfc8e4b958"
+          }
+        },
+        {
           "client_id": "883551466761-egkdp3k83fm43kjp3hpqhcat5opu0qob.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
